@@ -4,8 +4,9 @@
   "main": "src/index.js",
   "license": "MIT",
   "scripts": {
+    "start": "node src/index.js",
     "dev": "node src/index.js",
-    "seed:admin": "node src/seed/seedAdmin.js"
+    "seed:admin": "node src/seed/createAdmin.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
