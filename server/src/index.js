@@ -1,4 +1,6 @@
+// server/src/index.js
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -16,20 +18,24 @@ const errorHandler = require('./middleware/error');
 const app = express();
 connectDB();
 
-// security & parsers
-const defaultCsp = helmet.contentSecurityPolicy.getDefaultDirectives();
-const extendedCsp = {
-  ...defaultCsp,
-  'img-src': [...(defaultCsp['img-src'] || []), 'https://i.pravatar.cc'],
-};
+// ───────────────── Security & parsers
+// CSP کامل برای Tailwind CDN، Google Fonts، cdnjs و آواتار نمونه
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.tailwindcss.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "https://i.pravatar.cc"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  }
+}));
 
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: extendedCsp,
-    },
-  })
-);
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(mongoSanitize());
@@ -40,7 +46,9 @@ app.use(hpp());
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
 // cors
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
@@ -52,8 +60,25 @@ app.use(cors({
 // rate limit
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 }));
 
-// routes
-app.get('/healthz', (req, res) => res.json({ ok:true, status:'healthy' }));
+// ───────────────── Static files
+// توجه: HTMLهای شما (Admin-Panel.html / IQuiz-bot.html) در ریشه‌ی `server` هستند.
+app.use(express.static(path.join(__dirname, '..'))); // سرو از فولدر server
+
+// روت دوستانه برای پنل ادمین
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'Admin-Panel.html'));
+});
+
+// روت تست برای فایل بات (اختیاری)
+app.get('/bot', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'IQuiz-bot.html'));
+});
+
+// جلوگیری از 404 برای favicon
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// ───────────────── API routes
+app.get('/healthz', (req, res) => res.json({ ok: true, status: 'healthy' }));
 
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/categories', require('./routes/categories.routes'));
@@ -64,6 +89,7 @@ app.use('/api/achievements', require('./routes/achievements.routes'));
 // error handler
 app.use(errorHandler);
 
+// ───────────────── Start
 const port = process.env.PORT || 4000;
 const server = app.listen(port, () => logger.info(`🚀 API running on http://localhost:${port}`));
 
