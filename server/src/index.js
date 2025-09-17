@@ -1,4 +1,9 @@
-require('dotenv').config();
+try {
+  require('dotenv').config();
+} catch (err) {
+  if (err.code !== 'MODULE_NOT_FOUND') throw err;
+  process.emitWarning('dotenv package not found; skipping .env file loading.');
+}
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
