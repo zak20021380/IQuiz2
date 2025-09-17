@@ -13,6 +13,7 @@ const morgan = require('morgan');
 const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const errorHandler = require('./middleware/error');
+const triviaRoutes = require('./routes/trivia');
 
 // init
 const app = express();
@@ -85,6 +86,7 @@ app.use('/api/categories', require('./routes/categories.routes'));
 app.use('/api/questions', require('./routes/questions.routes'));
 app.use('/api/users', require('./routes/users.routes'));
 app.use('/api/achievements', require('./routes/achievements.routes'));
+app.use('/api/trivia', triviaRoutes);
 
 // error handler
 app.use(errorHandler);
