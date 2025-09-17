@@ -61,17 +61,17 @@ app.use(cors({
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 }));
 
 // ───────────────── Static files
-// توجه: HTMLهای شما (Admin-Panel.html / IQuiz-bot.html) در ریشه‌ی `server` هستند.
-app.use(express.static(path.join(__dirname, '..'))); // سرو از فولدر server
+// توجه: HTMLهای شما (Admin-Panel.html / IQuiz-bot.html) در ریشه‌ی پروژه هستند (یک سطح بالاتر از `server`).
+app.use(express.static(path.join(__dirname, '..', '..'))); // سرو از ریشه پروژه
 
 // روت دوستانه برای پنل ادمین
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'Admin-Panel.html'));
+  res.sendFile(path.join(__dirname, '..', '..', 'Admin-Panel.html'));
 });
 
 // روت تست برای فایل بات (اختیاری)
 app.get('/bot', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'IQuiz-bot.html'));
+  res.sendFile(path.join(__dirname, '..', '..', 'IQuiz-bot.html'));
 });
 
 // جلوگیری از 404 برای favicon
