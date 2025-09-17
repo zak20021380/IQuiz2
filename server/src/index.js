@@ -17,7 +17,19 @@ const app = express();
 connectDB();
 
 // security & parsers
-app.use(helmet());
+const defaultCsp = helmet.contentSecurityPolicy.getDefaultDirectives();
+const extendedCsp = {
+  ...defaultCsp,
+  'img-src': [...(defaultCsp['img-src'] || []), 'https://i.pravatar.cc'],
+};
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: extendedCsp,
+    },
+  })
+);
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(mongoSanitize());
