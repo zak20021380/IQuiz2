@@ -2,6 +2,28 @@
 const API_BASE = 'http://localhost:4000/api'; // در پروDUCTION دامنه‌ات را بده
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const DIFFICULTY_META = {
+  easy:   { label: 'آسون', class: 'meta-chip difficulty-easy', icon: 'fa-feather' },
+  medium: { label: 'متوسط', class: 'meta-chip difficulty-medium', icon: 'fa-wave-square' },
+  hard:   { label: 'سخت', class: 'meta-chip difficulty-hard', icon: 'fa-fire' }
+};
+
+const STATUS_META = {
+  active:    { label: 'فعال', class: 'meta-chip status-active', dot: 'active' },
+  pending:   { label: 'در انتظار بررسی', class: 'meta-chip status-pending', dot: 'pending' },
+  review:    { label: 'در حال بررسی', class: 'meta-chip status-pending', dot: 'pending' },
+  draft:     { label: 'پیش‌نویس', class: 'meta-chip status-pending', dot: 'pending' },
+  inactive:  { label: 'غیرفعال', class: 'meta-chip status-inactive', dot: 'inactive' },
+  disabled:  { label: 'غیرفعال', class: 'meta-chip status-inactive', dot: 'inactive' },
+  archived:  { label: 'آرشیو شده', class: 'meta-chip status-archived', dot: 'archived' }
+};
 
 // --------------- AUTH (JWT) ---------------
 function getToken() { return localStorage.getItem('iq_admin_token'); }
@@ -92,32 +114,76 @@ async function loadQuestions() {
   try {
     const q = await api('/questions?limit=50');
     const tbody = $('#questions-tbody');
-    tbody.innerHTML = q.data.map(item => `
-      <tr>
-        <td>${item._id.slice(-6)}</td>
-        <td>${item.text}</td>
-        <td>${item.category?.name || '-'}</td>
-        <td>${item.difficulty === 'easy' ? 'آسون' : item.difficulty === 'medium' ? 'متوسط' : 'سخت'}</td>
-        <td><span class="badge ${item.active ? 'badge-success' : 'badge-danger'}">${item.active ? 'فعال' : 'غیرفعال'}</span></td>
-        <td>
-          <div class="flex gap-2">
-            <button class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center" data-edit-q="${item._id}">
-              <i class="fas fa-edit text-blue-400"></i>
-            </button>
-            <button class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center" data-del-q="${item._id}">
-              <i class="fas fa-trash text-red-400"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
-    // حذف
-    tbody.addEventListener('click', async (e) => {
-      const id = e.target.closest('button')?.dataset?.delQ;
+    if (!q.data?.length) {
+      tbody.innerHTML = `
+        <tr class="empty-row">
+          <td colspan="4">
+            <div class="empty-state">
+              <i class="fas fa-inbox"></i>
+              <p>هنوز سوالی ثبت نشده است. از دکمه «افزودن سوال» برای ایجاد سوال جدید استفاده کنید.</p>
+            </div>
+          </td>
+        </tr>
+      `;
+    } else {
+      tbody.innerHTML = q.data.map(item => {
+        const idRaw = item?._id ? String(item._id) : '';
+        const idFragment = escapeHtml(idRaw.slice(-6) || '---');
+        const idAttr = escapeHtml(idRaw || '');
+        const questionText = escapeHtml(item.text || 'بدون متن');
+        const categoryName = escapeHtml(item.category?.name || 'بدون دسته‌بندی');
+        const difficulty = DIFFICULTY_META[item.difficulty] || DIFFICULTY_META.medium;
+        const statusKey = item.status || (item.active ? 'active' : 'inactive');
+        const status = STATUS_META[statusKey] || STATUS_META.inactive;
+        const answer = item.correctAnswer || (Array.isArray(item.options) ? item.options[item.correctIdx] : '') || '---';
+        const answerSafe = escapeHtml(answer);
+        return `
+          <tr class="question-row">
+            <td data-label="شناسه" class="font-mono text-xs md:text-sm text-white/70">#${idFragment}</td>
+            <td data-label="سوال و جزئیات">
+              <div class="question-text line-clamp-2" title="${questionText}">${questionText}</div>
+              <div class="question-meta">
+                <span class="meta-chip category" title="دسته‌بندی">
+                  <i class="fas fa-layer-group"></i>${categoryName}
+                </span>
+                <span class="${difficulty.class}" title="سطح دشواری">
+                  <i class="fas ${difficulty.icon}"></i>${difficulty.label}
+                </span>
+                <span class="${status.class}" title="وضعیت سوال">
+                  <span class="status-dot ${status.dot}"></span>${status.label}
+                </span>
+              </div>
+            </td>
+            <td data-label="پاسخ صحیح">
+              <div class="answer-pill" title="${answerSafe}"><i class="fas fa-lightbulb"></i><span>${answerSafe}</span></div>
+            </td>
+            <td data-label="عملیات" class="actions">
+              <button class="action-btn edit" data-edit-q="${idAttr}"><i class="fas fa-edit"></i></button>
+              <button class="action-btn delete" data-del-q="${idAttr}"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+    tbody.onclick = async (e) => {
+      const editBtn = e.target.closest('[data-edit-q]');
+      if (editBtn) {
+        showToast('ویرایش این سوال به زودی اضافه می‌شود', 'info');
+        return;
+      }
+      const deleteBtn = e.target.closest('[data-del-q]');
+      if (!deleteBtn) return;
+      const id = deleteBtn.dataset.delQ;
       if (!id) return;
       if (!confirm('حذف سوال؟')) return;
-      try { await api(`/questions/${id}`, { method:'DELETE' }); showToast('حذف شد','success'); loadQuestions(); } catch (err){ showToast(err.message,'error'); }
-    });
+      try {
+        await api(`/questions/${id}`, { method:'DELETE' });
+        showToast('حذف شد','success');
+        loadQuestions();
+      } catch (err) {
+        showToast(err.message,'error');
+      }
+    };
   } catch (e) { showToast('مشکل در دریافت سوالات','error'); }
 }
 
