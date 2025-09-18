@@ -2054,6 +2054,130 @@ function patchPricingKeys(RemoteConfig){
 // ⚡️ بلافاصله بعد از تعریف RemoteConfig صدا بزن:
 patchPricingKeys(RemoteConfig);
 
+  /* === Admin-sourced state === */
+  const Admin = { categories: [], diffs: [] };
+
+  async function initFromAdmin(){
+    const [cfg, catList, provinces] = await Promise.all([
+      Api.config().catch(()=>null),
+      Api.categories().catch(()=>[]),
+      Api.provinces().catch(()=>[])
+    ]);
+
+    if (cfg && typeof cfg === 'object'){
+      deepApply(RemoteConfig, cfg);
+      patchPricingKeys(RemoteConfig);
+    }
+
+    Admin.categories = Array.isArray(catList) ? catList.filter(c=>c?.isActive!==false) : [];
+    Admin.diffs = [...new Set(Admin.categories.map(c=>c?.difficulty).filter(Boolean))];
+    if (Admin.diffs.length===0) Admin.diffs = ['آسان','متوسط','سخت'];
+
+    if (Array.isArray(provinces) && provinces.length){
+      State.provinces = provinces.map(p=>({ name:p.name||p, score:p.score||0, members:p.members||0 }));
+    }
+
+    buildSetupFromAdmin();
+    applyConfigToUI();
+  }
+
+  function buildSetupFromAdmin(){
+    const catWrap = document.getElementById('cat-wrap');
+    const diffWrap = document.getElementById('diff-wrap');
+    if (!catWrap || !diffWrap) return;
+
+    const categories = Array.isArray(Admin.categories) ? Admin.categories : [];
+    const difficulties = Array.isArray(Admin.diffs) ? Admin.diffs : [];
+
+    const firstCat = categories.find(c=>c && c.id!=null) || categories[0] || null;
+    const catExists = categories.some(c=>c && c.id === State.quiz.catId);
+    if(!catExists){
+      State.quiz.catId = firstCat?.id || null;
+    }
+    const activeCat = categories.find(c=>c && c.id === State.quiz.catId) || firstCat || null;
+    if(activeCat){
+      State.quiz.cat = activeCat.title || activeCat.name || `دسته ${categories.indexOf(activeCat)+1}`;
+    } else if(!State.quiz.cat){
+      State.quiz.cat = '—';
+    }
+
+    if(!State.quiz.diff || !difficulties.includes(State.quiz.diff)){
+      State.quiz.diff = difficulties[0] || 'آسان';
+    }
+
+    catWrap.innerHTML = '';
+    categories.forEach((c,i)=>{
+      const btn = document.createElement('button');
+      btn.type='button';
+      btn.className='w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-sm setup-cat';
+      btn.dataset.id=c.id;
+      btn.textContent=c.title||c.name||`دسته ${i+1}`;
+      const isSelected = (State.quiz.catId!=null && c.id===State.quiz.catId) || (State.quiz.catId==null && i===0);
+      if(isSelected) btn.classList.add('selected-setup-item');
+      btn.addEventListener('click', ()=>{
+        $$('.setup-cat').forEach(b=>b.classList.remove('selected-setup-item'));
+        btn.classList.add('selected-setup-item');
+        State.quiz.catId=c.id;
+        State.quiz.cat=c.title||c.name||'—';
+        document.getElementById('quiz-cat').innerHTML=`<i class="fas fa-folder ml-1"></i> ${State.quiz.cat}`;
+      });
+      catWrap.appendChild(btn);
+    });
+
+    diffWrap.innerHTML = '';
+    difficulties.forEach((d,i)=>{
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-sm setup-diff';
+      btn.textContent=d;
+      const isSelected = (State.quiz.diff && d===State.quiz.diff) || (!State.quiz.diff && i===0);
+      if(isSelected) btn.classList.add('selected-setup-item');
+      btn.addEventListener('click', ()=>{
+        $$('.setup-diff').forEach(b=>b.classList.remove('selected-setup-item'));
+        btn.classList.add('selected-setup-item');
+        State.quiz.diff=d;
+        document.getElementById('quiz-diff').innerHTML=`<i class="fas fa-signal ml-1"></i> ${d}`;
+      });
+      diffWrap.appendChild(btn);
+    });
+
+    const catLabel = document.getElementById('quiz-cat');
+    if(catLabel){
+      catLabel.innerHTML = `<i class="fas fa-folder ml-1"></i> ${State.quiz.cat || '—'}`;
+    }
+    const diffLabel = document.getElementById('quiz-diff');
+    if(diffLabel){
+      diffLabel.innerHTML = `<i class="fas fa-signal ml-1"></i> ${State.quiz.diff || '—'}`;
+    }
+  }
+
+  function applyConfigToUI(){
+    const ads = RemoteConfig?.ads || {};
+    const showBanner = !!(ads.enabled && ads.placements && ads.placements.banner);
+    const showNative = !!(ads.enabled && ads.placements && ads.placements.native);
+    const banner = document.getElementById('ad-banner');
+    const nativeDash = document.getElementById('ad-native-dashboard');
+    if (banner) banner.style.display = showBanner ? '' : 'none';
+    if (nativeDash) nativeDash.style.display = showNative ? '' : 'none';
+
+    checkDailyReset();
+
+    try{
+      const packs = RemoteConfig?.pricing?.keys || [];
+      packs.forEach(p=>{
+        const card = document.querySelector(`[data-buy-key="${p.id}"]`);
+        if (!card) return;
+        card.querySelector('[data-amount]')?.textContent = faNum(p.amount);
+        card.querySelector('[data-price]')?.textContent  = faNum(p.priceGame);
+        card.disabled = false;
+      });
+      $$('.product-card[data-buy-key]').forEach(card=>{
+        const id = card.getAttribute('data-buy-key');
+        if (!packs.some(p=>p.id===id)) card.setAttribute('disabled','true');
+      });
+    }catch{}
+  }
+
   // Merge AB overrides
   (function applyAB(){
     const o = RemoteConfig.abOverrides[RemoteConfig.ab];
@@ -2122,7 +2246,35 @@ patchPricingKeys(RemoteConfig);
       }catch{ return null; } finally{ clearTimeout(t); }
     }
   };
-  
+
+  /* === Admin API Adapter === */
+  const API_BASE = '/api/public';
+
+  const Api = {
+    async config(){ return await Net.jget(`${API_BASE}/config`); },
+    async categories(){ return await Net.jget(`${API_BASE}/categories`); },
+    async questions({ categoryId, count, difficulty }){
+      const qs = new URLSearchParams();
+      if (categoryId) qs.set('categoryId', categoryId);
+      if (count) qs.set('count', count);
+      if (difficulty) qs.set('difficulty', difficulty);
+      return await Net.jget(`${API_BASE}/questions?${qs.toString()}`);
+    },
+    async provinces(){ return await Net.jget(`${API_BASE}/provinces`); }
+  };
+
+  function deepApply(target, src){
+    if (!src || typeof src !== 'object') return target;
+    for (const k of Object.keys(src)){
+      const v = src[k];
+      if (v && typeof v === 'object' && !Array.isArray(v)){
+        target[k] = target[k] || {};
+        deepApply(target[k], v);
+      } else target[k] = v;
+    }
+    return target;
+  }
+
   // ===== App State (legacy gameplay remains local) =====
   const STORAGE_KEY='quiz_webapp_pro_state_v2_fa';
   const State = {
@@ -2184,8 +2336,6 @@ function isUserInGroup() {
   return !!State.user.group || !!getUserGroup();
 }
   
-  const cats = ['عمومی','علم','جغرافیای ایران','ادبیات فارسی','تاریخ ایران','سینما و موسیقی ایران','ورزش ایران','تکنولوژی'];
-  const diffs = ['آسان','متوسط','سخت'];
   const LIFELINE_COST = 3;
   const TIMER_CIRC = 2 * Math.PI * 64;
   
@@ -2236,40 +2386,23 @@ function isUserInGroup() {
     }catch{}
 
     (function setupProvinceSelect(){
-    // 1) اگر خالی بود، استان‌ها را مقداردهی کن
-    function bootstrapProvinces(){
-      const NAMES = [
-        "آذربایجان شرقی","آذربایجان غربی","اردبیل","اصفهان","البرز","ایلام","بوشهر","تهران",
-        "چهارمحال و بختیاری","خراسان جنوبی","خراسان رضوی","خراسان شمالی","خوزستان","زنجان","سمنان",
-        "سیستان و بلوچستان","فارس","قزوین","قم","کردستان","کرمان","کرمانشاه","کهگیلویه و بویراحمد",
-        "گلستان","گیلان","لرستان","مازندران","مرکزی","هرمزگان","همدان","یزد"
-      ];
-      if (!Array.isArray(State.provinces) || State.provinces.length !== NAMES.length) {
-        State.provinces = NAMES.map(n => ({ name:n, score:0, members:0, region:'' }));
-      }
-    }
-
     function openModal(sel){ document.querySelector(sel).classList.add('show'); }
     function closeModal(sel){ document.querySelector(sel).classList.remove('show'); }
 
     function fillAllProvinceSelects(){
-      bootstrapProvinces();
       populateProvinceOptions(document.getElementById('first-province'), 'استان خود را انتخاب کنید');
       const editSel = document.getElementById('sel-province');
       populateProvinceOptions(editSel);
       if (editSel) editSel.value = State.user.province || '';
     }
 
-    // 2) پر کردن سلکت‌ها در شروع
     fillAllProvinceSelects();
 
-    // 3) اگر کاربر هنوز استان ندارد، مودال را باز کن
-    if (!State.user.province) {
+    if (!State.user.province && Array.isArray(State.provinces) && State.provinces.length){
       openModal('#modal-province-select');
       setTimeout(()=>document.getElementById('first-province')?.focus(), 50);
     }
 
-    // 4) دکمهٔ تایید استان
     document.getElementById('btn-confirm-province')?.addEventListener('click', () => {
       const sel = document.getElementById('first-province');
       const val = sel?.value || '';
@@ -2282,49 +2415,12 @@ function isUserInGroup() {
       toast('استان شما ذخیره شد');
     });
 
-    // 5) هنگام باز کردن «ویرایش پروفایل» مطمئن شو لیست به‌روز است
     document.getElementById('btn-edit-profile')?.addEventListener('click', () => {
       fillAllProvinceSelects();
       openModal('#modal-profile');
     });
   })();
 
-    // ===== Question Bank (تماماً فارسی) =====
-    const qBank = [
-      { q:'پایتخت ایران چیست؟', c:['تهران','اصفهان','شیراز','تبریز'], a:0, cat:'جغرافیای ایران', diff:'آسان' },
-    { q:'مرتفع‌ترین کوه ایران کدام است؟', c:['سبلان','زاگرس','دماوند','تفتان'], a:2, cat:'جغرافیای ایران', diff:'آسان' },
-    { q:'دریاچهٔ ارومیه در کدام استان‌ها قرار دارد؟', c:['آذربایجان شرقی و غربی','کردستان و همدان','خراسان رضوی و شمالی','فارس و بوشهر'], a:0, cat:'جغرافیای ایران', diff:'متوسط' },
-    { q:'رود کارون عمدتاً در کدام استان جریان دارد؟', c:['خوزستان','هرمزگان','سیستان و بلوچستان','گیلان'], a:0, cat:'جغرافیای ایران', diff:'آسان' },
-    { q:'سی‌وسه‌پل در کدام شهر است؟', c:['شیراز','تبریز','اصفهان','کرمان'], a:2, cat:'جغرافیای ایران', diff:'آسان' },
-    { q:'شاهنامه اثر کیست؟', c:['حافظ','سعدی','مولوی','فردوسی'], a:3, cat:'ادبیات فارسی', diff:'آسان' },
-    { q:'تخلص خواجه شمس‌الدین محمد چیست؟', c:['سنایی','حافظ','خیام','جامی'], a:1, cat:'ادبیات فارسی', diff:'آسان' },
-    { q:'کتاب «گلستان» را چه کسی نوشته است؟', c:['نظامی','سعدی','عطار','مولوی'], a:1, cat:'ادبیات فارسی', diff:'آسان' },
-    { q:'مصراع «بنی‌آدم اعضای یک پیکرند» از کیست؟', c:['حافظ','سعدی','فردوسی','نظامی'], a:1, cat:'ادبیات فارسی', diff:'آسان' },
-    { q:'کدام شاعر به رباعی‌سرایی مشهور است؟', c:['خیام','حافظ','مولوی','صائب'], a:0, cat:'ادبیات فارسی', diff:'متوسط' },
-    { q:'بنیان‌گذار هخامنشیان چه کسی بود؟', c:['داریوش بزرگ','کمبوجیه','کوروش بزرگ','خشایارشاه'], a:2, cat:'تاریخ ایران', diff:'متوسط' },
-    { q:'نوروز در تقویم جلالی برابر است با روزِ ...', c:['اول اردیبهشت','اول فروردین','سی‌ام اسفند','پانزدهم فروردین'], a:1, cat:'تاریخ ایران', diff:'آسان' },
-    { q:'نادرشاه افشار در کدام قرن حکمرانی کرد؟', c:['نهم هجری','یازدهم هجری','دوازدهم هجری','سیزدهم هجری'], a:2, cat:'تاریخ ایران', diff:'متوسط' },
-    { q:'اولین اسکار سینمای ایران برای کدام فیلم بود؟', c:['جدایی نادر از سیمین','فروشنده','طعم گیلاس','بچه‌های آسمان'], a:0, cat:'سینما و موسیقی ایران', diff:'متوسط' },
-    { q:'کارگردان فیلم «فروشنده» کیست؟', c:['اصغر فرهادی','مجید مجیدی','عباس کیارستمی','رخشان بنی‌اعتماد'], a:0, cat:'سینما و موسیقی ایران', diff:'آسان' },
-    { q:'ساز «تار» جزو کدام دسته است؟', c:['سازهای بادی','سازهای زهی مضرابی','سازهای کوبه‌ای','الکترونیک'], a:1, cat:'سینما و موسیقی ایران', diff:'متوسط' },
-    { q:'دربی مشهور تهران بین کدام تیم‌هاست؟', c:['سپاهان و ذوب‌آهن','تراکتور و ماشین‌سازی','پرسپولیس و استقلال','ملوان و ملوان نوین'], a:2, cat:'ورزش ایران', diff:'آسان' },
-    { q:'ایران چند بار قهرمان جام ملت‌های آسیا شده است؟', c:['دو بار','سه بار','چهار بار','یک بار'], a:1, cat:'ورزش ایران', diff:'متوسط' },
-    { q:'قهرمان نامدار کشتی آزاد با لقب «پلنگ» کیست؟', c:['حسان یزدانی','علیرضا دبیر','رسول خادم','عباس جدیدی'], a:0, cat:'ورزش ایران', diff:'آسان' },
-    { q:'واحد رسمی پول ایران چیست؟', c:['تومان','ریال','درهم','منات'], a:1, cat:'عمومی', diff:'آسان' },
-    { q:'کد پستی ایران چند رقمی است؟', c:['۸','۹','۱۰','۱۲'], a:2, cat:'عمومی', diff:'آسان' },
-    { q:'عنصر با نماد Au کدام است؟', c:['نقره','آلومینیوم','طلا','آرگون'], a:2, cat:'علم', diff:'آسان' },
-    { q:'قانون دوم نیوتن؟', c:['F=ma','E=mc²','V=IR','pV=nRT'], a:0, cat:'علم', diff:'آسان' },
-    { q:'نور در خلأ تقریباً با چه سرعتی حرکت می‌کند؟', c:['۳۰۰ کیلومتر/ثانیه','۳٬۰۰۰ کیلومتر/ثانیه','۳۰۰٬۰۰۰ کیلومتر/ثانیه','۳٬۰۰۰٬۰۰۰ کیلومتر/ثانیه'], a:2, cat:'علم', diff:'متوسط' },
-    { q:'زبانِ اجراشونده در مرورگر وب؟', c:['پایتون','جاوااسکریپت','جاوا','C#'], a:1, cat:'تکنولوژی', diff:'آسان' },
-    { q:'ابزار رایجِ کنترل نسخهٔ کد؟', c:['Docker','Git','NPM','Webpack'], a:1, cat:'تکنولوژی', diff:'متوسط' },
-    { q:'عدد پی (π) تقریباً برابر است با ...', c:['۲٫۷','۳٫۱۴','۳٫۴۱','۲٫۱۴'], a:1, cat:'عمومی', diff:'آسان' },
-    { q:'پایتخت ژاپن کدام است؟', c:['اوساکا','توکیو','کیوتو','ساپورو'], a:1, cat:'عمومی', diff:'آسان' },
-    { q:'پایتخت کانادا کدام است؟', c:['تورنتو','اوتاوا','مونترال','ونکوور'], a:1, cat:'عمومی', diff:'متوسط' },
-    { q:'کدام سبک هنری به پیکاسو نسبت داده می‌شود؟', c:['رمانتیسم','امپرسیونیسم','کوبیسم','رئالیسم'], a:2, cat:'عمومی', diff:'متوسط' },
-    { q:'اثر «شبِ پرستاره» اثر کیست؟', c:['پیکاسو','ون‌گوگ','مونک','داوینچی'], a:1, cat:'عمومی', diff:'متوسط' },
-    { q:'فاصلهٔ نقطهٔ پنالتی تا دروازه در فوتبال؟', c:['۱۰ متر','۱۱ متر','۱۲ متر','۹ متر'], a:1, cat:'عمومی', diff:'آسان' }
-  ];
-  
   // ===== Game Limits Management =====
   function checkDailyReset() {
     const now = Date.now();
@@ -3078,12 +3174,6 @@ function openCreateGroup(){
 }
   
   // ===== Quiz Flow (legacy) =====
-  function buildSet(cat, diff, count){
-    let pool = qBank.filter(q => (cat==='همه' || q.cat===cat) && (diff==='همه' || q.diff===diff));
-    if(pool.length < count) pool = qBank.slice(); // fallback
-    return pool.sort(()=>Math.random()-0.5).slice(0, count);
-  }
-  
   function updateTimerVisual(){
     const ring = $('#timer-ring');
     const text = $('#timer-text');
@@ -3143,8 +3233,10 @@ function openCreateGroup(){
   }
   
   function renderQuestionUI(q){
-    $('#quiz-cat').innerHTML = `<i class="fas fa-folder ml-1"></i> ${q.cat}`;
-    $('#quiz-diff').innerHTML = `<i class="fas fa-signal ml-1"></i> ${q.diff}`;
+    const catLabel = State.quiz.cat || q.cat || '—';
+    const diffLabel = State.quiz.diff || q.diff || '—';
+    $('#quiz-cat').innerHTML = `<i class="fas fa-folder ml-1"></i> ${catLabel}`;
+    $('#quiz-diff').innerHTML = `<i class="fas fa-signal ml-1"></i> ${diffLabel}`;
     $('#qnum').textContent = faNum(State.quiz.idx+1);
     $('#qtotal').textContent = faNum(State.quiz.list.length);
     $('#question').textContent = q.q;
@@ -3158,17 +3250,30 @@ function openCreateGroup(){
     });
   }
   
-  function startQuiz({cat, diff, count}){
+  function beginQuizSession({ cat, diff, questions, count, source }){
+    if(!Array.isArray(questions) || questions.length===0) return false;
+
     used5050=false; usedSkip=false; usedTimeBoost=false;
     resetLifelinesUI();
-    State.quiz.cat=cat; State.quiz.diff=diff;
-    State.quiz.list = buildSet(cat, diff, count).map(q=>({ ...q }));
-    State.quiz.idx = 0; State.quiz.sessionEarned = 0; State.quiz.results=[];
-    State.quiz.inProgress = true; State.quiz.answered=false;
+
+    State.quiz.cat = cat || State.quiz.cat || '—';
+    State.quiz.diff = diff || State.quiz.diff || 'آسان';
+    State.quiz.list = questions.map(q=>({
+      ...q,
+      cat: State.quiz.cat,
+      diff: State.quiz.diff
+    }));
+    State.quiz.idx = 0;
+    State.quiz.sessionEarned = 0;
+    State.quiz.results = [];
+    State.quiz.inProgress = true;
+    State.quiz.answered = false;
+
     renderTopBars();
-    const q = State.quiz.list[0];
-    renderQuestionUI(q);
-    resetTimer(diff==='سخت'?20:diff==='متوسط'?25:30);
+    renderQuestionUI(State.quiz.list[0]);
+
+    const diffLabel = State.quiz.diff;
+    resetTimer(diffLabel==='سخت'?20:diffLabel==='متوسط'?25:30);
 
     if(State.duelOpponent){
       $('#duel-opponent-name').textContent = State.duelOpponent.name;
@@ -3177,10 +3282,91 @@ function openCreateGroup(){
       $('#duel-banner').classList.add('hidden');
     }
 
-    // Log analytics
-    logEvent('quiz_start', { category: cat, difficulty: diff, questionCount: count });
+    logEvent('quiz_start', {
+      category: State.quiz.cat,
+      difficulty: State.quiz.diff,
+      questionCount: count || State.quiz.list.length,
+      source
+    });
+
+    return true;
   }
-  
+
+  document.getElementById('setup-start')?.addEventListener('click', startQuizFromAdmin);
+  document.getElementById('setup-duel')?.addEventListener('click', ()=>{
+    logEvent('open_duel_from_setup');
+    closeSheet();
+    navTo('duel');
+  });
+  document.getElementById('range-count')?.addEventListener('input', e=>{
+    document.getElementById('setup-count')?.textContent = faNum(e.target.value);
+  });
+
+  async function startQuizFromAdmin(arg){
+    if(arg instanceof Event){ arg.preventDefault(); arg = {}; }
+    const opts = arg && typeof arg === 'object' ? arg : {};
+
+    const rangeEl = document.getElementById('range-count');
+    const count = opts.count ?? Number(rangeEl?.value || rangeEl?.getAttribute('value') || 5) || 5;
+    const categoryId = opts.categoryId ?? State.quiz.catId ?? Admin.categories[0]?.id;
+    const difficulty = opts.difficulty ?? State.quiz.diff ?? Admin.diffs[0];
+
+    if (!categoryId){ toast('دسته‌ای یافت نشد.'); return false; }
+
+    const startBtn = document.getElementById('setup-start');
+    const prevDisabled = startBtn ? startBtn.disabled : null;
+    if(startBtn) startBtn.disabled = true;
+
+    try{
+      const list = await Api.questions({ categoryId, count, difficulty }) || [];
+      if (!Array.isArray(list) || list.length===0){ toast('برای این دسته هنوز سوالی ثبت نشده 😕'); return false; }
+
+      const normalized = list.map(q=>{
+        const rawChoices = q.options || q.choices || [];
+        const choices = Array.isArray(rawChoices)
+          ? rawChoices.map(opt => {
+              const txt = typeof opt === 'string' ? opt : (opt?.text || opt?.title || opt?.value || '');
+              return (txt ?? '').toString().trim();
+            })
+          : [];
+        const answerIdx = typeof q.answerIndex === 'number' ? q.answerIndex
+          : (Array.isArray(rawChoices) ? rawChoices.findIndex(opt => opt && typeof opt === 'object' && opt.correct === true) : -1);
+        return {
+          q: (q.text || q.title || '').toString().trim(),
+          c: choices,
+          a: answerIdx
+        };
+      }).filter(x=>x.q && Array.isArray(x.c) && x.c.length >= 2 && x.c.every(Boolean) && Number.isInteger(x.a) && x.a >= 0 && x.a < x.c.length);
+
+      if(normalized.length===0){ toast('سوال معتبر برای این تنظیمات موجود نیست.'); return false; }
+
+      const catObj = Admin.categories.find(c=>c.id===categoryId) || {};
+      const catTitle = opts.cat || catObj.title || catObj.name || State.quiz.cat || '—';
+
+      State.quiz.catId = categoryId;
+
+      const started = beginQuizSession({
+        cat: catTitle,
+        diff: difficulty,
+        questions: normalized,
+        count,
+        source: opts.source || 'setup'
+      });
+
+      if(started){
+        closeSheet();
+        navTo('quiz');
+      }
+      return started;
+    }catch(err){
+      console.warn('Failed to fetch questions', err);
+      toast('دریافت سوالات با خطا مواجه شد');
+      return false;
+    }finally{
+      if(startBtn) startBtn.disabled = prevDisabled ?? false;
+    }
+  }
+
   function lockChoices(){ $$('#choices .choice').forEach(el=> el.classList.add('pointer-events-none','opacity-70')); }
   
   function registerAnswer(idx){
@@ -3211,8 +3397,8 @@ function openCreateGroup(){
     logEvent('question_answered', {
       correct: ok,
       timeSpent: State.quiz.duration - State.quiz.remain,
-      category: q.cat,
-      difficulty: q.diff
+      category: State.quiz.cat || q.cat,
+      difficulty: State.quiz.diff || q.diff
     });
 
     if(shouldEnd){
@@ -3321,15 +3507,11 @@ function openCreateGroup(){
     if(State.streak>=3 && !State.achievements.streak3){ State.achievements.streak3=true; toast('<i class="fas fa-fire ml-2"></i>نشان «استریک ۳ روزه»!'); }
   }
   
-  function startDaily(){
-    const seed = Math.floor(Date.now()/86400000);
-    const pool = qBank.slice().map((q,i)=>({q, k: Math.sin((i+1)*seed)*10000})).sort((a,b)=>a.k-b.k).map(o=>o.q);
+  async function startDaily(){
     State.lives = Math.max(State.lives, 1);
-    used5050=false; usedSkip=false; usedTimeBoost=false;
-    resetLifelinesUI();
-    State.quiz.cat='عمومی'; State.quiz.diff='متوسط'; State.quiz.list=pool.slice(0,5);
-    State.quiz.idx=0; State.quiz.sessionEarned=0; State.quiz.results=[]; State.quiz.inProgress=true; State.quiz.answered=false;
-    navTo('quiz'); renderTopBars(); renderQuestionUI(State.quiz.list[0]); resetTimer(25);
+    const preferredDiff = State.quiz.diff || Admin.diffs.find(d=>/متوسط/i.test(d)) || Admin.diffs[0] || 'متوسط';
+    const categoryId = State.quiz.catId || Admin.categories[0]?.id;
+    await startQuizFromAdmin({ count:5, difficulty: preferredDiff, categoryId, source:'daily' });
   }
   
   // ===== Shop (legacy soft-currency), VIP button rerouted =====
@@ -3967,40 +4149,10 @@ async function startPurchaseCoins(pkgId){
   
   // ===== Setup Sheet =====
   function openSetupSheet(){
-    const cWrap=$('#cat-wrap'); const dWrap=$('#diff-wrap');
-    cWrap.innerHTML=''; dWrap.innerHTML='';
-    let selCat='همه', selDiff='آسان';
-    ['همه',...cats].forEach(c=>{
-      const b=document.createElement('button');
-      b.className='w-full py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20';
-      if (c === selCat) b.classList.add('selected-setup-item');
-      b.textContent=c; b.dataset.val=c; cWrap.appendChild(b);
-    });
-    ['همه',...diffs].forEach(d=>{
-      const b=document.createElement('button');
-      b.className='w-full py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20';
-      if (d === selDiff) b.classList.add('selected-setup-item');
-      b.textContent=d; b.dataset.val=d; dWrap.appendChild(b);
-    });
-    cWrap.onclick = (e)=>{
-      const btn = e.target.closest('button');
-      if(!btn) return;
-      cWrap.querySelectorAll('button').forEach(x=>x.classList.remove('selected-setup-item'));
-      btn.classList.add('selected-setup-item'); selCat=btn.dataset.val;
-    };
-    dWrap.onclick = (e)=>{
-      const btn = e.target.closest('button');
-      if(!btn) return;
-      dWrap.querySelectorAll('button').forEach(x=>x.classList.remove('selected-setup-item'));
-      btn.classList.add('selected-setup-item'); selDiff=btn.dataset.val;
-    };
-    $('#range-count').oninput = e=> $('#setup-count').textContent=faNum(e.target.value);
-  $('#setup-start').onclick=()=>{ closeSheet(); used5050=false; usedSkip=false; usedTimeBoost=false; startQuiz({cat:selCat,diff:selDiff,count:+$('#range-count').value}); navTo('quiz'); };
-  $('#setup-duel')?.addEventListener('click', ()=>{
-    logEvent('open_duel_from_setup');
-    closeSheet();
-    navTo('duel');
-  });
+    buildSetupFromAdmin();
+    const range = $('#range-count');
+    const countLabel = $('#setup-count');
+    if(range && countLabel){ countLabel.textContent = faNum(range.value || range.getAttribute('value') || 5); }
     openSheet();
   }
   function openSheet(){ $('#sheet-setup').classList.add('show'); }
@@ -4231,15 +4383,17 @@ async function startPurchaseCoins(pkgId){
       list.appendChild(card);
     });
     list.querySelectorAll('button[data-id]').forEach(btn => {
-      btn.addEventListener('click', () => challengeFriend(parseInt(btn.dataset.id)));
+      btn.addEventListener('click', async () => {
+        await challengeFriend(parseInt(btn.dataset.id));
+      });
     });
   }
 
-  function challengeFriend(id){
+  async function challengeFriend(id){
     const friend = duelFriends.find(f => f.id === id);
     if(!friend) return;
     logEvent('duel_challenge', { opponent: friend.name });
-    const started = startDuelMatch(friend);
+    const started = await startDuelMatch(friend);
     if(started){
       const idx = duelFriends.findIndex(f => f.id === friend.id);
       if(idx > 0){
@@ -4251,17 +4405,27 @@ async function startPurchaseCoins(pkgId){
     }
   }
 
-  function startDuelMatch(opponent){
-    if(!useGameResource('duels')){
+  async function startDuelMatch(opponent){
+    const limitCfg = RemoteConfig?.gameLimits?.duels;
+    const vipMultiplier = Server.subscription.active ? (Server.subscription.tier === 'pro' ? 3 : 2) : 1;
+    const dailyLimit = (limitCfg?.daily || 0) * vipMultiplier;
+    if (dailyLimit && Server.limits.duels.used >= dailyLimit){
       toast('به محدودیت نبرد تن‌به‌تن امروز رسیدی');
       logEvent('duel_limit_reached', { opponent: opponent?.name });
       return false;
     }
+
     State.duelOpponent = opponent;
-    used5050=false; usedSkip=false; usedTimeBoost=false;
-    startQuiz({cat:'عمومی', diff:'متوسط', count:5});
+    const difficulty = State.quiz.diff || Admin.diffs.find(d=>/متوسط/i.test(d)) || Admin.diffs[0] || 'متوسط';
+    const categoryId = State.quiz.catId || Admin.categories[0]?.id;
+    const started = await startQuizFromAdmin({ count:5, difficulty, categoryId, source:'duel' });
+    if(!started){
+      State.duelOpponent = null;
+      return false;
+    }
+
+    useGameResource('duels');
     logEvent('duel_start', { opponent: opponent.name });
-    navTo('quiz');
     return true;
   }
 
@@ -4278,7 +4442,7 @@ async function startPurchaseCoins(pkgId){
     const opponent = randomPool[Math.floor(Math.random()*randomPool.length)];
     toast(`حریف ${opponent.name} پیدا شد!`);
     logEvent('duel_random_found', { opponent: opponent.name });
-    const started = startDuelMatch(opponent);
+    const started = await startDuelMatch(opponent);
     if(started){
       const existingIdx = duelFriends.findIndex(f => f.id === opponent.id);
       if(existingIdx >= 0){ duelFriends.splice(existingIdx,1); }
@@ -4784,80 +4948,25 @@ function leaveGroup(groupId) {
       toast(`در ${matchName} ثبت‌نام شدید!`);
     });
   });
-  
+
+  window.addEventListener('DOMContentLoaded', async ()=>{
+    try { await initFromAdmin(); }
+    catch(e){ console.warn('Admin bootstrap failed', e); toast('اتصال به سرور برقرار نشد؛ داده‌ی دمو غیرفعال شد.'); }
+    finally { document.getElementById('loading')?.classList.add('hidden'); }
+    await init();
+  });
+
   // ===== Init =====
 async function init(){
-    const loading = $('#loading');
     try{
-      // Fallback provinces in case JSON fails to load
-      const fallbackProvinces = [
-        { id: '1', name: 'آذربایجان شرقی', score: 15000, members: 120, region: 'شمال غربی' },
-        { id: '2', name: 'آذربایجان غربی', score: 14500, members: 110, region: 'شمال غربی' },
-        { id: '3', name: 'اردبیل', score: 12000, members: 85, region: 'شمال غربی' },
-        { id: '4', name: 'اصفهان', score: 18000, members: 180, region: 'مرکزی' },
-        { id: '5', name: 'البرز', score: 16000, members: 140, region: 'مرکزی' },
-        { id: '6', name: 'ایلام', score: 11000, members: 70, region: 'غربی' },
-        { id: '7', name: 'بوشهر', score: 12500, members: 90, region: 'جنوبی' },
-        { id: '8', name: 'تهران', score: 22000, members: 250, region: 'مرکزی' },
-        { id: '9', name: 'چهارمحال و بختیاری', score: 11500, members: 75, region: 'مرکزی' },
-        { id: '10', name: 'خراسان جنوبی', score: 10500, members: 65, region: 'شرقی' },
-        { id: '11', name: 'خراسان رضوی', score: 17000, members: 160, region: 'شرقی' },
-        { id: '12', name: 'خراسان شمالی', score: 10000, members: 60, region: 'شرقی' },
-        { id: '13', name: 'خوزستان', score: 16500, members: 150, region: 'جنوب غربی' },
-        { id: '14', name: 'زنجان', score: 12000, members: 80, region: 'شمال غربی' },
-        { id: '15', name: 'سمنان', score: 11000, members: 70, region: 'مرکزی' },
-        { id: '16', name: 'سیستان و بلوچستان', score: 13000, members: 95, region: 'جنوب شرقی' },
-        { id: '17', name: 'فارس', score: 17500, members: 165, region: 'جنوبی' },
-        { id: '18', name: 'قزوین', score: 12500, members: 85, region: 'مرکزی' },
-        { id: '19', name: 'قم', score: 13500, members: 100, region: 'مرکزی' },
-        { id: '20', name: 'کردستان', score: 14000, members: 105, region: 'غربی' },
-        { id: '21', name: 'کرمان', score: 15000, members: 120, region: 'جنوب شرقی' },
-        { id: '22', name: 'کرمانشاه', score: 13500, members: 100, region: 'غربی' },
-        { id: '23', name: 'کهگیلویه و بویراحمد', score: 10500, members: 65, region: 'جنوب غربی' },
-        { id: '24', name: 'گلستان', score: 12000, members: 80, region: 'شمالی' },
-        { id: '25', name: 'گیلان', score: 15500, members: 125, region: 'شمالی' },
-        { id: '26', name: 'لرستان', score: 12500, members: 85, region: 'غربی' },
-        { id: '27', name: 'مازندران', score: 16000, members: 135, region: 'شمالی' },
-        { id: '28', name: 'مرکزی', score: 13000, members: 95, region: 'مرکزی' },
-        { id: '29', name: 'هرمزگان', score: 14000, members: 105, region: 'جنوبی' },
-        { id: '30', name: 'همدان', score: 13000, members: 90, region: 'غربی' },
-        { id: '31', name: 'یزد', score: 14500, members: 110, region: 'مرکزی' }
-      ];
-
-      try{
-        // Try to load provinces from JSON file
-        const resp = await fetch('./data/provinces.json');
-        if(resp.ok){
-          const loadedProvinces = await resp.json();
-          if(loadedProvinces && loadedProvinces.length > 0){
-            State.provinces = loadedProvinces;
-          } else {
-            State.provinces = fallbackProvinces;
-          }
-        } else {
-          State.provinces = fallbackProvinces;
-        }
-      }catch(err){
-        console.warn('Failed to load provinces from JSON, using fallback', err);
-        State.provinces = fallbackProvinces;
-      }
-
-      // Ensure provinces are populated
-      if(!State.provinces || State.provinces.length === 0){
-        State.provinces = fallbackProvinces;
-      }
-
       renderHeader(); renderDashboard(); navTo('dashboard');
 
-      // Check if user needs to select province
       if(!State.user.province){
         const sel = $('#first-province');
-        if(sel){
+        if(sel && Array.isArray(State.provinces) && State.provinces.length){
           populateProvinceOptions(sel, 'استان خود را انتخاب کنید');
-          
-          // Double-check that options were added
-          if(sel.options.length <= 1){ // Only placeholder
-            // Manually add provinces if populateProvinceOptions failed
+
+          if(sel.options.length <= 1){
             State.provinces.forEach(p => {
               const option = document.createElement('option');
               option.value = p.name;
@@ -4865,51 +4974,41 @@ async function init(){
               sel.appendChild(option);
             });
           }
-          
+
           openModal('#modal-province-select');
         }
       }
 
-      // Start daily reset timer
       checkDailyReset();
       setInterval(checkDailyReset, 1000);
 
-      // Server bootstrap: wallet + subscription then ads
       await Promise.all([refreshWallet(), refreshSubscription()]);
       renderHeader(); renderDashboard();
       AdManager.refreshAll();
 
-      // Set up ESC key to close payment modal
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && $('#modal-payment').classList.contains('show')) {
           closePaymentModal();
         }
       });
 
-      // Log session start
       logEvent('session_start', {
         screen_width: window.screen.width,
         screen_height: window.screen.height,
         user_agent: navigator.userAgent
       });
 
-      // Banner should be present from first print
       if(!localStorage.getItem(STORAGE_KEY)){ setTimeout(()=>toast('برای شروع روی «شروع کوییز» بزن ✨'), 800); }
 
-      // Re-render wallet display if user changes connectivity
       window.addEventListener('online', ()=>{ $('#wallet-offline')?.classList.add('hidden'); AdManager.refreshAll(); });
       window.addEventListener('offline', ()=>{ $('#wallet-offline')?.classList.remove('hidden'); });
 
-      // Show popup ad on open
       AdManager.maybeShowInterstitial('app_open');
     }catch(err){
       console.error('Initialization failed', err);
       toast('خطا در راه‌اندازی برنامه');
-    }finally{
-      loading.classList.add('hidden');
     }
   }
-  init();
 
 
   
