@@ -198,6 +198,177 @@
       color: #3b82f6;
       border: 1px solid rgba(59, 130, 246, 0.3);
     }
+    .table-questions td {
+      white-space: normal;
+      vertical-align: top;
+    }
+    .table-questions tbody tr {
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .table-questions tbody tr:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.55);
+    }
+    .question-text {
+      font-weight: 600;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: #f8fafc;
+    }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .question-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(148, 163, 184, 0.1);
+      color: #e2e8f0;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .meta-chip i {
+      font-size: 0.85rem;
+    }
+    .meta-chip.category {
+      border-color: rgba(14, 165, 233, 0.35);
+      background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(56,189,248,0.2));
+      color: #38bdf8;
+    }
+    .meta-chip.difficulty-easy {
+      border-color: rgba(34, 197, 94, 0.35);
+      background: linear-gradient(135deg, rgba(34,197,94,0.18), rgba(16,185,129,0.14));
+      color: #4ade80;
+    }
+    .meta-chip.difficulty-medium {
+      border-color: rgba(250, 204, 21, 0.35);
+      background: linear-gradient(135deg, rgba(250,204,21,0.16), rgba(251,191,36,0.12));
+      color: #facc15;
+    }
+    .meta-chip.difficulty-hard {
+      border-color: rgba(248, 113, 113, 0.35);
+      background: linear-gradient(135deg, rgba(248,113,113,0.18), rgba(239,68,68,0.15));
+      color: #f87171;
+    }
+    .meta-chip.status-active {
+      border-color: rgba(34, 197, 94, 0.4);
+      background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(34,197,94,0.12));
+      color: #34d399;
+    }
+    .meta-chip.status-pending {
+      border-color: rgba(245, 158, 11, 0.4);
+      background: linear-gradient(135deg, rgba(245,158,11,0.16), rgba(250,204,21,0.1));
+      color: #fbbf24;
+    }
+    .meta-chip.status-inactive {
+      border-color: rgba(248, 113, 113, 0.35);
+      background: linear-gradient(135deg, rgba(248,113,113,0.16), rgba(239,68,68,0.1));
+      color: #f87171;
+    }
+    .meta-chip.status-archived {
+      border-color: rgba(129, 140, 248, 0.35);
+      background: linear-gradient(135deg, rgba(129,140,248,0.16), rgba(165,180,252,0.1));
+      color: #a5b4fc;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #38bdf8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.45);
+    }
+    .status-dot.active {
+      background: #34d399;
+      box-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
+    }
+    .status-dot.pending {
+      background: #facc15;
+      box-shadow: 0 0 10px rgba(250, 204, 21, 0.45);
+    }
+    .status-dot.inactive {
+      background: #f87171;
+      box-shadow: 0 0 10px rgba(248, 113, 113, 0.4);
+    }
+    .status-dot.archived {
+      background: #a855f7;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.45);
+    }
+    .answer-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: 14px;
+      border: 1px solid rgba(250, 204, 21, 0.35);
+      background: linear-gradient(135deg, rgba(250,204,21,0.12), rgba(253,224,71,0.08));
+      color: #facc15;
+      font-weight: 600;
+      max-width: 260px;
+      white-space: normal;
+      line-height: 1.6;
+    }
+    .answer-pill i {
+      color: #fbbf24;
+    }
+    .table-questions .actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      justify-content: flex-start;
+    }
+    .action-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid transparent;
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      transition: all 0.3s ease;
+    }
+    .action-btn.edit {
+      color: #60a5fa;
+      border-color: rgba(96, 165, 250, 0.4);
+      background: rgba(96, 165, 250, 0.15);
+    }
+    .action-btn.delete {
+      color: #f87171;
+      border-color: rgba(248, 113, 113, 0.4);
+      background: rgba(248, 113, 113, 0.12);
+    }
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 25px rgba(15, 23, 42, 0.6);
+    }
+    .empty-state {
+      padding: 2.5rem 1rem;
+      text-align: center;
+      color: rgba(226, 232, 240, 0.65);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .empty-state i {
+      font-size: 2rem;
+      color: rgba(226, 232, 240, 0.45);
+    }
     .form-input {
       width: 100%;
       padding: 0.75rem 1rem;
@@ -311,6 +482,51 @@
       .modal-content {
         width: 95%;
         margin: 0 auto;
+      }
+    }
+    @media (max-width: 768px) {
+      .table-questions thead {
+        display: none;
+      }
+      .table-questions,
+      .table-questions tbody,
+      .table-questions tr,
+      .table-questions td {
+        display: block;
+        width: 100%;
+      }
+      .table-questions tbody tr {
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 18px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.4);
+      }
+      .table-questions td {
+        padding: 0.45rem 0;
+      }
+      .table-questions td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.75rem;
+        color: rgba(148, 163, 184, 0.85);
+        margin-bottom: 0.25rem;
+        font-weight: 600;
+      }
+      .table-questions .actions {
+        margin-top: 0.5rem;
+        justify-content: flex-start;
+      }
+      .answer-pill {
+        max-width: 100%;
+      }
+      .question-meta {
+        gap: 0.4rem;
+      }
+      .question-meta .meta-chip {
+        width: 100%;
+        justify-content: flex-start;
       }
     }
     @media (max-width: 640px) {
@@ -732,101 +948,68 @@
         <!-- Questions Table -->
         <div class="glass rounded-2xl overflow-hidden">
           <div class="table-container">
-            <table class="table">
+            <table class="table table-questions">
               <thead>
                 <tr>
                   <th>شناسه</th>
-                  <th>سوال</th>
-                  <th>دسته‌بندی</th>
-                  <th>سطح دشواری</th>
-                  <th>وضعیت</th>
+                  <th>سوال و جزئیات</th>
+                  <th>پاسخ صحیح</th>
                   <th>عملیات</th>
                 </tr>
               </thead>
               <tbody id="questions-tbody">
                 <tr>
-                  <td>#۱۰۲۴</td>
-                  <td>پایتخت استرالیا کدام است؟</td>
-                  <td>جغرافیا</td>
-                  <td>آسون</td>
-                  <td><span class="badge badge-success">فعال</span></td>
-                  <td>
-                    <div class="flex gap-2">
-                      <button class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center hover:bg-blue-500/30 transition-colors">
-                        <i class="fas fa-edit text-blue-400"></i>
-                      </button>
-                      <button class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center hover:bg-red-500/30 transition-colors">
-                        <i class="fas fa-trash text-red-400"></i>
-                      </button>
+                  <td data-label="شناسه" class="font-mono text-sm text-white/70">#۱۰۲۴</td>
+                  <td data-label="سوال و جزئیات">
+                    <div class="question-text line-clamp-2" title="پایتخت استرالیا کدام است؟">پایتخت استرالیا کدام است؟</div>
+                    <div class="question-meta">
+                      <span class="meta-chip category"><i class="fas fa-layer-group"></i>جغرافیا</span>
+                      <span class="meta-chip difficulty-easy"><i class="fas fa-feather"></i>آسون</span>
+                      <span class="meta-chip status-active"><span class="status-dot active"></span>فعال</span>
                     </div>
+                  </td>
+                  <td data-label="پاسخ صحیح">
+                    <div class="answer-pill" title="کانبرا"><i class="fas fa-lightbulb"></i><span>کانبرا</span></div>
+                  </td>
+                  <td data-label="عملیات" class="actions">
+                    <button class="action-btn edit"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn delete"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>
                 <tr>
-                  <td>#۱۰۲۳</td>
-                  <td>کدام سیاره در منظومه شمسی بزرگترین است؟</td>
-                  <td>علم</td>
-                  <td>آسون</td>
-                  <td><span class="badge badge-success">فعال</span></td>
-                  <td>
-                    <div class="flex gap-2">
-                      <button class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center hover:bg-blue-500/30 transition-colors">
-                        <i class="fas fa-edit text-blue-400"></i>
-                      </button>
-                      <button class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center hover:bg-red-500/30 transition-colors">
-                        <i class="fas fa-trash text-red-400"></i>
-                      </button>
+                  <td data-label="شناسه" class="font-mono text-sm text-white/70">#۱۰۲۳</td>
+                  <td data-label="سوال و جزئیات">
+                    <div class="question-text line-clamp-2" title="کدام سیاره در منظومه شمسی بزرگترین است؟">کدام سیاره در منظومه شمسی بزرگترین است؟</div>
+                    <div class="question-meta">
+                      <span class="meta-chip category"><i class="fas fa-layer-group"></i>علم</span>
+                      <span class="meta-chip difficulty-easy"><i class="fas fa-feather"></i>آسون</span>
+                      <span class="meta-chip status-active"><span class="status-dot active"></span>فعال</span>
                     </div>
+                  </td>
+                  <td data-label="پاسخ صحیح">
+                    <div class="answer-pill" title="سیاره مشتری"><i class="fas fa-lightbulb"></i><span>سیاره مشتری</span></div>
+                  </td>
+                  <td data-label="عملیات" class="actions">
+                    <button class="action-btn edit"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn delete"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>
                 <tr>
-                  <td>#۱۰۲۲</td>
-                  <td>طولانی‌ترین رود جهان کدام است؟</td>
-                  <td>جغرافیا</td>
-                  <td>متوسط</td>
-                  <td><span class="badge badge-warning">در حال بررسی</span></td>
-                  <td>
-                    <div class="flex gap-2">
-                      <button class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center hover:bg-blue-500/30 transition-colors">
-                        <i class="fas fa-edit text-blue-400"></i>
-                      </button>
-                      <button class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center hover:bg-red-500/30 transition-colors">
-                        <i class="fas fa-trash text-red-400"></i>
-                      </button>
+                  <td data-label="شناسه" class="font-mono text-sm text-white/70">#۱۰۲۲</td>
+                  <td data-label="سوال و جزئیات">
+                    <div class="question-text line-clamp-2" title="طولانی‌ترین رود جهان کدام است؟">طولانی‌ترین رود جهان کدام است؟</div>
+                    <div class="question-meta">
+                      <span class="meta-chip category"><i class="fas fa-layer-group"></i>جغرافیا</span>
+                      <span class="meta-chip difficulty-medium"><i class="fas fa-wave-square"></i>متوسط</span>
+                      <span class="meta-chip status-pending"><span class="status-dot pending"></span>در حال بررسی</span>
                     </div>
                   </td>
-                </tr>
-                <tr>
-                  <td>#۱۰۲۱</td>
-                  <td>قهرمان جام جهانی فوتبال ۱۹۹۸؟</td>
-                  <td>ورزش</td>
-                  <td>متوسط</td>
-                  <td><span class="badge badge-success">فعال</span></td>
-                  <td>
-                    <div class="flex gap-2">
-                      <button class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center hover:bg-blue-500/30 transition-colors">
-                        <i class="fas fa-edit text-blue-400"></i>
-                      </button>
-                      <button class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center hover:bg-red-500/30 transition-colors">
-                        <i class="fas fa-trash text-red-400"></i>
-                      </button>
-                    </div>
+                  <td data-label="پاسخ صحیح">
+                    <div class="answer-pill" title="رود نیل"><i class="fas fa-lightbulb"></i><span>رود نیل</span></div>
                   </td>
-                </tr>
-                <tr>
-                  <td>#۱۰۲۰</td>
-                  <td>عدد π تقریباً برابر با؟</td>
-                  <td>علم</td>
-                  <td>آسون</td>
-                  <td><span class="badge badge-danger">غیرفعال</span></td>
-                  <td>
-                    <div class="flex gap-2">
-                      <button class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center hover:bg-blue-500/30 transition-colors">
-                        <i class="fas fa-edit text-blue-400"></i>
-                      </button>
-                      <button class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center hover:bg-red-500/30 transition-colors">
-                        <i class="fas fa-trash text-red-400"></i>
-                      </button>
-                    </div>
+                  <td data-label="عملیات" class="actions">
+                    <button class="action-btn edit"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn delete"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>
               </tbody>
