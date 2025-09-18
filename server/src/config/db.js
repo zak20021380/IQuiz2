@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
 const logger = require('./logger');
+const env = require('./env');
 
 const connectDB = async () => {
-  const uri = process.env.MONGO_URI;
-  const maxPoolSize = Number(process.env.MONGO_MAX_POOL || 10);
+  const uri = env.mongo.uri;
+  const maxPoolSize = env.mongo.maxPoolSize;
 
   let attempts = 0;
   const maxAttempts = 10;
@@ -18,9 +19,9 @@ const connectDB = async () => {
       });
       logger.info('✅ MongoDB connected');
     } catch (err) {
-      attempts++;
+      attempts += 1;
       const delay = Math.min(30000, 1000 * 2 ** attempts);
-      logger.error(`MongoDB connection failed (attempt ${attempts}): ${err.message}. Retrying in ${Math.round(delay/1000)}s`);
+      logger.error(`MongoDB connection failed (attempt ${attempts}): ${err.message}. Retrying in ${Math.round(delay / 1000)}s`);
       if (attempts < maxAttempts) {
         setTimeout(connect, delay);
       } else {
