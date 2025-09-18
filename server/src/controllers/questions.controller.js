@@ -63,3 +63,24 @@ exports.remove = async (req, res, next) => {
     res.json({ ok:true });
   } catch (e) { next(e); }
 };
+
+exports.statsSummary = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    const [total, today, yesterday] = await Promise.all([
+      Question.countDocuments(),
+      Question.countDocuments({ createdAt: { $gte: startOfToday, $lt: startOfTomorrow } }),
+      Question.countDocuments({ createdAt: { $gte: startOfYesterday, $lt: startOfToday } })
+    ]);
+
+    res.json({ ok: true, data: { total, today, yesterday } });
+  } catch (e) {
+    next(e);
+  }
+};
