@@ -38,6 +38,17 @@ const questionUpdatedEl = questionDetailModal ? questionDetailModal.querySelecto
 const questionCorrectPreviewEl = $('#question-correct-preview');
 const updateQuestionBtn = $('#update-question-btn');
 const updateQuestionBtnDefault = updateQuestionBtn ? updateQuestionBtn.innerHTML : '';
+const filterCategorySelect = $('#filter-category');
+const filterDifficultySelect = $('#filter-difficulty');
+const filterSearchInput = $('#filter-search');
+
+const questionFilters = {
+  category: '',
+  difficulty: '',
+  search: ''
+};
+
+let filterSearchDebounce;
 
 // --------------- AUTH (JWT) ---------------
 function getToken() { return localStorage.getItem('iq_admin_token'); }
@@ -364,9 +375,63 @@ if (updateQuestionBtn) {
 }
 
 // --------------- LOADERS ---------------
-async function loadQuestions() {
+async function loadCategoryFilterOptions(triggerReloadOnMissing = false) {
+  if (!filterCategorySelect) return;
+  const previousValue = questionFilters.category || filterCategorySelect.value || '';
+  filterCategorySelect.innerHTML = '<option value="">همه دسته‌بندی‌ها</option>';
+  let shouldReload = false;
   try {
-    const response = await api('/questions?limit=50');
+    const response = await api('/categories?limit=100');
+    if (Array.isArray(response.data)) {
+      let hasPrevious = false;
+      const fragment = document.createDocumentFragment();
+      response.data.forEach(cat => {
+        if (!cat?._id || !cat.name) return;
+        const option = document.createElement('option');
+        option.value = cat._id;
+        option.textContent = cat.name;
+        if (cat._id === previousValue) hasPrevious = true;
+        fragment.appendChild(option);
+      });
+      filterCategorySelect.appendChild(fragment);
+      if (hasPrevious) {
+        filterCategorySelect.value = previousValue;
+        questionFilters.category = previousValue;
+      } else {
+        filterCategorySelect.value = '';
+        shouldReload = triggerReloadOnMissing && previousValue !== '';
+        questionFilters.category = '';
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load categories', err);
+    showToast('دریافت دسته‌بندی‌ها با مشکل مواجه شد', 'error');
+  }
+  if (shouldReload) {
+    await loadQuestions();
+  }
+}
+
+async function loadQuestions(overrides = {}) {
+  try {
+    if (overrides && typeof overrides === 'object') {
+      if (Object.prototype.hasOwnProperty.call(overrides, 'category')) {
+        questionFilters.category = overrides.category || '';
+      }
+      if (Object.prototype.hasOwnProperty.call(overrides, 'difficulty')) {
+        questionFilters.difficulty = overrides.difficulty || '';
+      }
+      if (Object.prototype.hasOwnProperty.call(overrides, 'search')) {
+        questionFilters.search = (overrides.search || '').trim();
+      }
+    }
+
+    const params = new URLSearchParams({ limit: '50' });
+    if (questionFilters.category) params.append('category', questionFilters.category);
+    if (questionFilters.difficulty) params.append('difficulty', questionFilters.difficulty);
+    if (questionFilters.search) params.append('q', questionFilters.search);
+
+    const response = await api(`/questions?${params.toString()}`);
     const tbody = $('#questions-tbody');
     questionsCache.clear();
     if (!response.data?.length) {
@@ -486,6 +551,31 @@ async function loadUsers() {
   } catch (e) { showToast('مشکل در دریافت کاربران','error'); }
 }
 
+if (filterCategorySelect) {
+  filterCategorySelect.addEventListener('change', () => {
+    if (!getToken()) return;
+    loadQuestions({ category: filterCategorySelect.value || '' });
+  });
+}
+
+if (filterDifficultySelect) {
+  filterDifficultySelect.addEventListener('change', () => {
+    if (!getToken()) return;
+    loadQuestions({ difficulty: filterDifficultySelect.value || '' });
+  });
+}
+
+if (filterSearchInput) {
+  filterSearchInput.addEventListener('input', () => {
+    if (!getToken()) return;
+    const value = filterSearchInput.value || '';
+    clearTimeout(filterSearchDebounce);
+    filterSearchDebounce = setTimeout(() => {
+      loadQuestions({ search: value });
+    }, 300);
+  });
+}
+
 // --------------- CREATE handlers ---------------
 $('#save-question-btn').addEventListener('click', async () => {
   const m = $('#add-question-modal');
@@ -527,6 +617,7 @@ $('#save-category-btn').addEventListener('click', async () => {
     await api('/categories', { method:'POST', body: JSON.stringify({ name, description:desc, icon, color }) });
     showToast('دسته‌بندی ذخیره شد','success');
     closeModal('#add-category-modal');
+    await loadCategoryFilterOptions(true);
   } catch (e) { showToast(e.message,'error'); }
 });
 
@@ -562,7 +653,11 @@ $('#save-achievement-btn').addEventListener('click', async () => {
 
 // --------------- INIT ---------------
 async function loadAllData() {
-  await Promise.all([loadQuestions(), loadUsers()]);
+  await Promise.all([
+    loadCategoryFilterOptions(),
+    loadQuestions(),
+    loadUsers()
+  ]);
 }
 
 // شبیه‌سازی کارت‌های داشبورد قبلی (آپدیت زمان‌دار)
