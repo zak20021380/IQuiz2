@@ -352,6 +352,40 @@
     .answer-pill i {
       color: #fbbf24;
     }
+    .option-row {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 18px;
+      padding: 0.85rem 1rem;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .option-row:hover {
+      border-color: rgba(148, 163, 184, 0.38);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.35);
+    }
+    .option-row.selected {
+      border-color: rgba(250, 204, 21, 0.55);
+      background: linear-gradient(135deg, rgba(250, 204, 21, 0.12), rgba(253, 224, 71, 0.08));
+      box-shadow: 0 16px 34px rgba(250, 204, 21, 0.18);
+    }
+    .option-row input[type="radio"] {
+      width: 1.1rem;
+      height: 1.1rem;
+      accent-color: #facc15;
+      margin-top: 0.35rem;
+    }
+    .option-row input[type="text"] {
+      cursor: text;
+    }
+    .option-row .selected-indicator {
+      display: none;
+    }
+    .option-row.selected .selected-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
     .table-questions .actions {
       display: flex;
       align-items: center;
@@ -374,6 +408,11 @@
       color: #60a5fa;
       border-color: rgba(96, 165, 250, 0.4);
       background: rgba(96, 165, 250, 0.15);
+    }
+    .action-btn.view {
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.45);
+      background: rgba(56, 189, 248, 0.16);
     }
     .action-btn.delete {
       color: #f87171;
@@ -1000,8 +1039,8 @@
                     <div class="answer-pill" title="کانبرا"><i class="fas fa-lightbulb"></i><span>کانبرا</span></div>
                   </td>
                   <td data-label="عملیات" class="actions">
-                    <button class="action-btn edit"><i class="fas fa-edit"></i></button>
-                    <button class="action-btn delete"><i class="fas fa-trash"></i></button>
+                    <button class="action-btn view" title="مشاهده و ویرایش"><i class="fas fa-eye"></i></button>
+                    <button class="action-btn delete" title="حذف سوال"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>
                 <tr>
@@ -1018,8 +1057,8 @@
                     <div class="answer-pill" title="سیاره مشتری"><i class="fas fa-lightbulb"></i><span>سیاره مشتری</span></div>
                   </td>
                   <td data-label="عملیات" class="actions">
-                    <button class="action-btn edit"><i class="fas fa-edit"></i></button>
-                    <button class="action-btn delete"><i class="fas fa-trash"></i></button>
+                    <button class="action-btn view" title="مشاهده و ویرایش"><i class="fas fa-eye"></i></button>
+                    <button class="action-btn delete" title="حذف سوال"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>
                 <tr>
@@ -1036,8 +1075,8 @@
                     <div class="answer-pill" title="رود نیل"><i class="fas fa-lightbulb"></i><span>رود نیل</span></div>
                   </td>
                   <td data-label="عملیات" class="actions">
-                    <button class="action-btn edit"><i class="fas fa-edit"></i></button>
-                    <button class="action-btn delete"><i class="fas fa-trash"></i></button>
+                    <button class="action-btn view" title="مشاهده و ویرایش"><i class="fas fa-eye"></i></button>
+                    <button class="action-btn delete" title="حذف سوال"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>
               </tbody>
@@ -1917,6 +1956,66 @@
 
   <!-- Modals -->
   <!-- Add Question Modal -->
+  <!-- Question Detail Modal -->
+  <div id="question-detail-modal" class="modal">
+    <div class="glass rounded-3xl max-w-2xl w-full mx-4 modal-content max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+      <div class="p-6 pb-4 border-b border-white/10 flex items-start justify-between gap-4">
+        <div class="space-y-3">
+          <div class="text-xs text-white/60 font-semibold" data-question-id>#------</div>
+          <h3 class="text-2xl font-extrabold leading-snug" data-question-title>جزئیات سوال</h3>
+          <div class="flex flex-wrap gap-2" data-question-meta></div>
+        </div>
+        <button type="button" class="close-modal w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all duration-300 shrink-0">
+          <i class="fas fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="px-6 py-5 overflow-y-auto flex-1" id="question-detail-scroll">
+        <form id="question-detail-form" class="space-y-6">
+          <div class="flex flex-wrap gap-4 text-xs text-white/70">
+            <div class="flex items-center gap-2">
+              <i class="fas fa-clock text-white/50"></i>
+              <span>ایجاد:</span>
+              <span data-question-created>--</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <i class="fas fa-rotate text-white/50"></i>
+              <span>آخرین بروزرسانی:</span>
+              <span data-question-updated>--</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm mb-2 font-semibold text-white/80">متن کامل سوال</label>
+            <textarea name="question-text" class="form-input min-h-[140px] text-sm leading-relaxed" placeholder="متن سوال را وارد کنید..."></textarea>
+          </div>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="block text-sm font-semibold text-white/80">گزینه‌ها</label>
+              <span class="text-xs text-white/60">با انتخاب هر سطر پاسخ صحیح را مشخص کنید</span>
+            </div>
+            <div id="question-options-wrapper" class="space-y-3"></div>
+          </div>
+          <div class="glass-dark rounded-2xl border border-white/5 px-4 py-3 flex items-center justify-between text-sm text-white/80">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-md"></span>
+              <span>پاسخ صحیح انتخاب‌شده</span>
+            </div>
+            <span id="question-correct-preview" class="font-bold text-amber-300 text-right leading-relaxed">---</span>
+          </div>
+        </form>
+      </div>
+      <div class="p-6 pt-4 border-t border-white/10 flex flex-col sm:flex-row gap-3">
+        <button type="button" class="btn btn-secondary close-modal">
+          <i class="fas fa-arrow-right"></i>
+          <span>بستن</span>
+        </button>
+        <button type="button" id="update-question-btn" class="btn btn-primary">
+          <i class="fas fa-save"></i>
+          <span>ذخیره تغییرات</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="add-question-modal" class="modal">
     <div class="glass rounded-3xl p-6 max-w-2xl w-full mx-4 modal-content">
       <div class="flex items-center justify-between mb-4">
