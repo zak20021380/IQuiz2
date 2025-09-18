@@ -188,6 +188,10 @@
     .modal.active .modal-content {
       transform: translateY(0);
     }
+    #question-detail-modal .modal-body {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
     .toast {
       position: fixed;
       top: 20px;
@@ -608,6 +612,71 @@
       }
       .grid-cols-4 {
         grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 640px) {
+      #question-detail-modal {
+        padding: 0;
+        align-items: stretch;
+        justify-content: flex-start;
+      }
+      #question-detail-modal .modal-content {
+        border-radius: 0;
+        max-width: none;
+        width: 100%;
+        margin: 0;
+        height: 100%;
+        max-height: none;
+        box-shadow: none;
+      }
+      #question-detail-modal .modal-header,
+      #question-detail-modal .modal-actions,
+      #question-detail-modal .modal-body {
+        padding-right: 1.25rem;
+        padding-left: 1.25rem;
+      }
+      #question-detail-modal .modal-header {
+        padding-top: calc(1.25rem + env(safe-area-inset-top));
+        padding-bottom: 1rem;
+        background: rgba(15, 23, 42, 0.96);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      #question-detail-modal .modal-body {
+        padding-top: 1rem;
+        padding-bottom: 2rem;
+      }
+      #question-detail-modal .modal-actions {
+        padding-top: 1rem;
+        padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+        gap: 0.75rem;
+        background: rgba(15, 23, 42, 0.96);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      #question-detail-modal .modal-actions .btn {
+        width: 100%;
+      }
+      #question-detail-modal h3[data-question-title] {
+        font-size: 1.35rem;
+        line-height: 1.6;
+      }
+      #question-detail-modal [data-question-meta] {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.5rem;
+      }
+      #question-detail-modal [data-question-meta] .meta-chip {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      #question-detail-modal .option-row {
+        padding: 0.75rem 0.9rem;
+      }
+      #question-detail-modal .option-row > .flex {
+        gap: 0.75rem;
       }
     }
     /* Custom scrollbar */
@@ -1959,7 +2028,7 @@
   <!-- Question Detail Modal -->
   <div id="question-detail-modal" class="modal">
     <div class="glass rounded-3xl max-w-2xl w-full mx-4 modal-content max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-      <div class="p-6 pb-4 border-b border-white/10 flex items-start justify-between gap-4">
+      <div class="p-6 pb-4 border-b border-white/10 flex items-start justify-between gap-4 modal-header">
         <div class="space-y-3">
           <div class="text-xs text-white/60 font-semibold" data-question-id>#------</div>
           <h3 class="text-2xl font-extrabold leading-snug" data-question-title>جزئیات سوال</h3>
@@ -1969,7 +2038,7 @@
           <i class="fas fa-xmark text-lg"></i>
         </button>
       </div>
-      <div class="px-6 py-5 overflow-y-auto flex-1" id="question-detail-scroll">
+      <div class="px-6 py-5 overflow-y-auto flex-1 modal-body" id="question-detail-scroll">
         <form id="question-detail-form" class="space-y-6">
           <div class="flex flex-wrap gap-4 text-xs text-white/70">
             <div class="flex items-center gap-2">
@@ -2003,7 +2072,7 @@
           </div>
         </form>
       </div>
-      <div class="p-6 pt-4 border-t border-white/10 flex flex-col sm:flex-row gap-3">
+      <div class="p-6 pt-4 border-t border-white/10 flex flex-col sm:flex-row gap-3 modal-actions safe">
         <button type="button" class="btn btn-secondary close-modal">
           <i class="fas fa-arrow-right"></i>
           <span>بستن</span>
