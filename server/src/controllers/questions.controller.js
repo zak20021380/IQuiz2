@@ -31,7 +31,7 @@ exports.list = async (req, res, next) => {
     if (q) where.text = { $regex: q, $options: 'i' };
     if (category) where.category = category;
     if (difficulty) where.difficulty = difficulty;
-    if (source && ['manual', 'opentdb'].includes(source)) where.source = source;
+    if (source && ['manual', 'opentdb', 'the-trivia-api'].includes(source)) where.source = source;
 
     const normalizedSort = typeof sort === 'string' ? sort.toLowerCase() : 'newest';
     const sortOption = normalizedSort === 'oldest'

@@ -5,6 +5,7 @@ const DEFAULT_NODE_ENV = 'development';
 const DEFAULT_MONGO_URI = 'mongodb://localhost:27017/iquiz';
 const DEFAULT_TRIVIA_URL = 'https://opentdb.com/api.php?amount=20&type=multiple';
 const DEFAULT_TRIVIA_INTERVAL = 5000;
+const DEFAULT_THE_TRIVIA_URL = 'https://the-trivia-api.com/v2/questions?limit=20';
 const DEFAULT_MONGO_MAX_POOL = 10;
 
 const truthyValues = new Set(['true', '1', 'yes', 'y', 'on']);
@@ -51,6 +52,7 @@ const pollerIntervalMs = parseNumber(process.env.TRIVIA_POLLER_INTERVAL_MS, DEFA
 const pollerMaxRunsCandidate = parseNumber(process.env.TRIVIA_POLLER_MAX_RUNS, 0, { min: 0 });
 const pollerMaxRuns = pollerMaxRunsCandidate > 0 ? Math.floor(pollerMaxRunsCandidate) : null;
 const triviaUrl = process.env.TRIVIA_URL || DEFAULT_TRIVIA_URL;
+const theTriviaUrl = process.env.THETRIVIA_URL || DEFAULT_THE_TRIVIA_URL;
 const port = parseNumber(process.env.PORT, DEFAULT_PORT, { min: 1 });
 const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 
@@ -66,7 +68,8 @@ const env = {
     enablePoller: enableTriviaPoller,
     pollerIntervalMs,
     pollerMaxRuns,
-    url: triviaUrl
+    url: triviaUrl,
+    theTriviaUrl
   },
   cors: {
     allowedOrigins
