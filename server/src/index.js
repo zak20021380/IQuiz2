@@ -22,12 +22,17 @@ const app = express();
 
 // ───────────────── Security & parsers
 // CSP کامل برای Tailwind CDN، Google Fonts، cdnjs و آواتار نمونه
+// یادآوری: برای اینکه HTML استاتیک (که اسکریپت‌های درون‌خطی دارد) درست کار کند، باید
+// علاوه بر script-src، دستورهای script-src-elem و script-src-attr را هم بازتعریف کنیم؛
+// در غیر اینصورت Helmet برای آن‌ها مقدار «'none'» قرار می‌دهد و اجرای اسکریپت‌ها متوقف می‌شود.
 app.use(helmet({
   contentSecurityPolicy: {
     useDefaults: true,
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com", "data:"],
       imgSrc: ["'self'", "data:", "https://i.pravatar.cc"],
