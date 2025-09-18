@@ -1412,9 +1412,19 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div id="trivia-provider-card" class="glass-dark rounded-2xl p-4 border border-white/5 lg:col-span-2 space-y-4">
+                <div>
+                  <label class="block text-sm font-semibold text-white/80">انتخاب منبع سوالات</label>
+                  <p id="trivia-provider-info" class="text-xs text-white/60 mt-1">
+                    پیش‌فرض: OpenTDB – برای تغییر منبع سوالات، یکی از گزینه‌های زیر را انتخاب کنید.
+                  </p>
+                </div>
+                <div id="trivia-provider-options" class="flex flex-wrap gap-2"></div>
+              </div>
+
               <div class="glass-dark rounded-2xl p-4 border border-white/5">
                 <label for="trivia-amount-range" class="block text-sm font-semibold text-white/80">تعداد کل سوالات درخواستی</label>
-                <p class="text-xs text-white/60 mt-1">محدوده پیشنهادی بین ۵ تا ۵۰ سوال در هر درخواست است. در صورت انتخاب دسته‌های متعدد تعداد به صورت هوشمند تقسیم می‌شود.</p>
+                <p id="trivia-amount-helper" class="text-xs text-white/60 mt-1">محدوده پیشنهادی بین ۵ تا ۵۰ سوال در هر درخواست است. در صورت انتخاب دسته‌های متعدد تعداد به صورت هوشمند تقسیم می‌شود.</p>
                 <div class="flex items-center gap-4 mt-4">
                   <input id="trivia-amount-range" type="range" min="5" max="50" value="20" class="flex-1 accent-sky-400" />
                   <div class="flex items-center gap-2">
@@ -1444,11 +1454,11 @@
               </div>
             </div>
 
-            <div class="glass-dark rounded-2xl p-5 border border-white/5">
+            <div id="trivia-category-card" class="glass-dark rounded-2xl p-5 border border-white/5">
               <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                  <label class="block text-sm font-semibold text-white/80">انتخاب دسته‌بندی‌های OpenTDB</label>
-                  <p class="text-xs text-white/60 mt-1">حداکثر دسته‌های مورد نیاز خود را انتخاب کنید؛ در صورت عدم انتخاب، سوالات عمومی دریافت می‌شود.</p>
+                  <label id="trivia-category-title" class="block text-sm font-semibold text-white/80">انتخاب دسته‌بندی‌های OpenTDB</label>
+                  <p id="trivia-category-description" class="text-xs text-white/60 mt-1">حداکثر دسته‌های مورد نیاز خود را انتخاب کنید؛ در صورت عدم انتخاب، سوالات عمومی دریافت می‌شود.</p>
                 </div>
               </div>
               <div class="relative mt-4">
