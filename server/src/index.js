@@ -14,10 +14,10 @@ const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const errorHandler = require('./middleware/error');
 const triviaRoutes = require('./routes/trivia');
+const { startTriviaPoller } = require('./services/triviaImporter');
 
 // init
 const app = express();
-connectDB();
 
 // ───────────────── Security & parsers
 // CSP کامل برای Tailwind CDN، Google Fonts، cdnjs و آواتار نمونه
@@ -92,15 +92,53 @@ app.use('/api/trivia', triviaRoutes);
 app.use(errorHandler);
 
 // ───────────────── Start
-const port = process.env.PORT || 4000;
-const server = app.listen(port, () => logger.info(`🚀 API running on http://localhost:${port}`));
+let server;
+let triviaPollerInstance;
+
+const startApp = async () => {
+  await connectDB();
+
+  const shouldStartPoller = (process.env.ENABLE_TRIVIA_POLLER || '').toLowerCase() === 'true';
+  if (shouldStartPoller) {
+    const pollerOptions = {};
+
+    const intervalValue = Number(process.env.TRIVIA_POLLER_INTERVAL_MS);
+    if (Number.isFinite(intervalValue) && intervalValue > 0) {
+      pollerOptions.intervalMs = intervalValue;
+    }
+
+    const maxRunsValue = Number(process.env.TRIVIA_POLLER_MAX_RUNS);
+    if (Number.isFinite(maxRunsValue) && maxRunsValue > 0) {
+      pollerOptions.maxRuns = Math.floor(maxRunsValue);
+    }
+
+    triviaPollerInstance = startTriviaPoller(pollerOptions);
+  }
+
+  const port = process.env.PORT || 4000;
+  server = app.listen(port, () => logger.info(`🚀 API running on http://localhost:${port}`));
+};
+
+startApp().catch(err => {
+  logger.error(`Failed to start application: ${err.message}`, err);
+  process.exit(1);
+});
 
 const shutdown = () => {
   logger.info('Shutting down...');
-  server.close(() => {
-    logger.info('HTTP server closed');
+
+  if (triviaPollerInstance) {
+    triviaPollerInstance.stop();
+  }
+
+  if (server) {
+    server.close(() => {
+      logger.info('HTTP server closed');
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 };
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
