@@ -3300,9 +3300,10 @@ function openCreateGroup(){
     closeSheet();
     navTo('duel');
   });
-  document.getElementById('range-count')?.addEventListener('input', e=>{
-    document.getElementById('setup-count')?.textContent = faNum(e.target.value);
-  });
+    document.getElementById('range-count')?.addEventListener('input', e=>{
+      var setupCountEl = document.getElementById('setup-count');
+      if (setupCountEl) setupCountEl.textContent = faNum(e.target.value);
+    });
 
 async function startQuizFromAdmin(arg) {
   // اگر از روی فرم صدا زده شده باشد
