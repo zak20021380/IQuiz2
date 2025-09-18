@@ -3,6 +3,53 @@ const { fetchWithRetry } = require('../lib/http');
 
 const OPENTDB_CATEGORY_ENDPOINT = 'https://opentdb.com/api_category.php';
 
+const TRIVIA_PROVIDERS = [
+  {
+    id: 'opentdb',
+    name: 'Open Trivia Database',
+    shortName: 'OpenTDB',
+    description: 'بانک سوالات عمومی با دسته‌بندی‌های متنوع و پشتیبانی از محدودسازی سطح دشواری.',
+    capabilities: {
+      amount: { min: 1, max: 200, default: 20 },
+      categories: { selectable: true, remote: true },
+      difficulties: { selectable: true, multiple: true },
+      breakdown: true
+    }
+  },
+  {
+    id: 'the-trivia-api',
+    name: 'The Trivia API',
+    shortName: 'The Trivia API',
+    description: 'مجموعه‌ای از سوالات انگلیسی با تنوع بالا و داده‌های ساخت‌یافته برای توسعه‌دهندگان.',
+    capabilities: {
+      amount: { min: 1, max: 50, default: 20 },
+      categories: { selectable: false, remote: false },
+      difficulties: { selectable: true, multiple: true },
+      breakdown: true
+    }
+  }
+];
+
+function normalizeProviderId(value) {
+  if (!value) return '';
+  return String(value).trim().toLowerCase();
+}
+
+function listTriviaProviders() {
+  return TRIVIA_PROVIDERS.map((provider) => ({
+    id: provider.id,
+    name: provider.name,
+    shortName: provider.shortName,
+    description: provider.description,
+    capabilities: provider.capabilities
+  }));
+}
+
+function getTriviaProviderById(id) {
+  const normalized = normalizeProviderId(id);
+  return TRIVIA_PROVIDERS.find((provider) => provider.id === normalized) || null;
+}
+
 function normalizeCategory(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const id = Number.parseInt(raw.id, 10);
@@ -60,5 +107,8 @@ async function fetchOpenTdbCategories() {
 }
 
 module.exports = {
+  listTriviaProviders,
+  getTriviaProviderById,
   fetchOpenTdbCategories,
+  normalizeProviderId,
 };
