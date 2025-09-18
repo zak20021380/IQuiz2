@@ -2054,6 +2054,108 @@ function patchPricingKeys(RemoteConfig){
 // ⚡️ بلافاصله بعد از تعریف RemoteConfig صدا بزن:
 patchPricingKeys(RemoteConfig);
 
+  const DEFAULT_DIFFS = [
+    { value: 'easy', label: 'آسان' },
+    { value: 'medium', label: 'متوسط' },
+    { value: 'hard', label: 'سخت' }
+  ];
+
+  function normalizeDifficultyLabel(raw){
+    if (raw == null) return null;
+    let txt = '';
+    if (typeof raw === 'string' || typeof raw === 'number') {
+      txt = String(raw);
+    } else if (typeof raw === 'object') {
+      if (Array.isArray(raw)) {
+        txt = raw.join(',');
+      } else if ('label' in raw && raw.label) {
+        txt = raw.label;
+      } else if ('title' in raw && raw.title) {
+        txt = raw.title;
+      } else if ('name' in raw && raw.name) {
+        txt = raw.name;
+      } else if ('value' in raw && raw.value) {
+        txt = raw.value;
+      } else {
+        const truthyKeys = Object.keys(raw).filter(k => raw[k] === true);
+        if (truthyKeys.length) txt = truthyKeys.join(',');
+      }
+    }
+
+    txt = (txt || '').trim();
+    if (!txt) return null;
+
+    const map = {
+      'easy':'آسان',
+      'medium':'متوسط',
+      'normal':'متوسط',
+      'hard':'سخت',
+      'difficult':'سخت',
+      'harder':'سخت',
+      'hardest':'سخت',
+      'beginner':'مبتدی',
+      'advanced':'پیشرفته'
+    };
+    const key = txt.toLowerCase();
+    return map[key] || txt;
+  }
+
+  function extractDifficultyList(src){
+    const seen = new Set();
+    const result = [];
+
+    const add = (valueRaw, labelRaw)=>{
+      let value = (valueRaw == null ? '' : String(valueRaw)).trim();
+      let label = normalizeDifficultyLabel(labelRaw != null ? labelRaw : valueRaw);
+      if (!label && value) label = normalizeDifficultyLabel(value) || value;
+      if (!value && label) value = String(label).trim();
+      if (!value) return;
+      const key = value.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      result.push({ value, label: label || value });
+    };
+
+    const handle = (item)=>{
+      if (item == null) return;
+      if (Array.isArray(item)) {
+        item.forEach(handle);
+        return;
+      }
+      if (typeof item === 'string' || typeof item === 'number') {
+        const parts = String(item).split(/[،,|/\\]+/);
+        parts.forEach(part=>{
+          const trimmed = part.trim();
+          if (trimmed) add(trimmed, trimmed);
+        });
+        return;
+      }
+      if (typeof item === 'object') {
+        if (Array.isArray(item.values)) {
+          item.values.forEach(handle);
+          return;
+        }
+        if (Array.isArray(item.options)) {
+          item.options.forEach(handle);
+          return;
+        }
+        if ('value' in item || 'label' in item || 'title' in item || 'name' in item || 'id' in item) {
+          const valueRaw = item.value ?? item.id ?? item.name ?? item.title ?? item.label;
+          const labelRaw = item.label ?? item.title ?? item.name ?? item.value ?? valueRaw;
+          add(valueRaw, labelRaw);
+          return;
+        }
+        const truthyKeys = Object.keys(item).filter(k => item[k] === true);
+        if (truthyKeys.length) {
+          truthyKeys.forEach(key => add(key, key));
+        }
+      }
+    };
+
+    handle(src);
+    return result;
+  }
+
   /* === Admin-sourced state === */
   const Admin = { categories: [], diffs: [] };
 
@@ -2069,9 +2171,29 @@ patchPricingKeys(RemoteConfig);
       patchPricingKeys(RemoteConfig);
     }
 
-    Admin.categories = Array.isArray(catList) ? catList.filter(c=>c?.isActive!==false) : [];
-    Admin.diffs = [...new Set(Admin.categories.map(c=>c?.difficulty).filter(Boolean))];
-    if (Admin.diffs.length===0) Admin.diffs = ['آسان','متوسط','سخت'];
+    const rawCategories = Array.isArray(catList) ? catList.filter(c=>c?.isActive!==false) : [];
+    Admin.categories = rawCategories.map(cat => {
+      const parsed = extractDifficultyList(cat?.difficulties ?? cat?.difficulty);
+      const diffs = (Array.isArray(parsed) && parsed.length)
+        ? parsed.map(d => ({ value: d.value, label: d.label }))
+        : DEFAULT_DIFFS.map(d => ({ value: d.value, label: d.label }));
+      return { ...cat, difficulties: diffs };
+    });
+
+    const diffMap = new Map();
+    Admin.categories.forEach(cat => {
+      if (Array.isArray(cat?.difficulties)) {
+        cat.difficulties.forEach(diff => {
+          if (!diff || diff.value == null) return;
+          const key = String(diff.value).toLowerCase();
+          if (!diffMap.has(key)) diffMap.set(key, { value: diff.value, label: diff.label });
+        });
+      }
+    });
+    if (diffMap.size === 0) {
+      DEFAULT_DIFFS.forEach(diff => diffMap.set(diff.value.toLowerCase(), { value: diff.value, label: diff.label }));
+    }
+    Admin.diffs = Array.from(diffMap.values());
 
     if (Array.isArray(provinces) && provinces.length){
       State.provinces = provinces.map(p=>({ name:p.name||p, score:p.score||0, members:p.members||0 }));
@@ -2087,7 +2209,7 @@ patchPricingKeys(RemoteConfig);
     if (!catWrap || !diffWrap) return;
 
     const categories = Array.isArray(Admin.categories) ? Admin.categories : [];
-    const difficulties = Array.isArray(Admin.diffs) ? Admin.diffs : [];
+    const fallbackDiffs = (Array.isArray(Admin.diffs) && Admin.diffs.length) ? Admin.diffs : DEFAULT_DIFFS;
 
     const firstCat = categories.find(c=>c && c.id!=null) || categories[0] || null;
     const catExists = categories.some(c=>c && c.id === State.quiz.catId);
@@ -2101,9 +2223,68 @@ patchPricingKeys(RemoteConfig);
       State.quiz.cat = '—';
     }
 
-    if(!State.quiz.diff || !difficulties.includes(State.quiz.diff)){
-      State.quiz.diff = difficulties[0] || 'آسان';
+    const diffForCat = (cat)=>{
+      if (cat && Array.isArray(cat.difficulties) && cat.difficulties.length) return cat.difficulties;
+      return fallbackDiffs;
+    };
+
+    const selectDiffOption = (opt)=>{
+      if (opt) {
+        State.quiz.diff = opt.label || opt.value || '—';
+        State.quiz.diffValue = opt.value || opt.label || null;
+      } else {
+        State.quiz.diff = '—';
+        State.quiz.diffValue = null;
+      }
+    };
+
+    const updateCatLabel = ()=>{
+      const catLabel = document.getElementById('quiz-cat');
+      if(catLabel){
+        catLabel.innerHTML = `<i class="fas fa-folder ml-1"></i> ${State.quiz.cat || '—'}`;
+      }
+    };
+
+    const updateDiffLabel = ()=>{
+      const diffLabel = document.getElementById('quiz-diff');
+      if(diffLabel){
+        diffLabel.innerHTML = `<i class="fas fa-signal ml-1"></i> ${State.quiz.diff || '—'}`;
+      }
+    };
+
+    const renderDiffButtons = (diffSource)=>{
+      const diffs = (Array.isArray(diffSource) && diffSource.length) ? diffSource : fallbackDiffs;
+      const hasSelected = diffs.some(d => (State.quiz.diffValue != null && d.value === State.quiz.diffValue) || (State.quiz.diff && d.label === State.quiz.diff));
+      if(!hasSelected){
+        const firstDiff = diffs[0] || fallbackDiffs[0] || null;
+        selectDiffOption(firstDiff);
+      }
+      diffWrap.innerHTML = '';
+      diffs.forEach((d,i)=>{
+        const btn=document.createElement('button');
+        btn.type='button';
+        btn.className='w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-sm setup-diff';
+        btn.textContent=d.label || d.value || `سطح ${i+1}`;
+        const isSelected = (State.quiz.diffValue != null && d.value === State.quiz.diffValue) || (State.quiz.diff && d.label === State.quiz.diff) || (!State.quiz.diff && i===0);
+        if(isSelected) btn.classList.add('selected-setup-item');
+        btn.addEventListener('click', ()=>{
+          $$('.setup-diff').forEach(b=>b.classList.remove('selected-setup-item'));
+          btn.classList.add('selected-setup-item');
+          selectDiffOption(d);
+          updateDiffLabel();
+        });
+        diffWrap.appendChild(btn);
+      });
+      updateDiffLabel();
+    };
+
+    const initialDiffs = diffForCat(activeCat);
+    const hasInitial = Array.isArray(initialDiffs) && initialDiffs.some(d => (State.quiz.diffValue != null && d.value === State.quiz.diffValue) || (State.quiz.diff && d.label === State.quiz.diff));
+    if(!hasInitial){
+      const first = initialDiffs[0] || fallbackDiffs[0] || null;
+      selectDiffOption(first);
     }
+    renderDiffButtons(initialDiffs);
 
     catWrap.innerHTML = '';
     categories.forEach((c,i)=>{
@@ -2119,36 +2300,13 @@ patchPricingKeys(RemoteConfig);
         btn.classList.add('selected-setup-item');
         State.quiz.catId=c.id;
         State.quiz.cat=c.title||c.name||'—';
-        document.getElementById('quiz-cat').innerHTML=`<i class="fas fa-folder ml-1"></i> ${State.quiz.cat}`;
+        renderDiffButtons(diffForCat(c));
+        updateCatLabel();
       });
       catWrap.appendChild(btn);
     });
 
-    diffWrap.innerHTML = '';
-    difficulties.forEach((d,i)=>{
-      const btn=document.createElement('button');
-      btn.type='button';
-      btn.className='w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-sm setup-diff';
-      btn.textContent=d;
-      const isSelected = (State.quiz.diff && d===State.quiz.diff) || (!State.quiz.diff && i===0);
-      if(isSelected) btn.classList.add('selected-setup-item');
-      btn.addEventListener('click', ()=>{
-        $$('.setup-diff').forEach(b=>b.classList.remove('selected-setup-item'));
-        btn.classList.add('selected-setup-item');
-        State.quiz.diff=d;
-        document.getElementById('quiz-diff').innerHTML=`<i class="fas fa-signal ml-1"></i> ${d}`;
-      });
-      diffWrap.appendChild(btn);
-    });
-
-    const catLabel = document.getElementById('quiz-cat');
-    if(catLabel){
-      catLabel.innerHTML = `<i class="fas fa-folder ml-1"></i> ${State.quiz.cat || '—'}`;
-    }
-    const diffLabel = document.getElementById('quiz-diff');
-    if(diffLabel){
-      diffLabel.innerHTML = `<i class="fas fa-signal ml-1"></i> ${State.quiz.diff || '—'}`;
-    }
+    updateCatLabel();
   }
 
   function applyConfigToUI(){
@@ -2255,12 +2413,14 @@ patchPricingKeys(RemoteConfig);
   const Api = {
     async config(){ return await Net.jget(`${API_BASE}/config`); },
     async categories(){ return await Net.jget(`${API_BASE}/categories`); },
-    async questions({ categoryId, count, difficulty }){
+    async questions({ categoryId, count, difficulty } = {}){
       const qs = new URLSearchParams();
       if (categoryId) qs.set('categoryId', categoryId);
       if (count) qs.set('count', count);
       if (difficulty) qs.set('difficulty', difficulty);
-      return await Net.jget(`${API_BASE}/questions?${qs.toString()}`);
+      const query = qs.toString();
+      const url = query ? `${API_BASE}/questions?${query}` : `${API_BASE}/questions`;
+      return await Net.jget(url);
     },
     async provinces(){ return await Net.jget(`${API_BASE}/provinces`); }
   };
@@ -2307,7 +2467,7 @@ patchPricingKeys(RemoteConfig);
     quiz:{
       inProgress:false, answered:false, correctIndex:-1,
       duration:30, remain:30, timer:null,
-      list:[], idx:0, cat:'عمومی', diff:'آسان',
+      list:[], idx:0, cat:'عمومی', diff:'آسان', diffValue:'easy',
       sessionEarned:0, results:[]
     },
     notifications:[
@@ -2341,11 +2501,27 @@ function isUserInGroup() {
   const LIFELINE_COST = 3;
   const TIMER_CIRC = 2 * Math.PI * 64;
   
-  function loadState(){ 
-    try{ 
-      const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); 
-      if(s) Object.assign(State,s); 
-      
+  function loadState(){
+    try{
+      const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+      if(s) Object.assign(State,s);
+      if (!State.quiz) State.quiz = {};
+      if (State.quiz.diffValue == null) {
+        const label = State.quiz.diff;
+        if (typeof label === 'string') {
+          const lower = label.toLowerCase();
+          if (label.indexOf('سخت') >= 0 || lower === 'hard') {
+            State.quiz.diffValue = 'hard';
+          } else if (label.indexOf('متوسط') >= 0 || lower === 'medium' || lower === 'normal') {
+            State.quiz.diffValue = 'medium';
+          } else {
+            State.quiz.diffValue = 'easy';
+          }
+        } else {
+          State.quiz.diffValue = 'easy';
+        }
+      }
+
       // Load server state if available
       const serverState = JSON.parse(localStorage.getItem('server_state') || '{}');
       if (serverState.limits) Object.assign(Server.limits, serverState.limits);
@@ -3252,18 +3428,35 @@ function openCreateGroup(){
     });
   }
   
-  function beginQuizSession({ cat, diff, questions, count, source }){
+  function beginQuizSession({ cat, diff, diffValue, questions, count, source }){
     if(!Array.isArray(questions) || questions.length===0) return false;
 
     used5050=false; usedSkip=false; usedTimeBoost=false;
     resetLifelinesUI();
 
     State.quiz.cat = cat || State.quiz.cat || '—';
-    State.quiz.diff = diff || State.quiz.diff || 'آسان';
+    if (diff != null) {
+      State.quiz.diff = diff || 'آسان';
+    } else if (!State.quiz.diff) {
+      State.quiz.diff = 'آسان';
+    }
+    if (diffValue != null) {
+      State.quiz.diffValue = diffValue;
+    } else if (State.quiz.diffValue == null && typeof State.quiz.diff === 'string') {
+      var diffLabelLower = State.quiz.diff.toLowerCase();
+      if (State.quiz.diff.indexOf('سخت') >= 0 || diffLabelLower === 'hard') {
+        State.quiz.diffValue = 'hard';
+      } else if (State.quiz.diff.indexOf('متوسط') >= 0 || diffLabelLower === 'medium' || diffLabelLower === 'normal') {
+        State.quiz.diffValue = 'medium';
+      } else {
+        State.quiz.diffValue = 'easy';
+      }
+    }
     State.quiz.list = questions.map(q=>({
       ...q,
       cat: State.quiz.cat,
-      diff: State.quiz.diff
+      diff: State.quiz.diff,
+      diffValue: State.quiz.diffValue
     }));
     State.quiz.idx = 0;
     State.quiz.sessionEarned = 0;
@@ -3287,6 +3480,7 @@ function openCreateGroup(){
     logEvent('quiz_start', {
       category: State.quiz.cat,
       difficulty: State.quiz.diff,
+      difficulty_value: State.quiz.diffValue,
       questionCount: count || State.quiz.list.length,
       source
     });
@@ -3327,16 +3521,77 @@ async function startQuizFromAdmin(arg) {
   var stateCatId = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.catId : undefined;
   var categoryId = (opts.categoryId != null ? opts.categoryId : (stateCatId != null ? stateCatId : firstCatId));
 
-  // difficulty
-  var firstDiff = (typeof Admin !== 'undefined' && Admin && Admin.diffs && Admin.diffs.length > 0)
-    ? Admin.diffs[0]
-    : undefined;
-  var stateDiff = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.diff : undefined;
-  var difficulty = (opts.difficulty != null ? opts.difficulty : (stateDiff != null ? stateDiff : firstDiff));
+  if (!categoryId) {
+    if (typeof toast === 'function') toast('دسته‌ای یافت نشد.');
+    return false;
+  }
 
-  if (!categoryId) { 
-    if (typeof toast === 'function') toast('دسته‌ای یافت نشد.'); 
-    return false; 
+  var catObj = null;
+  if (typeof Admin !== 'undefined' && Admin && Array.isArray(Admin.categories)) {
+    for (var ci = 0; ci < Admin.categories.length; ci++) {
+      var candidate = Admin.categories[ci];
+      if (candidate && candidate.id === categoryId) { catObj = candidate; break; }
+    }
+  }
+
+  var diffPool;
+  if (catObj && Array.isArray(catObj.difficulties) && catObj.difficulties.length) {
+    diffPool = catObj.difficulties;
+  } else if (typeof Admin !== 'undefined' && Admin && Array.isArray(Admin.diffs) && Admin.diffs.length) {
+    diffPool = Admin.diffs;
+  } else {
+    diffPool = DEFAULT_DIFFS;
+  }
+
+  var selectedDiff = null;
+  var requestedDiff = opts.difficulty;
+  var stateDiffValue = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.diffValue : undefined;
+  var stateDiffLabel = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.diff : undefined;
+
+  if (requestedDiff != null) {
+    for (var rd = 0; rd < diffPool.length; rd++) {
+      var diffOpt = diffPool[rd];
+      if (diffOpt && (diffOpt.value === requestedDiff || diffOpt.label === requestedDiff)) { selectedDiff = diffOpt; break; }
+    }
+  }
+
+  if (!selectedDiff && stateDiffValue != null) {
+    for (var sdv = 0; sdv < diffPool.length; sdv++) {
+      var diffOpt2 = diffPool[sdv];
+      if (diffOpt2 && diffOpt2.value === stateDiffValue) { selectedDiff = diffOpt2; break; }
+    }
+  }
+
+  if (!selectedDiff && stateDiffLabel != null) {
+    for (var sdl = 0; sdl < diffPool.length; sdl++) {
+      var diffOpt3 = diffPool[sdl];
+      if (diffOpt3 && diffOpt3.label === stateDiffLabel) { selectedDiff = diffOpt3; break; }
+    }
+  }
+
+  if (!selectedDiff) {
+    for (var mid = 0; mid < diffPool.length; mid++) {
+      var diffOpt4 = diffPool[mid];
+      if (!diffOpt4) continue;
+      var valLower = (diffOpt4.value || '').toString().toLowerCase();
+      var labelLower = (diffOpt4.label || '').toString().toLowerCase();
+      if (valLower === 'medium' || valLower === 'normal' || labelLower.indexOf('متوسط') >= 0 || labelLower.indexOf('medium') >= 0 || labelLower.indexOf('normal') >= 0) {
+        selectedDiff = diffOpt4;
+        break;
+      }
+    }
+  }
+
+  if (!selectedDiff && diffPool.length) selectedDiff = diffPool[0];
+  if (!selectedDiff && typeof Admin !== 'undefined' && Admin && Array.isArray(Admin.diffs) && Admin.diffs.length) selectedDiff = Admin.diffs[0];
+  if (!selectedDiff && DEFAULT_DIFFS.length) selectedDiff = DEFAULT_DIFFS[0];
+
+  var difficultyValue = selectedDiff ? selectedDiff.value : undefined;
+  var difficultyLabel = selectedDiff ? (selectedDiff.label || selectedDiff.value) : undefined;
+
+  if (typeof State !== 'undefined' && State && State.quiz && selectedDiff) {
+    State.quiz.diffValue = difficultyValue;
+    State.quiz.diff = difficultyLabel || State.quiz.diff || '—';
   }
 
   var startBtn = (typeof document !== 'undefined') ? document.getElementById('setup-start') : null;
@@ -3346,7 +3601,7 @@ async function startQuizFromAdmin(arg) {
   try {
     var list = [];
     if (typeof Api !== 'undefined' && Api && typeof Api.questions === 'function') {
-      list = await Api.questions({ categoryId: categoryId, count: count, difficulty: difficulty }) || [];
+      list = await Api.questions({ categoryId: categoryId, count: count, difficulty: difficultyValue }) || [];
     }
 
     if (!Array.isArray(list) || list.length === 0) {
@@ -3409,11 +3664,12 @@ async function startQuizFromAdmin(arg) {
       return false;
     }
 
-    var catObj = (typeof Admin !== 'undefined' && Admin && Admin.categories)
-      ? (Admin.categories.filter(function(c){ return c && c.id === categoryId; })[0] || {})
-      : {};
+    var fallbackCat = (typeof Admin !== 'undefined' && Admin && Array.isArray(Admin.categories) && Admin.categories.length > 0)
+      ? Admin.categories[0]
+      : null;
+    var catMeta = catObj || fallbackCat || {};
     var stateQuizCat = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.cat : undefined;
-    var catTitle = (opts.cat != null ? opts.cat : (catObj.title || catObj.name || stateQuizCat || '—'));
+    var catTitle = (opts.cat != null ? opts.cat : (catMeta.title || catMeta.name || stateQuizCat || '—'));
 
     if (typeof State !== 'undefined' && State && State.quiz) {
       State.quiz.catId = categoryId;
@@ -3423,7 +3679,8 @@ async function startQuizFromAdmin(arg) {
     if (typeof beginQuizSession === 'function') {
       started = beginQuizSession({
         cat: catTitle,
-        diff: difficulty,
+        diff: difficultyLabel,
+        diffValue: difficultyValue,
         questions: normalized,
         count: count,
         source: (opts.source != null ? opts.source : 'setup')
@@ -3591,9 +3848,58 @@ async function startQuizFromAdmin(arg) {
   
   async function startDaily(){
     State.lives = Math.max(State.lives, 1);
-    const preferredDiff = State.quiz.diff || Admin.diffs.find(d=>/متوسط/i.test(d)) || Admin.diffs[0] || 'متوسط';
-    const categoryId = State.quiz.catId || Admin.categories[0]?.id;
-    await startQuizFromAdmin({ count:5, difficulty: preferredDiff, categoryId, source:'daily' });
+    var categoryId = State.quiz.catId;
+    if (categoryId == null && Array.isArray(Admin.categories) && Admin.categories.length > 0) {
+      categoryId = Admin.categories[0].id;
+    }
+
+    var catObj = null;
+    if (Array.isArray(Admin.categories)) {
+      for (var ci = 0; ci < Admin.categories.length; ci++) {
+        var catItem = Admin.categories[ci];
+        if (catItem && catItem.id === categoryId) { catObj = catItem; break; }
+      }
+    }
+
+    var diffPool;
+    if (catObj && Array.isArray(catObj.difficulties) && catObj.difficulties.length) {
+      diffPool = catObj.difficulties;
+    } else if (Array.isArray(Admin.diffs) && Admin.diffs.length) {
+      diffPool = Admin.diffs;
+    } else {
+      diffPool = DEFAULT_DIFFS;
+    }
+
+    var preferred = null;
+    if (State.quiz.diffValue != null) {
+      for (var pd = 0; pd < diffPool.length; pd++) {
+        var diffOpt = diffPool[pd];
+        if (diffOpt && diffOpt.value === State.quiz.diffValue) { preferred = diffOpt; break; }
+      }
+    }
+    if (!preferred && State.quiz.diff) {
+      for (var pdl = 0; pdl < diffPool.length; pdl++) {
+        var diffOptLabel = diffPool[pdl];
+        if (diffOptLabel && diffOptLabel.label === State.quiz.diff) { preferred = diffOptLabel; break; }
+      }
+    }
+    if (!preferred) {
+      for (var pm = 0; pm < diffPool.length; pm++) {
+        var diffOptMid = diffPool[pm];
+        if (!diffOptMid) continue;
+        var valLower = (diffOptMid.value || '').toString().toLowerCase();
+        var labelLower = (diffOptMid.label || '').toString().toLowerCase();
+        if (valLower === 'medium' || valLower === 'normal' || labelLower.indexOf('متوسط') >= 0 || labelLower.indexOf('medium') >= 0 || labelLower.indexOf('normal') >= 0) {
+          preferred = diffOptMid;
+          break;
+        }
+      }
+    }
+    if (!preferred && diffPool.length) preferred = diffPool[0];
+    if (!preferred && Array.isArray(Admin.diffs) && Admin.diffs.length) preferred = Admin.diffs[0];
+    if (!preferred && DEFAULT_DIFFS.length) preferred = DEFAULT_DIFFS[0];
+
+    await startQuizFromAdmin({ count:5, difficulty: preferred ? preferred.value : undefined, categoryId, source:'daily' });
   }
   
   // ===== Shop (legacy soft-currency), VIP button rerouted =====
@@ -4498,9 +4804,58 @@ async function startPurchaseCoins(pkgId){
     }
 
     State.duelOpponent = opponent;
-    const difficulty = State.quiz.diff || Admin.diffs.find(d=>/متوسط/i.test(d)) || Admin.diffs[0] || 'متوسط';
-    const categoryId = State.quiz.catId || Admin.categories[0]?.id;
-    const started = await startQuizFromAdmin({ count:5, difficulty, categoryId, source:'duel' });
+    var categoryId = State.quiz.catId;
+    if (categoryId == null && Array.isArray(Admin.categories) && Admin.categories.length > 0) {
+      categoryId = Admin.categories[0].id;
+    }
+
+    var catObj = null;
+    if (Array.isArray(Admin.categories)) {
+      for (var ci = 0; ci < Admin.categories.length; ci++) {
+        var catItem = Admin.categories[ci];
+        if (catItem && catItem.id === categoryId) { catObj = catItem; break; }
+      }
+    }
+
+    var diffPool;
+    if (catObj && Array.isArray(catObj.difficulties) && catObj.difficulties.length) {
+      diffPool = catObj.difficulties;
+    } else if (Array.isArray(Admin.diffs) && Admin.diffs.length) {
+      diffPool = Admin.diffs;
+    } else {
+      diffPool = DEFAULT_DIFFS;
+    }
+
+    var preferred = null;
+    if (State.quiz.diffValue != null) {
+      for (var pd = 0; pd < diffPool.length; pd++) {
+        var diffOpt = diffPool[pd];
+        if (diffOpt && diffOpt.value === State.quiz.diffValue) { preferred = diffOpt; break; }
+      }
+    }
+    if (!preferred && State.quiz.diff) {
+      for (var pdl = 0; pdl < diffPool.length; pdl++) {
+        var diffOptLabel = diffPool[pdl];
+        if (diffOptLabel && diffOptLabel.label === State.quiz.diff) { preferred = diffOptLabel; break; }
+      }
+    }
+    if (!preferred) {
+      for (var pm = 0; pm < diffPool.length; pm++) {
+        var diffOptMid = diffPool[pm];
+        if (!diffOptMid) continue;
+        var valLower = (diffOptMid.value || '').toString().toLowerCase();
+        var labelLower = (diffOptMid.label || '').toString().toLowerCase();
+        if (valLower === 'medium' || valLower === 'normal' || labelLower.indexOf('متوسط') >= 0 || labelLower.indexOf('medium') >= 0 || labelLower.indexOf('normal') >= 0) {
+          preferred = diffOptMid;
+          break;
+        }
+      }
+    }
+    if (!preferred && diffPool.length) preferred = diffPool[0];
+    if (!preferred && Array.isArray(Admin.diffs) && Admin.diffs.length) preferred = Admin.diffs[0];
+    if (!preferred && DEFAULT_DIFFS.length) preferred = DEFAULT_DIFFS[0];
+
+    const started = await startQuizFromAdmin({ count:5, difficulty: preferred ? preferred.value : undefined, categoryId, source:'duel' });
     if(!started){
       State.duelOpponent = null;
       return false;
