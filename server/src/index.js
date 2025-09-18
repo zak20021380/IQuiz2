@@ -10,11 +10,12 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const morgan = require('morgan');
 
+const env = require('./config/env');
 const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const errorHandler = require('./middleware/error');
 const triviaRoutes = require('./routes/trivia');
-const { startTriviaPoller } = require('./services/triviaImporter');
+const { startTriviaPoller } = require('./poller/triviaPoller');
 
 // init
 const app = express();
@@ -44,11 +45,10 @@ app.use(xss());
 app.use(hpp());
 
 // logging
-if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
+if (env.nodeEnv !== 'production') app.use(morgan('dev'));
 
 // cors
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',').map(s => s.trim()).filter(Boolean);
+const allowedOrigins = env.cors.allowedOrigins;
 
 app.use(cors({
   origin: (origin, cb) => {
@@ -98,25 +98,11 @@ let triviaPollerInstance;
 const startApp = async () => {
   await connectDB();
 
-  const shouldStartPoller = (process.env.ENABLE_TRIVIA_POLLER || '').toLowerCase() === 'true';
-  if (shouldStartPoller) {
-    const pollerOptions = {};
-
-    const intervalValue = Number(process.env.TRIVIA_POLLER_INTERVAL_MS);
-    if (Number.isFinite(intervalValue) && intervalValue > 0) {
-      pollerOptions.intervalMs = intervalValue;
-    }
-
-    const maxRunsValue = Number(process.env.TRIVIA_POLLER_MAX_RUNS);
-    if (Number.isFinite(maxRunsValue) && maxRunsValue > 0) {
-      pollerOptions.maxRuns = Math.floor(maxRunsValue);
-    }
-
-    triviaPollerInstance = startTriviaPoller(pollerOptions);
+  if (env.trivia.enablePoller) {
+    triviaPollerInstance = startTriviaPoller();
   }
 
-  const port = process.env.PORT || 4000;
-  server = app.listen(port, () => logger.info(`🚀 API running on http://localhost:${port}`));
+  server = app.listen(env.port, () => logger.info(`🚀 API running on http://localhost:${env.port}`));
 };
 
 startApp().catch(err => {
