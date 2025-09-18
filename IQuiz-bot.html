@@ -3304,70 +3304,149 @@ function openCreateGroup(){
     document.getElementById('setup-count')?.textContent = faNum(e.target.value);
   });
 
-  async function startQuizFromAdmin(arg){
-    if(arg instanceof Event){ arg.preventDefault(); arg = {}; }
-    const opts = arg && typeof arg === 'object' ? arg : {};
+async function startQuizFromAdmin(arg) {
+  // اگر از روی فرم صدا زده شده باشد
+  if (typeof Event !== 'undefined' && arg instanceof Event) {
+    try { arg.preventDefault(); } catch (_) {}
+    arg = null;
+  }
 
-    const rangeEl = document.getElementById('range-count');
-    const count = opts.count ?? Number(rangeEl?.value || rangeEl?.getAttribute('value') || 5) || 5;
-    const categoryId = opts.categoryId ?? State.quiz.catId ?? Admin.categories[0]?.id;
-    const difficulty = opts.difficulty ?? State.quiz.diff ?? Admin.diffs[0];
+  var opts = (arg && typeof arg === 'object') ? arg : {};
 
-    if (!categoryId){ toast('دسته‌ای یافت نشد.'); return false; }
+  var rangeEl = (typeof document !== 'undefined') ? document.getElementById('range-count') : null;
+  var rangeVal = rangeEl ? (rangeEl.value || rangeEl.getAttribute('value')) : null;
 
-    const startBtn = document.getElementById('setup-start');
-    const prevDisabled = startBtn ? startBtn.disabled : null;
-    if(startBtn) startBtn.disabled = true;
+  // count
+  var count = (opts.count != null ? Number(opts.count) : Number(rangeVal || 5)) || 5;
 
-    try{
-      const list = await Api.questions({ categoryId, count, difficulty }) || [];
-      if (!Array.isArray(list) || list.length===0){ toast('برای این دسته هنوز سوالی ثبت نشده 😕'); return false; }
+  // categoryId
+  var firstCatId = (typeof Admin !== 'undefined' && Admin && Admin.categories && Admin.categories.length > 0)
+    ? Admin.categories[0].id
+    : undefined;
+  var stateCatId = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.catId : undefined;
+  var categoryId = (opts.categoryId != null ? opts.categoryId : (stateCatId != null ? stateCatId : firstCatId));
 
-      const normalized = list.map(q=>{
-        const rawChoices = q.options || q.choices || [];
-        const choices = Array.isArray(rawChoices)
-          ? rawChoices.map(opt => {
-              const txt = typeof opt === 'string' ? opt : (opt?.text || opt?.title || opt?.value || '');
-              return (txt ?? '').toString().trim();
-            })
-          : [];
-        const answerIdx = typeof q.answerIndex === 'number' ? q.answerIndex
-          : (Array.isArray(rawChoices) ? rawChoices.findIndex(opt => opt && typeof opt === 'object' && opt.correct === true) : -1);
-        return {
-          q: (q.text || q.title || '').toString().trim(),
-          c: choices,
-          a: answerIdx
-        };
-      }).filter(x=>x.q && Array.isArray(x.c) && x.c.length >= 2 && x.c.every(Boolean) && Number.isInteger(x.a) && x.a >= 0 && x.a < x.c.length);
+  // difficulty
+  var firstDiff = (typeof Admin !== 'undefined' && Admin && Admin.diffs && Admin.diffs.length > 0)
+    ? Admin.diffs[0]
+    : undefined;
+  var stateDiff = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.diff : undefined;
+  var difficulty = (opts.difficulty != null ? opts.difficulty : (stateDiff != null ? stateDiff : firstDiff));
 
-      if(normalized.length===0){ toast('سوال معتبر برای این تنظیمات موجود نیست.'); return false; }
+  if (!categoryId) { 
+    if (typeof toast === 'function') toast('دسته‌ای یافت نشد.'); 
+    return false; 
+  }
 
-      const catObj = Admin.categories.find(c=>c.id===categoryId) || {};
-      const catTitle = opts.cat || catObj.title || catObj.name || State.quiz.cat || '—';
+  var startBtn = (typeof document !== 'undefined') ? document.getElementById('setup-start') : null;
+  var prevDisabled = startBtn ? !!startBtn.disabled : null;
+  if (startBtn) startBtn.disabled = true;
 
+  try {
+    var list = [];
+    if (typeof Api !== 'undefined' && Api && typeof Api.questions === 'function') {
+      list = await Api.questions({ categoryId: categoryId, count: count, difficulty: difficulty }) || [];
+    }
+
+    if (!Array.isArray(list) || list.length === 0) {
+      if (typeof toast === 'function') toast('برای این دسته هنوز سوالی ثبت نشده 😕');
+      return false;
+    }
+
+    var normalized = [];
+    for (var i = 0; i < list.length; i++) {
+      var q = list[i] || {};
+      var rawChoices = q.options || q.choices || [];
+      var choices = [];
+
+      if (Array.isArray(rawChoices)) {
+        for (var j = 0; j < rawChoices.length; j++) {
+          var opt = rawChoices[j];
+          var txt;
+          if (typeof opt === 'string') {
+            txt = opt;
+          } else {
+            txt = (opt && (opt.text || opt.title || opt.value)) || '';
+          }
+          txt = (txt == null ? '' : String(txt)).trim();
+          choices.push(txt);
+        }
+      }
+
+      var answerIdx;
+      if (typeof q.answerIndex === 'number') {
+        answerIdx = q.answerIndex;
+      } else if (Array.isArray(rawChoices)) {
+        // دستی پیدا می‌کنیم (به‌جای findIndex)
+        var found = -1;
+        for (var k = 0; k < rawChoices.length; k++) {
+          var ro = rawChoices[k];
+          if (ro && typeof ro === 'object' && ro.correct === true) { found = k; break; }
+        }
+        answerIdx = found;
+      } else {
+        answerIdx = -1;
+      }
+
+      var qq = ((q.text || q.title || '') + '').trim();
+      var valid = qq && Array.isArray(choices) && choices.length >= 2;
+
+      // every(Boolean) بدون فلش‌تابع
+      if (valid) {
+        for (var e = 0; e < choices.length; e++) {
+          if (!choices[e]) { valid = false; break; }
+        }
+      }
+
+      if (valid && typeof answerIdx === 'number' && answerIdx >= 0 && answerIdx < choices.length) {
+        normalized.push({ q: qq, c: choices, a: answerIdx });
+      }
+    }
+
+    if (normalized.length === 0) {
+      if (typeof toast === 'function') toast('سوال معتبر برای این تنظیمات موجود نیست.');
+      return false;
+    }
+
+    var catObj = (typeof Admin !== 'undefined' && Admin && Admin.categories)
+      ? (Admin.categories.filter(function(c){ return c && c.id === categoryId; })[0] || {})
+      : {};
+    var stateQuizCat = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.cat : undefined;
+    var catTitle = (opts.cat != null ? opts.cat : (catObj.title || catObj.name || stateQuizCat || '—'));
+
+    if (typeof State !== 'undefined' && State && State.quiz) {
       State.quiz.catId = categoryId;
+    }
 
-      const started = beginQuizSession({
+    var started = false;
+    if (typeof beginQuizSession === 'function') {
+      started = beginQuizSession({
         cat: catTitle,
         diff: difficulty,
         questions: normalized,
-        count,
-        source: opts.source || 'setup'
+        count: count,
+        source: (opts.source != null ? opts.source : 'setup')
       });
-
-      if(started){
-        closeSheet();
-        navTo('quiz');
-      }
-      return started;
-    }catch(err){
-      console.warn('Failed to fetch questions', err);
-      toast('دریافت سوالات با خطا مواجه شد');
-      return false;
-    }finally{
-      if(startBtn) startBtn.disabled = prevDisabled ?? false;
     }
+
+    if (started) {
+      if (typeof closeSheet === 'function') closeSheet();
+      if (typeof navTo === 'function') navTo('quiz');
+    }
+    return !!started;
+
+  } catch (err) {
+    if (typeof console !== 'undefined' && console && console.warn) {
+      console.warn('Failed to fetch questions', err);
+    }
+    if (typeof toast === 'function') toast('دریافت سوالات با خطا مواجه شد');
+    return false;
+
+  } finally {
+    if (startBtn) startBtn.disabled = (prevDisabled != null ? prevDisabled : false);
   }
+}
+
 
   function lockChoices(){ $$('#choices .choice').forEach(el=> el.classList.add('pointer-events-none','opacity-70')); }
   
