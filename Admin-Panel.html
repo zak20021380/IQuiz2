@@ -1054,29 +1054,22 @@
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm mb-1">دسته‌بندی</label>
-              <select class="form-select">
-                <option>همه دسته‌بندی‌ها</option>
-                <option>عمومی</option>
-                <option>جغرافیا</option>
-                <option>ورزش</option>
-                <option>علم</option>
-                <option>تاریخ</option>
-                <option>هنر</option>
-                <option>سرگرمی</option>
+              <select id="filter-category" class="form-select">
+                <option value="">همه دسته‌بندی‌ها</option>
               </select>
             </div>
             <div>
               <label class="block text-sm mb-1">سطح دشواری</label>
-              <select class="form-select">
-                <option>همه سطوح</option>
-                <option>آسون</option>
-                <option>متوسط</option>
-                <option>سخت</option>
+              <select id="filter-difficulty" class="form-select">
+                <option value="">همه سطوح</option>
+                <option value="easy">آسون</option>
+                <option value="medium">متوسط</option>
+                <option value="hard">سخت</option>
               </select>
             </div>
             <div>
               <label class="block text-sm mb-1">جستجو</label>
-              <input type="text" placeholder="جستجوی سوال..." class="form-input">
+              <input id="filter-search" type="search" placeholder="جستجوی سوال..." class="form-input">
             </div>
           </div>
         </div>
