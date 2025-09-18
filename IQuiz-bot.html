@@ -2167,8 +2167,10 @@ patchPricingKeys(RemoteConfig);
       packs.forEach(p=>{
         const card = document.querySelector(`[data-buy-key="${p.id}"]`);
         if (!card) return;
-        card.querySelector('[data-amount]')?.textContent = faNum(p.amount);
-        card.querySelector('[data-price]')?.textContent  = faNum(p.priceGame);
+        const amountEl = card.querySelector('[data-amount]');
+        if (amountEl) amountEl.textContent = faNum(p.amount);
+        const priceEl = card.querySelector('[data-price]');
+        if (priceEl) priceEl.textContent = faNum(p.priceGame);
         card.disabled = false;
       });
       $$('.product-card[data-buy-key]').forEach(card=>{
