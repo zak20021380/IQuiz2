@@ -43,7 +43,7 @@ const questionSchema = new mongoose.Schema(
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     categoryName: { type: String, trim: true },
     active: { type: Boolean, default: true },
-    source: { type: String, enum: ['manual', 'opentdb'], default: 'manual' },
+    source: { type: String, enum: ['manual', 'opentdb', 'the-trivia-api'], default: 'manual' },
     lang: { type: String, trim: true, default: 'en' },
     type: { type: String, trim: true, default: 'multiple' },
     checksum: { type: String, required: true, trim: true }
