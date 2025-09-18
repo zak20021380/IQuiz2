@@ -22,7 +22,8 @@ const questionSchema = new mongoose.Schema(
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'easy' },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     categoryName: { type: String, trim: true },
-    active: { type: Boolean, default: true }
+    active: { type: Boolean, default: true },
+    source: { type: String, enum: ['manual', 'opentdb'], default: 'manual' }
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

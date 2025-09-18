@@ -12,9 +12,13 @@ exports.create = async (req, res, next) => {
     if (!category) return res.status(404).json({ ok:false, message:'Category not found' });
 
     const q = await Question.create({
-      text, options, correctIdx,
+      text,
+      options,
+      correctIdx,
       difficulty: difficulty || 'easy',
-      category: categoryId
+      category: categoryId,
+      categoryName: category.name,
+      source: 'manual'
     });
     res.status(201).json({ ok:true, data:q });
   } catch (e) { next(e); }
@@ -22,14 +26,24 @@ exports.create = async (req, res, next) => {
 
 exports.list = async (req, res, next) => {
   try {
-    const { page=1, limit=20, q='', category, difficulty } = req.query;
+    const { page=1, limit=20, q='', category, difficulty, sort='newest', source } = req.query;
     const where = {};
     if (q) where.text = { $regex: q, $options: 'i' };
     if (category) where.category = category;
     if (difficulty) where.difficulty = difficulty;
+    if (source && ['manual', 'opentdb'].includes(source)) where.source = source;
+
+    const normalizedSort = typeof sort === 'string' ? sort.toLowerCase() : 'newest';
+    const sortOption = normalizedSort === 'oldest'
+      ? { createdAt: 1 }
+      : { createdAt: -1 };
 
     const [items, total] = await Promise.all([
-      Question.find(where).populate('category','name').sort({ createdAt:-1 }).skip((page-1)*limit).limit(Number(limit)),
+      Question.find(where)
+        .populate('category','name')
+        .sort(sortOption)
+        .skip((page-1)*limit)
+        .limit(Number(limit)),
       Question.countDocuments(where)
     ]);
     res.json({ ok:true, data:items, meta:{ total, page:Number(page), limit:Number(limit) } });

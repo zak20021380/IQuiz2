@@ -68,7 +68,8 @@ async function fetchAndStoreTriviaBatch() {
       correctIndex,
       difficulty: item.difficulty || 'easy',
       category: categoryDoc._id,
-      categoryName
+      categoryName,
+      source: 'opentdb'
     });
   }
 

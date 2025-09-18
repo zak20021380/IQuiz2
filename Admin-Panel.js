@@ -15,6 +15,17 @@ const DIFFICULTY_META = {
   hard:   { label: 'سخت', class: 'meta-chip difficulty-hard', icon: 'fa-fire' }
 };
 
+const SOURCE_META = {
+  manual: { label: 'ایجاد دستی', class: 'meta-chip source-manual', icon: 'fa-pen-nib' },
+  opentdb: { label: 'OpenTDB', class: 'meta-chip source-opentdb', icon: 'fa-database' }
+};
+
+const htmlDecoder = document.createElement('textarea');
+const decodeHtmlEntities = (value = '') => {
+  htmlDecoder.innerHTML = value;
+  return htmlDecoder.value;
+};
+
 const STATUS_META = {
   active:    { label: 'فعال', class: 'meta-chip status-active', dot: 'active' },
   pending:   { label: 'در انتظار بررسی', class: 'meta-chip status-pending', dot: 'pending' },
@@ -41,11 +52,13 @@ const updateQuestionBtnDefault = updateQuestionBtn ? updateQuestionBtn.innerHTML
 const filterCategorySelect = $('#filter-category');
 const filterDifficultySelect = $('#filter-difficulty');
 const filterSearchInput = $('#filter-search');
+const filterSortSelect = $('#filter-sort');
 
 const questionFilters = {
   category: '',
   difficulty: '',
-  search: ''
+  search: '',
+  sort: 'newest'
 };
 
 let filterSearchDebounce;
@@ -167,16 +180,21 @@ function normalizeQuestion(raw = {}) {
   if (!Number.isFinite(correctIdx)) correctIdx = 0;
   correctIdx = Math.round(correctIdx);
   if (correctIdx < 0 || correctIdx >= options.length) correctIdx = 0;
-  const categoryName = raw.category?.name
+  const categoryNameRaw = raw.category?.name
     || raw.categoryName
     || (typeof raw.category === 'string' ? raw.category : 'بدون دسته‌بندی');
   const categoryId = raw.category?._id || raw.categoryId || '';
+  const decodedOptions = options.map(opt => decodeHtmlEntities(opt));
+  const decodedText = decodeHtmlEntities(raw.text ?? raw.question ?? '');
+  const sourceKey = typeof raw.source === 'string' ? raw.source.toLowerCase() : 'manual';
   return {
     ...raw,
-    options,
+    text: decodedText,
+    options: decodedOptions,
     correctIdx,
-    categoryName,
-    categoryId
+    categoryName: decodeHtmlEntities(categoryNameRaw),
+    categoryId,
+    source: SOURCE_META[sourceKey] ? sourceKey : 'manual'
   };
 }
 
@@ -262,9 +280,11 @@ function populateQuestionDetail(question) {
     const difficultyMeta = DIFFICULTY_META[normalized.difficulty] || DIFFICULTY_META.medium;
     const statusKey = normalized.status || (normalized.active === false ? 'inactive' : 'active');
     const statusMeta = STATUS_META[statusKey] || STATUS_META.active;
+    const sourceMeta = SOURCE_META[normalized.source] || SOURCE_META.manual;
     questionMetaEl.innerHTML = `
       <span class="meta-chip category" title="دسته‌بندی"><i class="fas fa-layer-group"></i>${categoryNameSafe}</span>
       <span class="${difficultyMeta.class}" title="سطح دشواری"><i class="fas ${difficultyMeta.icon}"></i>${difficultyMeta.label}</span>
+      <span class="${sourceMeta.class}" title="منبع"><i class="fas ${sourceMeta.icon}"></i>${sourceMeta.label}</span>
       <span class="${statusMeta.class}" title="وضعیت"><span class="status-dot ${statusMeta.dot}"></span>${statusMeta.label}</span>
     `;
   }
@@ -413,6 +433,7 @@ async function loadCategoryFilterOptions(triggerReloadOnMissing = false) {
 }
 
 async function loadQuestions(overrides = {}) {
+  const tbody = $('#questions-tbody');
   try {
     if (overrides && typeof overrides === 'object') {
       if (Object.prototype.hasOwnProperty.call(overrides, 'category')) {
@@ -424,30 +445,59 @@ async function loadQuestions(overrides = {}) {
       if (Object.prototype.hasOwnProperty.call(overrides, 'search')) {
         questionFilters.search = (overrides.search || '').trim();
       }
+      if (Object.prototype.hasOwnProperty.call(overrides, 'sort')) {
+        const candidate = typeof overrides.sort === 'string' ? overrides.sort : 'newest';
+        questionFilters.sort = ['oldest', 'newest'].includes(candidate) ? candidate : 'newest';
+      }
+    }
+
+    if (filterSortSelect && questionFilters.sort && filterSortSelect.value !== questionFilters.sort) {
+      filterSortSelect.value = questionFilters.sort;
+    }
+
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr class="loading-row">
+          <td colspan="4">
+            <div class="loading-state">
+              <span class="loading-spinner"></span>
+              <p>در حال دریافت سوالات...</p>
+            </div>
+          </td>
+        </tr>
+      `;
+      tbody.onclick = null;
     }
 
     const params = new URLSearchParams({ limit: '50' });
     if (questionFilters.category) params.append('category', questionFilters.category);
     if (questionFilters.difficulty) params.append('difficulty', questionFilters.difficulty);
     if (questionFilters.search) params.append('q', questionFilters.search);
+    if (questionFilters.sort) params.append('sort', questionFilters.sort);
 
     const response = await api(`/questions?${params.toString()}`);
-    const tbody = $('#questions-tbody');
     questionsCache.clear();
-    if (!response.data?.length) {
+
+    if (!tbody) return;
+
+    if (!Array.isArray(response.data) || response.data.length === 0) {
+      const hasFilters = Boolean(questionFilters.category || questionFilters.difficulty || questionFilters.search);
+      const emptyMessage = hasFilters
+        ? 'هیچ سوالی با فیلترهای انتخاب شده یافت نشد.'
+        : 'هنوز سوالی ثبت نشده است. از دکمه «افزودن سوال» یا ابزار دریافت سوالات خودکار استفاده کنید.';
       tbody.innerHTML = `
         <tr class="empty-row">
           <td colspan="4">
             <div class="empty-state">
               <i class="fas fa-inbox"></i>
-              <p>هنوز سوالی ثبت نشده است. از دکمه «افزودن سوال» برای ایجاد سوال جدید استفاده کنید.</p>
+              <p>${emptyMessage}</p>
             </div>
           </td>
         </tr>
       `;
-      tbody.onclick = null;
       return;
     }
+
     tbody.innerHTML = response.data.map(raw => {
       const item = normalizeQuestion(raw);
       const idKey = item?._id ? String(item._id) : '';
@@ -459,8 +509,9 @@ async function loadQuestions(overrides = {}) {
       const difficulty = DIFFICULTY_META[item.difficulty] || DIFFICULTY_META.medium;
       const statusKey = item.status || (item.active === false ? 'inactive' : 'active');
       const status = STATUS_META[statusKey] || STATUS_META.active;
-      const derivedAnswer = item.correctAnswer || item.options[item.correctIdx] || '---';
-      const answerText = escapeHtml(derivedAnswer);
+      const sourceMeta = SOURCE_META[item.source] || SOURCE_META.manual;
+      const derivedAnswerRaw = item.correctAnswer || item.options[item.correctIdx] || '---';
+      const answerText = escapeHtml(decodeHtmlEntities(derivedAnswerRaw));
       return `
         <tr class="question-row" data-question-id="${idAttr}">
           <td data-label="شناسه" class="font-mono text-xs md:text-sm text-white/70">#${idFragment}</td>
@@ -472,6 +523,9 @@ async function loadQuestions(overrides = {}) {
               </span>
               <span class="${difficulty.class}" title="سطح دشواری">
                 <i class="fas ${difficulty.icon}"></i>${difficulty.label}
+              </span>
+              <span class="${sourceMeta.class}" title="منبع سوال">
+                <i class="fas ${sourceMeta.icon}"></i>${sourceMeta.label}
               </span>
               <span class="${status.class}" title="وضعیت سوال">
                 <span class="status-dot ${status.dot}"></span>${status.label}
@@ -488,6 +542,7 @@ async function loadQuestions(overrides = {}) {
         </tr>
       `;
     }).join('');
+
     tbody.onclick = async (e) => {
       const viewBtn = e.target.closest('[data-view-q]');
       if (viewBtn) {
@@ -509,6 +564,18 @@ async function loadQuestions(overrides = {}) {
       }
     };
   } catch (e) {
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr class="empty-row">
+          <td colspan="4">
+            <div class="empty-state">
+              <i class="fas fa-exclamation-triangle"></i>
+              <p>مشکل در دریافت سوالات. لطفاً دوباره تلاش کنید.</p>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
     showToast('مشکل در دریافت سوالات','error');
   }
 }
@@ -573,6 +640,14 @@ if (filterSearchInput) {
     filterSearchDebounce = setTimeout(() => {
       loadQuestions({ search: value });
     }, 300);
+  });
+}
+
+if (filterSortSelect) {
+  filterSortSelect.addEventListener('change', () => {
+    if (!getToken()) return;
+    const value = filterSortSelect.value || 'newest';
+    loadQuestions({ sort: value });
   });
 }
 
