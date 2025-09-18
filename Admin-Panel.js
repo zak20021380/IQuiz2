@@ -25,6 +25,20 @@ const STATUS_META = {
   archived:  { label: 'آرشیو شده', class: 'meta-chip status-archived', dot: 'archived' }
 };
 
+const questionsCache = new Map();
+
+const questionDetailModal = $('#question-detail-modal');
+const questionDetailForm = $('#question-detail-form');
+const questionOptionsWrapper = $('#question-options-wrapper');
+const questionTitleEl = questionDetailModal ? questionDetailModal.querySelector('[data-question-title]') : null;
+const questionIdEl = questionDetailModal ? questionDetailModal.querySelector('[data-question-id]') : null;
+const questionMetaEl = questionDetailModal ? questionDetailModal.querySelector('[data-question-meta]') : null;
+const questionCreatedEl = questionDetailModal ? questionDetailModal.querySelector('[data-question-created]') : null;
+const questionUpdatedEl = questionDetailModal ? questionDetailModal.querySelector('[data-question-updated]') : null;
+const questionCorrectPreviewEl = $('#question-correct-preview');
+const updateQuestionBtn = $('#update-question-btn');
+const updateQuestionBtnDefault = updateQuestionBtn ? updateQuestionBtn.innerHTML : '';
+
 // --------------- AUTH (JWT) ---------------
 function getToken() { return localStorage.getItem('iq_admin_token'); }
 function setToken(t) { localStorage.setItem('iq_admin_token', t); }
@@ -75,7 +89,23 @@ $('#mobile-menu-toggle').addEventListener('click', () => $('#mobile-menu').class
 $('#close-mobile-menu').addEventListener('click', () => $('#mobile-menu').classList.add('translate-x-full'));
 
 function openModal(modalId) { $(modalId).classList.add('active'); document.body.style.overflow = 'hidden'; }
-function closeModal(modalId) { $(modalId).classList.remove('active'); document.body.style.overflow = 'auto'; }
+function closeModal(modalId) {
+  const modal = $(modalId);
+  if (!modal) return;
+  modal.classList.remove('active');
+  document.body.style.overflow = 'auto';
+  if (modalId === '#question-detail-modal') {
+    modal.dataset.qId = '';
+    if (questionDetailForm) questionDetailForm.reset();
+    if (questionOptionsWrapper) questionOptionsWrapper.innerHTML = '';
+    if (questionCorrectPreviewEl) questionCorrectPreviewEl.textContent = '---';
+    if (updateQuestionBtn) {
+      updateQuestionBtn.disabled = false;
+      updateQuestionBtn.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+      updateQuestionBtn.innerHTML = updateQuestionBtnDefault;
+    }
+  }
+}
 $$('.modal').forEach(modal => modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(`#${modal.id}`); }));
 $$('.close-modal').forEach(button => button.addEventListener('click', () => { const modal = button.closest('.modal'); closeModal(`#${modal.id}`); }));
 
@@ -109,12 +139,237 @@ $('#login-submit').addEventListener('click', login);
 // اگر توکن نداریم، مودال ورود باز بماند
 if (getToken()) closeModal('#login-modal');
 
+function normalizeQuestion(raw = {}) {
+  const sourceOptions = Array.isArray(raw.options)
+    ? raw.options
+    : Array.isArray(raw.choices)
+      ? raw.choices
+      : [];
+  const options = sourceOptions.slice(0, 4).map(opt => {
+    if (typeof opt === 'string') return opt;
+    if (opt == null) return '';
+    return String(opt);
+  });
+  while (options.length < 4) options.push('');
+  const idxCandidate = raw.correctIdx ?? raw.correctIndex ?? 0;
+  let correctIdx = Number(idxCandidate);
+  if (!Number.isFinite(correctIdx)) correctIdx = 0;
+  correctIdx = Math.round(correctIdx);
+  if (correctIdx < 0 || correctIdx >= options.length) correctIdx = 0;
+  const categoryName = raw.category?.name
+    || raw.categoryName
+    || (typeof raw.category === 'string' ? raw.category : 'بدون دسته‌بندی');
+  const categoryId = raw.category?._id || raw.categoryId || '';
+  return {
+    ...raw,
+    options,
+    correctIdx,
+    categoryName,
+    categoryId
+  };
+}
+
+function formatDateTime(value) {
+  if (!value) return '--';
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '--';
+    return new Intl.DateTimeFormat('fa-IR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+  } catch (err) {
+    return '--';
+  }
+}
+
+function updateCorrectPreview() {
+  if (!questionOptionsWrapper || !questionCorrectPreviewEl) return;
+  const selected = questionOptionsWrapper.querySelector('input[name="question-correct"]:checked');
+  if (!selected) {
+    questionCorrectPreviewEl.textContent = '---';
+    return;
+  }
+  const idx = Number(selected.value);
+  const input = questionOptionsWrapper.querySelector(`[data-option-input="${idx}"]`);
+  const value = input ? input.value.trim() : '';
+  questionCorrectPreviewEl.textContent = value || '---';
+}
+
+function setOptionRowStates() {
+  if (!questionOptionsWrapper) return;
+  questionOptionsWrapper.querySelectorAll('[data-option-row]').forEach(row => {
+    const radio = row.querySelector('input[type="radio"]');
+    if (radio && radio.checked) row.classList.add('selected');
+    else row.classList.remove('selected');
+  });
+  updateCorrectPreview();
+}
+
+function renderQuestionOptions(options = [], correctIdx = 0) {
+  if (!questionOptionsWrapper) return;
+  const opts = Array.isArray(options) ? options.slice(0, 4) : [];
+  while (opts.length < 4) opts.push('');
+  let safeIdx = Number(correctIdx);
+  if (!Number.isFinite(safeIdx)) safeIdx = 0;
+  safeIdx = Math.round(safeIdx);
+  if (safeIdx < 0 || safeIdx >= opts.length) safeIdx = 0;
+  questionOptionsWrapper.innerHTML = opts.map((opt, index) => {
+    const label = (index + 1).toLocaleString('fa-IR');
+    const isSelected = index === safeIdx;
+    const valueSafe = escapeHtml(opt || '');
+    return `
+      <div class="option-row${isSelected ? ' selected' : ''}" data-option-row>
+        <div class="flex items-start gap-3 w-full">
+          <input type="radio" name="question-correct" value="${index}" class="mt-1.5 shrink-0"${isSelected ? ' checked' : ''}>
+          <div class="flex-1 space-y-2">
+            <div class="flex items-center justify-between text-xs text-white/60">
+              <span>گزینه ${label}</span>
+              <span class="selected-indicator gap-1 text-amber-300 font-semibold">
+                <i class="fas fa-star"></i>
+                <span>پاسخ صحیح</span>
+              </span>
+            </div>
+            <input type="text" class="form-input text-sm" data-option-input="${index}" placeholder="گزینه ${label}" value="${valueSafe}">
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  setOptionRowStates();
+}
+
+function populateQuestionDetail(question) {
+  if (!questionDetailModal) return;
+  const normalized = normalizeQuestion(question);
+  const idKey = normalized?._id ? String(normalized._id) : '';
+  if (questionIdEl) questionIdEl.textContent = idKey ? `شناسه: #${idKey.slice(-6)}` : 'شناسه: ---';
+  if (questionTitleEl) questionTitleEl.textContent = normalized.text || 'بدون متن';
+  if (questionDetailForm) {
+    const textarea = questionDetailForm.querySelector('[name="question-text"]');
+    if (textarea) textarea.value = normalized.text || '';
+  }
+  if (questionMetaEl) {
+    const categoryNameSafe = escapeHtml(normalized.categoryName || 'بدون دسته‌بندی');
+    const difficultyMeta = DIFFICULTY_META[normalized.difficulty] || DIFFICULTY_META.medium;
+    const statusKey = normalized.status || (normalized.active === false ? 'inactive' : 'active');
+    const statusMeta = STATUS_META[statusKey] || STATUS_META.active;
+    questionMetaEl.innerHTML = `
+      <span class="meta-chip category" title="دسته‌بندی"><i class="fas fa-layer-group"></i>${categoryNameSafe}</span>
+      <span class="${difficultyMeta.class}" title="سطح دشواری"><i class="fas ${difficultyMeta.icon}"></i>${difficultyMeta.label}</span>
+      <span class="${statusMeta.class}" title="وضعیت"><span class="status-dot ${statusMeta.dot}"></span>${statusMeta.label}</span>
+    `;
+  }
+  if (questionCreatedEl) questionCreatedEl.textContent = formatDateTime(normalized.createdAt);
+  if (questionUpdatedEl) questionUpdatedEl.textContent = formatDateTime(normalized.updatedAt);
+  renderQuestionOptions(normalized.options, normalized.correctIdx);
+  questionDetailModal.dataset.qId = idKey;
+  if (updateQuestionBtn) {
+    updateQuestionBtn.disabled = false;
+    updateQuestionBtn.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+    updateQuestionBtn.innerHTML = updateQuestionBtnDefault;
+  }
+  openModal('#question-detail-modal');
+}
+
+function openQuestionDetailById(id) {
+  if (!id) return;
+  const question = questionsCache.get(id);
+  if (!question) {
+    showToast('اطلاعات این سوال در دسترس نیست', 'error');
+    return;
+  }
+  populateQuestionDetail(question);
+}
+
+if (questionDetailForm) questionDetailForm.addEventListener('submit', e => e.preventDefault());
+
+if (questionOptionsWrapper) {
+  questionOptionsWrapper.addEventListener('change', (e) => {
+    if (e.target.matches('input[type="radio"][name="question-correct"]')) {
+      setOptionRowStates();
+    }
+  });
+  questionOptionsWrapper.addEventListener('input', (e) => {
+    if (e.target.matches('[data-option-input]')) {
+      const row = e.target.closest('[data-option-row]');
+      if (row?.querySelector('input[type="radio"]').checked) {
+        updateCorrectPreview();
+      }
+    }
+  });
+  questionOptionsWrapper.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-option-row]');
+    if (!row) return;
+    if (e.target.matches('input[type="text"]')) return;
+    if (e.target.matches('input[type="radio"]')) return;
+    const radio = row.querySelector('input[type="radio"]');
+    if (radio && !radio.checked) {
+      radio.checked = true;
+      setOptionRowStates();
+    }
+  });
+}
+
+if (updateQuestionBtn) {
+  updateQuestionBtn.addEventListener('click', async () => {
+    if (!questionDetailModal) return;
+    const id = questionDetailModal.dataset?.qId;
+    if (!id) {
+      showToast('ابتدا یک سوال را انتخاب کنید', 'warning');
+      return;
+    }
+    const textarea = questionDetailForm?.querySelector('[name="question-text"]');
+    const text = textarea ? textarea.value.trim() : '';
+    const optionInputs = questionOptionsWrapper
+      ? Array.from(questionOptionsWrapper.querySelectorAll('[data-option-input]'))
+      : [];
+    const options = optionInputs.map(input => input.value.trim());
+    const selectedRadio = questionOptionsWrapper?.querySelector('input[name="question-correct"]:checked');
+    const correctIdx = selectedRadio ? Number(selectedRadio.value) : -1;
+
+    if (!text) {
+      showToast('متن سوال را وارد کنید', 'warning');
+      return;
+    }
+    if (options.some(o => !o)) {
+      showToast('تمام گزینه‌ها باید تکمیل شوند', 'warning');
+      return;
+    }
+    if (correctIdx < 0) {
+      showToast('گزینه صحیح را انتخاب کنید', 'warning');
+      return;
+    }
+
+    const payload = { text, options, correctIdx };
+    updateQuestionBtn.disabled = true;
+    updateQuestionBtn.classList.add('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+    updateQuestionBtn.innerHTML = `
+      <span class="flex items-center gap-2">
+        <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+        <span>در حال ذخیره...</span>
+      </span>
+    `;
+
+    try {
+      await api(`/questions/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+      showToast('سوال با موفقیت به‌روزرسانی شد', 'success');
+      closeModal('#question-detail-modal');
+      loadQuestions();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      updateQuestionBtn.disabled = false;
+      updateQuestionBtn.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+      updateQuestionBtn.innerHTML = updateQuestionBtnDefault;
+    }
+  });
+}
+
 // --------------- LOADERS ---------------
 async function loadQuestions() {
   try {
-    const q = await api('/questions?limit=50');
+    const response = await api('/questions?limit=50');
     const tbody = $('#questions-tbody');
-    if (!q.data?.length) {
+    questionsCache.clear();
+    if (!response.data?.length) {
       tbody.innerHTML = `
         <tr class="empty-row">
           <td colspan="4">
@@ -125,50 +380,54 @@ async function loadQuestions() {
           </td>
         </tr>
       `;
-    } else {
-      tbody.innerHTML = q.data.map(item => {
-        const idRaw = item?._id ? String(item._id) : '';
-        const idFragment = escapeHtml(idRaw.slice(-6) || '---');
-        const idAttr = escapeHtml(idRaw || '');
-        const questionText = escapeHtml(item.text || 'بدون متن');
-        const categoryName = escapeHtml(item.category?.name || 'بدون دسته‌بندی');
-        const difficulty = DIFFICULTY_META[item.difficulty] || DIFFICULTY_META.medium;
-        const statusKey = item.status || (item.active ? 'active' : 'inactive');
-        const status = STATUS_META[statusKey] || STATUS_META.inactive;
-        const answer = item.correctAnswer || (Array.isArray(item.options) ? item.options[item.correctIdx] : '') || '---';
-        const answerSafe = escapeHtml(answer);
-        return `
-          <tr class="question-row">
-            <td data-label="شناسه" class="font-mono text-xs md:text-sm text-white/70">#${idFragment}</td>
-            <td data-label="سوال و جزئیات">
-              <div class="question-text line-clamp-2" title="${questionText}">${questionText}</div>
-              <div class="question-meta">
-                <span class="meta-chip category" title="دسته‌بندی">
-                  <i class="fas fa-layer-group"></i>${categoryName}
-                </span>
-                <span class="${difficulty.class}" title="سطح دشواری">
-                  <i class="fas ${difficulty.icon}"></i>${difficulty.label}
-                </span>
-                <span class="${status.class}" title="وضعیت سوال">
-                  <span class="status-dot ${status.dot}"></span>${status.label}
-                </span>
-              </div>
-            </td>
-            <td data-label="پاسخ صحیح">
-              <div class="answer-pill" title="${answerSafe}"><i class="fas fa-lightbulb"></i><span>${answerSafe}</span></div>
-            </td>
-            <td data-label="عملیات" class="actions">
-              <button class="action-btn edit" data-edit-q="${idAttr}"><i class="fas fa-edit"></i></button>
-              <button class="action-btn delete" data-del-q="${idAttr}"><i class="fas fa-trash"></i></button>
-            </td>
-          </tr>
-        `;
-      }).join('');
+      tbody.onclick = null;
+      return;
     }
+    tbody.innerHTML = response.data.map(raw => {
+      const item = normalizeQuestion(raw);
+      const idKey = item?._id ? String(item._id) : '';
+      if (idKey) questionsCache.set(idKey, item);
+      const idFragment = escapeHtml(idKey.slice(-6) || '---');
+      const idAttr = escapeHtml(idKey);
+      const questionText = escapeHtml(item.text || 'بدون متن');
+      const categoryName = escapeHtml(item.categoryName || 'بدون دسته‌بندی');
+      const difficulty = DIFFICULTY_META[item.difficulty] || DIFFICULTY_META.medium;
+      const statusKey = item.status || (item.active === false ? 'inactive' : 'active');
+      const status = STATUS_META[statusKey] || STATUS_META.active;
+      const derivedAnswer = item.correctAnswer || item.options[item.correctIdx] || '---';
+      const answerText = escapeHtml(derivedAnswer);
+      return `
+        <tr class="question-row" data-question-id="${idAttr}">
+          <td data-label="شناسه" class="font-mono text-xs md:text-sm text-white/70">#${idFragment}</td>
+          <td data-label="سوال و جزئیات">
+            <div class="question-text line-clamp-2" title="${questionText}">${questionText}</div>
+            <div class="question-meta">
+              <span class="meta-chip category" title="دسته‌بندی">
+                <i class="fas fa-layer-group"></i>${categoryName}
+              </span>
+              <span class="${difficulty.class}" title="سطح دشواری">
+                <i class="fas ${difficulty.icon}"></i>${difficulty.label}
+              </span>
+              <span class="${status.class}" title="وضعیت سوال">
+                <span class="status-dot ${status.dot}"></span>${status.label}
+              </span>
+            </div>
+          </td>
+          <td data-label="پاسخ صحیح">
+            <div class="answer-pill" title="${answerText}"><i class="fas fa-lightbulb"></i><span>${answerText}</span></div>
+          </td>
+          <td data-label="عملیات" class="actions">
+            <button class="action-btn view" data-view-q="${idAttr}" title="مشاهده و ویرایش سوال"><i class="fas fa-eye"></i></button>
+            <button class="action-btn delete" data-del-q="${idAttr}" title="حذف سوال"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `;
+    }).join('');
     tbody.onclick = async (e) => {
-      const editBtn = e.target.closest('[data-edit-q]');
-      if (editBtn) {
-        showToast('ویرایش این سوال به زودی اضافه می‌شود', 'info');
+      const viewBtn = e.target.closest('[data-view-q]');
+      if (viewBtn) {
+        const id = viewBtn.dataset.viewQ;
+        if (id) openQuestionDetailById(id);
         return;
       }
       const deleteBtn = e.target.closest('[data-del-q]');
@@ -177,14 +436,16 @@ async function loadQuestions() {
       if (!id) return;
       if (!confirm('حذف سوال؟')) return;
       try {
-        await api(`/questions/${id}`, { method:'DELETE' });
+        await api(`/questions/${id}`, { method: 'DELETE' });
         showToast('حذف شد','success');
         loadQuestions();
       } catch (err) {
         showToast(err.message,'error');
       }
     };
-  } catch (e) { showToast('مشکل در دریافت سوالات','error'); }
+  } catch (e) {
+    showToast('مشکل در دریافت سوالات','error');
+  }
 }
 
 async function loadUsers() {
