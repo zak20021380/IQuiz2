@@ -78,6 +78,16 @@ const questionStatsPercentEl = $('#question-stats-percent');
 const questionStatsDeltaEl = $('#question-stats-delta');
 const questionStatsSummaryEl = $('#question-stats-summary');
 const questionStatsDescriptionEl = $('#question-stats-description');
+const triviaAmountRange = $('#trivia-amount-range');
+const triviaAmountInput = $('#trivia-amount-input');
+const triviaDifficultyOptions = $('#trivia-difficulty-options');
+const triviaCategoryListEl = $('#trivia-category-list');
+const triviaCategorySearchInput = $('#trivia-category-search');
+const triviaImportBtn = $('#trivia-import-btn');
+const triviaRefreshBtn = $('#trivia-refresh-categories');
+const triviaSelectionSummaryEl = $('#trivia-selection-summary');
+const triviaImportStatusEl = $('#trivia-import-status');
+const triviaImportResultEl = $('#trivia-import-result');
 
 const questionFilters = {
   category: '',
@@ -86,9 +96,292 @@ const questionFilters = {
   sort: 'newest'
 };
 
+const TRIVIA_DIFFICULTY_LABELS = {
+  easy: 'آسون',
+  medium: 'متوسط',
+  hard: 'سخت'
+};
+
+const triviaControlState = {
+  amount: 20,
+  loadingCategories: false,
+  importing: false,
+  search: '',
+  availableCategories: [],
+  selectedCategories: new Set(),
+  selectedDifficulties: new Set(['easy', 'medium']),
+  lastResult: null
+};
+
 let filterSearchDebounce;
 let latestQuestionStats = null;
 let questionStatsLoaded = false;
+
+function clampTriviaAmount(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return triviaControlState.amount;
+  if (num <= 1) return 1;
+  if (num >= 200) return 200;
+  return Math.floor(num);
+}
+
+function setTriviaStatusBadge(tone = 'idle', text = 'غیرفعال') {
+  if (!triviaImportStatusEl) return;
+  const base = 'text-xs px-3 py-1 rounded-full font-semibold inline-flex items-center gap-1';
+  let toneClass = 'bg-white/10 text-white/70 border border-white/10';
+  if (tone === 'success') toneClass = 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/60';
+  else if (tone === 'error') toneClass = 'bg-rose-500/20 text-rose-100 border border-rose-400/60';
+  else if (tone === 'warning') toneClass = 'bg-amber-500/20 text-amber-100 border border-amber-400/60';
+  else if (tone === 'loading') toneClass = 'bg-sky-500/20 text-sky-100 border border-sky-400/60';
+  triviaImportStatusEl.className = `${base} ${toneClass}`;
+  triviaImportStatusEl.textContent = text;
+}
+
+function updateTriviaControlsAvailability() {
+  const hasToken = Boolean(getToken());
+
+  if (triviaImportBtn) {
+    const shouldDisable = !hasToken || triviaControlState.importing;
+    triviaImportBtn.disabled = shouldDisable;
+    triviaImportBtn.classList.toggle('opacity-60', shouldDisable);
+    triviaImportBtn.classList.toggle('cursor-not-allowed', shouldDisable);
+  }
+
+  if (triviaRefreshBtn) {
+    const shouldDisable = !hasToken || triviaControlState.loadingCategories;
+    triviaRefreshBtn.disabled = shouldDisable;
+    triviaRefreshBtn.classList.toggle('opacity-60', shouldDisable);
+    triviaRefreshBtn.classList.toggle('cursor-not-allowed', shouldDisable);
+    triviaRefreshBtn.dataset.busy = triviaControlState.loadingCategories ? 'true' : 'false';
+  }
+}
+
+function setTriviaImportLoading(isLoading) {
+  triviaControlState.importing = isLoading;
+  if (triviaImportBtn) {
+    if (isLoading) {
+      triviaImportBtn.innerHTML = '<span class="loader-inline"></span> در حال دریافت...';
+    } else {
+      triviaImportBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down ml-2"></i> دریافت سوالات انتخابی';
+    }
+  }
+  if (isLoading) {
+    setTriviaStatusBadge('loading', 'در حال دریافت');
+  } else if (!triviaControlState.lastResult) {
+    setTriviaStatusBadge('idle', 'غیرفعال');
+  }
+  updateTriviaControlsAvailability();
+}
+
+function renderTriviaImportResult(result) {
+  if (!triviaImportResultEl) return;
+
+  if (!result) {
+    triviaImportResultEl.innerHTML = '<p>هنوز درخواستی ثبت نشده است. پس از اجرای درون‌ریزی، جزئیات هر دسته و سطح دشواری در اینجا نمایش داده می‌شود.</p>';
+    setTriviaStatusBadge('idle', 'غیرفعال');
+    return;
+  }
+
+  const breakdown = Array.isArray(result.breakdown) ? result.breakdown : [];
+  if (breakdown.length === 0) {
+    triviaImportResultEl.innerHTML = '<p>اطلاعاتی از ترکیب‌های دریافتی موجود نیست.</p>';
+  } else {
+    triviaImportResultEl.innerHTML = breakdown.map((item) => {
+      const difficultyKey = typeof item?.providerDifficulty === 'string' ? item.providerDifficulty.toLowerCase() : '';
+      const difficultyLabel = difficultyKey && difficultyKey !== 'mixed'
+        ? (TRIVIA_DIFFICULTY_LABELS[difficultyKey] || difficultyKey)
+        : 'ترکیبی';
+      const requested = Number.isFinite(item?.requested) ? item.requested : 0;
+      const received = Number.isFinite(item?.received) ? item.received : 0;
+      const statusMeta = item?.error
+        ? { label: 'خطا', class: 'text-rose-300', detail: escapeHtml(item.error) }
+        : (received < requested
+          ? { label: 'ناقص', class: 'text-amber-300', detail: `دریافت ${formatNumberFa(received)} از ${formatNumberFa(requested)} سوال` }
+          : { label: 'کامل', class: 'text-emerald-300', detail: `دریافت ${formatNumberFa(received)} از ${formatNumberFa(requested)} سوال` });
+      const categoryName = item?.categoryName ? escapeHtml(item.categoryName) : (item?.providerCategoryId ? `دسته ${escapeHtml(String(item.providerCategoryId))}` : 'عمومی');
+      const providerIdLabel = item?.providerCategoryId ? `شناسه ${escapeHtml(String(item.providerCategoryId))}` : 'بدون شناسه';
+
+      return `
+        <div class="glass-dark rounded-2xl border border-white/10 p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-semibold text-white">${categoryName}</div>
+            <span class="text-xs px-3 py-1 rounded-full bg-white/10 text-white/60">${providerIdLabel}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-3 text-xs text-white/60">
+            <span class="px-3 py-1 rounded-full bg-white/10 text-white/70">سطح: ${escapeHtml(difficultyLabel)}</span>
+            <span class="${statusMeta.class} font-semibold">${statusMeta.label}</span>
+            <span class="text-white/50">|</span>
+            <span class="text-white/80">${statusMeta.detail}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (result.ok) {
+    if (result.partial) {
+      setTriviaStatusBadge('warning', `موفق با هشدار (${formatNumberFa(result.count || 0)} سوال)`);
+    } else {
+      setTriviaStatusBadge('success', `موفق (${formatNumberFa(result.count || 0)} سوال)`);
+    }
+  } else {
+    setTriviaStatusBadge('warning', result?.message ? result.message : 'بدون نتیجه');
+  }
+}
+
+function renderTriviaCategories() {
+  if (!triviaCategoryListEl) return;
+
+  if (triviaControlState.loadingCategories) {
+    triviaCategoryListEl.innerHTML = `
+      <div class="glass-dark rounded-2xl border border-dashed border-white/10 p-4 text-center animate-pulse">
+        <p>در حال بروزرسانی لیست دسته‌بندی‌ها...</p>
+      </div>
+    `;
+    return;
+  }
+
+  const categories = triviaControlState.availableCategories;
+  const searchTerm = (triviaControlState.search || '').toLowerCase();
+  const filtered = !searchTerm
+    ? categories
+    : categories.filter((item) => String(item?.name || '').toLowerCase().includes(searchTerm));
+
+  if (!Array.isArray(categories) || categories.length === 0) {
+    triviaCategoryListEl.innerHTML = `
+      <div class="glass-dark rounded-2xl border border-dashed border-white/10 p-4 text-center">
+        <p>دسته‌بندی‌ای از OpenTDB دریافت نشده است. لطفاً بروزرسانی را اجرا کنید.</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (filtered.length === 0) {
+    triviaCategoryListEl.innerHTML = `
+      <div class="glass-dark rounded-2xl border border-dashed border-white/10 p-4 text-center">
+        <p>نتیجه‌ای برای جستجوی «${escapeHtml(triviaControlState.search)}» یافت نشد.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  filtered.forEach((item) => {
+    const id = String(item.id);
+    const isSelected = triviaControlState.selectedCategories.has(id);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.categoryId = id;
+    button.className = `w-full text-right px-4 py-3 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 ${isSelected
+      ? 'bg-gradient-to-l from-sky-500/20 to-sky-400/10 border-sky-400/60 text-white shadow-lg shadow-sky-900/30'
+      : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80'}`;
+    button.innerHTML = `
+      <div>
+        <p class="font-semibold">${escapeHtml(item.name || `دسته ${id}`)}</p>
+        <p class="text-xs text-white/60 mt-1">${isSelected ? 'انتخاب شده - برای حذف کلیک کنید' : 'برای افزودن به درخواست کلیک کنید'}</p>
+      </div>
+      <span class="text-xs px-3 py-1 rounded-full ${isSelected ? 'bg-sky-500/30 text-white' : 'bg-white/10 text-white/60'}">${isSelected ? 'فعال' : 'غیرفعال'}</span>
+    `;
+    fragment.appendChild(button);
+  });
+
+  triviaCategoryListEl.innerHTML = '';
+  triviaCategoryListEl.appendChild(fragment);
+}
+
+async function loadTriviaCategories(force = false) {
+  if (!triviaCategoryListEl) return;
+  if (!getToken()) {
+    triviaControlState.availableCategories = [];
+    triviaControlState.selectedCategories.clear();
+    renderTriviaCategories();
+    updateTriviaSummary();
+    updateTriviaControlsAvailability();
+    return;
+  }
+  if (triviaControlState.loadingCategories && !force) return;
+
+  triviaControlState.loadingCategories = true;
+  renderTriviaCategories();
+  updateTriviaControlsAvailability();
+
+  try {
+    const response = await api('/trivia/providers/opentdb/categories');
+    const categories = Array.isArray(response?.data) ? response.data : [];
+    triviaControlState.availableCategories = categories.map((item) => ({
+      id: String(item.id),
+      name: item.name || `Category ${item.id}`
+    }));
+    const validIds = new Set(triviaControlState.availableCategories.map((item) => item.id));
+    triviaControlState.selectedCategories.forEach((id) => {
+      if (!validIds.has(id)) triviaControlState.selectedCategories.delete(id);
+    });
+  } catch (err) {
+    console.error('Failed to load trivia categories', err);
+    showToast('دریافت دسته‌های OpenTDB با خطا مواجه شد', 'error');
+  } finally {
+    triviaControlState.loadingCategories = false;
+    renderTriviaCategories();
+    updateTriviaControlsAvailability();
+    updateTriviaSummary();
+  }
+}
+
+function updateTriviaSummary() {
+  if (!triviaSelectionSummaryEl) return;
+  if (!getToken()) {
+    triviaSelectionSummaryEl.textContent = 'برای فعال‌سازی دریافت سوالات، ابتدا وارد حساب مدیریتی شوید.';
+    return;
+  }
+
+  const amount = clampTriviaAmount(triviaControlState.amount);
+  triviaControlState.amount = amount;
+  if (triviaAmountInput && Number(triviaAmountInput.value) !== amount) {
+    triviaAmountInput.value = String(amount);
+  }
+  if (triviaAmountRange && Number(triviaAmountRange.value) !== amount) {
+    triviaAmountRange.value = String(Math.min(Math.max(amount, Number(triviaAmountRange.min) || 1), Number(triviaAmountRange.max) || amount));
+  }
+
+  const categories = Array.from(triviaControlState.selectedCategories);
+  const difficulties = Array.from(triviaControlState.selectedDifficulties);
+  const totalCombos = Math.max(1, (categories.length || 1) * (difficulties.length || 1));
+  const basePerCombo = Math.floor(amount / totalCombos);
+  const remainder = amount % totalCombos;
+
+  const difficultiesText = difficulties.length === 0
+    ? 'بدون محدودیت'
+    : difficulties.map((key) => escapeHtml(TRIVIA_DIFFICULTY_LABELS[key] || key)).join('، ');
+
+  const categoryNames = categories.map((id) => {
+    const match = triviaControlState.availableCategories.find((item) => item.id === id);
+    return match ? escapeHtml(match.name) : escapeHtml(`شناسه ${id}`);
+  });
+
+  let categoriesText = 'بدون محدودیت (عمومی)';
+  if (categoryNames.length > 0) {
+    categoriesText = categoryNames.length <= 3
+      ? categoryNames.join('، ')
+      : `${categoryNames.slice(0, 3).join('، ')} و ${formatNumberFa(categoryNames.length - 3)} مورد دیگر`;
+  }
+
+  let distributionText = `میانگین هر ترکیب: ${formatNumberFa(basePerCombo)} سوال`;
+  if (remainder) {
+    distributionText += ` و ${formatNumberFa(remainder)} سوال اضافه در ترکیب‌های ابتدایی`;
+  }
+  if (amount < totalCombos) {
+    distributionText = `تعداد سوال کمتر از ترکیب‌هاست؛ فقط برای ${formatNumberFa(amount)} ترکیب نخست سوال دریافت می‌شود.`;
+  }
+
+  triviaSelectionSummaryEl.innerHTML = `
+    <div class="space-y-1">
+      <p>مجموع درخواست: <span class="font-semibold text-white">${formatNumberFa(amount)} سوال</span></p>
+      <p>ترکیب دشواری: <span class="text-white">${difficultiesText}</span></p>
+      <p>دسته‌بندی‌ها: <span class="text-white">${escapeHtml(categoriesText)}</span></p>
+      <p class="text-xs text-white/60">${distributionText}</p>
+    </div>
+  `;
+}
 
 // --------------- AUTH (JWT) ---------------
 function getToken() { return localStorage.getItem('iq_admin_token'); }
@@ -199,6 +492,8 @@ async function login() {
     setToken(res.token);
     closeModal('#login-modal');
     showToast('ورود موفق', 'success');
+    updateTriviaControlsAvailability();
+    updateTriviaSummary();
     await loadAllData();
   } catch (e) {
     showToast(e.message, 'error');
@@ -784,6 +1079,113 @@ if (filterSortSelect) {
   });
 }
 
+if (triviaAmountRange) {
+  triviaAmountRange.addEventListener('input', () => {
+    const amount = clampTriviaAmount(triviaAmountRange.value);
+    triviaControlState.amount = amount;
+    if (triviaAmountInput && Number(triviaAmountInput.value) !== amount) {
+      triviaAmountInput.value = String(amount);
+    }
+    updateTriviaSummary();
+  });
+}
+
+if (triviaAmountInput) {
+  triviaAmountInput.addEventListener('input', () => {
+    const amount = clampTriviaAmount(triviaAmountInput.value);
+    triviaControlState.amount = amount;
+    if (triviaAmountRange && Number(triviaAmountRange.value) !== amount) {
+      triviaAmountRange.value = String(Math.min(Math.max(amount, Number(triviaAmountRange.min) || 1), Number(triviaAmountRange.max) || 50));
+    }
+    updateTriviaSummary();
+  });
+}
+
+if (triviaDifficultyOptions) {
+  triviaDifficultyOptions.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-difficulty]');
+    if (!target) return;
+    const key = String(target.dataset.difficulty || '').toLowerCase();
+    if (!key) return;
+    if (triviaControlState.selectedDifficulties.has(key)) {
+      triviaControlState.selectedDifficulties.delete(key);
+      target.classList.remove('active');
+    } else {
+      triviaControlState.selectedDifficulties.add(key);
+      target.classList.add('active');
+    }
+    updateTriviaSummary();
+  });
+}
+
+if (triviaCategoryListEl) {
+  triviaCategoryListEl.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-category-id]');
+    if (!button) return;
+    const id = String(button.dataset.categoryId || '').trim();
+    if (!id) return;
+    if (triviaControlState.selectedCategories.has(id)) {
+      triviaControlState.selectedCategories.delete(id);
+    } else {
+      triviaControlState.selectedCategories.add(id);
+    }
+    renderTriviaCategories();
+    updateTriviaSummary();
+  });
+}
+
+if (triviaCategorySearchInput) {
+  triviaCategorySearchInput.addEventListener('input', () => {
+    triviaControlState.search = triviaCategorySearchInput.value || '';
+    renderTriviaCategories();
+  });
+}
+
+if (triviaRefreshBtn) {
+  triviaRefreshBtn.addEventListener('click', async () => {
+    if (!getToken()) {
+      showToast('برای دریافت لیست دسته‌ها ابتدا وارد شوید', 'warning');
+      return;
+    }
+    await loadTriviaCategories(true);
+  });
+}
+
+if (triviaImportBtn) {
+  triviaImportBtn.addEventListener('click', async () => {
+    if (!getToken()) {
+      showToast('برای دریافت سوالات ابتدا وارد شوید', 'warning');
+      return;
+    }
+    if (triviaControlState.importing) return;
+    setTriviaImportLoading(true);
+    try {
+      const payload = {
+        amount: triviaControlState.amount,
+        categories: Array.from(triviaControlState.selectedCategories),
+        difficulties: Array.from(triviaControlState.selectedDifficulties)
+      };
+      const result = await api('/trivia/import', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      triviaControlState.lastResult = result;
+      renderTriviaImportResult(result);
+      showToast(result.ok ? 'دریافت سوالات با موفقیت انجام شد' : (result.message || 'دریافت سوالات ناموفق بود'), result.ok ? 'success' : 'warning');
+      await Promise.allSettled([
+        loadQuestions(),
+        loadDashboardStats(true)
+      ]);
+    } catch (err) {
+      console.error('Failed to import trivia questions', err);
+      showToast(err.message || 'درون‌ریزی سوالات با خطا مواجه شد', 'error');
+      setTriviaStatusBadge('error', 'خطا در دریافت');
+    } finally {
+      setTriviaImportLoading(false);
+    }
+  });
+}
+
 // --------------- CREATE handlers ---------------
 $('#save-question-btn').addEventListener('click', async () => {
   const m = $('#add-question-modal');
@@ -865,7 +1267,8 @@ async function loadAllData() {
     loadDashboardStats(),
     loadCategoryFilterOptions(),
     loadQuestions(),
-    loadUsers()
+    loadUsers(),
+    loadTriviaCategories()
   ]);
 }
 
@@ -887,6 +1290,10 @@ document.addEventListener('keydown', (e) => {
     $('#mobile-menu').classList.add('translate-x-full');
   }
 });
+
+renderTriviaImportResult(triviaControlState.lastResult);
+updateTriviaSummary();
+updateTriviaControlsAvailability();
 
 // صفحه پیش‌فرض
 navigateTo('dashboard');

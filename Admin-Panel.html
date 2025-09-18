@@ -159,6 +159,62 @@
     .table tr:nth-child(even) {
       background: rgba(255,255,255,0.03);
     }
+    .chip-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.8);
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .chip-toggle:hover {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border-color: rgba(59,130,246,0.5);
+      box-shadow: 0 10px 25px -20px rgba(59,130,246,0.8);
+    }
+    .chip-toggle.active {
+      background: linear-gradient(120deg, rgba(59,130,246,0.35), rgba(96,165,250,0.4));
+      color: #fff;
+      border-color: rgba(59,130,246,0.8);
+      box-shadow: 0 12px 35px -18px rgba(96,165,250,0.9);
+    }
+    .chip-toggle:focus-visible {
+      outline: 2px solid rgba(59,130,246,0.8);
+      outline-offset: 2px;
+    }
+    .chip-toggle[data-busy="true"] {
+      opacity: 0.6;
+      cursor: progress;
+      pointer-events: none;
+    }
+    .category-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .category-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 9999px;
+    }
+    .category-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .loader-inline {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 9999px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
     .table tr:hover {
       background: rgba(255,255,255,0.05);
     }
@@ -1337,6 +1393,95 @@
                 <option value="newest">جدیدترین سوالات</option>
                 <option value="oldest">قدیمی‌ترین سوالات</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trivia Import Controls -->
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          <div class="glass rounded-2xl p-6 xl:col-span-3 space-y-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div>
+                <h2 class="text-xl font-semibold">کنترل حرفه‌ای دریافت سوالات از API</h2>
+                <p class="text-sm text-white/70 mt-1">انتخاب دقیق دسته‌بندی، سطح دشواری و تعداد سوالات پیش از درون‌ریزی به بانک سوالات.</p>
+              </div>
+              <button id="trivia-refresh-categories" class="btn btn-tertiary w-full md:w-auto px-4 py-2 text-sm">
+                <i class="fa-solid fa-rotate ml-2"></i>
+                بروزرسانی لیست دسته‌ها
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div class="glass-dark rounded-2xl p-4 border border-white/5">
+                <label for="trivia-amount-range" class="block text-sm font-semibold text-white/80">تعداد کل سوالات درخواستی</label>
+                <p class="text-xs text-white/60 mt-1">محدوده پیشنهادی بین ۵ تا ۵۰ سوال در هر درخواست است. در صورت انتخاب دسته‌های متعدد تعداد به صورت هوشمند تقسیم می‌شود.</p>
+                <div class="flex items-center gap-4 mt-4">
+                  <input id="trivia-amount-range" type="range" min="5" max="50" value="20" class="flex-1 accent-sky-400" />
+                  <div class="flex items-center gap-2">
+                    <input id="trivia-amount-input" type="number" min="1" max="200" value="20" class="form-input w-20 text-center" />
+                    <span class="text-sm text-white/60">سوال</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="glass-dark rounded-2xl p-4 border border-white/5">
+                <label class="block text-sm font-semibold text-white/80">سطوح دشواری مورد نظر</label>
+                <p class="text-xs text-white/60 mt-1">با انتخاب چند سطح، سوالات به صورت ترکیبی دریافت خواهند شد.</p>
+                <div id="trivia-difficulty-options" class="flex flex-wrap gap-2 mt-4">
+                  <button type="button" class="chip-toggle active" data-difficulty="easy">
+                    <i class="fa-solid fa-feather"></i>
+                    <span>آسون</span>
+                  </button>
+                  <button type="button" class="chip-toggle active" data-difficulty="medium">
+                    <i class="fa-solid fa-wave-square"></i>
+                    <span>متوسط</span>
+                  </button>
+                  <button type="button" class="chip-toggle" data-difficulty="hard">
+                    <i class="fa-solid fa-fire"></i>
+                    <span>سخت</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-dark rounded-2xl p-5 border border-white/5">
+              <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-white/80">انتخاب دسته‌بندی‌های OpenTDB</label>
+                  <p class="text-xs text-white/60 mt-1">حداکثر دسته‌های مورد نیاز خود را انتخاب کنید؛ در صورت عدم انتخاب، سوالات عمومی دریافت می‌شود.</p>
+                </div>
+              </div>
+              <div class="relative mt-4">
+                <span class="absolute inset-y-0 left-4 flex items-center text-white/60 pointer-events-none">
+                  <i class="fa-solid fa-search"></i>
+                </span>
+                <input id="trivia-category-search" type="search" class="form-input pr-12" placeholder="جستجوی دسته‌بندی OpenTDB...">
+              </div>
+              <div id="trivia-category-list" class="category-scroll max-h-72 overflow-y-auto mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1 text-sm text-white/70">
+                <div class="glass-dark rounded-2xl border border-dashed border-white/10 p-4 text-center">
+                  <p>برای نمایش دسته‌بندی‌ها، روی «بروزرسانی لیست دسته‌ها» کلیک کنید.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-white/10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div id="trivia-selection-summary" class="text-sm text-white/70 leading-relaxed">
+                هنوز تنظیماتی انتخاب نشده است. ابتدا وارد شوید و گزینه‌های دلخواه را فعال کنید.
+              </div>
+              <button id="trivia-import-btn" class="btn btn-primary w-full lg:w-auto">
+                <i class="fa-solid fa-cloud-arrow-down ml-2"></i>
+                دریافت سوالات انتخابی
+              </button>
+            </div>
+          </div>
+
+          <div class="glass rounded-2xl p-6 xl:col-span-2 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold">گزارش آخرین دریافت</h3>
+              <span class="text-xs px-3 py-1 rounded-full bg-white/10 text-white/70" id="trivia-import-status">غیرفعال</span>
+            </div>
+            <div id="trivia-import-result" class="space-y-3 text-sm text-white/70">
+              <p>هنوز درخواستی ثبت نشده است. پس از اجرای درون‌ریزی، جزئیات هر دسته و سطح دشواری در اینجا نمایش داده می‌شود.</p>
             </div>
           </div>
         </div>
