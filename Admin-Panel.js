@@ -9,6 +9,19 @@ const escapeHtml = (value = '') => String(value)
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+const formatNumberFa = (value, options = {}) => {
+  const number = Number(value);
+  const safeNumber = Number.isFinite(number) ? number : 0;
+  const formatter = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0, ...options });
+  return formatter.format(safeNumber);
+};
+
+const formatPercentFa = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '۰';
+  return new Intl.NumberFormat('fa-IR', { minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(number);
+};
+
 const DIFFICULTY_META = {
   easy:   { label: 'آسون', class: 'meta-chip difficulty-easy', icon: 'fa-feather' },
   medium: { label: 'متوسط', class: 'meta-chip difficulty-medium', icon: 'fa-wave-square' },
@@ -53,6 +66,18 @@ const filterCategorySelect = $('#filter-category');
 const filterDifficultySelect = $('#filter-difficulty');
 const filterSearchInput = $('#filter-search');
 const filterSortSelect = $('#filter-sort');
+const questionStatsCard = document.querySelector('[data-dashboard-card="questions"]');
+const questionTotalEl = $('#dashboard-question-total');
+const questionTrendEl = $('#dashboard-question-trend');
+const questionTodayEl = $('#dashboard-question-today');
+const questionYesterdayEl = $('#dashboard-question-yesterday');
+const questionStatsTotalEl = $('#question-stats-total');
+const questionStatsTodayEl = $('#question-stats-today');
+const questionStatsYesterdayEl = $('#question-stats-yesterday');
+const questionStatsPercentEl = $('#question-stats-percent');
+const questionStatsDeltaEl = $('#question-stats-delta');
+const questionStatsSummaryEl = $('#question-stats-summary');
+const questionStatsDescriptionEl = $('#question-stats-description');
 
 const questionFilters = {
   category: '',
@@ -62,6 +87,8 @@ const questionFilters = {
 };
 
 let filterSearchDebounce;
+let latestQuestionStats = null;
+let questionStatsLoaded = false;
 
 // --------------- AUTH (JWT) ---------------
 function getToken() { return localStorage.getItem('iq_admin_token'); }
@@ -138,6 +165,25 @@ $('#btn-add-category').addEventListener('click', () => openModal('#add-category-
 $('#btn-add-user').addEventListener('click', () => openModal('#add-user-modal'));
 $('#btn-add-achievement').addEventListener('click', () => openModal('#add-achievement-modal'));
 
+if (questionStatsCard) {
+  const handleOpenQuestionStats = async () => {
+    if (!getToken()) {
+      showToast('برای مشاهده آمار ابتدا وارد شوید', 'warning');
+      return;
+    }
+    const stats = await loadDashboardStats(true);
+    if (stats) openModal('#question-stats-modal');
+  };
+
+  questionStatsCard.addEventListener('click', handleOpenQuestionStats);
+  questionStatsCard.addEventListener('keydown', async (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      await handleOpenQuestionStats();
+    }
+  });
+}
+
 // تاریخ شمسی
 const date = new Date();
 const persianDate = new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
@@ -196,6 +242,64 @@ function normalizeQuestion(raw = {}) {
     categoryId,
     source: SOURCE_META[sourceKey] ? sourceKey : 'manual'
   };
+}
+
+function updateQuestionStatsUI(stats = {}) {
+  const normalized = {
+    total: Number.isFinite(Number(stats.total)) ? Number(stats.total) : 0,
+    today: Number.isFinite(Number(stats.today)) ? Number(stats.today) : 0,
+    yesterday: Number.isFinite(Number(stats.yesterday)) ? Number(stats.yesterday) : 0
+  };
+  const delta = normalized.today - normalized.yesterday;
+  const percentBase = normalized.yesterday > 0
+    ? (delta / normalized.yesterday) * 100
+    : normalized.today > 0 ? 100 : 0;
+  const percentRounded = Math.round(percentBase * 10) / 10;
+  const isPositive = percentRounded >= 0;
+  const percentLabel = percentRounded === 0
+    ? '۰٪'
+    : `${isPositive ? '+' : '−'}${formatPercentFa(Math.abs(percentRounded))}٪`;
+  const deltaLabel = delta === 0
+    ? '۰'
+    : `${delta > 0 ? '+' : '−'}${formatNumberFa(Math.abs(delta))}`;
+
+  if (questionTotalEl) questionTotalEl.textContent = formatNumberFa(normalized.total);
+  if (questionTrendEl) {
+    questionTrendEl.textContent = percentLabel;
+    questionTrendEl.className = `text-xs font-bold ${isPositive ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'} rounded-xl px-2 py-1`;
+  }
+  if (questionTodayEl) questionTodayEl.textContent = formatNumberFa(normalized.today);
+  if (questionYesterdayEl) questionYesterdayEl.textContent = formatNumberFa(normalized.yesterday);
+  if (questionStatsTotalEl) questionStatsTotalEl.textContent = formatNumberFa(normalized.total);
+  if (questionStatsTodayEl) questionStatsTodayEl.textContent = formatNumberFa(normalized.today);
+  if (questionStatsYesterdayEl) questionStatsYesterdayEl.textContent = formatNumberFa(normalized.yesterday);
+  if (questionStatsPercentEl) {
+    questionStatsPercentEl.textContent = percentLabel;
+    questionStatsPercentEl.className = `text-sm font-bold ${isPositive ? 'text-emerald-300' : 'text-rose-300'}`;
+  }
+  if (questionStatsDeltaEl) {
+    let deltaClass = 'text-base font-bold text-white';
+    if (delta > 0) deltaClass = 'text-base font-bold text-emerald-200';
+    else if (delta < 0) deltaClass = 'text-base font-bold text-rose-200';
+    questionStatsDeltaEl.className = deltaClass;
+    questionStatsDeltaEl.textContent = deltaLabel;
+  }
+  if (questionStatsSummaryEl) {
+    const todayLabel = formatNumberFa(normalized.today);
+    const yesterdayLabel = formatNumberFa(normalized.yesterday);
+    questionStatsSummaryEl.textContent = `امروز ${todayLabel} سوال جدید ثبت شده است و دیروز ${yesterdayLabel} سوال جدید داشتیم.`;
+  }
+  if (questionStatsDescriptionEl) {
+    let description;
+    if (delta > 0) description = `${formatNumberFa(Math.abs(delta))} سوال بیشتر از دیروز به بانک سوالات افزوده شده است.`;
+    else if (delta < 0) description = `${formatNumberFa(Math.abs(delta))} سوال کمتر از دیروز به بانک سوالات افزوده شده است.`;
+    else description = 'تعداد سوالات جدید امروز دقیقا برابر با دیروز است.';
+    questionStatsDescriptionEl.textContent = description;
+  }
+
+  latestQuestionStats = { ...normalized, delta, percent: percentRounded };
+  questionStatsLoaded = true;
+  return latestQuestionStats;
 }
 
 function formatDateTime(value) {
@@ -429,6 +533,35 @@ async function loadCategoryFilterOptions(triggerReloadOnMissing = false) {
   }
   if (shouldReload) {
     await loadQuestions();
+  }
+}
+
+async function loadDashboardStats(force = false) {
+  if (!questionTotalEl || !questionTrendEl) return null;
+  if (!getToken()) return null;
+  if (questionStatsLoaded && !force) return latestQuestionStats;
+
+  if (questionStatsSummaryEl) {
+    questionStatsSummaryEl.textContent = 'در حال بروزرسانی آمار سوالات...';
+  }
+
+  try {
+    const response = await api('/questions/stats/summary');
+    const { total = 0, today = 0, yesterday = 0 } = response?.data ?? {};
+    return updateQuestionStatsUI({ total, today, yesterday });
+  } catch (err) {
+    console.error('Failed to load question stats', err);
+    if (force) showToast('امکان دریافت آمار سوالات نبود', 'error');
+    if (questionTrendEl) {
+      questionTrendEl.textContent = '—';
+      questionTrendEl.className = 'text-xs font-bold text-white/70 bg-white/10 rounded-xl px-2 py-1';
+    }
+    if (questionTotalEl) questionTotalEl.textContent = '—';
+    if (questionStatsSummaryEl) questionStatsSummaryEl.textContent = 'دریافت آمار سوالات با خطا مواجه شد.';
+    if (questionStatsDescriptionEl) questionStatsDescriptionEl.textContent = 'لطفاً بعداً دوباره تلاش کنید.';
+    questionStatsLoaded = false;
+    latestQuestionStats = null;
+    return null;
   }
 }
 
@@ -729,6 +862,7 @@ $('#save-achievement-btn').addEventListener('click', async () => {
 // --------------- INIT ---------------
 async function loadAllData() {
   await Promise.all([
+    loadDashboardStats(),
     loadCategoryFilterOptions(),
     loadQuestions(),
     loadUsers()
