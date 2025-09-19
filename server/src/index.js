@@ -16,6 +16,7 @@ const logger = require('./config/logger');
 const errorHandler = require('./middleware/error');
 const triviaRoutes = require('./routes/trivia');
 const { startTriviaPoller } = require('./poller/triviaPoller');
+const { ensureInitialCategories, syncProviderCategories } = require('./services/categorySeeder');
 
 // init
 const app = express();
@@ -104,6 +105,13 @@ let triviaPollerInstance;
 
 const startApp = async () => {
   await connectDB();
+
+  await ensureInitialCategories();
+  try {
+    await syncProviderCategories();
+  } catch (err) {
+    logger.warn(`Failed to sync provider categories: ${err.message}`);
+  }
 
   if (env.trivia.enablePoller) {
     triviaPollerInstance = startTriviaPoller();
