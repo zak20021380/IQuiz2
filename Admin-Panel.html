@@ -194,6 +194,62 @@
       cursor: progress;
       pointer-events: none;
     }
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 48px;
+      height: 26px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.25);
+      position: relative;
+      transition: all 0.25s ease;
+      box-shadow: inset 0 6px 18px rgba(15,23,42,0.35);
+    }
+    .toggle input[type="checkbox"]::before {
+      content: '';
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 6px 18px rgba(15,23,42,0.25);
+      transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+    }
+    .toggle input[type="checkbox"]:checked {
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      border-color: transparent;
+      box-shadow: 0 12px 30px rgba(59,130,246,0.35);
+    }
+    .toggle input[type="checkbox"]:checked::before {
+      transform: translateX(-22px);
+      background: #0f172a;
+      box-shadow: 0 6px 16px rgba(15,23,42,0.45);
+    }
+    .toggle input[type="checkbox"]:focus-visible {
+      outline: 2px solid rgba(59,130,246,0.75);
+      outline-offset: 3px;
+    }
+    .toggle .toggle-label {
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.4;
+    }
+    .toggle .toggle-helper {
+      display: block;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.6;
+    }
     .category-scroll::-webkit-scrollbar {
       width: 6px;
     }
@@ -2476,6 +2532,32 @@
             <label class="block text-sm mb-2 font-semibold text-white/80">متن کامل سوال</label>
             <textarea name="question-text" class="form-input min-h-[140px] text-sm leading-relaxed" placeholder="متن سوال را وارد کنید..."></textarea>
           </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold text-white/80" for="question-detail-category">دسته‌بندی</label>
+              <select id="question-detail-category" class="form-select"></select>
+              <p class="text-xs text-white/60 mt-2 leading-6">دسته‌بندی تعیین می‌کند که سوال در کدام بخش ربات نمایش داده شود.</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold text-white/80" for="question-detail-difficulty">سطح دشواری</label>
+              <select id="question-detail-difficulty" class="form-select">
+                <option value="easy">آسون</option>
+                <option value="medium">متوسط</option>
+                <option value="hard">سخت</option>
+              </select>
+              <p class="text-xs text-white/60 mt-2 leading-6">با انتخاب سطح دشواری می‌توانید مسیر پیشروی کاربران را مدیریت کنید.</p>
+            </div>
+            <div class="glass-dark rounded-2xl border border-white/10 px-4 py-4 space-y-3">
+              <span class="text-sm font-semibold text-white/80">وضعیت سوال</span>
+              <label class="toggle w-full" for="question-detail-active">
+                <input type="checkbox" id="question-detail-active" />
+                <div>
+                  <span class="toggle-label">فعال باشد</span>
+                  <span class="toggle-helper">در صورت غیرفعال شدن، سوال از IQuiz-Bot حذف می‌شود.</span>
+                </div>
+              </label>
+            </div>
+          </div>
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <label class="block text-sm font-semibold text-white/80">گزینه‌ها</label>
@@ -2518,31 +2600,37 @@
       </div>
       <div class="modal-body">
         <div class="field-group">
-          <label>متن سوال</label>
-          <textarea class="form-input min-h-[130px] text-sm leading-relaxed" rows="4" placeholder="متن سوال را وارد کنید..."></textarea>
+          <label for="add-question-text">متن سوال</label>
+          <textarea id="add-question-text" class="form-input min-h-[130px] text-sm leading-relaxed" rows="4" placeholder="متن سوال را وارد کنید..."></textarea>
           <span class="helper-text">برای وضوح بیشتر، سوال را کوتاه و دقیق بنویسید.</span>
         </div>
         <div class="select-grid">
           <div class="field-group">
-            <label>دسته‌بندی</label>
-            <select class="form-select">
-              <option>عمومی</option>
-              <option>جغرافیا</option>
-              <option>ورزش</option>
-              <option>علم</option>
-              <option>تاریخ</option>
-              <option>هنر</option>
-              <option>سرگرمی</option>
+            <label for="add-question-category">دسته‌بندی</label>
+            <select id="add-question-category" class="form-select">
+              <option value="">دسته‌بندی مورد نظر را انتخاب کنید</option>
             </select>
+            <span class="helper-text">دسته‌بندی مشخص می‌کند سوال در کدام بخش ربات نمایش داده شود.</span>
           </div>
           <div class="field-group">
-            <label>سطح دشواری</label>
-            <select class="form-select">
-              <option>آسون</option>
-              <option>متوسط</option>
-              <option>سخت</option>
+            <label for="add-question-difficulty">سطح دشواری</label>
+            <select id="add-question-difficulty" class="form-select">
+              <option value="easy">آسون</option>
+              <option value="medium">متوسط</option>
+              <option value="hard">سخت</option>
             </select>
+            <span class="helper-text">سطح دشواری روی امتیاز و تجربه کاربران تاثیر می‌گذارد.</span>
           </div>
+        </div>
+        <div class="field-group">
+          <span class="field-label">وضعیت سوال</span>
+          <label class="toggle" for="add-question-active">
+            <input type="checkbox" id="add-question-active" checked />
+            <div>
+              <span class="toggle-label">سوال فعال باشد</span>
+              <span class="toggle-helper">در صورت غیرفعال بودن، سوال به کاربران IQuiz-Bot نمایش داده نمی‌شود.</span>
+            </div>
+          </label>
         </div>
         <div class="field-group">
           <div class="flex items-center justify-between gap-2 flex-wrap">
@@ -2551,19 +2639,19 @@
           </div>
           <div class="options-wrapper">
             <div class="option-row">
-              <input type="radio" name="correct-answer">
+              <input type="radio" name="correct-answer" value="0">
               <input type="text" class="form-input" placeholder="گزینه ۱">
             </div>
             <div class="option-row">
-              <input type="radio" name="correct-answer">
+              <input type="radio" name="correct-answer" value="1">
               <input type="text" class="form-input" placeholder="گزینه ۲">
             </div>
             <div class="option-row">
-              <input type="radio" name="correct-answer">
+              <input type="radio" name="correct-answer" value="2">
               <input type="text" class="form-input" placeholder="گزینه ۳">
             </div>
             <div class="option-row">
-              <input type="radio" name="correct-answer">
+              <input type="radio" name="correct-answer" value="3">
               <input type="text" class="form-input" placeholder="گزینه ۴">
             </div>
           </div>
