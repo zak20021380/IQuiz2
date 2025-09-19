@@ -1212,46 +1212,9 @@
         <div class="space-y-4">
           <div class="text-center">
             <p class="mb-4">استان خود را برای مسابقه انتخاب کنید</p>
-            <div class="space-y-3 max-h-80 overflow-y-auto pr-2">
-              <div class="location-card" data-province="1">
-                <div class="location-icon province-icon"><i class="fas fa-map-marked-alt"></i></div>
-                <div class="flex-1">
-                  <div class="font-bold">تهران</div>
-                  <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-users"></i><span>۱۲۴ شرکت‌کننده</span></div>
-                </div>
-                <div class="text-sm font-bold text-green-300"><i class="fas fa-trophy"></i> ۱۸,۵۰۰</div>
-              </div>
-              <div class="location-card" data-province="2">
-                <div class="location-icon province-icon"><i class="fas fa-map-marked-alt"></i></div>
-                <div class="flex-1">
-                  <div class="font-bold">اصفهان</div>
-                  <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-users"></i><span>۹۸ شرکت‌کننده</span></div>
-                </div>
-                <div class="text-sm font-bold text-green-300"><i class="fas fa-trophy"></i> ۱۵,۲۰۰</div>
-              </div>
-              <div class="location-card" data-province="3">
-                <div class="location-icon province-icon"><i class="fas fa-map-marked-alt"></i></div>
-                <div class="flex-1">
-                  <div class="font-bold">خراسان رضوی</div>
-                  <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-users"></i><span>۱۱۲ شرکت‌کننده</span></div>
-                </div>
-                <div class="text-sm font-bold text-green-300"><i class="fas fa-trophy"></i> ۱۶,۸۰۰</div>
-              </div>
-              <div class="location-card" data-province="4">
-                <div class="location-icon province-icon"><i class="fas fa-map-marked-alt"></i></div>
-                <div class="flex-1">
-                  <div class="font-bold">فارس</div>
-                  <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-users"></i><span>۸۷ شرکت‌کننده</span></div>
-                </div>
-                <div class="text-sm font-bold text-green-300"><i class="fas fa-trophy"></i> ۱۴,۳۰۰</div>
-              </div>
-              <div class="location-card" data-province="5">
-                <div class="location-icon province-icon"><i class="fas fa-map-marked-alt"></i></div>
-                <div class="flex-1">
-                  <div class="font-bold">کردستان</div>
-                  <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-users"></i><span>۱۰۵ شرکت‌کننده</span></div>
-                </div>
-                <div class="text-sm font-bold text-green-300"><i class="fas fa-trophy"></i> ۱۵,۹۰۰</div>
+            <div id="province-select-list" class="space-y-3 max-h-80 overflow-y-auto pr-2" aria-live="polite">
+              <div class="glass rounded-2xl p-4 text-sm opacity-80 text-center">
+                در حال بارگذاری استان‌ها...
               </div>
             </div>
           </div>
@@ -2196,9 +2159,10 @@ patchPricingKeys(RemoteConfig);
     Admin.diffs = Array.from(diffMap.values());
 
     if (Array.isArray(provinces) && provinces.length){
-      State.provinces = provinces.map(p=>({ name:p.name||p, score:p.score||0, members:p.members||0 }));
+      State.provinces = provinces.map(p=>({ name:p.name||p, score:p.score||0, members:p.members||0, region:p.region||p.area||'' }));
     }
 
+    renderProvinceSelect();
     buildSetupFromAdmin();
     applyConfigToUI();
   }
@@ -2589,6 +2553,7 @@ function isUserInGroup() {
       saveState();
       renderHeader();
       renderDashboard();
+      renderProvinceSelect();
       closeModal('#modal-province-select');
       toast('استان شما ذخیره شد');
     });
@@ -3338,6 +3303,7 @@ function openCreateGroup(){
     saveState();
     renderGroupSelect();
     renderDashboard();
+    renderProvinceSelect();
     logEvent('group_created', { group: name });
     const link = location.origin + '/?join=' + newGroup.id;
     $('#new-group-link').value = link;
@@ -4706,6 +4672,7 @@ async function startPurchaseCoins(pkgId){
     State.user.province = p;
     saveState();
     renderDashboard();
+    renderProvinceSelect();
     closeModal('#modal-province-select');
     toast('استان ثبت شد ✅');
   });
@@ -4918,18 +4885,103 @@ async function startPurchaseCoins(pkgId){
     logEvent('duel_invite_link');
   });
 
-  // Province Selection
-  $$('[data-province]').forEach(card => {
-    card.addEventListener('click', () => {
-      const provinceId = card.dataset.province;
-      const province = State.provinces.find(p => p.id === provinceId);
-      toast(`ثبت‌نام در مسابقه ${province.name} با موفقیت انجام شد!`);
-      
-      // Log analytics
-      logEvent('province_match_join', { province: province.name });
+  function handleProvinceJoin(province) {
+    if (!province || !province.name) {
+      toast('اطلاعات استان در دسترس نیست');
+      return;
+    }
+    toast(`ثبت‌نام در مسابقه ${province.name} با موفقیت انجام شد!`);
+    logEvent('province_match_join', {
+      province: province.name,
+      provinceId: province.id || province.code || province.slug || undefined
     });
-  });
-  
+  }
+
+  function renderProvinceSelect() {
+    const list = $('#province-select-list');
+    if (!list) return;
+
+    const provinces = Array.isArray(State.provinces)
+      ? State.provinces.filter(p => p && (p.name || p.title))
+      : [];
+
+    if (provinces.length === 0) {
+      list.innerHTML = '<div class="glass rounded-2xl p-4 text-sm opacity-80 text-center">هنوز استانی برای نمایش وجود ندارد.</div>';
+      return;
+    }
+
+    const normalized = provinces.map((province, idx) => {
+      const name = province?.name || province?.title || `استان ${idx + 1}`;
+      const scoreRaw = province?.score ?? province?.totalScore ?? province?.points ?? province?.total_points ?? province?.totalPoints ?? 0;
+      const scoreNum = Number(scoreRaw);
+      const score = Number.isFinite(scoreNum) ? scoreNum : 0;
+      const memberRaw = province?.members ?? province?.memberCount ?? province?.participants ?? province?.players ?? 0;
+      const memberNum = Number(memberRaw);
+      const members = Number.isFinite(memberNum) ? memberNum : 0;
+      const region = province?.region || province?.area || province?.zone || '';
+      return {
+        ...province,
+        id: province?.id ?? province?._id ?? province?.code ?? province?.slug ?? name,
+        name,
+        score,
+        members,
+        region
+      };
+    }).sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.members !== a.members) return b.members - a.members;
+      return (a.name || '').localeCompare(b.name || '', 'fa');
+    });
+
+    list.innerHTML = '';
+    normalized.forEach((province, idx) => {
+      const rank = idx + 1;
+      let badgeClass = 'bg-white/20';
+      if (rank === 1) badgeClass = 'bg-gradient-to-br from-yellow-200 to-yellow-400 text-gray-900';
+      else if (rank === 2) badgeClass = 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-900';
+      else if (rank === 3) badgeClass = 'bg-gradient-to-br from-amber-600 to-amber-700 text-gray-900';
+
+      const participantsLabel = province.members > 0
+        ? `${faNum(province.members)} شرکت‌کننده`
+        : 'بدون شرکت‌کننده';
+      const regionLine = province.region
+        ? `<div class="text-xs opacity-70 mt-1">${province.region}</div>`
+        : '';
+      const scoreLabel = province.score > 0 ? faNum(province.score) : '—';
+
+      const card = document.createElement('div');
+      card.className = 'location-card';
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.dataset.provinceKey = province.id;
+      card.innerHTML = `
+        <span class="rank-badge ${badgeClass}">${faNum(rank)}</span>
+        <div class="location-icon province-icon"><i class="fas fa-map-marked-alt"></i></div>
+        <div class="flex-1">
+          <div class="font-bold">${province.name}</div>
+          <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-users"></i><span>${participantsLabel}</span></div>
+          ${regionLine}
+        </div>
+        <div class="text-sm font-bold text-green-300"><i class="fas fa-trophy"></i> ${scoreLabel}</div>`;
+
+      if (province.name === State.user.province) {
+        card.classList.add('ring-2', 'ring-green-300');
+        card.setAttribute('aria-current', 'true');
+      }
+
+      const join = () => handleProvinceJoin(province);
+      card.addEventListener('click', join);
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          join();
+        }
+      });
+
+      list.appendChild(card);
+    });
+  }
+
   // Group Selection
 function renderGroupSelect() {
   const list = $('#group-select-list');
@@ -5035,7 +5087,7 @@ function leaveGroup(groupId) {
   toast('<i class="fas fa-check-circle ml-2"></i> از گروه خارج شدید');
   logEvent('group_left', { group: group.name });
 }
-
+  renderProvinceSelect();
   renderGroupSelect();
   $('#btn-create-group')?.addEventListener('click', openCreateGroup);
   $('#btn-view-group')?.addEventListener('click', () => {
