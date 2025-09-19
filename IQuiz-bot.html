@@ -122,6 +122,17 @@
     .duel-avatar { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
     .duel-vs { font-size: 1.5rem; font-weight: 800; color: var(--accent2); }
     .location-card { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 1rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); transition: all 0.3s ease; cursor: pointer; min-height:44px }
+    .duel-category-option{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.9rem 1rem; border-radius:1rem; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); transition:all .25s ease; text-align:right; }
+    .duel-category-option:hover{ background:rgba(255,255,255,0.22); transform:translateY(-2px); border-color:rgba(255,255,255,0.3); }
+    .duel-category-icon{ width:2.5rem; height:2.5rem; border-radius:.9rem; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#111827; font-weight:800; font-size:1rem; box-shadow:0 8px 20px rgba(59,130,246,0.25); }
+    .duel-category-meta{ display:flex; flex-direction:column; gap:.1rem; flex:1; }
+    .duel-round-card{ border-radius:1.1rem; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.16); padding:1rem; display:flex; flex-direction:column; gap:.6rem; }
+    .duel-round-header{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+    .duel-round-title{ font-weight:800; font-size:.95rem; }
+    .duel-round-chooser{ font-size:.72rem; padding:.15rem .6rem; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.22); }
+    .duel-round-score{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; font-size:.85rem; }
+    .duel-round-score > div{ background:rgba(15,23,42,0.28); border-radius:.9rem; padding:.55rem .75rem; border:1px solid rgba(255,255,255,0.12); display:flex; flex-direction:column; gap:.2rem; }
+    .duel-round-score span{ display:block; }
     .location-card:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-3px); }
     #btn-view-group[data-empty="true"]{ border-style:dashed; border-color:rgba(255,255,255,0.35); background:linear-gradient(135deg, rgba(236,72,153,0.18), rgba(59,130,246,0.18)); box-shadow:0 18px 35px rgba(14,116,144,0.25); }
     #btn-view-group[data-empty="true"] .location-icon{ background:linear-gradient(135deg, rgba(236,72,153,0.4), rgba(59,130,246,0.4)); color:#fff; }
@@ -932,6 +943,7 @@
           <div id="duel-winner" class="font-bold mt-2"></div>
           <div id="duel-stats" class="text-sm opacity-90 mt-1 leading-6"></div>
         </div>
+        <div id="duel-rounds-summary" class="hidden mb-4 space-y-3 text-right"></div>
         <div class="grid grid-cols-3 gap-3">
           <div class="glass rounded-2xl p-4">
             <div class="text-xl font-extrabold text-emerald-300" id="res-correct">۰</div>
@@ -2464,6 +2476,9 @@ function isUserInGroup() {
   
   const LIFELINE_COST = 3;
   const TIMER_CIRC = 2 * Math.PI * 64;
+  const DUEL_ROUNDS = 2;
+  const DUEL_QUESTIONS_PER_ROUND = 10;
+  let DuelSession = null;
   
   function loadState(){
     try{
@@ -3072,16 +3087,38 @@ function isUserInGroup() {
     });
   }
   
-  function showDetailPopup(title, content) { 
-    $('#detail-title').textContent = title; 
-    $('#detail-content').innerHTML = content; 
-    $('#detail-popup').classList.add('show'); 
-    $('#detail-overlay').classList.add('show'); 
+  function showDetailPopup(title, content) {
+    $('#detail-title').textContent = title;
+    $('#detail-content').innerHTML = content;
+    $('#detail-popup').classList.add('show');
+    $('#detail-overlay').classList.add('show');
   }
-  
-  function closeDetailPopup() { 
-    $('#detail-popup').classList.remove('show'); 
-    $('#detail-overlay').classList.remove('show'); 
+
+  function cancelDuelSession(reason) {
+    if (!DuelSession) return;
+    if (DuelSession.resolveStart) {
+      try { DuelSession.resolveStart(false); } catch (_) {}
+      DuelSession.resolveStart = null;
+    }
+    DuelSession.awaitingSelection = false;
+    DuelSession.selectionResolved = true;
+    DuelSession = null;
+    State.duelOpponent = null;
+    $('#duel-banner')?.classList.add('hidden');
+    if (reason === 'selection_cancelled' || reason === 'user_cancelled') {
+      toast('نبرد لغو شد');
+    } else if (reason === 'no_category') {
+      toast('شروع نبرد ممکن نشد');
+    }
+    logEvent('duel_cancelled', { reason });
+  }
+
+  function closeDetailPopup(options) {
+    $('#detail-popup').classList.remove('show');
+    $('#detail-overlay').classList.remove('show');
+    if (!options?.skipDuelCancel && DuelSession?.awaitingSelection && !DuelSession?.selectionResolved) {
+      cancelDuelSession('selection_cancelled');
+    }
   }
   
   function showUserDetail(user) {
@@ -3751,9 +3788,6 @@ async function startQuizFromAdmin(arg) {
       State.achievements.tenCorrect=true; 
       toast('<i class="fas fa-medal ml-2"></i>نشان «۱۰ پاسخ درست»!'); 
     }
-    $('#res-correct').textContent = faNum(correctCount);
-    $('#res-wrong').textContent = faNum(State.quiz.results.length - correctCount);
-    $('#res-earned').textContent = faNum(State.quiz.sessionEarned);
     const wrap = $('#res-list'); wrap.innerHTML='';
     State.quiz.results.forEach((r,i)=>{
       const row=document.createElement('div'); row.className='bg-white/10 border border-white/20 rounded-xl px-3 py-2';
@@ -3763,35 +3797,30 @@ async function startQuizFromAdmin(arg) {
         <div class="text-xs opacity-70">پاسخ شما: ${r.you}</div>`;
       wrap.appendChild(row);
     });
-    if(State.duelOpponent){
-      const total = State.quiz.list.length;
-      const opponentCorrect = Math.floor(Math.random()*(total+1));
-      const opponentWrong = total - opponentCorrect;
-      const opponentEarned = opponentCorrect * 120;
-      const yourCorrect = correctCount;
-      const yourWrong = total - correctCount;
-      const yourEarned = State.quiz.sessionEarned;
-      const youName = State.user?.name || 'شما';
-      const oppName = State.duelOpponent.name;
-      $('#duel-avatar-you').src = State.user?.avatar || 'https://i.pravatar.cc/60?img=1';
-      $('#duel-name-you').textContent = youName;
-      $('#duel-avatar-opponent').src = State.duelOpponent.avatar || '';
-      $('#duel-name-opponent').textContent = oppName;
-      let winnerText = 'مسابقه مساوی شد!';
-      if (yourEarned > opponentEarned) {
-        winnerText = `${youName} برنده شد!`;
-        State.duelWins++;
+    const duelActive = !!(DuelSession && State.duelOpponent);
+    if (duelActive) {
+      const status = completeDuelRound(correctCount);
+      if (status === 'next') {
+        saveState();
+        return;
       }
-      else if (yourEarned < opponentEarned) {
-        winnerText = `${oppName} برنده شد!`;
-        State.duelLosses++;
+      if (status === 'finished') {
+        finalizeDuelResults();
+        saveState();
+        navTo('results');
+        AdManager.maybeShowInterstitial('post_quiz');
+        return;
       }
-      $('#duel-winner').textContent = winnerText;
-      $('#duel-stats').innerHTML = `${youName}: ${faNum(yourCorrect)} درست، ${faNum(yourWrong)} نادرست، ${faNum(yourEarned)} امتیاز<br>${oppName}: ${faNum(opponentCorrect)} درست، ${faNum(opponentWrong)} نادرست، ${faNum(opponentEarned)} امتیاز`;
-      $('#duel-result').classList.remove('hidden');
-      renderDashboard();
-    } else {
-      $('#duel-result').classList.add('hidden');
+    }
+
+    $('#res-correct').textContent = faNum(correctCount);
+    $('#res-wrong').textContent = faNum(State.quiz.results.length - correctCount);
+    $('#res-earned').textContent = faNum(State.quiz.sessionEarned);
+    $('#duel-result').classList.add('hidden');
+    const duelSummaryEl = $('#duel-rounds-summary');
+    if (duelSummaryEl) {
+      duelSummaryEl.classList.add('hidden');
+      duelSummaryEl.innerHTML = '';
     }
     saveState();
     navTo('results');
@@ -4584,6 +4613,7 @@ async function startPurchaseCoins(pkgId){
   $('#btn-back-shop')?.addEventListener('click', ()=> navTo('dashboard'));
   $('#btn-quit')?.addEventListener('click', ()=>{
     State.duelOpponent = null;
+    DuelSession = null;
     $('#duel-banner').classList.add('hidden');
     navTo('dashboard');
   });
@@ -4713,6 +4743,303 @@ async function startPurchaseCoins(pkgId){
     { id: 7, name: 'کامران علیپور', score: 10100, avatar: 'https://i.pravatar.cc/60?img=14' }
   ];
 
+  function getDuelCategories(){
+    if (!Array.isArray(Admin.categories)) return [];
+    return Admin.categories.filter(cat => cat && cat.id != null);
+  }
+
+  function pickOpponentCategory(roundIndex){
+    const categories = getDuelCategories();
+    if (categories.length === 0) return null;
+    const usedIds = new Set((DuelSession?.rounds || []).map(r => r?.categoryId).filter(Boolean));
+    const available = categories.filter(cat => !usedIds.has(cat.id));
+    const pool = available.length ? available : categories;
+    const chosen = pool[Math.floor(Math.random() * pool.length)];
+    const idx = categories.indexOf(chosen);
+    return {
+      id: chosen.id,
+      title: chosen.title || chosen.name || `دسته ${faNum(idx + 1)}`
+    };
+  }
+
+  function promptDuelRoundCategory(roundIndex){
+    if (!DuelSession) return;
+    const categories = getDuelCategories();
+    if (categories.length === 0){
+      cancelDuelSession('no_category');
+      return;
+    }
+
+    const round = DuelSession.rounds?.[roundIndex];
+    if (!round){
+      cancelDuelSession('no_category');
+      return;
+    }
+
+    DuelSession.currentRoundIndex = roundIndex;
+    const roundLabel = `راند ${faNum(roundIndex + 1)}`;
+    const qLabel = faNum(DUEL_QUESTIONS_PER_ROUND);
+
+    if (round.chooser === 'you'){
+      DuelSession.awaitingSelection = true;
+      DuelSession.selectionResolved = false;
+      const optionsHtml = categories.map((cat, idx) => {
+        const title = cat.title || cat.name || `دسته ${faNum(idx+1)}`;
+        const desc = cat.description ? `<span class="text-xs opacity-70">${cat.description}</span>` : '';
+        return `<button class="duel-category-option" data-cat="${cat.id}" data-title="${title}">
+          <div class="duel-category-icon">${faNum(idx+1)}</div>
+          <div class="duel-category-meta"><span class="font-bold">${title}</span>${desc}</div>
+          <i class="fas fa-chevron-left opacity-70"></i>
+        </button>`;
+      }).join('');
+      showDetailPopup(`${roundLabel} • انتخاب دسته‌بندی`, `
+        <div class="text-sm opacity-80 mb-3">${qLabel} سؤال در این راند مطرح می‌شود. دسته‌بندی مدنظرت را انتخاب کن.</div>
+        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">${optionsHtml}</div>
+        <button id="duel-cancel" class="btn btn-secondary w-full mt-4"><i class="fas fa-times ml-2"></i> انصراف</button>
+      `);
+      $('#duel-cancel')?.addEventListener('click', () => {
+        DuelSession.awaitingSelection = false;
+        cancelDuelSession('user_cancelled');
+        closeDetailPopup({ skipDuelCancel: true });
+      });
+      $$('#detail-content .duel-category-option').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!DuelSession) return;
+          DuelSession.awaitingSelection = false;
+          DuelSession.selectionResolved = true;
+          round.categoryId = btn.dataset.cat;
+          round.categoryTitle = btn.dataset.title;
+          closeDetailPopup({ skipDuelCancel: true });
+          const started = await beginDuelRound(roundIndex);
+          if (!started){
+            DuelSession.selectionResolved = false;
+            setTimeout(() => promptDuelRoundCategory(roundIndex), 400);
+          }
+        });
+      });
+    } else {
+      const selection = pickOpponentCategory(roundIndex);
+      if (!selection){
+        cancelDuelSession('no_category');
+        return;
+      }
+      round.categoryId = selection.id;
+      round.categoryTitle = selection.title;
+      DuelSession.awaitingSelection = true;
+      DuelSession.selectionResolved = false;
+      showDetailPopup(`${roundLabel} • انتخاب حریف`, `
+        <div class="text-sm opacity-80 mb-3">حریف شما دستهٔ «${selection.title}» را برای این راند برگزید. ${qLabel} سؤال پیش رو دارید.</div>
+        <button id="duel-round-${roundIndex}-start" class="btn btn-duel w-full"><i class="fas fa-play ml-2"></i> شروع ${roundLabel}</button>
+      `);
+      $(`#duel-round-${roundIndex}-start`)?.addEventListener('click', async () => {
+        if (!DuelSession) return;
+        DuelSession.awaitingSelection = false;
+        DuelSession.selectionResolved = true;
+        closeDetailPopup({ skipDuelCancel: true });
+        const started = await beginDuelRound(roundIndex);
+        if (!started){
+          DuelSession.selectionResolved = false;
+          setTimeout(() => promptDuelRoundCategory(roundIndex), 400);
+        }
+      });
+    }
+  }
+
+  async function beginDuelRound(roundIndex){
+    if (!DuelSession) return false;
+    const round = DuelSession.rounds?.[roundIndex];
+    if (!round || !round.categoryId) return false;
+
+    let difficultyValue = DuelSession.difficulty?.value;
+    let difficultyLabel = DuelSession.difficulty?.label;
+    const categoryId = round.categoryId;
+    const catTitle = round.categoryTitle;
+    const catObj = getDuelCategories().find(cat => cat.id === categoryId) || null;
+    if (catObj && Array.isArray(catObj.difficulties) && catObj.difficulties.length){
+      let diffMatch = null;
+      if (difficultyValue != null){
+        diffMatch = catObj.difficulties.find(d => d && d.value === difficultyValue) || null;
+      }
+      if (!diffMatch && difficultyLabel){
+        diffMatch = catObj.difficulties.find(d => d && d.label === difficultyLabel) || null;
+      }
+      if (!diffMatch) diffMatch = catObj.difficulties[0];
+      if (diffMatch){
+        difficultyValue = diffMatch.value;
+        difficultyLabel = diffMatch.label || diffMatch.value;
+      }
+    } else if (!difficultyValue && Array.isArray(Admin.diffs) && Admin.diffs.length){
+      difficultyValue = Admin.diffs[0].value;
+      difficultyLabel = Admin.diffs[0].label || Admin.diffs[0].value;
+    }
+    DuelSession.difficulty = { value: difficultyValue, label: difficultyLabel };
+
+    const started = await startQuizFromAdmin({
+      count: DUEL_QUESTIONS_PER_ROUND,
+      difficulty: difficultyValue,
+      categoryId,
+      cat: catTitle,
+      source: 'duel'
+    });
+
+    if (!started){
+      if (!DuelSession.consumedResource && DuelSession.resolveStart){
+        try { DuelSession.resolveStart(false); } catch (_) {}
+        DuelSession.resolveStart = null;
+      }
+      toast('برای این دسته‌بندی سؤال کافی موجود نیست');
+      return false;
+    }
+
+    DuelSession.started = true;
+    DuelSession.currentRoundIndex = roundIndex;
+    const opponentName = DuelSession.opponent?.name || '';
+    if (!DuelSession.consumedResource){
+      useGameResource('duels');
+      DuelSession.consumedResource = true;
+      logEvent('duel_start', { opponent: opponentName, round: roundIndex + 1, category: catTitle });
+    } else {
+      logEvent('duel_round_start', { opponent: opponentName, round: roundIndex + 1, category: catTitle });
+    }
+
+    State.duelOpponent = DuelSession.opponent;
+    $('#duel-opponent-name').textContent = opponentName;
+    $('#duel-banner').classList.remove('hidden');
+
+    const toastMsg = roundIndex === 0
+      ? `راند اول با دسته «${catTitle}» شروع شد`
+      : `راند ${faNum(roundIndex + 1)} با دسته «${catTitle}» آغاز شد`;
+    toast(toastMsg);
+
+    if (DuelSession.resolveStart){
+      try { DuelSession.resolveStart(true); } catch (_) {}
+      DuelSession.resolveStart = null;
+    }
+
+    return true;
+  }
+
+  function simulateOpponentRound(round, totalQuestions, yourCorrect){
+    const advantage = round.chooser === 'opponent' ? 1 : 0;
+    const min = Math.max(0, Math.min(totalQuestions, yourCorrect - 2));
+    const max = Math.min(totalQuestions, Math.max(min, yourCorrect + 2 + advantage));
+    const correct = Math.round(min + Math.random() * (max - min));
+    const boundedCorrect = Math.max(0, Math.min(totalQuestions, correct));
+    const wrong = totalQuestions - boundedCorrect;
+    const earned = boundedCorrect * 120;
+    return { correct: boundedCorrect, wrong, earned };
+  }
+
+  function completeDuelRound(correctCount){
+    if (!DuelSession || !State.duelOpponent) return 'none';
+    const roundIdx = DuelSession.currentRoundIndex || 0;
+    const round = DuelSession.rounds?.[roundIdx];
+    if (!round) return 'none';
+
+    const totalQuestions = State.quiz.results.length || State.quiz.list.length || DUEL_QUESTIONS_PER_ROUND;
+    const yourCorrect = correctCount;
+    const yourWrong = Math.max(0, totalQuestions - yourCorrect);
+    const yourEarned = State.quiz.sessionEarned;
+
+    round.player = { correct: yourCorrect, wrong: yourWrong, earned: yourEarned };
+    round.totalQuestions = totalQuestions;
+    const opponentStats = simulateOpponentRound(round, totalQuestions, yourCorrect);
+    round.opponent = opponentStats;
+
+    DuelSession.totalYourScore += yourEarned;
+    DuelSession.totalOpponentScore += opponentStats.earned;
+
+    logEvent('duel_round_end', {
+      opponent: DuelSession.opponent?.name,
+      round: roundIdx + 1,
+      your_correct: yourCorrect,
+      opponent_correct: opponentStats.correct
+    });
+
+    toast(`راند ${faNum(roundIdx + 1)} به پایان رسید: ${faNum(yourCorrect)} درست در برابر ${faNum(opponentStats.correct)}`);
+
+    const hasMore = roundIdx + 1 < DuelSession.rounds.length;
+    if (hasMore) {
+      DuelSession.currentRoundIndex = roundIdx + 1;
+      setTimeout(() => promptDuelRoundCategory(roundIdx + 1), 1200);
+      return 'next';
+    }
+    return 'finished';
+  }
+
+  function finalizeDuelResults(){
+    if (!DuelSession) return;
+    const opponent = DuelSession.opponent || {};
+    const youName = State.user?.name || 'شما';
+    const oppName = opponent.name || 'حریف';
+
+    const totals = DuelSession.rounds.reduce((acc, round) => {
+      const questions = round.totalQuestions || (round.player?.correct || 0) + (round.player?.wrong || 0);
+      acc.you.correct += round.player?.correct || 0;
+      acc.you.wrong += round.player?.wrong || 0;
+      acc.you.earned += round.player?.earned || 0;
+      acc.you.questions += questions;
+      acc.opp.correct += round.opponent?.correct || 0;
+      acc.opp.wrong += round.opponent?.wrong || 0;
+      acc.opp.earned += round.opponent?.earned || 0;
+      acc.opp.questions += questions;
+      return acc;
+    }, { you: { correct: 0, wrong: 0, earned: 0, questions: 0 }, opp: { correct: 0, wrong: 0, earned: 0, questions: 0 } });
+
+    let winnerText = 'مسابقه مساوی شد!';
+    if (totals.you.earned > totals.opp.earned) {
+      winnerText = `${youName} با مجموع ${faNum(totals.you.earned)} امتیاز برنده شد!`;
+      State.duelWins++;
+    } else if (totals.you.earned < totals.opp.earned) {
+      winnerText = `${oppName} با مجموع ${faNum(totals.opp.earned)} امتیاز پیروز شد!`;
+      State.duelLosses++;
+    }
+
+    $('#duel-avatar-you').src = State.user?.avatar || 'https://i.pravatar.cc/60?img=1';
+    $('#duel-name-you').textContent = youName;
+    $('#duel-avatar-opponent').src = opponent.avatar || 'https://i.pravatar.cc/60?img=2';
+    $('#duel-name-opponent').textContent = oppName;
+    $('#duel-winner').textContent = winnerText;
+    $('#duel-stats').innerHTML = `${youName}: ${faNum(totals.you.correct)} درست، ${faNum(totals.you.wrong)} نادرست، ${faNum(totals.you.earned)} امتیاز<br>${oppName}: ${faNum(totals.opp.correct)} درست، ${faNum(totals.opp.wrong)} نادرست، ${faNum(totals.opp.earned)} امتیاز`;
+    $('#duel-result').classList.remove('hidden');
+
+    const summaryEl = $('#duel-rounds-summary');
+    if (summaryEl) {
+      const summaryHtml = DuelSession.rounds.map((round, idx) => {
+        const chooserLabel = round.chooser === 'you' ? 'انتخاب شما' : 'انتخاب حریف';
+        const youEarned = round.player?.earned || 0;
+        const oppEarned = round.opponent?.earned || 0;
+        let roundResult = 'مساوی';
+        if (youEarned > oppEarned) roundResult = `${youName} برنده راند`;
+        else if (youEarned < oppEarned) roundResult = `${oppName} برنده راند`;
+        const categoryTitle = round.categoryTitle || '—';
+        return `<div class="duel-round-card">
+          <div class="duel-round-header">
+            <div class="duel-round-title">راند ${faNum(idx + 1)} • ${categoryTitle}</div>
+            <span class="duel-round-chooser">${chooserLabel}</span>
+          </div>
+          <div class="duel-round-score">
+            <div><span class="font-bold">${youName}</span><span>${faNum(round.player?.correct || 0)} درست • ${faNum(youEarned)} امتیاز</span></div>
+            <div><span class="font-bold">${oppName}</span><span>${faNum(round.opponent?.correct || 0)} درست • ${faNum(oppEarned)} امتیاز</span></div>
+          </div>
+          <div class="text-xs opacity-80">${roundResult}</div>
+        </div>`;
+      }).join('');
+      summaryEl.innerHTML = summaryHtml;
+      summaryEl.classList.remove('hidden');
+    }
+
+    $('#res-correct').textContent = faNum(totals.you.correct);
+    $('#res-wrong').textContent = faNum(Math.max(0, totals.you.questions - totals.you.correct));
+    $('#res-earned').textContent = faNum(totals.you.earned);
+
+    State.quiz.sessionEarned = totals.you.earned;
+    State.duelOpponent = null;
+    DuelSession = null;
+    $('#duel-banner').classList.add('hidden');
+    renderDashboard();
+  }
+
   function renderDuelFriends(){
     const list = $('#duel-friends-list');
     if(!list) return;
@@ -4756,7 +5083,6 @@ async function startPurchaseCoins(pkgId){
         duelFriends.unshift(item);
         renderDuelFriends();
       }
-      toast(`نبرد با ${friend.name} شروع شد!`);
     }
   }
 
@@ -4770,21 +5096,17 @@ async function startPurchaseCoins(pkgId){
       return false;
     }
 
-    State.duelOpponent = opponent;
-    var categoryId = State.quiz.catId;
-    if (categoryId == null && Array.isArray(Admin.categories) && Admin.categories.length > 0) {
-      categoryId = Admin.categories[0].id;
+    const categories = getDuelCategories();
+    if (categories.length === 0){
+      toast('هنوز دسته‌بندی فعالی برای نبرد موجود نیست');
+      return false;
     }
 
-    var catObj = null;
-    if (Array.isArray(Admin.categories)) {
-      for (var ci = 0; ci < Admin.categories.length; ci++) {
-        var catItem = Admin.categories[ci];
-        if (catItem && catItem.id === categoryId) { catObj = catItem; break; }
-      }
-    }
+    let categoryId = State.quiz.catId;
+    if (categoryId == null && categories.length) categoryId = categories[0].id;
+    let catObj = categories.find(cat => cat.id === categoryId) || categories[0] || null;
 
-    var diffPool;
+    let diffPool;
     if (catObj && Array.isArray(catObj.difficulties) && catObj.difficulties.length) {
       diffPool = catObj.difficulties;
     } else if (Array.isArray(Admin.diffs) && Admin.diffs.length) {
@@ -4793,25 +5115,25 @@ async function startPurchaseCoins(pkgId){
       diffPool = DEFAULT_DIFFS;
     }
 
-    var preferred = null;
+    let preferred = null;
     if (State.quiz.diffValue != null) {
-      for (var pd = 0; pd < diffPool.length; pd++) {
-        var diffOpt = diffPool[pd];
+      for (let pd = 0; pd < diffPool.length; pd++) {
+        const diffOpt = diffPool[pd];
         if (diffOpt && diffOpt.value === State.quiz.diffValue) { preferred = diffOpt; break; }
       }
     }
     if (!preferred && State.quiz.diff) {
-      for (var pdl = 0; pdl < diffPool.length; pdl++) {
-        var diffOptLabel = diffPool[pdl];
+      for (let pdl = 0; pdl < diffPool.length; pdl++) {
+        const diffOptLabel = diffPool[pdl];
         if (diffOptLabel && diffOptLabel.label === State.quiz.diff) { preferred = diffOptLabel; break; }
       }
     }
     if (!preferred) {
-      for (var pm = 0; pm < diffPool.length; pm++) {
-        var diffOptMid = diffPool[pm];
+      for (let pm = 0; pm < diffPool.length; pm++) {
+        const diffOptMid = diffPool[pm];
         if (!diffOptMid) continue;
-        var valLower = (diffOptMid.value || '').toString().toLowerCase();
-        var labelLower = (diffOptMid.label || '').toString().toLowerCase();
+        const valLower = (diffOptMid.value || '').toString().toLowerCase();
+        const labelLower = (diffOptMid.label || '').toString().toLowerCase();
         if (valLower === 'medium' || valLower === 'normal' || labelLower.indexOf('متوسط') >= 0 || labelLower.indexOf('medium') >= 0 || labelLower.indexOf('normal') >= 0) {
           preferred = diffOptMid;
           break;
@@ -4822,15 +5144,33 @@ async function startPurchaseCoins(pkgId){
     if (!preferred && Array.isArray(Admin.diffs) && Admin.diffs.length) preferred = Admin.diffs[0];
     if (!preferred && DEFAULT_DIFFS.length) preferred = DEFAULT_DIFFS[0];
 
-    const started = await startQuizFromAdmin({ count:5, difficulty: preferred ? preferred.value : undefined, categoryId, source:'duel' });
-    if(!started){
-      State.duelOpponent = null;
-      return false;
-    }
+    const difficultyInfo = preferred ? { value: preferred.value, label: preferred.label || preferred.value } : null;
 
-    useGameResource('duels');
-    logEvent('duel_start', { opponent: opponent.name });
-    return true;
+    DuelSession = {
+      opponent,
+      difficulty: difficultyInfo,
+      rounds: Array.from({ length: DUEL_ROUNDS }, (_, idx) => ({
+        index: idx,
+        chooser: idx === 0 ? 'you' : 'opponent',
+        categoryId: null,
+        categoryTitle: '',
+        player: { correct: 0, wrong: 0, earned: 0 },
+        opponent: { correct: 0, wrong: 0, earned: 0 }
+      })),
+      currentRoundIndex: 0,
+      totalYourScore: 0,
+      totalOpponentScore: 0,
+      consumedResource: false,
+      awaitingSelection: false,
+      selectionResolved: false,
+      started: false,
+      resolveStart: null
+    };
+
+    return await new Promise(resolve => {
+      DuelSession.resolveStart = resolve;
+      promptDuelRoundCategory(0);
+    });
   }
 
   renderDuelFriends();
@@ -5421,6 +5761,7 @@ function leaveGroup(groupId) {
   $('#btn-again')?.addEventListener('click', openSetupSheet);
   $('#btn-back-results')?.addEventListener('click', ()=>{
     State.duelOpponent = null;
+    DuelSession = null;
     $('#duel-banner').classList.add('hidden');
     navTo('dashboard');
   });
