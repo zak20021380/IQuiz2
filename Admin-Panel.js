@@ -238,6 +238,16 @@ function sanitizeCategoryList(list) {
       const aliases = Array.isArray(category.aliases)
         ? category.aliases.map((alias) => String(alias ?? '').trim()).filter(Boolean)
         : [];
+      const totalQuestions = Number.isFinite(Number(category.questionCount))
+        ? Number(category.questionCount)
+        : 0;
+      const activeQuestions = Number.isFinite(Number(category.activeQuestionCount))
+        ? Number(category.activeQuestionCount)
+        : 0;
+      const inactiveQuestionsRaw = Number.isFinite(Number(category.inactiveQuestionCount))
+        ? Number(category.inactiveQuestionCount)
+        : Math.max(totalQuestions - activeQuestions, 0);
+      const inactiveQuestions = Math.max(inactiveQuestionsRaw, 0);
       return {
         ...category,
         _id: String(category._id),
@@ -246,7 +256,10 @@ function sanitizeCategoryList(list) {
         provider: category.provider ? String(category.provider) : 'manual',
         providerCategoryId: category.providerCategoryId ? String(category.providerCategoryId) : '',
         aliases,
-        status: category.status || 'active'
+        status: category.status || 'active',
+        questionCount: totalQuestions,
+        activeQuestionCount: activeQuestions,
+        inactiveQuestionCount: inactiveQuestions
       };
     })
     .filter(Boolean);
@@ -387,6 +400,7 @@ function createCategoryCard(category) {
   const card = document.createElement('div');
   card.className = 'glass rounded-2xl p-6 card-hover flex flex-col';
   card.dataset.categoryId = category?._id ? String(category._id) : '';
+  card.dataset.questionCount = String(questionCount);
   card.innerHTML = `
     <div class="flex items-center justify-between mb-4">
       <div class="w-16 h-16 rounded-full ${styles.iconBg} flex items-center justify-center">

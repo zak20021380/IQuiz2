@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Category = require('../models/Category');
 const Question = require('../models/Question');
 
@@ -77,11 +78,24 @@ exports.list = async (req, res, next) => {
       Category.countDocuments(where)
     ]);
 
-    const categoryIds = itemsRaw.map((item) => item._id).filter(Boolean);
+    const categoryIds = itemsRaw
+      .map((item) => {
+        if (!item?._id) return null;
+        if (item._id instanceof mongoose.Types.ObjectId) return item._id;
+        if (mongoose.Types.ObjectId.isValid(item._id)) {
+          return new mongoose.Types.ObjectId(item._id);
+        }
+        return null;
+      })
+      .filter(Boolean);
+
     let questionStats = [];
     if (categoryIds.length > 0) {
+      const uniqueCategoryIds = Array.from(new Set(categoryIds.map((id) => id.toString())))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
       questionStats = await Question.aggregate([
-        { $match: { category: { $in: categoryIds } } },
+        { $match: { category: { $in: uniqueCategoryIds } } },
         {
           $group: {
             _id: '$category',
@@ -92,7 +106,10 @@ exports.list = async (req, res, next) => {
       ]);
     }
 
-    const statsMap = new Map(questionStats.map((stat) => [String(stat._id), stat]));
+    const statsMap = new Map(questionStats.map((stat) => [String(stat._id), {
+      total: Number(stat?.total) || 0,
+      active: Number(stat?.active) || 0
+    }]));
     const items = itemsRaw.map((category) => {
       const stat = statsMap.get(String(category._id)) || null;
       const totalQuestions = stat?.total || 0;
