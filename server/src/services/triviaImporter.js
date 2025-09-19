@@ -280,24 +280,69 @@ async function ensureCategories(names) {
     return categoryMap;
   }
 
-  const existing = await Category.find({ name: { $in: uniqueNames } });
+  const existing = await Category.find({
+    $or: [
+      { name: { $in: uniqueNames } },
+      { aliases: { $in: uniqueNames } }
+    ]
+  });
+
   existing.forEach((category) => {
-    categoryMap.set(category.name, category);
+    const aliases = Array.isArray(category.aliases) ? category.aliases : [];
+    const keys = new Set([
+      category.name,
+      category.displayName,
+      ...aliases
+    ]);
+    keys.forEach((key) => {
+      if (key) {
+        categoryMap.set(key, category);
+      }
+    });
   });
 
   const missing = uniqueNames.filter((name) => !categoryMap.has(name));
 
   for (const name of missing) {
-    const category = await Category.findOneAndUpdate(
-      { name },
-      { name },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
+    let category = await Category.findOne({
+      $or: [
+        { name },
+        { aliases: name }
+      ]
+    });
+
+    if (!category) {
+      category = await Category.create({
+        name,
+        displayName: name,
+        aliases: [name],
+        provider: 'manual',
+        status: 'active'
+      });
+    } else {
+      const aliasSet = new Set([
+        ...(Array.isArray(category.aliases) ? category.aliases : []),
+        category.name,
+        category.displayName,
+        name
+      ]);
+      category.aliases = Array.from(aliasSet).filter(Boolean);
+      if (!category.displayName) {
+        category.displayName = category.name;
       }
-    );
-    categoryMap.set(category.name, category);
+      await category.save();
+    }
+
+    const keys = new Set([
+      category.name,
+      category.displayName,
+      ...(Array.isArray(category.aliases) ? category.aliases : [])
+    ]);
+    keys.forEach((key) => {
+      if (key) {
+        categoryMap.set(key, category);
+      }
+    });
   }
 
   return categoryMap;

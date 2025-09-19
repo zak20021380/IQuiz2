@@ -140,6 +140,27 @@ const saveQuestionBtnDefault = saveQuestionBtn ? saveQuestionBtn.innerHTML : '';
 const questionDetailCategorySelect = $('#question-detail-category');
 const questionDetailDifficultySelect = $('#question-detail-difficulty');
 const questionDetailActiveToggle = $('#question-detail-active');
+const categoriesGridEl = $('#categories-grid');
+const categoriesLoadingEl = $('#categories-loading-state');
+const categoriesEmptyEl = $('#categories-empty-state');
+const categoriesEmptyActionBtn = categoriesEmptyEl ? categoriesEmptyEl.querySelector('[data-action="open-create-category"]') : null;
+const categoriesEmptyTitleEl = categoriesEmptyEl ? categoriesEmptyEl.querySelector('[data-categories-empty-title]') : null;
+const categoriesEmptyDescriptionEl = categoriesEmptyEl ? categoriesEmptyEl.querySelector('[data-categories-empty-description]') : null;
+const categoryModal = $('#add-category-modal');
+const categoryModalTitleEl = categoryModal ? categoryModal.querySelector('[data-category-modal-title]') : null;
+const categoryNameInput = categoryModal ? categoryModal.querySelector('[data-category-field="name"]') : null;
+const categoryDescriptionInput = categoryModal ? categoryModal.querySelector('[data-category-field="description"]') : null;
+const categoryIconSelect = categoryModal ? categoryModal.querySelector('[data-category-field="icon"]') : null;
+const categoryColorSelect = categoryModal ? categoryModal.querySelector('[data-category-field="color"]') : null;
+const saveCategoryBtn = $('#save-category-btn');
+const categoryModalDefaultTitle = categoryModalTitleEl ? categoryModalTitleEl.textContent.trim() : 'افزودن دسته‌بندی جدید';
+const categoryModalEditTitle = 'ویرایش دسته‌بندی';
+const CATEGORY_MODAL_LABELS = {
+  create: saveCategoryBtn ? saveCategoryBtn.textContent.trim() : 'ذخیره دسته‌بندی',
+  edit: 'ذخیره تغییرات'
+};
+const categoryIconDefaultValue = categoryIconSelect ? categoryIconSelect.value : 'fa-globe';
+const categoryColorDefaultValue = categoryColorSelect ? categoryColorSelect.value : 'blue';
 
 const questionFilters = {
   category: '',
@@ -174,6 +195,7 @@ let filterSearchDebounce;
 let latestQuestionStats = null;
 let questionStatsLoaded = false;
 let cachedCategories = [];
+let categoriesLoading = false;
 
 function sanitizeProviderList(list) {
   const fallbackMap = new Map(DEFAULT_TRIVIA_PROVIDERS.map((provider) => [provider.id, provider]));
@@ -213,10 +235,17 @@ function sanitizeCategoryList(list) {
   return list
     .map((category) => {
       if (!category?._id || !category?.name) return null;
+      const aliases = Array.isArray(category.aliases)
+        ? category.aliases.map((alias) => String(alias ?? '').trim()).filter(Boolean)
+        : [];
       return {
         ...category,
         _id: String(category._id),
         name: String(category.name),
+        displayName: category.displayName ? String(category.displayName) : '',
+        provider: category.provider ? String(category.provider) : 'manual',
+        providerCategoryId: category.providerCategoryId ? String(category.providerCategoryId) : '',
+        aliases,
         status: category.status || 'active'
       };
     })
@@ -225,10 +254,11 @@ function sanitizeCategoryList(list) {
 
 function categoryOptionLabel(category) {
   if (!category) return '';
+  const label = category.displayName || category.name;
   const suffix = category.status && category.status !== 'active'
     ? (CATEGORY_STATUS_SUFFIX[category.status] || '')
     : '';
-  return suffix ? `${category.name}${suffix}` : category.name;
+  return suffix ? `${label}${suffix}` : label;
 }
 
 function refreshCategorySelectOptions(selectEl, { placeholder = 'یک گزینه را انتخاب کنید', selected = undefined } = {}) {
@@ -289,6 +319,249 @@ function refreshCategorySelects({ addSelected, detailSelected } = {}) {
 function findCategoryById(id) {
   if (!id) return null;
   return cachedCategories.find((category) => category._id === id) || null;
+}
+
+function getCategoryColorStyles(color) {
+  const palette = {
+    blue:   { iconBg: 'bg-blue-500/20', iconColor: 'text-blue-400' },
+    green:  { iconBg: 'bg-green-500/20', iconColor: 'text-green-400' },
+    orange: { iconBg: 'bg-orange-500/20', iconColor: 'text-orange-400' },
+    purple: { iconBg: 'bg-purple-500/20', iconColor: 'text-purple-400' },
+    yellow: { iconBg: 'bg-yellow-500/20', iconColor: 'text-yellow-400' },
+    pink:   { iconBg: 'bg-pink-500/20', iconColor: 'text-pink-400' },
+    red:    { iconBg: 'bg-red-500/20', iconColor: 'text-red-400' },
+    teal:   { iconBg: 'bg-teal-500/20', iconColor: 'text-teal-400' },
+    indigo: { iconBg: 'bg-indigo-500/20', iconColor: 'text-indigo-400' }
+  };
+  const normalized = typeof color === 'string' ? color.toLowerCase() : '';
+  return palette[normalized] || { iconBg: 'bg-slate-500/20', iconColor: 'text-slate-300' };
+}
+
+function renderCategoryStatusChip(status) {
+  const normalized = typeof status === 'string' ? status.toLowerCase() : 'active';
+  const meta = STATUS_META[normalized] || STATUS_META.active;
+  const dotClass = meta.dot || 'active';
+  const className = meta.class || 'meta-chip status-active';
+  const label = meta.label || 'فعال';
+  return `
+    <div class="${className}">
+      <span class="status-dot ${dotClass}"></span>
+      ${escapeHtml(label)}
+    </div>
+  `;
+}
+
+function renderCategoryProviderChip(provider) {
+  const normalized = typeof provider === 'string' ? provider.toLowerCase() : 'manual';
+  const meta = SOURCE_META[normalized] || SOURCE_META.manual;
+  if (!meta) return '';
+  return `
+    <div class="${meta.class}">
+      <i class="fa-solid ${escapeHtml(meta.icon)}"></i>
+      ${escapeHtml(meta.label)}
+    </div>
+  `;
+}
+
+function createCategoryCard(category) {
+  const styles = getCategoryColorStyles(category?.color);
+  const icon = typeof category?.icon === 'string' && category.icon.trim()
+    ? category.icon.trim()
+    : 'fa-layer-group';
+  const name = category?.name ? String(category.name) : 'دسته‌بندی بدون نام';
+  const displayName = category?.displayName ? String(category.displayName) : '';
+  const title = displayName || name;
+  const questionCount = Number.isFinite(Number(category?.questionCount))
+    ? Number(category.questionCount)
+    : 0;
+  const activeQuestionCount = Number.isFinite(Number(category?.activeQuestionCount))
+    ? Number(category.activeQuestionCount)
+    : questionCount;
+  const inactiveQuestionCount = Math.max(questionCount - activeQuestionCount, 0);
+  const createdAtLabel = formatDateTime(category?.createdAt);
+  const updatedAtLabel = formatDateTime(category?.updatedAt);
+  const description = category?.description ? String(category.description).trim() : '';
+  const safeDescription = description || 'برای این دسته‌بندی توضیحی ثبت نشده است.';
+  const providerChip = renderCategoryProviderChip(category?.provider);
+
+  const card = document.createElement('div');
+  card.className = 'glass rounded-2xl p-6 card-hover flex flex-col';
+  card.dataset.categoryId = category?._id ? String(category._id) : '';
+  card.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <div class="w-16 h-16 rounded-full ${styles.iconBg} flex items-center justify-center">
+        <i class="fa-solid ${escapeHtml(icon)} ${styles.iconColor} text-2xl"></i>
+      </div>
+      <div class="flex items-center gap-2">
+        ${renderCategoryStatusChip(category?.status)}
+        ${providerChip}
+      </div>
+    </div>
+    <div class="space-y-4 flex-1">
+      <div>
+        <h3 class="text-xl font-bold mb-1">${escapeHtml(title)}</h3>
+        <p class="text-sm text-white/70 leading-6">${escapeHtml(safeDescription)}</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="glass-dark rounded-xl px-4 py-3 border border-white/5">
+          <div class="flex items-center justify-between text-xs text-white/60">
+            <span>سوالات ثبت‌شده</span>
+            <i class="fa-solid fa-circle-question text-white/40"></i>
+          </div>
+          <p class="text-lg font-bold text-white mt-2">${formatNumberFa(questionCount)}</p>
+          <p class="text-xs text-white/50 mt-1">${formatNumberFa(activeQuestionCount)} فعال${inactiveQuestionCount > 0 ? ` / ${formatNumberFa(inactiveQuestionCount)} غیرفعال` : ''}</p>
+        </div>
+        <div class="glass-dark rounded-xl px-4 py-3 border border-white/5">
+          <div class="flex items-center justify-between text-xs text-white/60">
+            <span>آخرین بروزرسانی</span>
+            <i class="fa-solid fa-clock-rotate-left text-white/40"></i>
+          </div>
+          <p class="text-sm font-bold text-white mt-2">${escapeHtml(updatedAtLabel)}</p>
+          <p class="text-xs text-white/50 mt-1">ایجاد: ${escapeHtml(createdAtLabel)}</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-6">
+      <button type="button" class="flex-1 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-300" data-action="edit-category" data-category-id="${category?._id || ''}">
+        <i class="fa-solid fa-edit ml-2"></i> ویرایش
+      </button>
+      <button type="button" class="flex-1 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 transition-all duration-300" data-action="delete-category" data-category-id="${category?._id || ''}">
+        <i class="fa-solid fa-trash ml-2"></i> حذف
+      </button>
+    </div>
+  `;
+  return card;
+}
+
+function setSelectValue(selectEl, value, fallbackValue = '') {
+  if (!selectEl) return;
+  const normalized = typeof value === 'string' ? value : '';
+  if (!normalized) {
+    if (fallbackValue) {
+      selectEl.value = fallbackValue;
+      return;
+    }
+    if (selectEl.options.length > 0) {
+      selectEl.selectedIndex = 0;
+    }
+    return;
+  }
+  const options = Array.from(selectEl.options || []);
+  if (!options.some((option) => option.value === normalized)) {
+    const option = document.createElement('option');
+    option.value = normalized;
+    option.textContent = normalized;
+    selectEl.appendChild(option);
+  }
+  selectEl.value = normalized;
+}
+
+function renderCategoryManagement() {
+  if (!categoriesGridEl) return;
+
+  if (categoriesLoadingEl) {
+    categoriesLoadingEl.classList.toggle('hidden', !categoriesLoading);
+  }
+
+  const hasCategories = Array.isArray(cachedCategories) && cachedCategories.length > 0;
+  const isAuthenticated = Boolean(getToken());
+
+  if (categoriesLoading) {
+    if (!hasCategories) {
+      categoriesGridEl.innerHTML = '';
+      categoriesGridEl.classList.add('hidden');
+    }
+    if (categoriesEmptyEl) categoriesEmptyEl.classList.add('hidden');
+    if (categoriesEmptyActionBtn) {
+      categoriesEmptyActionBtn.disabled = !isAuthenticated;
+      categoriesEmptyActionBtn.classList.toggle('opacity-50', !isAuthenticated);
+      categoriesEmptyActionBtn.classList.toggle('cursor-not-allowed', !isAuthenticated);
+    }
+    return;
+  }
+
+  if (!hasCategories) {
+    categoriesGridEl.innerHTML = '';
+    categoriesGridEl.classList.add('hidden');
+    if (categoriesEmptyEl) {
+      categoriesEmptyEl.classList.remove('hidden');
+      if (categoriesEmptyTitleEl) {
+        categoriesEmptyTitleEl.textContent = isAuthenticated
+          ? 'هیچ دسته‌بندی‌ای ثبت نشده است'
+          : 'برای مشاهده دسته‌بندی‌ها وارد شوید';
+      }
+      if (categoriesEmptyDescriptionEl) {
+        categoriesEmptyDescriptionEl.textContent = isAuthenticated
+          ? 'برای شروع، نخستین دسته‌بندی واقعی خود را بسازید تا بانک سوالات ساختارمند شود.'
+          : 'برای مشاهده و مدیریت دسته‌بندی‌ها باید وارد حساب مدیریتی شوید.';
+      }
+    }
+    if (categoriesEmptyActionBtn) {
+      categoriesEmptyActionBtn.disabled = !isAuthenticated;
+      categoriesEmptyActionBtn.classList.toggle('opacity-50', !isAuthenticated);
+      categoriesEmptyActionBtn.classList.toggle('cursor-not-allowed', !isAuthenticated);
+    }
+    return;
+  }
+
+  categoriesGridEl.classList.remove('hidden');
+  if (categoriesEmptyEl) categoriesEmptyEl.classList.add('hidden');
+  if (categoriesEmptyActionBtn) {
+    categoriesEmptyActionBtn.disabled = false;
+    categoriesEmptyActionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+
+  const fragment = document.createDocumentFragment();
+  cachedCategories.forEach((category) => {
+    fragment.appendChild(createCategoryCard(category));
+  });
+  categoriesGridEl.innerHTML = '';
+  categoriesGridEl.appendChild(fragment);
+}
+
+function resetCategoryModal() {
+  if (!categoryModal) return;
+  categoryModal.dataset.mode = 'create';
+  categoryModal.dataset.id = '';
+  categoryModal.dataset.provider = '';
+  categoryModal.dataset.originalName = '';
+  categoryModal.dataset.providerCategoryId = '';
+  categoryModal.dataset.aliases = '[]';
+  if (categoryModalTitleEl) categoryModalTitleEl.textContent = categoryModalDefaultTitle;
+  if (categoryNameInput) categoryNameInput.value = '';
+  if (categoryDescriptionInput) categoryDescriptionInput.value = '';
+  setSelectValue(categoryIconSelect, categoryIconDefaultValue || '', categoryIconDefaultValue || '');
+  setSelectValue(categoryColorSelect, categoryColorDefaultValue || '', categoryColorDefaultValue || '');
+  if (saveCategoryBtn) {
+    saveCategoryBtn.disabled = false;
+    saveCategoryBtn.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+    saveCategoryBtn.textContent = CATEGORY_MODAL_LABELS.create;
+  }
+}
+
+function openCategoryModal(mode = 'create', category = null) {
+  if (!categoryModal) return;
+  if (mode === 'edit' && category) {
+    categoryModal.dataset.mode = 'edit';
+    categoryModal.dataset.id = category._id ? String(category._id) : '';
+    categoryModal.dataset.provider = category.provider ? String(category.provider) : '';
+    categoryModal.dataset.originalName = category.name ? String(category.name) : '';
+    categoryModal.dataset.providerCategoryId = category.providerCategoryId ? String(category.providerCategoryId) : '';
+    categoryModal.dataset.aliases = JSON.stringify(Array.isArray(category.aliases) ? category.aliases : []);
+    if (categoryModalTitleEl) categoryModalTitleEl.textContent = categoryModalEditTitle;
+    if (categoryNameInput) categoryNameInput.value = category.displayName || category.name || '';
+    if (categoryDescriptionInput) categoryDescriptionInput.value = category.description || '';
+    setSelectValue(categoryIconSelect, category.icon || '', categoryIconDefaultValue || '');
+    setSelectValue(categoryColorSelect, category.color || '', categoryColorDefaultValue || '');
+    if (saveCategoryBtn) {
+      saveCategoryBtn.disabled = false;
+      saveCategoryBtn.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+      saveCategoryBtn.textContent = CATEGORY_MODAL_LABELS.edit;
+    }
+  } else {
+    resetCategoryModal();
+  }
+  openModal('#add-category-modal');
 }
 
 function getProvidersList() {
@@ -1036,6 +1309,9 @@ function closeModal(modalId) {
   if (modalId === '#add-question-modal') {
     resetAddQuestionForm();
   }
+  if (modalId === '#add-category-modal') {
+    resetCategoryModal();
+  }
 }
 $$('.modal').forEach(modal => modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(`#${modal.id}`); }));
 $$('.close-modal').forEach(button => button.addEventListener('click', () => { const modal = button.closest('.modal'); closeModal(`#${modal.id}`); }));
@@ -1057,7 +1333,74 @@ $('#btn-add-question').addEventListener('click', async () => {
   openModal('#add-question-modal');
   setTimeout(() => { addQuestionTextInput?.focus(); }, 50);
 });
-$('#btn-add-category').addEventListener('click', () => openModal('#add-category-modal'));
+$('#btn-add-category').addEventListener('click', () => openCategoryModal('create'));
+if (categoriesEmptyActionBtn) {
+  categoriesEmptyActionBtn.addEventListener('click', () => {
+    if (categoriesEmptyActionBtn.disabled) {
+      showToast('برای مدیریت دسته‌بندی‌ها ابتدا وارد شوید', 'warning');
+      return;
+    }
+    openCategoryModal('create');
+  });
+}
+if (categoriesGridEl) {
+  categoriesGridEl.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!target) return;
+
+    const editButton = target.closest('[data-action="edit-category"]');
+    if (editButton) {
+      event.preventDefault();
+      const categoryId = editButton.dataset.categoryId || '';
+      const category = findCategoryById(categoryId);
+      if (!category) {
+        showToast('دسته‌بندی مورد نظر یافت نشد', 'error');
+        return;
+      }
+      openCategoryModal('edit', category);
+      return;
+    }
+
+    const deleteButton = target.closest('[data-action="delete-category"]');
+    if (deleteButton) {
+      event.preventDefault();
+      if (!getToken()) {
+        showToast('برای حذف دسته‌بندی ابتدا وارد شوید', 'warning');
+        return;
+      }
+      const categoryId = deleteButton.dataset.categoryId || '';
+      const category = findCategoryById(categoryId);
+      if (!categoryId || !category) {
+        showToast('دسته‌بندی مورد نظر یافت نشد', 'error');
+        return;
+      }
+      const categoryLabel = category.displayName || category.name;
+      const confirmed = window.confirm(`آیا از حذف دسته‌بندی «${categoryLabel}» مطمئن هستید؟`);
+      if (!confirmed) return;
+
+      const originalHtml = deleteButton.innerHTML;
+      deleteButton.disabled = true;
+      deleteButton.classList.add('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+      deleteButton.innerHTML = `
+        <span class="flex items-center gap-2 justify-center">
+          <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+          <span>در حال حذف...</span>
+        </span>
+      `;
+      try {
+        await api(`/categories/${categoryId}`, { method: 'DELETE' });
+        showToast('دسته‌بندی حذف شد', 'success');
+        await loadCategoryFilterOptions(true);
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        deleteButton.disabled = false;
+        deleteButton.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+        deleteButton.innerHTML = originalHtml;
+      }
+    }
+  });
+}
 $('#btn-add-user').addEventListener('click', () => openModal('#add-user-modal'));
 $('#btn-add-achievement').addEventListener('click', () => openModal('#add-achievement-modal'));
 
@@ -1410,7 +1753,7 @@ if (updateQuestionBtn) {
       difficulty,
       active,
       categoryId,
-      categoryName: category.name
+      categoryName: category.displayName || category.name
     };
     updateQuestionBtn.disabled = true;
     updateQuestionBtn.classList.add('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
@@ -1441,41 +1784,59 @@ if (updateQuestionBtn) {
 
 // --------------- LOADERS ---------------
 async function loadCategoryFilterOptions(triggerReloadOnMissing = false) {
-  if (!filterCategorySelect) return;
-  const previousValue = questionFilters.category || filterCategorySelect.value || '';
-  filterCategorySelect.innerHTML = '<option value="">همه دسته‌بندی‌ها</option>';
+  const hasFilterSelect = Boolean(filterCategorySelect);
+  const previousValue = hasFilterSelect
+    ? (questionFilters.category || filterCategorySelect.value || '')
+    : (questionFilters.category || '');
+  if (hasFilterSelect) {
+    filterCategorySelect.innerHTML = '<option value="">همه دسته‌بندی‌ها</option>';
+  }
   let shouldReload = false;
   let nextCategories = null;
+
+  if (categoriesGridEl) {
+    categoriesLoading = true;
+    renderCategoryManagement();
+  }
+
   try {
     const response = await api('/categories?limit=100');
     const rawList = Array.isArray(response.data) ? response.data : [];
     nextCategories = sanitizeCategoryList(rawList);
-    let hasPrevious = false;
-    const fragment = document.createDocumentFragment();
-    nextCategories.forEach(cat => {
-      const option = document.createElement('option');
-      option.value = cat._id;
-      option.textContent = categoryOptionLabel(cat);
-      option.dataset.status = cat.status || 'active';
-      if (cat._id === previousValue) hasPrevious = true;
-      fragment.appendChild(option);
-    });
-    filterCategorySelect.appendChild(fragment);
-    if (hasPrevious) {
-      filterCategorySelect.value = previousValue;
-      questionFilters.category = previousValue;
-    } else {
-      filterCategorySelect.value = '';
-      shouldReload = triggerReloadOnMissing && previousValue !== '';
-      questionFilters.category = '';
+
+    if (hasFilterSelect) {
+      let hasPrevious = false;
+      const fragment = document.createDocumentFragment();
+      nextCategories.forEach((cat) => {
+        const option = document.createElement('option');
+        option.value = cat._id;
+        option.textContent = categoryOptionLabel(cat);
+        option.dataset.status = cat.status || 'active';
+        if (cat._id === previousValue) hasPrevious = true;
+        fragment.appendChild(option);
+      });
+      filterCategorySelect.appendChild(fragment);
+      if (hasPrevious) {
+        filterCategorySelect.value = previousValue;
+        questionFilters.category = previousValue;
+      } else {
+        filterCategorySelect.value = '';
+        shouldReload = triggerReloadOnMissing && previousValue !== '';
+        questionFilters.category = '';
+      }
     }
   } catch (err) {
     console.error('Failed to load categories', err);
     showToast('دریافت دسته‌بندی‌ها با مشکل مواجه شد', 'error');
+  } finally {
+    categoriesLoading = false;
   }
+
   if (nextCategories !== null) {
     cachedCategories = nextCategories;
   }
+
+  renderCategoryManagement();
   refreshCategorySelects();
   if (shouldReload) {
     await loadQuestions();
@@ -1950,7 +2311,7 @@ if (saveQuestionBtn) {
           correctIdx,
           difficulty,
           categoryId,
-          categoryName: category.name,
+          categoryName: category.displayName || category.name,
           active
         })
       });
@@ -1970,20 +2331,99 @@ if (saveQuestionBtn) {
   });
 }
 
-$('#save-category-btn').addEventListener('click', async () => {
-  const m = $('#add-category-modal');
-  const name = m.querySelector('input[type="text"]').value.trim();
-  const desc = m.querySelector('textarea').value.trim();
-  const icon = m.querySelectorAll('select')[0].value;
-  const color = m.querySelectorAll('select')[1].value;
-  if (!name) return showToast('نام دسته ضروری است','warning');
-  try {
-    await api('/categories', { method:'POST', body: JSON.stringify({ name, description:desc, icon, color }) });
-    showToast('دسته‌بندی ذخیره شد','success');
-    closeModal('#add-category-modal');
-    await loadCategoryFilterOptions(true);
-  } catch (e) { showToast(e.message,'error'); }
-});
+if (saveCategoryBtn) {
+  saveCategoryBtn.addEventListener('click', async () => {
+    if (!categoryModal) return;
+    if (!getToken()) {
+      showToast('برای مدیریت دسته‌بندی‌ها ابتدا وارد شوید', 'warning');
+      return;
+    }
+
+    const mode = categoryModal.dataset.mode === 'edit' ? 'edit' : 'create';
+    const categoryId = categoryModal.dataset.id || '';
+    const provider = categoryModal.dataset.provider || '';
+    const originalName = categoryModal.dataset.originalName || '';
+    const providerCategoryId = categoryModal.dataset.providerCategoryId || '';
+    let aliasSnapshot = [];
+    try {
+      aliasSnapshot = JSON.parse(categoryModal.dataset.aliases || '[]');
+    } catch (err) {
+      aliasSnapshot = [];
+    }
+
+    const name = categoryNameInput ? categoryNameInput.value.trim() : '';
+    const desc = categoryDescriptionInput ? categoryDescriptionInput.value.trim() : '';
+    const iconValue = categoryIconSelect ? categoryIconSelect.value : categoryIconDefaultValue;
+    const colorValue = categoryColorSelect ? categoryColorSelect.value : categoryColorDefaultValue;
+
+    if (!name) {
+      showToast('نام دسته ضروری است', 'warning');
+      return;
+    }
+
+    saveCategoryBtn.disabled = true;
+    saveCategoryBtn.classList.add('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+    saveCategoryBtn.innerHTML = `
+      <span class="flex items-center gap-2">
+        <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+        <span>در حال ذخیره...</span>
+      </span>
+    `;
+
+    try {
+      const existingAliases = Array.isArray(aliasSnapshot)
+        ? aliasSnapshot.map((alias) => String(alias ?? '').trim()).filter(Boolean)
+        : [];
+      const aliasSet = new Set(existingAliases);
+
+      const resolvedProvider = provider || 'manual';
+      let systemName = name;
+
+      if (mode === 'edit' && categoryId && resolvedProvider !== 'manual' && originalName) {
+        systemName = originalName;
+      }
+
+      if (!systemName) {
+        systemName = name;
+      }
+
+      aliasSet.add(systemName);
+      aliasSet.add(name);
+      if (originalName) aliasSet.add(originalName);
+
+      const payload = {
+        name: systemName,
+        displayName: name,
+        description: desc,
+        icon: iconValue,
+        color: colorValue,
+        provider: resolvedProvider,
+        aliases: Array.from(aliasSet).map((alias) => alias.trim()).filter(Boolean)
+      };
+
+      if (resolvedProvider !== 'manual' && providerCategoryId) {
+        payload.providerCategoryId = providerCategoryId;
+      }
+
+      if (mode === 'edit' && categoryId) {
+        await api(`/categories/${categoryId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        showToast('دسته‌بندی به‌روزرسانی شد', 'success');
+      } else {
+        await api('/categories', { method: 'POST', body: JSON.stringify(payload) });
+        showToast('دسته‌بندی ذخیره شد', 'success');
+      }
+      closeModal('#add-category-modal');
+      await loadCategoryFilterOptions(true);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      saveCategoryBtn.disabled = false;
+      saveCategoryBtn.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+      const defaultLabel = mode === 'edit' ? CATEGORY_MODAL_LABELS.edit : CATEGORY_MODAL_LABELS.create;
+      saveCategoryBtn.textContent = defaultLabel;
+    }
+  });
+}
 
 $('#save-user-btn').addEventListener('click', async () => {
   const m = $('#add-user-modal');
@@ -2053,6 +2493,7 @@ renderTriviaCategories();
 renderTriviaImportResult(triviaControlState.lastResult);
 updateTriviaSummary();
 updateTriviaControlsAvailability();
+renderCategoryManagement();
 
 // صفحه پیش‌فرض
 navigateTo('dashboard');
