@@ -103,8 +103,40 @@
     @keyframes timerTextGlow{ 0%,100%{color:#fff; text-shadow:none;} 50%{color:#fde047; text-shadow:0 0 12px rgba(250,204,21,0.85);} }
     #timer-ring.timer-boost{ animation:timerGlow .85s ease; }
     #timer-text.timer-boost{ animation:timerTextGlow .85s ease; }
-    .modal{ position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.45); z-index:70; padding:1rem }
-    .modal.show{ display:grid }
+    .modal{
+      position:fixed; inset:0; display:none; z-index:70;
+      background:rgba(0,0,0,.45);
+      --modal-padding:clamp(1rem, 4vw, 2.25rem);
+      padding:var(--modal-padding);
+      padding-top:max(var(--modal-padding), env(safe-area-inset-top));
+      padding-bottom:max(var(--modal-padding), calc(env(safe-area-inset-bottom) + 1rem));
+      align-items:center; justify-content:center;
+      overflow-y:auto; overscroll-behavior:contain;
+      scrollbar-gutter:stable both-edges;
+    }
+    .modal.show{ display:flex }
+    .modal > *{
+      width:min(100%, 520px);
+      max-width:min(100%, 520px);
+      max-height:calc(100vh - 2 * var(--modal-padding));
+      margin:auto;
+      overflow-y:auto;
+      overscroll-behavior:contain;
+    }
+    @supports(height: 100dvh){
+      .modal > *{ max-height:calc(100dvh - 2 * var(--modal-padding)); }
+    }
+    @media(max-width:640px){
+      .modal{ align-items:flex-start; }
+      .modal > *{ border-radius:1.5rem; }
+    }
+    @media(max-width:480px){
+      .modal{
+        --modal-padding:clamp(.75rem, 5vw, 1.5rem);
+        padding-bottom:max(var(--modal-padding), calc(env(safe-area-inset-bottom) + .85rem));
+      }
+      .modal > *{ width:100%; max-width:100%; }
+    }
     .sheet{ position:fixed; inset-inline:0; bottom:0; transform:translateY(100%); transition:transform .35s ease; z-index:60 }
     .sheet.show{ transform:translateY(0) }
     .confetti{ position:fixed; inset:0; pointer-events:none; z-index:80 }
@@ -297,16 +329,22 @@
   position: fixed;
   inset: 0;
   display: none;
-  place-items: center;
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(10px);
   z-index: 100;
-  padding: 1rem;
+  --modal-padding: clamp(1rem, 4vw, 2.5rem);
+  padding: var(--modal-padding);
+  padding-top: max(var(--modal-padding), env(safe-area-inset-top));
+  padding-bottom: max(var(--modal-padding), calc(env(safe-area-inset-bottom) + 1rem));
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: fadeIn 0.3s ease;
 }
 
 .payment-modal.show {
-  display: grid;
+  display: flex;
 }
 
 .payment-modal-card {
@@ -322,6 +360,15 @@
   position: relative;
   overflow: hidden;
   animation: slideUp 0.4s ease;
+}
+
+.payment-modal-card{
+  max-height: calc(100vh - 2 * var(--modal-padding));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@supports(height: 100dvh){
+  .payment-modal-card{ max-height: calc(100dvh - 2 * var(--modal-padding)); }
 }
 
 .payment-modal-card::before {
@@ -438,6 +485,26 @@
 
 .payment-success-animation.show {
   display: grid;
+}
+
+@media(max-width:640px){
+  .payment-modal-card{
+    border-radius:1.75rem;
+    padding:clamp(1.5rem, 3vw + 1rem, 2rem);
+  }
+  .payment-details{ padding:1.25rem; }
+  .payment-actions{ flex-direction:column; }
+  .payment-actions .btn{ width:100%; }
+}
+@media(max-width:480px){
+  .payment-modal{ --modal-padding:clamp(.75rem, 5vw, 1.5rem); }
+  .payment-modal-card{
+    width:100%;
+    max-width:100%;
+    border-radius:1.5rem;
+  }
+  .payment-row{ flex-direction:column; align-items:flex-start; gap:.35rem; }
+  .payment-value{ font-size:1rem; }
 }
 
 
