@@ -57,7 +57,11 @@
     @media(max-width:639px){
       .btn-inline{ width:100%; }
     }
-    .chip{ display:inline-flex; align-items:center; gap:.4rem; padding:.25rem .6rem; border-radius:999px; font-size:.85rem; font-weight:700; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:10rem }
+    .chip{ display:inline-flex; align-items:center; gap:.4rem; padding:.25rem .6rem; border-radius:999px; font-size:.85rem; font-weight:700; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:10rem; transition:all .2s ease }
+    .chip-action{ cursor:pointer; box-shadow:0 8px 20px rgba(15,23,42,.18); }
+    .chip-action:hover{ transform:translateY(-1px); box-shadow:0 12px 26px rgba(15,23,42,.25); }
+    .chip-action:active{ transform:translateY(0); }
+    .chip-action:focus-visible{ outline:3px solid rgba(255,255,255,.55); outline-offset:2px; }
     @keyframes chipAttention{ 0%,100%{transform:translateY(0); box-shadow:0 0 0 0 rgba(250,204,21,0)} 50%{transform:translateY(-3px); box-shadow:0 12px 30px rgba(250,204,21,0.35)} }
     .chip.attention{ animation:chipAttention .6s ease; box-shadow:0 0 0 2px rgba(250,204,21,0.35); }
     .divider{ height:1px; width:100%; background:rgba(255,255,255,.20); margin:.75rem 0 }
@@ -116,6 +120,23 @@
     .detail-popup.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     .detail-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 99; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
     .detail-overlay.show { opacity: 1; pointer-events: all; }
+    .duel-rule-banner{ display:flex; align-items:flex-start; gap:1rem; padding:1.25rem 1.4rem; border-radius:1.5rem; background:linear-gradient(135deg, rgba(248,113,113,0.22), rgba(236,72,153,0.18)); border:1px solid rgba(248,113,113,0.35); box-shadow:0 18px 40px rgba(15,23,42,0.22); }
+    .duel-rule-banner p{ line-height:1.8; }
+    .duel-rule-icon{ width:3rem; height:3rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; background:rgba(248,113,113,0.18); color:#fee2e2; font-size:1.4rem; box-shadow:0 10px 24px rgba(244,63,94,0.35); }
+    .duel-rule-badge{ display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .85rem; border-radius:999px; font-size:.75rem; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); }
+    .duel-rule-modal{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(8,15,35,0.78); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); padding:1.5rem; z-index:120; opacity:0; pointer-events:none; transition:opacity .3s ease; }
+    .duel-rule-modal.show{ opacity:1; pointer-events:all; }
+    .duel-rule-card{ position:relative; width:min(520px,94vw); background:linear-gradient(145deg, rgba(15,23,42,0.92), rgba(30,41,59,0.88)); border:1px solid rgba(255,255,255,0.18); border-radius:1.75rem; padding:2rem 1.75rem 1.5rem; box-shadow:0 25px 65px rgba(15,23,42,0.45); color:#fff; }
+    .duel-rule-card .chip{ max-width:100%; }
+    .duel-rule-close{ position:absolute; top:1rem; left:1rem; width:2.25rem; height:2.25rem; display:flex; align-items:center; justify-content:center; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); transition:all .2s ease; }
+    .duel-rule-close:hover{ background:rgba(255,255,255,0.16); }
+    .duel-rule-list{ list-style:none; margin:1rem 0 0; padding:0; display:grid; gap:.55rem; }
+    .duel-rule-list li{ display:flex; align-items:flex-start; gap:.5rem; font-size:.88rem; line-height:1.75; }
+    .duel-rule-list i{ margin-top:.25rem; }
+    .duel-rule-actions{ margin-top:1.75rem; display:flex; flex-direction:column; gap:.75rem; }
+    @media(min-width:640px){ .duel-rule-actions{ flex-direction:row-reverse; } }
+    .duel-rule-actions .btn{ flex:1; }
+    @media(max-width:480px){ .duel-rule-card{ padding:1.6rem 1.2rem 1.2rem; } .duel-rule-banner{ flex-direction:column; text-align:center; } .duel-rule-icon{ margin:0 auto; } .duel-rule-actions{ align-items:stretch; } }
     .match-card { background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05)); border-radius: 1.5rem; padding: 1.25rem; margin-bottom: 1rem; transition: all 0.3s ease; border: 1px solid rgba(255, 255, 255, 0.1); }
     .match-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.2); }
     .duel-avatars { display: flex; justify-content: space-between; align-items: center; margin: 1rem 0; }
@@ -553,8 +574,8 @@
               <div class="flex items-center justify-center sm:justify-start gap-1 col-span-1 sm:col-span-2">
                 <i class="fas fa-swords text-rose-300"></i>
                 <div class="flex flex-wrap justify-center sm:justify-start items-center gap-2">
-                  <span class="chip text-green-300 bg-green-500/20 border-green-500/30"><i class="fas fa-trophy"></i><span id="duel-wins">۰</span> برد</span>
-                  <span class="chip text-rose-300 bg-rose-500/20 border-rose-500/30"><i class="fas fa-skull"></i><span id="duel-losses">۰</span> باخت</span>
+                  <button type="button" class="chip chip-action text-green-300 bg-green-500/20 border-green-500/30" data-duel-summary="wins" aria-label="مشاهده خلاصه بردهای نبرد تن‌به‌تن"><i class="fas fa-trophy"></i><span id="duel-wins">۰</span><span>برد</span></button>
+                  <button type="button" class="chip chip-action text-rose-300 bg-rose-500/20 border-rose-500/30" data-duel-summary="losses" aria-label="مشاهده خلاصه باخت‌های نبرد تن‌به‌تن"><i class="fas fa-skull"></i><span id="duel-losses">۰</span><span>باخت</span></button>
                 </div>
               </div>
             </div>
@@ -1191,6 +1212,20 @@
           <span>نبرد با دوستان</span>
         </h3>
         <div class="space-y-4">
+          <div class="duel-rule-banner" role="alert" aria-live="polite">
+            <div class="duel-rule-icon"><i class="fas fa-hourglass-half"></i></div>
+            <div class="flex-1 space-y-3 text-right">
+              <div class="flex items-center justify-between gap-3 flex-wrap">
+                <h4 class="text-lg font-extrabold">مهلت طلایی نبرد</h4>
+                <span class="duel-rule-badge"><i class="fas fa-clock ml-1"></i>۲۴ ساعت برای هر راند</span>
+              </div>
+              <p class="text-sm opacity-90 leading-7">پس از دعوت یا پذیرش نبرد، برای هر راند حداکثر ۲۴ ساعت فرصت داری. در صورت عدم شرکت در این بازه، سیستم به شکل خودکار نتیجه را با باخت به نام تو ثبت می‌کند.</p>
+              <div class="flex flex-wrap gap-2 text-xs opacity-90">
+                <span class="chip"><i class="fas fa-bell ml-1"></i>اعلان‌ها را فعال نگه دار</span>
+                <span class="chip"><i class="fas fa-calendar-check ml-1"></i>یادآور برای خود تنظیم کن</span>
+              </div>
+            </div>
+          </div>
           <div class="text-center">
             <div class="inline-flex items-center gap-2 px-3 py-2 mb-4 rounded-2xl bg-white/10 border border-white/20 text-sm" aria-live="polite">
               <i class="fas fa-hourglass-half text-amber-300"></i>
@@ -1808,7 +1843,33 @@
       </div>
     </div>
   </div>
-  
+
+  <!-- Duel Rule Modal -->
+  <div id="duel-rule-modal" class="duel-rule-modal" aria-hidden="true" role="dialog" aria-labelledby="duel-rule-title" aria-describedby="duel-rule-desc">
+    <div class="duel-rule-card">
+      <button type="button" class="duel-rule-close" data-duel-rule="cancel" aria-label="بستن یادآور"><i class="fas fa-times"></i></button>
+      <div class="flex items-start gap-4">
+        <div class="duel-rule-icon"><i class="fas fa-hourglass-end"></i></div>
+        <div class="flex-1 text-right space-y-3">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <h3 id="duel-rule-title" class="text-xl font-extrabold">قانون زمان‌بندی نبرد تن‌به‌تن</h3>
+            <span class="duel-rule-badge"><i class="fas fa-clock ml-1"></i>مهلت هر راند: ۲۴ ساعت</span>
+          </div>
+          <p id="duel-rule-desc" class="text-sm opacity-90 leading-7">به‌محض شروع نبرد، تایمر ۲۴ ساعته برای هر راند فعال می‌شود. اگر در این بازه پاسخ ندهی، نتیجه به صورت خودکار با باخت ثبت خواهد شد.</p>
+          <ul class="duel-rule-list">
+            <li><i class="fas fa-bell text-amber-300"></i><span>اعلان‌های بازی را روشن نگه دار تا یادآورها را از دست ندهی.</span></li>
+            <li><i class="fas fa-bolt text-emerald-300"></i><span>پیش از پایان مهلت، راند را آغاز کن تا امتیازها از دست نرود.</span></li>
+            <li><i class="fas fa-flag-checkered text-rose-300"></i><span>در صورت عدم اقدام، سیستم نتیجه را به عنوان باخت برایت ذخیره می‌کند.</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="duel-rule-actions">
+        <button type="button" class="btn glass-dark border-white/20" data-duel-rule="cancel"><i class="fas fa-times ml-2"></i>انصراف</button>
+        <button type="button" class="btn btn-duel" data-duel-rule="confirm"><i class="fas fa-check ml-2"></i>تایید و شروع نبرد</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Detail Popup -->
   <div id="detail-popup" class="detail-popup">
     <div class="flex justify-between items-start mb-4">
@@ -1908,6 +1969,40 @@ function populateProvinceOptions(selectEl, placeholder){
     t.innerHTML=html; document.body.appendChild(t); setTimeout(()=>t.remove(), ms);
   };
   const wait = ms => new Promise(r=>setTimeout(r,ms));
+  function formatDuration(ms){
+    if(!Number.isFinite(ms) || ms <= 0) return 'کمتر از یک دقیقه';
+    const totalMinutes = Math.floor(ms / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    const parts = [];
+    if(hours > 0) parts.push(`${faNum(hours)} ساعت`);
+    if(minutes > 0) parts.push(`${faNum(minutes)} دقیقه`);
+    return parts.length ? parts.join(' و ') : 'کمتر از یک دقیقه';
+  }
+  function formatRelativeTime(ts){
+    if(!Number.isFinite(ts)) return 'همین حالا';
+    try{
+      const diff = ts - Date.now();
+      const abs = Math.abs(diff);
+      const rtf = formatRelativeTime.rtf || (formatRelativeTime.rtf = new Intl.RelativeTimeFormat('fa', { numeric: 'auto' }));
+      const units = [
+        { limit: 60 * 1000, divisor: 1000, unit: 'second' },
+        { limit: 60 * 60 * 1000, divisor: 60 * 1000, unit: 'minute' },
+        { limit: 24 * 60 * 60 * 1000, divisor: 60 * 60 * 1000, unit: 'hour' },
+        { limit: 7 * 24 * 60 * 60 * 1000, divisor: 24 * 60 * 60 * 1000, unit: 'day' },
+        { limit: 30 * 24 * 60 * 60 * 1000, divisor: 7 * 24 * 60 * 60 * 1000, unit: 'week' },
+        { limit: 365 * 24 * 60 * 60 * 1000, divisor: 30 * 24 * 60 * 60 * 1000, unit: 'month' },
+        { limit: Infinity, divisor: 365 * 24 * 60 * 60 * 1000, unit: 'year' }
+      ];
+      for(const { limit, divisor, unit } of units){
+        if(abs < limit){
+          const value = Math.round(diff / divisor);
+          return rtf.format(value, unit);
+        }
+      }
+    }catch{}
+    try{ return new Date(ts).toLocaleString('fa-IR'); }catch{ return 'همین حالا'; }
+  }
   const online = () => navigator.onLine;
   // Minimal sounds
   const SFX = (()=>{ let ctx; const mk=()=>ctx||(ctx=new (window.AudioContext||window.webkitAudioContext)());
@@ -2423,6 +2518,8 @@ patchPricingKeys(RemoteConfig);
     duelOpponent:null,
     duelWins:0,
     duelLosses:0,
+    pendingDuels:[],
+    duelHistory:[],
     achievements:{ firstWin:false, tenCorrect:false, streak3:false, vipBought:false },
     settings:{ sound:true, haptics:true, blockDuels:false },
     leaderboard:[
@@ -2478,6 +2575,7 @@ function isUserInGroup() {
   const TIMER_CIRC = 2 * Math.PI * 64;
   const DUEL_ROUNDS = 2;
   const DUEL_QUESTIONS_PER_ROUND = 10;
+  const DUEL_TIMEOUT_MS = 24 * 60 * 60 * 1000;
   let DuelSession = null;
   
   function loadState(){
@@ -2509,6 +2607,13 @@ function isUserInGroup() {
       }
       if (serverState.pass) Object.assign(Server.pass, serverState.pass);
     }catch{}
+    if (!Array.isArray(State.pendingDuels)) {
+      State.pendingDuels = [];
+    } else {
+      State.pendingDuels = State.pendingDuels.filter(duel => duel && duel.id && Number.isFinite(duel.deadline));
+    }
+    if (!Array.isArray(State.duelHistory)) State.duelHistory = [];
+    State.duelHistory = State.duelHistory.slice(0, 20);
     State.duelOpponent = null;
   }
   
@@ -3087,15 +3192,25 @@ function isUserInGroup() {
     });
   }
   
-  function showDetailPopup(title, content) {
+  function showDetailPopup(title, content, options = {}) {
+    const popup = $('#detail-popup');
+    const overlay = $('#detail-overlay');
+    if (!popup || !overlay) return;
+    popup.dataset.context = options.context || '';
     $('#detail-title').textContent = title;
     $('#detail-content').innerHTML = content;
-    $('#detail-popup').classList.add('show');
-    $('#detail-overlay').classList.add('show');
+    popup.classList.add('show');
+    overlay.classList.add('show');
   }
 
   function cancelDuelSession(reason) {
     if (!DuelSession) return;
+    const duelId = DuelSession?.id;
+    if (duelId && Array.isArray(State.pendingDuels)) {
+      const prevLength = State.pendingDuels.length;
+      State.pendingDuels = State.pendingDuels.filter(duel => duel.id !== duelId);
+      if (State.pendingDuels.length !== prevLength) saveState();
+    }
     if (DuelSession.resolveStart) {
       try { DuelSession.resolveStart(false); } catch (_) {}
       DuelSession.resolveStart = null;
@@ -3113,12 +3228,122 @@ function isUserInGroup() {
     logEvent('duel_cancelled', { reason });
   }
 
-  function closeDetailPopup(options) {
-    $('#detail-popup').classList.remove('show');
-    $('#detail-overlay').classList.remove('show');
-    if (!options?.skipDuelCancel && DuelSession?.awaitingSelection && !DuelSession?.selectionResolved) {
+  function closeDetailPopup(options = {}) {
+    const popup = $('#detail-popup');
+    const overlay = $('#detail-overlay');
+    const context = popup?.dataset?.context || '';
+    popup?.classList.remove('show');
+    overlay?.classList.remove('show');
+    const shouldCancel = !(options.skipDuelCancel || context === 'info');
+    if (shouldCancel && DuelSession?.awaitingSelection && !DuelSession?.selectionResolved) {
       cancelDuelSession('selection_cancelled');
     }
+    if (popup) popup.dataset.context = '';
+  }
+
+  function getNextPendingDuel(){
+    if (!Array.isArray(State.pendingDuels) || !State.pendingDuels.length) return null;
+    const upcoming = State.pendingDuels
+      .filter(duel => duel && Number.isFinite(duel.deadline))
+      .sort((a,b) => a.deadline - b.deadline);
+    return upcoming[0] || null;
+  }
+
+  function applyExpiredDuelPenalties(options = {}){
+    if (!Array.isArray(State.pendingDuels) || !State.pendingDuels.length) return 0;
+    const now = Date.now();
+    const stillPending = [];
+    const expired = [];
+    for (const duel of State.pendingDuels){
+      if (!duel || !Number.isFinite(duel.deadline)) continue;
+      if (now > duel.deadline) expired.push(duel);
+      else stillPending.push(duel);
+    }
+    if (!expired.length){
+      State.pendingDuels = stillPending;
+      return 0;
+    }
+    const resolvedAt = now;
+    State.pendingDuels = stillPending;
+    State.duelHistory = Array.isArray(State.duelHistory) ? State.duelHistory : [];
+    expired.forEach(duel => {
+      State.duelLosses++;
+      State.duelHistory.unshift({
+        id: duel.id,
+        opponent: duel.opponent || 'حریف',
+        outcome: 'loss',
+        reason: 'timeout',
+        resolvedAt,
+        startedAt: duel.startedAt,
+        deadline: duel.deadline
+      });
+    });
+    State.duelHistory = State.duelHistory.slice(0, 20);
+    saveState();
+    if (!options.skipRender) renderDashboard();
+    if (!options.silent){
+      const countText = expired.length === 1 ? 'یک نبرد' : `${faNum(expired.length)} نبرد`;
+      toast(`<i class="fas fa-hourglass-end ml-2"></i>${countText} به دلیل اتمام مهلت ۲۴ ساعته باخت شد.`);
+    }
+    logEvent('duel_timeout_penalty', { count: expired.length });
+    return expired.length;
+  }
+
+  function showDuelRecordSummary(type){
+    vibrate(15);
+    const wins = Number(State.duelWins) || 0;
+    const losses = Number(State.duelLosses) || 0;
+    const history = Array.isArray(State.duelHistory) ? State.duelHistory : [];
+    const draws = history.filter(entry => entry?.outcome === 'draw').length;
+    const totalMatches = wins + losses + draws;
+    const winRate = totalMatches ? Math.round((wins / totalMatches) * 100) : 0;
+    const lossRate = totalMatches ? Math.round((losses / totalMatches) * 100) : 0;
+    const accent = type === 'wins'
+      ? { title:'پرونده بردهای اخیر', icon:'fa-trophy', color:'text-emerald-300', bg:'bg-emerald-500/10', border:'border-emerald-400/40', highlight:`مجموع بردها: ${faNum(wins)} • نرخ برد کلی: ${faNum(winRate)}٪` }
+      : { title:'پرونده باخت‌های اخیر', icon:'fa-skull', color:'text-rose-300', bg:'bg-rose-500/10', border:'border-rose-400/40', highlight:`مجموع باخت‌ها: ${faNum(losses)}` };
+    const relevantHistory = history.filter(entry => entry && entry.outcome === (type === 'wins' ? 'win' : 'loss'));
+    if (type === 'losses'){
+      const timeoutCount = relevantHistory.filter(entry => entry.reason === 'timeout').length;
+      accent.highlight += timeoutCount ? ` • ${faNum(timeoutCount)} باخت به‌دلیل اتمام مهلت` : '';
+      accent.highlight += totalMatches ? ` • نرخ باخت: ${faNum(lossRate)}٪` : '';
+    }
+    const itemsHtml = relevantHistory.slice(0, 4).map(entry => {
+      const opponent = entry.opponent || 'حریف ناشناس';
+      const timeLabel = formatRelativeTime(entry.resolvedAt);
+      let resultLabel;
+      if (entry.reason === 'timeout') resultLabel = 'مهلت تمام شد';
+      else if (entry.reason === 'draw') resultLabel = 'نتیجه مساوی';
+      else resultLabel = `امتیاز ${faNum(entry.yourScore || 0)} - ${faNum(entry.opponentScore || 0)}`;
+      return `<div class="glass rounded-xl p-3 flex items-center justify-between gap-3 text-sm">
+        <div class="flex flex-col">
+          <span class="font-bold">${opponent}</span>
+          <span class="opacity-80">${resultLabel}</span>
+        </div>
+        <span class="text-xs opacity-70 whitespace-nowrap">${timeLabel}</span>
+      </div>`;
+    }).join('');
+    const drawsChip = draws ? `<span class="chip text-sky-200 bg-sky-500/20 border-sky-500/30"><i class="fas fa-scale-balanced"></i>${faNum(draws)} مساوی</span>` : '';
+    const listSection = itemsHtml || '<div class="glass rounded-xl p-4 text-sm opacity-80 text-center">هنوز سابقه‌ای در این بخش ثبت نشده است.</div>';
+    const activeCount = Array.isArray(State.pendingDuels) ? State.pendingDuels.length : 0;
+    let activeHtml = '';
+    if (activeCount){
+      const next = getNextPendingDuel();
+      const diff = next ? next.deadline - Date.now() : 0;
+      const timeLeft = next ? (diff > 0 ? formatDuration(diff) : 'مهلت رو به پایان') : '';
+      const opponentLabel = next?.opponent ? ` • حریف: ${next.opponent}` : '';
+      const meta = next ? `${timeLeft}${opponentLabel}` : '';
+      activeHtml = `<div class="glass rounded-xl p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-3">
+        <div class="flex items-center gap-2"><i class="fas fa-hourglass-half text-amber-300"></i><span>${faNum(activeCount)} نبرد در انتظار پاسخ</span></div>
+        ${meta ? `<span class="opacity-80">${meta}</span>` : ''}
+      </div>`;
+    }
+    const summaryHtml = `<div class="glass rounded-2xl p-4 text-sm border ${accent.border} ${accent.bg}">
+        <div class="flex items-center gap-2 text-base font-bold ${accent.color}"><i class="fas ${accent.icon}"></i>${accent.highlight}</div>
+        ${drawsChip ? `<div class="mt-3 flex flex-wrap gap-2">${drawsChip}</div>` : ''}
+      </div>
+      <div class="space-y-2 mt-4">${listSection}</div>
+      ${activeHtml}`;
+    showDetailPopup(accent.title, summaryHtml, { context: 'info' });
   }
   
   function showUserDetail(user) {
@@ -4995,6 +5220,24 @@ async function startPurchaseCoins(pkgId){
       State.duelLosses++;
     }
 
+    const outcome = totals.you.earned > totals.opp.earned ? 'win' : totals.you.earned < totals.opp.earned ? 'loss' : 'draw';
+    State.duelHistory = Array.isArray(State.duelHistory) ? State.duelHistory : [];
+    State.duelHistory.unshift({
+      id: DuelSession?.id || `duel-${Date.now()}`,
+      opponent: oppName,
+      yourScore: totals.you.earned,
+      opponentScore: totals.opp.earned,
+      outcome,
+      reason: outcome === 'loss' ? 'score' : (outcome === 'win' ? 'score' : 'draw'),
+      resolvedAt: Date.now(),
+      startedAt: DuelSession?.startedAt,
+      deadline: DuelSession?.deadline
+    });
+    State.duelHistory = State.duelHistory.slice(0, 20);
+    if (Array.isArray(State.pendingDuels)) {
+      State.pendingDuels = State.pendingDuels.filter(duel => duel.id !== DuelSession?.id);
+    }
+
     $('#duel-avatar-you').src = State.user?.avatar || 'https://i.pravatar.cc/60?img=1';
     $('#duel-name-you').textContent = youName;
     $('#duel-avatar-opponent').src = opponent.avatar || 'https://i.pravatar.cc/60?img=2';
@@ -5086,6 +5329,39 @@ async function startPurchaseCoins(pkgId){
     }
   }
 
+  function ensureDuelRuleReminder(){
+    const modal = $('#duel-rule-modal');
+    if (!modal) return Promise.resolve(true);
+    const confirmBtn = modal.querySelector('[data-duel-rule="confirm"]');
+    const cancelBtns = Array.from(modal.querySelectorAll('[data-duel-rule="cancel"]'));
+    return new Promise(resolve => {
+      const previousActive = document.activeElement;
+      function cleanup(result){
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden','true');
+        confirmBtn?.removeEventListener('click', onConfirm);
+        cancelBtns.forEach(btn => btn.removeEventListener('click', onCancel));
+        modal.removeEventListener('click', onBackdrop);
+        document.removeEventListener('keydown', onKey);
+        if (previousActive && typeof previousActive.focus === 'function') {
+          setTimeout(() => previousActive.focus({ preventScroll: true }), 0);
+        }
+        resolve(result);
+      }
+      function onConfirm(){ vibrate(20); cleanup(true); }
+      function onCancel(){ cleanup(false); }
+      function onBackdrop(evt){ if (evt.target === modal) onCancel(); }
+      function onKey(evt){ if (evt.key === 'Escape') onCancel(); }
+      confirmBtn?.addEventListener('click', onConfirm);
+      cancelBtns.forEach(btn => btn.addEventListener('click', onCancel));
+      modal.addEventListener('click', onBackdrop);
+      document.addEventListener('keydown', onKey);
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden','false');
+      setTimeout(() => confirmBtn?.focus({ preventScroll: true }), 50);
+    });
+  }
+
   async function startDuelMatch(opponent){
     const limitCfg = RemoteConfig?.gameLimits?.duels;
     const vipMultiplier = Server.subscription.active ? (Server.subscription.tier === 'pro' ? 3 : 2) : 1;
@@ -5095,6 +5371,9 @@ async function startPurchaseCoins(pkgId){
       logEvent('duel_limit_reached', { opponent: opponent?.name });
       return false;
     }
+
+    const expired = applyExpiredDuelPenalties({ skipRender: true });
+    if (expired) renderDashboard();
 
     const categories = getDuelCategories();
     if (categories.length === 0){
@@ -5146,7 +5425,25 @@ async function startPurchaseCoins(pkgId){
 
     const difficultyInfo = preferred ? { value: preferred.value, label: preferred.label || preferred.value } : null;
 
+    const acknowledged = await ensureDuelRuleReminder();
+    if (!acknowledged){
+      logEvent('duel_rule_declined', { opponent: opponent?.name });
+      return false;
+    }
+
+    const duelId = `duel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const startedAt = Date.now();
+    const deadline = startedAt + DUEL_TIMEOUT_MS;
+    const opponentNameLabel = opponent?.name || 'حریف';
+    if (!Array.isArray(State.pendingDuels)) State.pendingDuels = [];
+    State.pendingDuels.push({ id: duelId, opponent: opponentNameLabel, startedAt, deadline });
+    saveState();
+    logEvent('duel_rule_acknowledged', { opponent: opponent?.name, deadlineHours: 24 });
+
     DuelSession = {
+      id: duelId,
+      startedAt,
+      deadline,
       opponent,
       difficulty: difficultyInfo,
       rounds: Array.from({ length: DUEL_ROUNDS }, (_, idx) => ({
@@ -5174,6 +5471,15 @@ async function startPurchaseCoins(pkgId){
   }
 
   renderDuelFriends();
+
+  document.addEventListener('click', event => {
+    const trigger = event.target.closest('[data-duel-summary]');
+    if (!trigger) return;
+    event.preventDefault();
+    const type = trigger.getAttribute('data-duel-summary');
+    if (!type) return;
+    showDuelRecordSummary(type);
+  });
 
   // Random Opponent Matching
   $('#btn-duel-random')?.addEventListener('click', async () => {
@@ -5789,6 +6095,7 @@ function leaveGroup(groupId) {
   // ===== Init =====
 async function init(){
     try{
+      applyExpiredDuelPenalties({ skipRender: true });
       renderHeader(); renderDashboard(); navTo('dashboard');
 
       if(!State.user.province){
