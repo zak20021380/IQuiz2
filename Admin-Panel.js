@@ -162,6 +162,45 @@ const CATEGORY_MODAL_LABELS = {
 const categoryIconDefaultValue = categoryIconSelect ? categoryIconSelect.value : 'fa-globe';
 const categoryColorDefaultValue = categoryColorSelect ? categoryColorSelect.value : 'blue';
 
+const adsGridEl = $('#ads-grid');
+const adsEmptyStateEl = $('#ads-empty-state');
+const adsLoadingEl = $('#ads-loading-state');
+const adsPlacementFilterButtons = $$('#ads-placement-filters [data-ads-filter-placement]');
+const adsStatusFilterButtons = $$('#ads-status-filters [data-ads-filter-status]');
+const adsSearchInput = $('#ads-search');
+const adsEmptyTitleEl = adsEmptyStateEl ? adsEmptyStateEl.querySelector('h3') : null;
+const adsEmptyDescriptionEl = adsEmptyStateEl ? adsEmptyStateEl.querySelector('p') : null;
+const adsStatsElements = {
+  total: document.querySelector('[data-ads-stat="total"]'),
+  active: document.querySelector('[data-ads-stat="active"]'),
+  scheduled: document.querySelector('[data-ads-stat="scheduled"]'),
+  inactive: document.querySelector('[data-ads-stat="inactive"]')
+};
+const addAdButton = $('#btn-add-ad');
+const adsEmptyCreateButton = adsEmptyStateEl ? adsEmptyStateEl.querySelector('[data-action="open-ad-modal"]') : null;
+const adModal = $('#ad-modal');
+const adModalTitle = adModal ? adModal.querySelector('[data-ad-modal-title]') : null;
+const adModalDescription = adModal ? adModal.querySelector('[data-ad-modal-description]') : null;
+const adForm = $('#ad-form');
+const adNameInput = $('#ad-name');
+const adPlacementSelect = $('#ad-placement-select');
+const adStatusSelect = $('#ad-status');
+const adPriorityInput = $('#ad-priority');
+const adStartInput = $('#ad-start-date');
+const adEndInput = $('#ad-end-date');
+const adCreativeInput = $('#ad-creative-url');
+const adLandingInput = $('#ad-landing-url');
+const adHeadlineInput = $('#ad-headline');
+const adDescriptionInput = $('#ad-description');
+const adCtaInput = $('#ad-cta');
+const adRewardTypeSelect = $('#ad-reward-type');
+const adRewardAmountInput = $('#ad-reward-amount');
+const adProvinceOptionsEl = $('#ad-province-options');
+const adSubmitBtn = $('#ad-submit-btn');
+const adSubmitBtnDefault = adSubmitBtn ? adSubmitBtn.innerHTML : '';
+const adModalHelperCreative = adModal ? adModal.querySelector('[data-ad-helper="creative"]') : null;
+const adModalSections = adModal ? Array.from(adModal.querySelectorAll('[data-show-placements]')) : [];
+
 const questionFilters = {
   category: '',
   difficulty: '',
@@ -196,6 +235,21 @@ let latestQuestionStats = null;
 let questionStatsLoaded = false;
 let cachedCategories = [];
 let categoriesLoading = false;
+
+const adsState = {
+  items: [],
+  loading: false,
+  filters: {
+    placement: 'all',
+    status: 'all',
+    search: ''
+  },
+  provinces: [],
+  modalMode: 'create',
+  editingId: null
+};
+
+let adsSearchDebounce;
 
 function sanitizeProviderList(list) {
   const fallbackMap = new Map(DEFAULT_TRIVIA_PROVIDERS.map((provider) => [provider.id, provider]));
@@ -576,6 +630,642 @@ function openCategoryModal(mode = 'create', category = null) {
     resetCategoryModal();
   }
   openModal('#add-category-modal');
+}
+
+// --------------- ADS MANAGEMENT ---------------
+const AD_PLACEMENT_META = {
+  banner: { label: 'بنر پایین صفحه', icon: 'fa-image' },
+  native: { label: 'تبلیغ همسان', icon: 'fa-rectangle-list' },
+  interstitial: { label: 'میانی تمام‌صفحه', icon: 'fa-tablet-screen-button' },
+  rewarded: { label: 'ویدیویی پاداش‌دار', icon: 'fa-film' }
+};
+
+const AD_STATUS_META = {
+  active: { label: 'فعال', className: 'badge badge-success' },
+  scheduled: { label: 'زمان‌بندی‌شده', className: 'badge badge-warning' },
+  paused: { label: 'متوقف', className: 'badge badge-warning' },
+  expired: { label: 'منقضی شده', className: 'badge badge-danger' },
+  draft: { label: 'پیش‌نویس', className: 'badge badge-info' },
+  archived: { label: 'آرشیو', className: 'badge badge-info' }
+};
+
+const sanitizeAdString = (value = '') => (typeof value === 'string' ? value.trim() : '');
+
+function formatAdPlacementFa(placement) {
+  const key = sanitizeAdString(placement).toLowerCase();
+  return AD_PLACEMENT_META[key]?.label || 'جایگاه نامشخص';
+}
+
+function getAdPlacementIcon(placement) {
+  const key = sanitizeAdString(placement).toLowerCase();
+  return AD_PLACEMENT_META[key]?.icon || 'fa-bullhorn';
+}
+
+function computeAdRuntimeStatus(ad, nowTs = Date.now()) {
+  if (!ad) return 'unknown';
+  const status = sanitizeAdString(ad.status).toLowerCase() || 'draft';
+  if (status === 'draft') return 'draft';
+  if (status === 'archived') return 'archived';
+  if (status === 'paused') return 'paused';
+  const start = ad.startDate ? new Date(ad.startDate).getTime() : NaN;
+  const end = ad.endDate ? new Date(ad.endDate).getTime() : NaN;
+  if (Number.isFinite(end) && end < nowTs) return 'expired';
+  if (Number.isFinite(start) && start > nowTs) return 'scheduled';
+  if (status === 'active') return 'active';
+  return status || 'unknown';
+}
+
+function getAdStatusMeta(runtimeStatus) {
+  return AD_STATUS_META[runtimeStatus] || AD_STATUS_META.active;
+}
+
+function formatAdDate(value) {
+  if (!value) return 'نامشخص';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'نامشخص';
+  return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'short', day: '2-digit' }).format(date);
+}
+
+function formatAdSchedule(ad) {
+  return `${formatAdDate(ad.startDate)} تا ${formatAdDate(ad.endDate)}`;
+}
+
+function formatAdTimeInfo(ad, runtimeStatus, nowTs = Date.now()) {
+  const start = ad.startDate ? new Date(ad.startDate).getTime() : NaN;
+  const end = ad.endDate ? new Date(ad.endDate).getTime() : NaN;
+  const DAY = 24 * 60 * 60 * 1000;
+  if (runtimeStatus === 'scheduled' && Number.isFinite(start)) {
+    const diff = start - nowTs;
+    if (diff <= 0) return 'به زودی آغاز می‌شود';
+    const days = Math.ceil(diff / DAY);
+    return days <= 1 ? 'کمتر از یک روز تا شروع' : `${formatNumberFa(days)} روز تا شروع`;
+  }
+  if (runtimeStatus === 'expired') return 'کمپین منقضی شده است';
+  if (Number.isFinite(end)) {
+    const diff = end - nowTs;
+    if (diff <= 0) return 'کمپین منقضی شده است';
+    const days = Math.ceil(diff / DAY);
+    return days <= 1 ? 'کمتر از یک روز تا پایان' : `${formatNumberFa(days)} روز تا پایان`;
+  }
+  return 'بازه زمانی پویا';
+}
+
+function summarizeProvinces(list) {
+  const provinces = Array.isArray(list) ? list.map((item) => sanitizeAdString(item)).filter(Boolean) : [];
+  if (provinces.length === 0) return 'کل کشور';
+  if (provinces.length <= 3) return provinces.join('، ');
+  return `${provinces.slice(0, 3).join('، ')} و ${formatNumberFa(provinces.length - 3)} استان دیگر`;
+}
+
+function summarizeLanding(ad) {
+  const url = sanitizeAdString(ad.landingUrl);
+  if (!url) return 'بدون لینک کلیک';
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch (err) {
+    return url;
+  }
+}
+
+function getAdActionSummary(ad) {
+  const placement = sanitizeAdString(ad.placement).toLowerCase();
+  const cta = sanitizeAdString(ad.ctaLabel) || 'مشاهده';
+  let media = 'محتوا';
+  if (placement === 'rewarded') media = 'ویدیو';
+  else if (placement === 'interstitial') media = 'صفحه تعاملی';
+  else if (placement === 'native') media = 'تصویر + متن';
+  else media = 'تصویر';
+  return `${media} • CTA: ${cta}`;
+}
+
+function normalizeAd(raw = {}) {
+  const provinces = Array.isArray(raw.provinces)
+    ? raw.provinces.map((value) => sanitizeAdString(value)).filter(Boolean)
+    : [];
+  const id = raw.id || (raw._id ? String(raw._id) : '');
+  return {
+    ...raw,
+    id,
+    name: sanitizeAdString(raw.name) || 'کمپین بدون عنوان',
+    placement: sanitizeAdString(raw.placement).toLowerCase() || 'banner',
+    status: sanitizeAdString(raw.status).toLowerCase() || 'draft',
+    creativeUrl: sanitizeAdString(raw.creativeUrl),
+    landingUrl: sanitizeAdString(raw.landingUrl),
+    headline: sanitizeAdString(raw.headline),
+    body: sanitizeAdString(raw.body),
+    ctaLabel: sanitizeAdString(raw.ctaLabel) || 'مشاهده',
+    provinces,
+    startDate: raw.startDate || raw.start_date || null,
+    endDate: raw.endDate || raw.end_date || null,
+    rewardType: sanitizeAdString(raw.rewardType).toLowerCase() || 'coins',
+    rewardAmount: Number.isFinite(Number(raw.rewardAmount)) ? Number(raw.rewardAmount) : 0,
+    priority: Number.isFinite(Number(raw.priority)) ? Number(raw.priority) : 0,
+    creativeType: sanitizeAdString(raw.creativeType)
+  };
+}
+
+function createAdCard(ad) {
+  const runtimeStatus = computeAdRuntimeStatus(ad);
+  const statusMeta = getAdStatusMeta(runtimeStatus);
+  const placementLabel = formatAdPlacementFa(ad.placement);
+  const icon = getAdPlacementIcon(ad.placement);
+  const scheduleText = formatAdSchedule(ad);
+  const timingText = formatAdTimeInfo(ad, runtimeStatus);
+  const targetingText = summarizeProvinces(ad.provinces);
+  const landingPreview = summarizeLanding(ad);
+  const actionSummary = getAdActionSummary(ad);
+  const priority = Number.isFinite(Number(ad.priority)) ? Number(ad.priority) : 0;
+
+  const card = document.createElement('div');
+  card.className = 'glass rounded-2xl p-6 flex flex-col gap-5';
+  card.dataset.adId = ad.id || '';
+  card.innerHTML = `
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-lg text-white/80">
+          <i class="fa-solid ${icon}"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold">${escapeHtml(ad.name)}</h3>
+          <p class="text-xs text-white/60 mt-1">${escapeHtml(placementLabel)}${priority > 1 ? ` • اولویت ${formatNumberFa(priority)}` : ''}</p>
+        </div>
+      </div>
+      <span class="${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="glass-dark rounded-xl px-4 py-3 border border-white/5">
+        <div class="flex items-center justify-between text-xs text-white/60 mb-1">
+          <span>بازه نمایش</span>
+          <i class="fa-solid fa-calendar"></i>
+        </div>
+        <div class="font-semibold text-white/90">${escapeHtml(scheduleText)}</div>
+        <div class="text-xs text-white/50 mt-1">${escapeHtml(timingText)}</div>
+      </div>
+      <div class="glass-dark rounded-xl px-4 py-3 border border-white/5">
+        <div class="flex items-center justify-between text-xs text-white/60 mb-1">
+          <span>هدف‌گیری</span>
+          <i class="fa-solid fa-location-dot"></i>
+        </div>
+        <div class="font-semibold text-white/90">${escapeHtml(targetingText)}</div>
+        <div class="text-xs text-white/50 mt-1">${escapeHtml(actionSummary)}</div>
+      </div>
+    </div>
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-2 text-xs text-white/60">
+        <i class="fa-solid fa-link text-white/40"></i>
+        <span>${escapeHtml(landingPreview)}</span>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" class="px-4 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-300 text-sm" data-action="edit-ad" data-ad-id="${ad.id || ''}">
+          <i class="fa-solid fa-pen ml-2"></i> ویرایش
+        </button>
+        <button type="button" class="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 transition-all duration-300 text-sm" data-action="delete-ad" data-ad-id="${ad.id || ''}">
+          <i class="fa-solid fa-trash ml-2"></i> حذف
+        </button>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function setAdsLoading(isLoading) {
+  adsState.loading = Boolean(isLoading);
+  if (adsLoadingEl) {
+    adsLoadingEl.classList.toggle('hidden', !adsState.loading);
+  }
+  if (adsGridEl) {
+    adsGridEl.classList.toggle('opacity-50', adsState.loading);
+  }
+}
+
+function updateAdsStats() {
+  const elements = adsStatsElements || {};
+  if (!getToken()) {
+    if (elements.total) elements.total.textContent = '۰';
+    if (elements.active) elements.active.textContent = '۰';
+    if (elements.scheduled) elements.scheduled.textContent = '۰';
+    if (elements.inactive) elements.inactive.textContent = '۰';
+    return;
+  }
+  const nowTs = Date.now();
+  let active = 0;
+  let scheduled = 0;
+  let inactive = 0;
+  adsState.items.forEach((ad) => {
+    const status = computeAdRuntimeStatus(ad, nowTs);
+    if (status === 'active') active += 1;
+    else if (status === 'scheduled') scheduled += 1;
+    else if (['paused', 'expired', 'archived', 'draft'].includes(status)) inactive += 1;
+  });
+  if (elements.total) elements.total.textContent = formatNumberFa(adsState.items.length);
+  if (elements.active) elements.active.textContent = formatNumberFa(active);
+  if (elements.scheduled) elements.scheduled.textContent = formatNumberFa(scheduled);
+  if (elements.inactive) elements.inactive.textContent = formatNumberFa(inactive);
+}
+
+function getFilteredAds() {
+  const nowTs = Date.now();
+  const placementFilter = sanitizeAdString(adsState.filters.placement).toLowerCase() || 'all';
+  const statusFilter = sanitizeAdString(adsState.filters.status).toLowerCase() || 'all';
+  const searchTerm = sanitizeAdString(adsState.filters.search).toLowerCase();
+  return adsState.items
+    .map((ad) => ({ ...ad, runtimeStatus: computeAdRuntimeStatus(ad, nowTs) }))
+    .filter((ad) => {
+      if (placementFilter !== 'all' && ad.placement !== placementFilter) return false;
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'inactive') {
+          if (!['paused', 'expired', 'archived', 'draft'].includes(ad.runtimeStatus)) return false;
+        } else if (ad.runtimeStatus !== statusFilter) {
+          return false;
+        }
+      }
+      if (!searchTerm) return true;
+      const haystack = [
+        ad.name,
+        ad.headline,
+        ad.body,
+        ad.landingUrl,
+        ad.creativeUrl,
+        formatAdPlacementFa(ad.placement)
+      ]
+        .map((value) => sanitizeAdString(value).toLowerCase())
+        .join(' ');
+      return haystack.includes(searchTerm);
+    });
+}
+
+function renderAds() {
+  if (!adsGridEl) return;
+  const isAuthenticated = Boolean(getToken());
+  if (!isAuthenticated) {
+    adsGridEl.innerHTML = '';
+    if (adsEmptyStateEl) {
+      adsEmptyStateEl.classList.remove('hidden');
+      if (adsEmptyTitleEl) adsEmptyTitleEl.textContent = 'برای مدیریت تبلیغات وارد شوید';
+      if (adsEmptyDescriptionEl) adsEmptyDescriptionEl.textContent = 'برای ساخت یا ویرایش کمپین‌ها ابتدا وارد حساب ادمین شوید.';
+      if (adsEmptyCreateButton) {
+        adsEmptyCreateButton.disabled = true;
+        adsEmptyCreateButton.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+    }
+    return;
+  }
+  if (adsEmptyCreateButton) {
+    adsEmptyCreateButton.disabled = false;
+    adsEmptyCreateButton.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+  const filtered = getFilteredAds();
+  if (!filtered.length) {
+    adsGridEl.innerHTML = '';
+    if (adsEmptyStateEl) {
+      adsEmptyStateEl.classList.remove('hidden');
+      if (adsEmptyTitleEl) {
+        adsEmptyTitleEl.textContent = adsState.filters.search
+          ? 'نتیجه‌ای برای جستجو پیدا نشد'
+          : 'هیچ تبلیغی مطابق فیلتر فعلی نیست';
+      }
+      if (adsEmptyDescriptionEl) {
+        if (adsState.filters.search) {
+          adsEmptyDescriptionEl.textContent = 'عبارت دیگری را امتحان کنید یا فیلترها را تغییر دهید.';
+        } else {
+          adsEmptyDescriptionEl.textContent = 'فیلترهای فعال را بازنشانی کنید یا کمپین جدیدی بسازید.';
+        }
+      }
+    }
+    return;
+  }
+  if (adsEmptyStateEl) adsEmptyStateEl.classList.add('hidden');
+  const fragment = document.createDocumentFragment();
+  filtered.forEach((ad) => {
+    fragment.appendChild(createAdCard(ad));
+  });
+  adsGridEl.innerHTML = '';
+  adsGridEl.appendChild(fragment);
+}
+
+function renderAdProvinceOptions(selected = []) {
+  if (!adProvinceOptionsEl) return;
+  const selectedSet = new Set((Array.isArray(selected) ? selected : []).map((item) => sanitizeAdString(item)));
+  const provinces = Array.isArray(adsState.provinces) ? adsState.provinces : [];
+  adProvinceOptionsEl.innerHTML = '';
+  if (!provinces.length) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'text-xs text-white/60';
+    placeholder.textContent = 'در حال بارگذاری استان‌ها...';
+    adProvinceOptionsEl.appendChild(placeholder);
+    return;
+  }
+  provinces.forEach((province) => {
+    const name = typeof province === 'string' ? province : province?.name;
+    const normalized = sanitizeAdString(name);
+    if (!normalized) return;
+    const label = document.createElement('label');
+    label.className = `chip-toggle province-chip${selectedSet.has(normalized) ? ' active' : ''}`;
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.className = 'hidden';
+    input.value = normalized;
+    input.checked = selectedSet.has(normalized);
+    input.addEventListener('change', () => {
+      label.classList.toggle('active', input.checked);
+    });
+    label.addEventListener('click', (event) => {
+      if (event.target !== input) {
+        event.preventDefault();
+        input.checked = !input.checked;
+        input.dispatchEvent(new Event('change'));
+      }
+    });
+    const span = document.createElement('span');
+    span.textContent = normalized;
+    label.appendChild(input);
+    label.appendChild(span);
+    adProvinceOptionsEl.appendChild(label);
+  });
+}
+
+async function loadAdProvinces() {
+  try {
+    const res = await fetch('/api/public/provinces', { cache: 'no-store' });
+    const data = await res.json();
+    const names = Array.isArray(data)
+      ? data
+          .map((item) => (typeof item === 'string' ? item : item?.name))
+          .map((name) => sanitizeAdString(name))
+          .filter(Boolean)
+      : [];
+    adsState.provinces = names.sort((a, b) => a.localeCompare(b, 'fa'));
+    let selected = [];
+    if (adModal && adModal.dataset.selectedProvinces) {
+      try {
+        selected = JSON.parse(adModal.dataset.selectedProvinces) || [];
+      } catch (err) {
+        selected = [];
+      }
+    }
+    renderAdProvinceOptions(selected);
+  } catch (error) {
+    console.warn('Failed to load provinces', error);
+    adsState.provinces = [];
+    if (adProvinceOptionsEl) {
+      adProvinceOptionsEl.innerHTML = '<span class="text-xs text-red-200">دریافت لیست استان‌ها ناموفق بود</span>';
+    }
+  }
+}
+
+async function loadAds(showToastOnError = true) {
+  if (!getToken()) {
+    adsState.items = [];
+    updateAdsStats();
+    renderAds();
+    return;
+  }
+  setAdsLoading(true);
+  try {
+    const res = await api('/ads?limit=100');
+    const list = Array.isArray(res?.data) ? res.data : [];
+    adsState.items = list.map(normalizeAd);
+    updateAdsStats();
+    renderAds();
+  } catch (error) {
+    console.error('Failed to load ads', error);
+    adsState.items = [];
+    updateAdsStats();
+    renderAds();
+    if (showToastOnError) {
+      showToast(error.message || 'دریافت تبلیغات ناموفق بود', 'error');
+    }
+  } finally {
+    setAdsLoading(false);
+  }
+}
+
+function resetAdForm() {
+  if (!adForm) return;
+  adForm.reset();
+  adsState.modalMode = 'create';
+  adsState.editingId = null;
+  if (adPriorityInput) adPriorityInput.value = '1';
+  if (adRewardAmountInput) adRewardAmountInput.value = '20';
+  if (adRewardTypeSelect) adRewardTypeSelect.value = 'coins';
+  if (adCtaInput) adCtaInput.value = 'مشاهده';
+  if (adStatusSelect) adStatusSelect.value = 'active';
+  if (adPlacementSelect) adPlacementSelect.value = 'banner';
+  if (adModalTitle) adModalTitle.textContent = 'ایجاد تبلیغ جدید';
+  if (adModalDescription) adModalDescription.textContent = 'فرم زیر را تکمیل کنید تا تبلیغ در جایگاه‌های انتخابی نمایش داده شود.';
+  if (adModal) adModal.dataset.selectedProvinces = '[]';
+  renderAdProvinceOptions([]);
+  updateAdPlacementFields(adPlacementSelect ? adPlacementSelect.value : 'banner');
+}
+
+function updateAdPlacementFields(placement) {
+  const normalized = sanitizeAdString(placement).toLowerCase();
+  adModalSections.forEach((section) => {
+    const attr = section.getAttribute('data-show-placements') || '';
+    if (!attr) return;
+    const allowed = attr.split(',').map((item) => item.trim().toLowerCase());
+    if (allowed.includes(normalized)) {
+      section.classList.remove('hidden');
+    } else {
+      section.classList.add('hidden');
+    }
+  });
+  if (!adModalHelperCreative) return;
+  if (normalized === 'interstitial') {
+    adModalHelperCreative.textContent = 'برای تبلیغ میانی، لینک یک صفحه امن (HTTPS) را وارد کنید که در iframe نمایش داده می‌شود.';
+  } else if (normalized === 'rewarded') {
+    adModalHelperCreative.textContent = 'برای ویدیوی پاداش‌دار، لینک مستقیم فایل MP4 یا HLS را وارد کنید.';
+  } else if (normalized === 'native') {
+    adModalHelperCreative.textContent = 'برای تبلیغ همسان، تصویر مربعی با حداقل ضلع ۳۰۰ پیکسل انتخاب کنید و عنوان جذاب وارد کنید.';
+  } else {
+    adModalHelperCreative.textContent = 'برای بنر، تصویر JPG/PNG با نسبت ۳۲:۱۰ یا ۳۲۰×۱۰۰ پیکسل پیشنهاد می‌شود.';
+  }
+}
+
+function buildAdPayloadFromForm() {
+  if (!adForm) return null;
+  const placement = adPlacementSelect ? adPlacementSelect.value : 'banner';
+  const name = sanitizeAdString(adNameInput?.value);
+  const status = adStatusSelect ? adStatusSelect.value : 'active';
+  const priorityValue = Math.max(0, Math.min(100, Math.round(Number(adPriorityInput?.value || 0)) || 0));
+  const startDate = adStartInput ? adStartInput.value : '';
+  const endDate = adEndInput ? adEndInput.value : '';
+  const creativeUrl = sanitizeAdString(adCreativeInput?.value);
+  const landingUrl = sanitizeAdString(adLandingInput?.value);
+  const headline = sanitizeAdString(adHeadlineInput?.value);
+  const body = sanitizeAdString(adDescriptionInput?.value);
+  const ctaLabel = sanitizeAdString(adCtaInput?.value) || 'مشاهده';
+  const rewardType = adRewardTypeSelect ? adRewardTypeSelect.value : 'coins';
+  const rewardAmount = Math.max(0, Math.round(Number(adRewardAmountInput?.value || 0)));
+  const provinces = adProvinceOptionsEl
+    ? Array.from(adProvinceOptionsEl.querySelectorAll('input[type="checkbox"]'))
+        .filter((input) => input.checked)
+        .map((input) => sanitizeAdString(input.value))
+        .filter(Boolean)
+    : [];
+
+  if (!name) {
+    showToast('نام کمپین را وارد کنید', 'warning');
+    return null;
+  }
+  if (!placement) {
+    showToast('جایگاه تبلیغ را انتخاب کنید', 'warning');
+    return null;
+  }
+  if (!startDate || !endDate) {
+    showToast('بازه زمانی کمپین را مشخص کنید', 'warning');
+    return null;
+  }
+  if (new Date(startDate).getTime() > new Date(endDate).getTime()) {
+    showToast('تاریخ پایان باید بعد از تاریخ شروع باشد', 'warning');
+    return null;
+  }
+  if (!creativeUrl) {
+    showToast('آدرس رسانه تبلیغ الزامی است', 'warning');
+    return null;
+  }
+  if (['banner', 'native', 'rewarded'].includes(placement) && !landingUrl) {
+    showToast('لینک مقصد برای این جایگاه الزامی است', 'warning');
+    return null;
+  }
+  if (placement === 'native' && !headline) {
+    showToast('عنوان تبلیغ همسان را وارد کنید', 'warning');
+    return null;
+  }
+  if (placement === 'rewarded' && rewardAmount <= 0) {
+    showToast('مقدار پاداش باید بزرگ‌تر از صفر باشد', 'warning');
+    return null;
+  }
+
+  return {
+    name,
+    placement,
+    status,
+    priority: priorityValue,
+    startDate,
+    endDate,
+    creativeUrl,
+    landingUrl,
+    headline,
+    body,
+    ctaLabel,
+    rewardType,
+    rewardAmount,
+    provinces
+  };
+}
+
+function openAdModal(mode = 'create', ad = null) {
+  if (!adModal) return;
+  const normalizedMode = mode === 'edit' && ad ? 'edit' : 'create';
+  adsState.modalMode = normalizedMode;
+  adsState.editingId = normalizedMode === 'edit' && ad?.id ? ad.id : null;
+  const selectedProvinces = normalizedMode === 'edit' && ad ? ad.provinces || [] : [];
+  if (adModal) adModal.dataset.selectedProvinces = JSON.stringify(selectedProvinces);
+  if (normalizedMode === 'edit' && ad) {
+    if (adModalTitle) adModalTitle.textContent = 'ویرایش تبلیغ';
+    if (adModalDescription) adModalDescription.textContent = 'تغییرات مورد نظر را اعمال کرده و ذخیره کنید تا کمپین به‌روزرسانی شود.';
+    if (adNameInput) adNameInput.value = ad.name || '';
+    if (adPlacementSelect) adPlacementSelect.value = ad.placement || 'banner';
+    if (adStatusSelect) adStatusSelect.value = ad.status || 'active';
+    if (adPriorityInput) adPriorityInput.value = String(Math.max(0, Math.round(Number(ad.priority) || 0)));
+    if (adStartInput) adStartInput.value = ad.startDate ? new Date(ad.startDate).toISOString().slice(0, 10) : '';
+    if (adEndInput) adEndInput.value = ad.endDate ? new Date(ad.endDate).toISOString().slice(0, 10) : '';
+    if (adCreativeInput) adCreativeInput.value = ad.creativeUrl || '';
+    if (adLandingInput) adLandingInput.value = ad.landingUrl || '';
+    if (adHeadlineInput) adHeadlineInput.value = ad.headline || '';
+    if (adDescriptionInput) adDescriptionInput.value = ad.body || '';
+    if (adCtaInput) adCtaInput.value = ad.ctaLabel || 'مشاهده';
+    if (adRewardTypeSelect) adRewardTypeSelect.value = ad.rewardType || 'coins';
+    if (adRewardAmountInput) adRewardAmountInput.value = String(Math.max(0, Math.round(Number(ad.rewardAmount) || 0)) || 0);
+    renderAdProvinceOptions(selectedProvinces);
+  } else {
+    resetAdForm();
+  }
+  updateAdPlacementFields(adPlacementSelect ? adPlacementSelect.value : 'banner');
+  openModal('#ad-modal');
+}
+
+function handleAdEdit(adId) {
+  if (!adId) return;
+  const ad = adsState.items.find((item) => item.id === adId);
+  if (!ad) {
+    showToast('تبلیغ مورد نظر یافت نشد', 'error');
+    return;
+  }
+  openAdModal('edit', ad);
+}
+
+async function handleAdDelete(adId, triggerButton) {
+  if (!adId) return;
+  if (!getToken()) {
+    showToast('برای حذف تبلیغات ابتدا وارد شوید', 'warning');
+    return;
+  }
+  const ad = adsState.items.find((item) => item.id === adId);
+  const adName = ad?.name || 'این کمپین';
+  const confirmed = window.confirm(`آیا از حذف «${adName}» مطمئن هستید؟`);
+  if (!confirmed) return;
+  const originalHtml = triggerButton ? triggerButton.innerHTML : '';
+  if (triggerButton) {
+    triggerButton.disabled = true;
+    triggerButton.classList.add('opacity-70', 'cursor-not-allowed');
+    triggerButton.innerHTML = '<span class="w-4 h-4 border-2 border-white/30 border-t-transparent rounded-full animate-spin"></span>';
+  }
+  try {
+    await api(`/ads/${adId}`, { method: 'DELETE' });
+    showToast('تبلیغ حذف شد', 'success');
+    await loadAds(false);
+  } catch (error) {
+    showToast(error.message || 'حذف تبلیغ ناموفق بود', 'error');
+  } finally {
+    if (triggerButton) {
+      triggerButton.disabled = false;
+      triggerButton.classList.remove('opacity-70', 'cursor-not-allowed');
+      triggerButton.innerHTML = originalHtml || '<i class="fa-solid fa-trash ml-2"></i> حذف';
+    }
+  }
+}
+
+async function handleAdSubmit(event) {
+  event.preventDefault();
+  if (!getToken()) {
+    showToast('برای ذخیره تبلیغ ابتدا وارد شوید', 'warning');
+    return;
+  }
+  const payload = buildAdPayloadFromForm();
+  if (!payload) return;
+  const isEdit = adsState.modalMode === 'edit' && adsState.editingId;
+  if (adSubmitBtn) {
+    adSubmitBtn.disabled = true;
+    adSubmitBtn.classList.add('opacity-70', 'cursor-not-allowed');
+    adSubmitBtn.innerHTML = `
+      <span class="flex items-center gap-2">
+        <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+        <span>در حال ذخیره...</span>
+      </span>
+    `;
+  }
+  try {
+    if (isEdit) {
+      await api(`/ads/${adsState.editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      showToast('تغییرات تبلیغ ذخیره شد', 'success');
+    } else {
+      await api('/ads', { method: 'POST', body: JSON.stringify(payload) });
+      showToast('تبلیغ با موفقیت ایجاد شد', 'success');
+    }
+    closeModal('#ad-modal');
+    await loadAds(false);
+  } catch (error) {
+    showToast(error.message || 'ذخیره تبلیغ ناموفق بود', 'error');
+  } finally {
+    if (adSubmitBtn) {
+      adSubmitBtn.disabled = false;
+      adSubmitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+      adSubmitBtn.innerHTML = adSubmitBtnDefault;
+    }
+  }
 }
 
 function getProvidersList() {
@@ -1326,9 +2016,92 @@ function closeModal(modalId) {
   if (modalId === '#add-category-modal') {
     resetCategoryModal();
   }
+  if (modalId === '#ad-modal') {
+    resetAdForm();
+  }
 }
 $$('.modal').forEach(modal => modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(`#${modal.id}`); }));
 $$('.close-modal').forEach(button => button.addEventListener('click', () => { const modal = button.closest('.modal'); closeModal(`#${modal.id}`); }));
+
+if (addAdButton) {
+  addAdButton.addEventListener('click', () => {
+    if (!getToken()) {
+      showToast('برای ساخت کمپین ابتدا وارد شوید', 'warning');
+      return;
+    }
+    openAdModal('create');
+  });
+}
+
+if (adsEmptyCreateButton) {
+  adsEmptyCreateButton.addEventListener('click', () => {
+    if (!getToken()) {
+      showToast('برای ساخت کمپین ابتدا وارد شوید', 'warning');
+      return;
+    }
+    openAdModal('create');
+  });
+}
+
+if (adPlacementSelect) {
+  adPlacementSelect.addEventListener('change', (event) => {
+    updateAdPlacementFields(event.target.value);
+  });
+}
+
+adsPlacementFilterButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const value = button.dataset.adsFilterPlacement || 'all';
+    adsState.filters.placement = value;
+    adsPlacementFilterButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn === button);
+    });
+    renderAds();
+  });
+});
+
+adsStatusFilterButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const value = button.dataset.adsFilterStatus || 'all';
+    adsState.filters.status = value;
+    adsStatusFilterButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn === button);
+    });
+    renderAds();
+  });
+});
+
+if (adsSearchInput) {
+  adsSearchInput.addEventListener('input', (event) => {
+    const value = event.target.value || '';
+    if (adsSearchDebounce) clearTimeout(adsSearchDebounce);
+    adsSearchDebounce = setTimeout(() => {
+      adsState.filters.search = value;
+      renderAds();
+    }, 250);
+  });
+}
+
+if (adForm) {
+  adForm.addEventListener('submit', handleAdSubmit);
+}
+
+if (adsGridEl) {
+  adsGridEl.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-action]');
+    if (!target) return;
+    const action = target.dataset.action;
+    const adId = target.dataset.adId || '';
+    if (action === 'delete-ad') {
+      event.preventDefault();
+      handleAdDelete(adId, target);
+    }
+    if (action === 'edit-ad') {
+      event.preventDefault();
+      handleAdEdit(adId);
+    }
+  });
+}
 
 $('#btn-add-question').addEventListener('click', async () => {
   if (!getToken()) {
@@ -2476,7 +3249,8 @@ async function loadAllData() {
     loadDashboardStats(),
     loadCategoryFilterOptions(),
     loadQuestions(),
-    loadUsers()
+    loadUsers(),
+    loadAds()
   ]);
 }
 
@@ -2508,6 +3282,10 @@ renderTriviaImportResult(triviaControlState.lastResult);
 updateTriviaSummary();
 updateTriviaControlsAvailability();
 renderCategoryManagement();
+resetAdForm();
+updateAdsStats();
+renderAds();
+loadAdProvinces();
 
 // صفحه پیش‌فرض
 navigateTo('dashboard');

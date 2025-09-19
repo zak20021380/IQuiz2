@@ -4573,16 +4573,17 @@ async function startPurchaseCoins(pkgId){
       }
       // Try remote, else fallback card
       try{
-        const res = await Net.jget('/api/ads?placement=banner&province='+encodeURIComponent(Server.user.province||State.user.province));
-        if(res && res.html){
-          const w = document.createElement('div'); w.className='w-full h-full relative';
-          w.innerHTML = res.html;
+        const res = await Net.jget('/api/public/ads?placement=banner&province='+encodeURIComponent(Server.user.province||State.user.province));
+        const data = res?.data ?? res;
+        if(data && data.creativeUrl){
+          const link = document.createElement('a'); link.className='w-full h-full block relative'; link.href = data.landingUrl || '#'; link.target = '_blank';
+          link.innerHTML = `<img src="${data.creativeUrl}" alt="sponsor banner" class="w-full h-full object-cover">`;
           const close = document.createElement('button'); close.className='ad-close'; close.innerHTML='<i class="fas fa-times"></i>'; close.setAttribute('aria-label','بستن بنر');
           close.onclick=()=>{ slot.innerHTML=`<div class="ad-skeleton">بنر بسته شد</div>`; logEvent('ad_close',{placement:'banner'}); };
-          w.appendChild(close);
-          slot.appendChild(w);
+          link.appendChild(close);
+          slot.appendChild(link);
           logEvent('ad_impression',{placement:'banner'});
-          w.addEventListener('click',()=>logEvent('ad_click',{placement:'banner'}),{once:true});
+          link.addEventListener('click',()=>logEvent('ad_click',{placement:'banner'}),{once:true});
           return;
         }
       }catch{}
@@ -4616,18 +4617,24 @@ async function startPurchaseCoins(pkgId){
       }
       if(!this.enabled() || !RemoteConfig.ads.placements.native){ slot.innerHTML = '<div class="ad-skeleton">—</div>'; return; }
       try{
-        const res = await Net.jget('/api/ads?placement=native&province='+encodeURIComponent(Server.user.province||State.user.province));
-        if(res && res.title){
-          slot.innerHTML = `<div class="w-full flex items-center gap-3 p-3">
-            <img src="${res.image||'https://picsum.photos/seed/ad/88/88'}" class="w-16 h-16 rounded-2xl object-cover" alt="ad">
+        const res = await Net.jget('/api/public/ads?placement=native&province='+encodeURIComponent(Server.user.province||State.user.province));
+        const data = res?.data ?? res;
+        if(data && (data.headline || data.imageUrl || data.landingUrl)){
+          const headline = data.headline || 'پیشنهاد ویژه';
+          const description = data.description || 'اسپانسر رسمی رقابت امروز';
+          const imageUrl = data.imageUrl || 'https://picsum.photos/seed/iquiz-native/88/88';
+          const landingUrl = data.landingUrl || '#';
+          const ctaLabel = data.ctaLabel || 'مشاهده';
+          slot.innerHTML = `<div class="w-full flex items-center gap-3 p-3 relative">
+            <img src="${imageUrl}" class="w-16 h-16 rounded-2xl object-cover" alt="ad">
             <div class="flex-1">
-              <div class="font-bold">${res.title}</div>
-              <div class="text-xs opacity-80">${res.desc||'پیشنهاد ویژه امروز'}</div>
+              <div class="font-bold">${headline}</div>
+              <div class="text-xs opacity-80">${description}</div>
             </div>
-            <a role="button" href="${res.ctaUrl||'#'}" class="btn btn-primary w-auto px-4 py-2 text-sm" aria-label="مشاهده">مشاهده</a>
+            <a role="button" href="${landingUrl}" target="_blank" rel="noopener" class="btn btn-primary w-auto px-4 py-2 text-sm" aria-label="${ctaLabel}">${ctaLabel}</a>
           </div>`;
           logEvent('ad_impression',{placement:'native'});
-          slot.querySelector('a')?.addEventListener('click', ()=>logEvent('ad_click',{placement:'native'}), {once:true});
+          slot.querySelector('a')?.addEventListener('click',()=>logEvent('ad_click',{placement:'native'}),{once:true});
           return;
         }
       }catch{}
@@ -4647,15 +4654,34 @@ async function startPurchaseCoins(pkgId){
       const local = this.getLocalAd('interstitial');
       logEvent('ad_impression',{placement:'interstitial', trigger, local:!!local});
       if(local){
+        frame.removeAttribute('srcdoc');
         frame.src = local.creative;
       } else {
-        let url = null; try{ const res = await Net.jget('/api/ads?placement=interstitial&province='+encodeURIComponent(Server.user.province||State.user.province)); url = res?.url||null; }catch{}
-        frame.src = url || 'about:blank';
-        if(!url){ frame.srcdoc = `<style>body{margin:0;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;font-family:sans-serif}</style><div>تبلیغ محلی</div>`; }
+        let remote = null;
+        try{
+          const res = await Net.jget('/api/public/ads?placement=interstitial&province='+encodeURIComponent(Server.user.province||State.user.province));
+          remote = res?.data ?? res;
+        }catch{}
+        const creativeUrl = remote?.creativeUrl ? String(remote.creativeUrl) : '';
+        const creativeType = (remote?.creativeType || '').toLowerCase();
+        if(creativeType === 'html' && creativeUrl){
+          frame.removeAttribute('src');
+          frame.srcdoc = creativeUrl;
+        } else if(creativeUrl && creativeUrl.trim().startsWith('<')){
+          frame.removeAttribute('src');
+          frame.srcdoc = creativeUrl;
+        } else if(creativeUrl){
+          frame.removeAttribute('srcdoc');
+          frame.src = creativeUrl;
+        } else {
+          frame.removeAttribute('src');
+          frame.src = 'about:blank';
+          frame.srcdoc = `<style>body{margin:0;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;font-family:sans-serif}</style><div>تبلیغ محلی</div>`;
+        }
       }
       modal.classList.add('show');
       let closed=false;
-      function close(){ if(closed) return; closed=true; modal.classList.remove('show'); frame.src='about:blank'; logEvent('ad_close',{placement:'interstitial'}); }
+      function close(){ if(closed) return; closed=true; modal.classList.remove('show'); frame.src='about:blank'; frame.removeAttribute('srcdoc'); logEvent('ad_close',{placement:'interstitial'}); }
       $('#interstitial-close').onclick = close;
       setTimeout(()=>{ if(!closed){ close(); } }, 10_000);
     },
@@ -4667,17 +4693,29 @@ async function startPurchaseCoins(pkgId){
       sess.rewardedShown++;
       const modal = $('#modal-rewarded'); const vid = $('#rewarded-video'); const claim = $('#rewarded-claim'); const cd = $('#rewarded-countdown');
       const local = this.getLocalAd('rewarded');
-      let src = null;
+      let videoSrc = null; let rewardType = reward; let rewardAmount = amount; let landingUrl = '#';
       if(local){
-        src = local.creative;
+        videoSrc = local.creative;
+        if(local.reward){ rewardType = String(local.reward).toLowerCase(); }
+        if(Number.isFinite(Number(local.amount))){ rewardAmount = Number(local.amount); }
+        if(local.landing){ landingUrl = local.landing; }
       } else {
-        try{ const res = await Net.jget('/api/ads?placement=rewarded&province='+encodeURIComponent(Server.user.province||State.user.province)); src = res?.video||null; }catch{}
+        try{
+          const res = await Net.jget('/api/public/ads?placement=rewarded&province='+encodeURIComponent(Server.user.province||State.user.province));
+          const data = res?.data ?? res;
+          if(data){
+            if(data.videoUrl) videoSrc = data.videoUrl;
+            if(data.rewardType) rewardType = String(data.rewardType).toLowerCase();
+            if(Number.isFinite(Number(data.rewardAmount))) rewardAmount = Number(data.rewardAmount);
+            if(data.landingUrl) landingUrl = data.landingUrl;
+          }
+        }catch{}
       }
-      if(!src){
+      if(!videoSrc){
         vid.removeAttribute('src'); vid.querySelector('source').src=''; vid.load();
         cd.textContent = 'اسپانسر محلی — پخش نمادین';
       } else {
-        vid.querySelector('source').src = src; vid.load();
+        vid.querySelector('source').src = videoSrc; vid.load();
       }
       claim.disabled = true; let canClaimAt = Date.now()+RemoteConfig.ads.rewardedMinWatchMs;
       const t = setInterval(()=>{
@@ -4691,12 +4729,14 @@ async function startPurchaseCoins(pkgId){
         $('#rewarded-close').onclick=()=>{ logEvent('ad_close',{placement:'rewarded'}); cleanup(false); };
         claim.onclick=async ()=>{
           cleanup(true);
-          if(reward==='coins'){ State.coins += amount; renderTopBars(); saveState(); }
-          if(reward==='life'){ State.lives += 1; renderTopBars(); saveState(); }
-          await logEvent('ad_completed',{placement:'rewarded', reward, amount});
-          await logEvent('reward_granted',{reward, amount});
-          const rewardName = reward==='coins'?'سکه':'کلید';
-          toast(`<i class="fas fa-check ml-1"></i> پاداش دریافت شد: ${faNum(amount)} ${rewardName}`);
+          if(rewardType==='coins'){ State.coins += rewardAmount; renderTopBars(); saveState(); }
+          if(rewardType==='life'){ const livesToAdd = Math.max(1, Math.round(rewardAmount||1)); State.lives += livesToAdd; renderTopBars(); saveState(); }
+          await logEvent('ad_completed',{placement:'rewarded', reward:rewardType, amount:rewardAmount});
+          await logEvent('reward_granted',{reward:rewardType, amount:rewardAmount});
+          const rewardName = rewardType==='coins'?'سکه':(rewardType==='life'?'کلید':'پاداش');
+          toast(`<i class="fas fa-check ml-1"></i> پاداش دریافت شد: ${faNum(rewardAmount)} ${rewardName}`);
+          const safeLanding = typeof landingUrl==='string' && /^https?:\/\//i.test(landingUrl);
+          if(safeLanding){ setTimeout(()=>window.open(landingUrl,'_blank','noopener'),300); }
           SFX.coin();
         };
       });

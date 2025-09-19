@@ -194,6 +194,16 @@
       cursor: progress;
       pointer-events: none;
     }
+    .province-chip {
+      padding: 0.4rem 0.85rem;
+      font-size: 0.8rem;
+    }
+    .province-chip span {
+      pointer-events: none;
+    }
+    .province-chip input {
+      display: none;
+    }
     .toggle {
       display: inline-flex;
       align-items: center;
@@ -1111,6 +1121,12 @@
             </a>
           </li>
           <li>
+            <a href="#" class="sidebar-item flex items-center gap-3 p-3 rounded-xl" data-page="ads">
+              <i class="fa-solid fa-bullhorn"></i>
+              <span>مدیریت تبلیغات</span>
+            </a>
+          </li>
+          <li>
             <a href="#" class="sidebar-item flex items-center gap-3 p-3 rounded-xl" data-page="achievements">
               <i class="fa-solid fa-medal"></i>
               <span>مدیریت دستاوردها</span>
@@ -1175,6 +1191,12 @@
           <a href="#" class="sidebar-item flex items-center gap-3 p-3 rounded-xl" data-page="analytics">
             <i class="fa-solid fa-chart-bar"></i>
             <span>تحلیل داده‌ها</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="sidebar-item flex items-center gap-3 p-3 rounded-xl" data-page="ads">
+            <i class="fa-solid fa-bullhorn"></i>
+            <span>مدیریت تبلیغات</span>
           </a>
         </li>
         <li>
@@ -2058,8 +2080,101 @@
                 </div>
                 <div class="text-sm opacity-80">۶۵ بازی</div>
               </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ADS MANAGEMENT -->
+      <section id="page-ads" class="hidden space-y-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold">مدیریت تبلیغات</h1>
+            <p class="text-sm text-white/70 mt-1">کمپین‌های بنری، همسان و ویدیویی را از یک داشبورد واحد برنامه‌ریزی و کنترل کنید.</p>
+          </div>
+          <button id="btn-add-ad" class="btn btn-primary w-auto px-5">
+            <i class="fa-solid fa-plus ml-2"></i>
+            تبلیغ جدید
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="glass rounded-2xl p-4 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-sm text-white/70">
+              <span>کل کمپین‌ها</span>
+              <i class="fa-solid fa-layer-group text-white/60"></i>
+            </div>
+            <div class="text-3xl font-extrabold" data-ads-stat="total">۰</div>
+            <p class="text-xs text-white/60">تمام تبلیغات ثبت‌شده در سیستم</p>
+          </div>
+          <div class="glass rounded-2xl p-4 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-sm text-emerald-200/90">
+              <span>در حال نمایش</span>
+              <i class="fa-solid fa-signal"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-emerald-300" data-ads-stat="active">۰</div>
+            <p class="text-xs text-white/60">کمپین‌هایی که همین حالا برای کاربران فعال هستند</p>
+          </div>
+          <div class="glass rounded-2xl p-4 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-sm text-amber-200/90">
+              <span>زمان‌بندی‌شده</span>
+              <i class="fa-solid fa-clock"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-amber-300" data-ads-stat="scheduled">۰</div>
+            <p class="text-xs text-white/60">کمپین‌هایی که هنوز شروع نشده‌اند</p>
+          </div>
+          <div class="glass rounded-2xl p-4 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-sm text-rose-200/90">
+              <span>متوقف / منقضی</span>
+              <i class="fa-solid fa-power-off"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-rose-300" data-ads-stat="inactive">۰</div>
+            <p class="text-xs text-white/60">کمپین‌های پایان‌یافته یا در حالت توقف</p>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl p-4 flex flex-col gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap gap-2" id="ads-placement-filters">
+              <button type="button" class="chip-toggle active" data-ads-filter-placement="all">همه جایگاه‌ها</button>
+              <button type="button" class="chip-toggle" data-ads-filter-placement="banner">بنری</button>
+              <button type="button" class="chip-toggle" data-ads-filter-placement="native">همسان</button>
+              <button type="button" class="chip-toggle" data-ads-filter-placement="interstitial">میانی</button>
+              <button type="button" class="chip-toggle" data-ads-filter-placement="rewarded">ویدیویی پاداش‌دار</button>
+            </div>
+            <div class="flex flex-wrap gap-2" id="ads-status-filters">
+              <button type="button" class="chip-toggle active" data-ads-filter-status="all">همه وضعیت‌ها</button>
+              <button type="button" class="chip-toggle" data-ads-filter-status="active">فعال</button>
+              <button type="button" class="chip-toggle" data-ads-filter-status="scheduled">زمان‌بندی‌شده</button>
+              <button type="button" class="chip-toggle" data-ads-filter-status="paused">متوقف</button>
+              <button type="button" class="chip-toggle" data-ads-filter-status="expired">منقضی</button>
+              <button type="button" class="chip-toggle" data-ads-filter-status="draft">پیش‌نویس</button>
+              <button type="button" class="chip-toggle" data-ads-filter-status="archived">آرشیو</button>
             </div>
           </div>
+          <div class="relative">
+            <input type="search" id="ads-search" class="form-input pr-10" placeholder="جستجوی سریع بین کمپین‌ها...">
+            <i class="fa-solid fa-search absolute right-3 top-1/2 -translate-y-1/2 text-white/40"></i>
+          </div>
+        </div>
+
+        <div id="ads-loading-state" class="glass rounded-2xl p-5 flex items-center gap-3 hidden">
+          <span class="w-4 h-4 border-2 border-white/40 border-t-transparent rounded-full animate-spin"></span>
+          <span class="text-sm text-white/80">در حال دریافت لیست تبلیغات...</span>
+        </div>
+
+        <div id="ads-empty-state" class="glass rounded-2xl p-8 text-center hidden">
+          <div class="mx-auto w-16 h-16 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-bullhorn text-2xl text-white/80"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-2">هیچ تبلیغی ثبت نشده است</h3>
+          <p class="text-sm text-white/70 mb-6">برای شروع، اولین کمپین خود را ایجاد کنید تا تبلیغات در IQuiz-Bot نمایش داده شود.</p>
+          <button type="button" class="btn btn-secondary w-auto px-6" data-action="open-ad-modal">
+            <i class="fa-solid fa-plus ml-2"></i>
+            ساخت کمپین جدید
+          </button>
+        </div>
+
+        <div id="ads-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-6"></div>
       </section>
 
       <!-- ACHIEVEMENTS MANAGEMENT -->
@@ -2386,6 +2501,114 @@
       </div>
     </div>
   </div>
+  <!-- Ad Modal -->
+  <div id="ad-modal" class="modal">
+    <div class="glass rounded-3xl p-6 max-w-3xl w-full mx-4 modal-content">
+      <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+        <div>
+          <h3 class="text-xl font-extrabold" data-ad-modal-title>ایجاد تبلیغ جدید</h3>
+          <p class="text-sm text-white/70" data-ad-modal-description>فرم زیر را تکمیل کنید تا تبلیغ در جایگاه‌های انتخابی نمایش داده شود.</p>
+        </div>
+        <button class="close-modal w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+          <i class="fa-solid fa-times"></i>
+        </button>
+      </div>
+      <form id="ad-form" class="space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm mb-1">نام کمپین</label>
+            <input type="text" id="ad-name" class="form-input" placeholder="مثال: کمپین زمستانه فروشگاه" required>
+          </div>
+          <div>
+            <label class="block text-sm mb-1">جایگاه نمایش</label>
+            <select id="ad-placement-select" class="form-select">
+              <option value="banner">بنر ثابت (۳۲۰×۱۰۰)</option>
+              <option value="native">تبلیغ همسان داشبورد</option>
+              <option value="interstitial">تبلیغ میانی تمام‌صفحه</option>
+              <option value="rewarded">ویدیویی پاداش‌دار</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm mb-1">وضعیت کمپین</label>
+            <select id="ad-status" class="form-select">
+              <option value="active">فعال</option>
+              <option value="paused">متوقف</option>
+              <option value="draft">پیش‌نویس</option>
+              <option value="archived">آرشیو</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm mb-1">اولویت نمایش</label>
+            <input type="number" id="ad-priority" class="form-input" min="0" max="100" value="1">
+            <span class="helper-text">عدد بالاتر یعنی نمایش بیشتر نسبت به سایر کمپین‌ها.</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm mb-1">تاریخ شروع</label>
+            <input type="date" id="ad-start-date" class="form-input" required>
+          </div>
+          <div>
+            <label class="block text-sm mb-1">تاریخ پایان</label>
+            <input type="date" id="ad-end-date" class="form-input" required>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm mb-1">آدرس رسانه</label>
+          <input type="url" id="ad-creative-url" class="form-input" placeholder="https://example.com/banner.jpg" required>
+          <span class="helper-text" data-ad-helper="creative">برای بنر و همسان تصویر JPG/PNG، برای ویدیویی لینک فایل MP4 و برای میانی لینک صفحه فرود (HTTPS).</span>
+        </div>
+        <div data-show-placements="banner,native,rewarded">
+          <label class="block text-sm mb-1">لینک مقصد</label>
+          <input type="url" id="ad-landing-url" class="form-input" placeholder="https://example.com">
+          <span class="helper-text">کاربر پس از کلیک روی تبلیغ به این آدرس هدایت می‌شود.</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-show-placements="native">
+          <div>
+            <label class="block text-sm mb-1">عنوان تبلیغ همسان</label>
+            <input type="text" id="ad-headline" class="form-input" placeholder="مثال: ۵۰٪ تخفیف فقط امروز">
+          </div>
+          <div>
+            <label class="block text-sm mb-1">متن دکمه</label>
+            <input type="text" id="ad-cta" class="form-input" placeholder="مشاهده" value="مشاهده">
+          </div>
+        </div>
+        <div data-show-placements="native">
+          <label class="block text-sm mb-1">توضیح کوتاه</label>
+          <textarea id="ad-description" class="form-input" rows="2" placeholder="توضیحی درباره پیشنهاد یا برند"></textarea>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-show-placements="rewarded">
+          <div>
+            <label class="block text-sm mb-1">نوع پاداش</label>
+            <select id="ad-reward-type" class="form-select">
+              <option value="coins">سکه</option>
+              <option value="life">جان اضافه</option>
+              <option value="custom">سفارشی</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm mb-1">مقدار پاداش</label>
+            <input type="number" id="ad-reward-amount" class="form-input" min="1" max="1000" value="20">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm mb-2">استان‌های هدف</label>
+          <div id="ad-province-options" class="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 rounded-2xl bg-white/5 border border-white/10"></div>
+          <span class="helper-text">در صورت عدم انتخاب، تبلیغ در تمام استان‌ها نمایش داده می‌شود.</span>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-xs text-white/60">پس از ذخیره، کمپین در لیست تبلیغات قابل مدیریت است.</p>
+          <div class="flex gap-2">
+            <button type="button" class="btn btn-secondary close-modal">انصراف</button>
+            <button type="submit" id="ad-submit-btn" class="btn btn-primary w-auto px-6">ذخیره تبلیغ</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Add Question Modal -->
   <!-- Question Detail Modal -->
   <div id="question-detail-modal" class="modal">

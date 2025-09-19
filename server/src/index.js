@@ -92,6 +92,7 @@ app.use('/api/categories', require('./routes/categories.routes'));
 app.use('/api/questions', require('./routes/questions.routes'));
 app.use('/api/users', require('./routes/users.routes'));
 app.use('/api/achievements', require('./routes/achievements.routes'));
+app.use('/api/ads', require('./routes/ads.routes'));
 app.use('/api/public', require('./routes/public.routes'));
 app.use('/api/trivia', triviaRoutes);
 app.use('/api', require('./routes/trivia-triviaapi'));
