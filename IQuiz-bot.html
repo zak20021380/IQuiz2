@@ -244,16 +244,51 @@
     .province-frame{ box-shadow:0 0 0 3px rgba(16,185,129,.9), 0 0 20px rgba(16,185,129,.35) inset; border-radius:999px }
     @media(min-width:640px){ .ad-banner-slot{ bottom:64px } }
 
-    .duel-opponent{ gap:1rem; }
-    .duel-opponent-action{ display:flex; align-items:center; }
-    .duel-opponent-action .btn{ min-width:140px; }
-    #duel-friends-list{ max-height:min(20rem,60vh); }
+    .duel-hero{ position:relative; overflow:hidden; display:flex; align-items:center; gap:1.5rem; padding:1.75rem; border-radius:1.75rem; background:linear-gradient(135deg, rgba(14,165,233,0.28), rgba(236,72,153,0.24)); border:1px solid rgba(255,255,255,0.2); box-shadow:0 24px 55px rgba(15,23,42,0.28); }
+    .duel-hero::before{ content:''; position:absolute; inset:-20% 50% auto auto; width:240px; height:240px; background:radial-gradient(circle at center, rgba(255,255,255,0.4), transparent 65%); opacity:0.65; pointer-events:none; }
+    .duel-hero > *{ position:relative; z-index:1; }
+    .duel-hero-icon{ width:4rem; height:4rem; border-radius:1.25rem; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.18); color:#fde68a; font-size:1.7rem; box-shadow:0 15px 32px rgba(15,23,42,0.25); }
+    .duel-hero-title{ font-size:1.45rem; font-weight:900; letter-spacing:-0.01em; }
+    .duel-hero-sub{ font-size:.92rem; opacity:.9; line-height:1.85; }
+    .duel-hero-badges{ display:flex; flex-wrap:wrap; gap:.45rem; margin-top:1rem; }
+    .duel-friends-wrapper{ position:relative; overflow:hidden; border-radius:1.75rem; padding:1.75rem; background:linear-gradient(140deg, rgba(15,23,42,0.68), rgba(49,46,129,0.55)); border:1px solid rgba(255,255,255,0.18); box-shadow:0 28px 60px rgba(15,23,42,0.32); }
+    .duel-friends-wrapper::before{ content:''; position:absolute; inset:-30% 55% auto auto; width:260px; height:260px; background:radial-gradient(circle, rgba(236,72,153,0.35), transparent 70%); opacity:.7; pointer-events:none; }
+    .duel-friends-wrapper > *{ position:relative; z-index:1; }
+    .duel-friends-heading{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1.5rem; }
+    .duel-friends-heading h4{ font-size:1.1rem; font-weight:800; }
+    #duel-friends-list{ max-height:min(26rem,60vh); overflow-y:auto; padding-inline-end:.5rem; }
+    #duel-friends-list::-webkit-scrollbar{ width:6px; }
+    #duel-friends-list::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.25); border-radius:999px; }
+    .duel-friend-card{ position:relative; overflow:hidden; display:flex; align-items:center; justify-content:space-between; gap:1.25rem; padding:1.25rem 1.5rem; border-radius:1.5rem; background:linear-gradient(135deg, var(--duel-friend-start, rgba(59,130,246,0.85)), var(--duel-friend-end, rgba(236,72,153,0.85))); border:1px solid rgba(255,255,255,0.22); box-shadow:0 24px 55px rgba(15,23,42,0.28); color:#fff; }
+    .duel-friend-card::before{ content:''; position:absolute; inset:auto 65% -45% auto; width:220px; height:220px; background:radial-gradient(circle, rgba(255,255,255,0.35), transparent 70%); opacity:.6; pointer-events:none; }
+    .duel-friend-profile{ display:flex; align-items:center; gap:1rem; flex:1; }
+    .duel-friend-avatar{ position:relative; }
+    .duel-friend-avatar img{ width:3.5rem; height:3.5rem; border-radius:1.2rem; border:2px solid rgba(255,255,255,0.5); object-fit:cover; box-shadow:0 12px 28px rgba(15,23,42,0.35); }
+    .duel-friend-badge{ position:absolute; inset:auto auto -.3rem -.3rem; display:inline-flex; align-items:center; justify-content:center; width:1.9rem; height:1.9rem; border-radius:999px; background:rgba(17,24,39,0.6); color:#facc15; border:1px solid rgba(250,204,21,0.6); box-shadow:0 10px 25px rgba(15,23,42,0.4); font-size:.85rem; }
+    .duel-friend-meta{ display:flex; flex-direction:column; gap:.35rem; text-align:right; }
+    .duel-friend-name{ font-weight:800; font-size:1.05rem; }
+    .duel-friend-score{ display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; padding:.3rem .75rem; border-radius:999px; background:rgba(255,255,255,0.22); box-shadow:0 12px 28px rgba(15,23,42,0.28); }
+    .duel-friend-score i{ color:#facc15; }
+    .duel-friend-status{ font-size:.75rem; opacity:.85; }
+    .duel-friend-action .btn{ min-width:150px; }
+    .duel-friend-empty{ background:rgba(255,255,255,0.08); border:1px dashed rgba(255,255,255,0.3); border-radius:1.25rem; padding:1.75rem; }
+    .duel-add-card{ display:flex; align-items:center; justify-content:space-between; gap:1.25rem; padding:1.35rem 1.6rem; border-radius:1.5rem; background:linear-gradient(135deg, rgba(255,255,255,0.16), rgba(59,130,246,0.18)); border:1px solid rgba(255,255,255,0.22); box-shadow:0 22px 50px rgba(15,23,42,0.28); }
+    .duel-add-info{ display:flex; flex-direction:column; gap:.55rem; text-align:right; }
+    .duel-add-title{ font-weight:800; font-size:1rem; }
+    .duel-add-sub{ font-size:.85rem; opacity:.85; line-height:1.7; }
+    .duel-add-meta{ display:inline-flex; align-items:center; gap:.4rem; font-size:.78rem; opacity:.9; padding:.35rem .75rem; border-radius:999px; background:rgba(15,23,42,0.4); }
 
     @media(max-width:640px){
       .match-types{ grid-template-columns:1fr; }
-      .duel-opponent{ flex-direction:column; align-items:stretch; text-align:right; }
-      .duel-opponent-action{ width:100%; }
-      .duel-opponent-action .btn{ width:100%; min-width:0; }
+      .duel-hero{ flex-direction:column; align-items:flex-start; text-align:right; }
+      .duel-hero-icon{ width:3.5rem; height:3.5rem; font-size:1.45rem; }
+      .duel-friends-heading{ flex-direction:column; align-items:flex-start; gap:.75rem; }
+      .duel-friend-card{ flex-direction:column; align-items:flex-start; text-align:right; }
+      .duel-friend-profile{ width:100%; }
+      .duel-friend-action{ width:100%; }
+      .duel-friend-action .btn{ width:100%; min-width:0; }
+      .duel-add-card{ flex-direction:column; align-items:stretch; text-align:right; }
+      .duel-add-card .btn{ width:100%; }
     }
 
     @media(min-width:641px) and (max-width:1024px){
@@ -964,6 +999,19 @@
           <div id="duel-winner" class="font-bold mt-2"></div>
           <div id="duel-stats" class="text-sm opacity-90 mt-1 leading-6"></div>
         </div>
+        <div id="duel-add-friend" class="hidden mb-4 text-right">
+          <div class="duel-add-card">
+            <div class="duel-add-info">
+              <div class="duel-add-title">افزودن <span id="duel-add-friend-name"></span> به لیست حریف‌ها؟</div>
+              <p class="duel-add-sub">با ذخیرهٔ این حریف، همیشه در صفحهٔ نبردهای تن‌به‌تن در دسترس خواهد بود.</p>
+              <div class="duel-add-meta">
+                <i class="fas fa-trophy text-yellow-300"></i>
+                <span id="duel-add-friend-score">۰</span>
+              </div>
+            </div>
+            <button type="button" id="btn-add-duel-friend" class="btn btn-duel btn-inline">افزودن به لیست</button>
+          </div>
+        </div>
         <div id="duel-rounds-summary" class="hidden mb-4 space-y-3 text-right"></div>
         <div class="grid grid-cols-3 gap-3">
           <div class="glass rounded-2xl p-4">
@@ -1211,7 +1259,19 @@
           <i class="fas fa-hand-fist text-red-400"></i>
           <span>نبرد با دوستان</span>
         </h3>
-        <div class="space-y-4">
+        <div class="space-y-6">
+          <div class="duel-hero">
+            <div class="duel-hero-icon"><i class="fas fa-swords"></i></div>
+            <div>
+              <div class="duel-hero-title">میدان نبرد تن‌به‌تن</div>
+              <p class="duel-hero-sub">دوستانت را دعوت کن و در نبردهای نفس‌گیر مهارتت را ثابت کن. اینجا مخصوص رقابت‌های رو در روست.</p>
+              <div class="duel-hero-badges">
+                <span class="chip"><i class="fas fa-bolt ml-1"></i>نبرد سریع</span>
+                <span class="chip"><i class="fas fa-shield-halved ml-1"></i>امن و دوستانه</span>
+                <span class="chip"><i class="fas fa-ranking-star ml-1"></i>ثبت رکوردها</span>
+              </div>
+            </div>
+          </div>
           <div class="duel-rule-banner" role="alert" aria-live="polite">
             <div class="duel-rule-icon"><i class="fas fa-hourglass-half"></i></div>
             <div class="flex-1 space-y-3 text-right">
@@ -1226,21 +1286,33 @@
               </div>
             </div>
           </div>
-          <div class="text-center">
-            <div class="inline-flex items-center gap-2 px-3 py-2 mb-4 rounded-2xl bg-white/10 border border-white/20 text-sm" aria-live="polite">
+          <div class="text-center space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/10 border border-white/20 text-sm" aria-live="polite">
               <i class="fas fa-hourglass-half text-amber-300"></i>
               <span>نبرد باقی‌مانده امروز: <span id="duel-limit-remaining">۳</span> / <span id="duel-limit-total">۳</span></span>
             </div>
-            <p class="mb-4">دوست خود را برای نبرد انتخاب کنید</p>
-            <div class="flex flex-wrap justify-center gap-3 mb-4">
-              <button id="btn-duel-random" class="btn btn-duel w-auto px-5 py-2 flex items-center gap-2">
+            <p class="opacity-90">دوست خود را برای نبرد انتخاب کنید</p>
+            <div class="flex flex-wrap justify-center gap-3">
+              <button id="btn-duel-random" class="btn btn-duel btn-inline flex items-center gap-2">
                 <i class="fas fa-shuffle"></i><span>حریف تصادفی</span>
               </button>
-              <button id="btn-duel-link" class="btn btn-tertiary w-auto px-5 py-2 flex items-center gap-2">
+              <button id="btn-duel-link" class="btn btn-tertiary btn-inline flex items-center gap-2">
                 <i class="fas fa-link"></i><span>لینک دعوت</span>
               </button>
             </div>
-            <div id="duel-friends-list" class="space-y-3 max-h-80 overflow-y-auto pr-2"></div>
+          </div>
+          <div class="duel-friends-wrapper">
+            <div class="duel-friends-heading flex-wrap">
+              <div>
+                <h4>لیست حریف‌های همیشگی</h4>
+                <p class="text-sm opacity-80 mt-1">حریفان مورد علاقه‌ات را اضافه کن تا همیشه برای نبرد تن‌به‌تن آماده باشند.</p>
+              </div>
+              <div class="hidden sm:flex items-center gap-2 text-xs opacity-80">
+                <span class="chip"><i class="fas fa-user-group ml-1"></i>دوئل خصوصی</span>
+                <span class="chip"><i class="fas fa-heartbeat ml-1"></i>رقابت دوستانه</span>
+              </div>
+            </div>
+            <div id="duel-friends-list" class="space-y-4 overflow-y-auto pr-1"></div>
           </div>
         </div>
       </div>
@@ -2577,6 +2649,7 @@ function isUserInGroup() {
   const DUEL_QUESTIONS_PER_ROUND = 10;
   const DUEL_TIMEOUT_MS = 24 * 60 * 60 * 1000;
   let DuelSession = null;
+  let PendingDuelFriend = null;
   
   function loadState(){
     try{
@@ -3220,6 +3293,7 @@ function isUserInGroup() {
     DuelSession = null;
     State.duelOpponent = null;
     $('#duel-banner')?.classList.add('hidden');
+    hideDuelAddFriendCTA();
     if (reason === 'selection_cancelled' || reason === 'user_cancelled') {
       toast('نبرد لغو شد');
     } else if (reason === 'no_category') {
@@ -4047,6 +4121,7 @@ async function startQuizFromAdmin(arg) {
       duelSummaryEl.classList.add('hidden');
       duelSummaryEl.innerHTML = '';
     }
+    hideDuelAddFriendCTA();
     saveState();
     navTo('results');
     AdManager.maybeShowInterstitial('post_quiz');
@@ -5008,6 +5083,20 @@ async function startPurchaseCoins(pkgId){
     { id: 7, name: 'کامران علیپور', score: 10100, avatar: 'https://i.pravatar.cc/60?img=14' }
   ];
 
+  const duelFriendThemes = [
+    { start: 'rgba(59,130,246,0.85)', end: 'rgba(236,72,153,0.85)' },
+    { start: 'rgba(16,185,129,0.85)', end: 'rgba(6,182,212,0.85)' },
+    { start: 'rgba(249,115,22,0.85)', end: 'rgba(234,179,8,0.85)' },
+    { start: 'rgba(139,92,246,0.85)', end: 'rgba(236,72,153,0.85)' }
+  ];
+
+  const duelFriendStatuses = [
+    'آخرین نبرد: همین حالا',
+    'چالش بعدی آماده است',
+    'در تلاش برای رکورد جدید',
+    'منتظر دعوت توست'
+  ];
+
   function getDuelCategories(){
     if (!Array.isArray(Admin.categories)) return [];
     return Admin.categories.filter(cat => cat && cat.id != null);
@@ -5312,6 +5401,8 @@ async function startPurchaseCoins(pkgId){
       summaryEl.classList.remove('hidden');
     }
 
+    setupAddFriendCTA(opponent);
+
     $('#res-correct').textContent = faNum(totals.you.correct);
     $('#res-wrong').textContent = faNum(Math.max(0, totals.you.questions - totals.you.correct));
     $('#res-earned').textContent = faNum(totals.you.earned);
@@ -5323,33 +5414,118 @@ async function startPurchaseCoins(pkgId){
     renderDashboard();
   }
 
+  function generateAvatarFromName(name){
+    const seed = encodeURIComponent(name || 'opponent');
+    return `https://i.pravatar.cc/80?u=${seed}`;
+  }
+
+  function suggestScoreFromState(){
+    const baseScore = Number(State?.score) || 0;
+    if (baseScore <= 0) return 9500;
+    const normalized = Math.max(1800, Math.round(baseScore / 5));
+    return normalized;
+  }
+
+  function hideDuelAddFriendCTA(){
+    const container = $('#duel-add-friend');
+    const nameEl = $('#duel-add-friend-name');
+    const scoreEl = $('#duel-add-friend-score');
+    const btn = $('#btn-add-duel-friend');
+    if (container) container.classList.add('hidden');
+    if (nameEl) nameEl.textContent = '';
+    if (scoreEl) scoreEl.textContent = faNum(0);
+    if (btn) btn.disabled = true;
+    PendingDuelFriend = null;
+  }
+
+  function setupAddFriendCTA(opponent){
+    const container = $('#duel-add-friend');
+    const nameEl = $('#duel-add-friend-name');
+    const scoreEl = $('#duel-add-friend-score');
+    const btn = $('#btn-add-duel-friend');
+    hideDuelAddFriendCTA();
+    if (!container || !nameEl || !scoreEl || !btn) return;
+    if (!opponent || !opponent.name) return;
+    const name = opponent.name.trim();
+    if (!name) return;
+    const already = duelFriends.some(friend => {
+      if (opponent.id != null && friend.id === opponent.id) return true;
+      return friend.name === name;
+    });
+    if (already) return;
+    const score = Number(opponent.score);
+    const normalizedScore = Number.isFinite(score) && score > 0 ? score : suggestScoreFromState();
+    const avatar = opponent.avatar || generateAvatarFromName(name);
+    PendingDuelFriend = { id: opponent.id, name, score: normalizedScore, avatar };
+    nameEl.textContent = name;
+    scoreEl.textContent = faNum(normalizedScore);
+    btn.disabled = false;
+    container.classList.remove('hidden');
+  }
+
+  function addOpponentToDuelFriends(opponent){
+    if (!opponent || !opponent.name) return;
+    const name = opponent.name.trim();
+    if (!name) return;
+    const exists = duelFriends.some(friend => friend.name === name || (opponent.id != null && friend.id === opponent.id));
+    if (exists){
+      toast('این حریف از قبل در لیست است');
+      return;
+    }
+    const usedIds = duelFriends.map(friend => Number(friend.id) || 0);
+    let id = Number(opponent.id);
+    if (!Number.isFinite(id) || usedIds.includes(id)){
+      id = (usedIds.length ? Math.max(...usedIds) : 0) + 1;
+    }
+    const entry = {
+      id,
+      name,
+      score: Number(opponent.score) > 0 ? Number(opponent.score) : suggestScoreFromState(),
+      avatar: opponent.avatar || generateAvatarFromName(name)
+    };
+    duelFriends.unshift(entry);
+    renderDuelFriends();
+    toast(`${entry.name} به لیست حریف‌ها اضافه شد ✅`);
+  }
+
   function renderDuelFriends(){
     const list = $('#duel-friends-list');
     if(!list) return;
     list.innerHTML = '';
     if(duelFriends.length === 0){
-      list.innerHTML = '<div class="glass rounded-2xl p-4 text-sm opacity-80 text-center">فعلاً دوستی برای نبرد در دسترس نیست.</div>';
+      list.innerHTML = '<div class="duel-friend-empty text-sm opacity-85 text-center">هنوز حریفی ذخیره نکرده‌ای. پس از پایان نبرد، حریف دلخواهت را به این لیست اضافه کن.</div>';
       return;
     }
-    duelFriends.forEach(friend => {
-      const card = document.createElement('div');
-      card.className = 'duel-opponent glass rounded-2xl p-4 flex items-center justify-between';
+    duelFriends.forEach((friend, idx) => {
+      const card = document.createElement('article');
+      card.className = 'duel-friend-card fade-in';
+      const theme = duelFriendThemes[idx % duelFriendThemes.length];
+      if (theme) {
+        card.style.setProperty('--duel-friend-start', theme.start);
+        card.style.setProperty('--duel-friend-end', theme.end);
+      }
+      const avatar = friend.avatar || generateAvatarFromName(friend.name);
+      const status = friend.status || duelFriendStatuses[idx % duelFriendStatuses.length];
       card.innerHTML = `
-        <div class="duel-opponent-info flex items-center gap-3 flex-1">
-          <img src="${friend.avatar}" class="w-12 h-12 rounded-full border-2 border-white/30" alt="opponent">
-          <div>
-            <div class="font-bold">${friend.name}</div>
-            <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-star text-yellow-300"></i><span>امتیاز: ${faNum(friend.score)}</span></div>
+        <div class="duel-friend-profile">
+          <div class="duel-friend-avatar">
+            <img src="${avatar}" alt="${friend.name}">
+            <span class="duel-friend-badge"><i class="fas fa-star"></i></span>
+          </div>
+          <div class="duel-friend-meta">
+            <span class="duel-friend-name">${friend.name}</span>
+            <span class="duel-friend-score"><i class="fas fa-trophy"></i>${faNum(friend.score || 0)} امتیاز</span>
+            <span class="duel-friend-status">${status}</span>
           </div>
         </div>
-        <div class="duel-opponent-action">
-          <button class="btn btn-duel text-sm w-auto px-4" data-id="${friend.id}" aria-label="شروع نبرد با ${friend.name}">چالش</button>
+        <div class="duel-friend-action">
+          <button class="btn btn-duel btn-inline" data-id="${friend.id}" aria-label="شروع نبرد با ${friend.name}">چالش</button>
         </div>`;
       list.appendChild(card);
     });
     list.querySelectorAll('button[data-id]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        await challengeFriend(parseInt(btn.dataset.id));
+        await challengeFriend(parseInt(btn.dataset.id, 10));
       });
     });
   }
@@ -5403,6 +5579,7 @@ async function startPurchaseCoins(pkgId){
   }
 
   async function startDuelMatch(opponent){
+    hideDuelAddFriendCTA();
     const limitCfg = RemoteConfig?.gameLimits?.duels;
     const vipMultiplier = Server.subscription.active ? (Server.subscription.tier === 'pro' ? 3 : 2) : 1;
     const dailyLimit = (limitCfg?.daily || 0) * vipMultiplier;
@@ -5511,6 +5688,18 @@ async function startPurchaseCoins(pkgId){
   }
 
   renderDuelFriends();
+  hideDuelAddFriendCTA();
+
+  $('#btn-add-duel-friend')?.addEventListener('click', () => {
+    if (!PendingDuelFriend) {
+      hideDuelAddFriendCTA();
+      return;
+    }
+    vibrate(20);
+    addOpponentToDuelFriends(PendingDuelFriend);
+    logEvent('duel_friend_saved', { opponent: PendingDuelFriend.name });
+    hideDuelAddFriendCTA();
+  });
 
   document.addEventListener('click', event => {
     const trigger = event.target.closest('[data-duel-summary]');
@@ -5532,13 +5721,7 @@ async function startPurchaseCoins(pkgId){
     const opponent = randomPool[Math.floor(Math.random()*randomPool.length)];
     toast(`حریف ${opponent.name} پیدا شد!`);
     logEvent('duel_random_found', { opponent: opponent.name });
-    const started = await startDuelMatch(opponent);
-    if(started){
-      const existingIdx = duelFriends.findIndex(f => f.id === opponent.id);
-      if(existingIdx >= 0){ duelFriends.splice(existingIdx,1); }
-      duelFriends.unshift(opponent);
-      renderDuelFriends();
-    }
+    await startDuelMatch(opponent);
     btn.disabled = false;
   });
 
