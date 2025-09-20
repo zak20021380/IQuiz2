@@ -158,6 +158,52 @@
     .duel-round-score{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; font-size:.85rem; }
     .duel-round-score > div{ background:rgba(15,23,42,0.28); border-radius:.9rem; padding:.55rem .75rem; border:1px solid rgba(255,255,255,0.12); display:flex; flex-direction:column; gap:.2rem; }
     .duel-round-score span{ display:block; }
+    .group-battle-card{ border-radius:1.75rem; background:linear-gradient(135deg, rgba(76,29,149,0.45), rgba(30,64,175,0.35)); border:1px solid rgba(255,255,255,0.16); padding:1.75rem; display:flex; flex-direction:column; gap:1.5rem; box-shadow:0 25px 65px rgba(15,23,42,0.32); }
+    .group-battle-card .chip{ background:rgba(255,255,255,0.16); border-color:rgba(255,255,255,0.25); }
+    .group-battle-header{ display:flex; flex-direction:column; gap:.75rem; }
+    .group-battle-header p{ line-height:1.9; font-size:.9rem; }
+    .group-battle-limit{ display:inline-flex; align-items:center; gap:.45rem; padding:.35rem .85rem; border-radius:999px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); font-size:.78rem; font-weight:700; }
+    .group-battle-select{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1rem; }
+    .group-battle-select-card{ border-radius:1.35rem; background:rgba(15,23,42,0.28); border:1px solid rgba(255,255,255,0.16); padding:1rem; display:flex; flex-direction:column; gap:.65rem; box-shadow:0 12px 32px rgba(15,23,42,0.25); }
+    .group-battle-select-card label{ font-size:.82rem; font-weight:800; display:flex; align-items:center; gap:.45rem; }
+    .group-battle-select-card select.form-input{ background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.22); font-weight:600; letter-spacing:-0.01em; }
+    .group-battle-roster{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+    .battle-roster-card{ border-radius:1.25rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.16); padding:1rem; display:flex; flex-direction:column; gap:.65rem; }
+    .battle-roster-meta{ display:flex; flex-wrap:wrap; gap:.5rem; font-size:.78rem; opacity:.85; }
+    .battle-roster-avatars{ display:flex; flex-wrap:wrap; gap:.4rem; }
+    .battle-roster-avatar{ width:38px; height:38px; border-radius:1rem; object-fit:cover; border:2px solid rgba(255,255,255,0.22); box-shadow:0 10px 22px rgba(15,23,42,0.28); }
+    .battle-board{ display:grid; gap:1rem; }
+    .battle-row{ display:grid; grid-template-columns:1fr auto 1fr; gap:.8rem; align-items:stretch; }
+    .battle-player{ position:relative; border-radius:1.25rem; background:rgba(15,23,42,0.28); border:1px solid rgba(255,255,255,0.16); padding:1rem; display:flex; flex-direction:column; gap:.75rem; box-shadow:0 15px 35px rgba(15,23,42,0.24); text-align:right; }
+    .battle-player-header{ display:flex; align-items:center; gap:.75rem; justify-content:space-between; }
+    .battle-player-info{ display:flex; align-items:center; gap:.75rem; }
+    .battle-player-avatar{ width:52px; height:52px; border-radius:1.1rem; object-fit:cover; box-shadow:0 12px 32px rgba(15,23,42,0.35); border:2px solid rgba(255,255,255,0.18); }
+    .battle-player-avatar.placeholder{ display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.65); font-size:1.1rem; }
+    .battle-player-name{ font-weight:800; font-size:1rem; }
+    .battle-player-role{ font-size:.78rem; opacity:.8; display:flex; align-items:center; gap:.4rem; }
+    .battle-player-role i{ color:var(--accent3); }
+    .battle-player-score{ display:flex; align-items:center; justify-content:space-between; padding:.55rem .85rem; border-radius:1rem; background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.18); font-size:.88rem; font-weight:700; }
+    .battle-player-meta{ display:flex; flex-wrap:wrap; gap:.45rem; font-size:.74rem; opacity:.85; }
+    .battle-player-meta span{ display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .55rem; border-radius:.75rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); }
+    .battle-player-winner{ border-color:rgba(34,197,94,0.6); background:linear-gradient(135deg, rgba(16,185,129,0.3), rgba(59,130,246,0.22)); box-shadow:0 22px 45px rgba(16,185,129,0.28); }
+    .battle-player-loser{ opacity:.92; }
+    .battle-player-empty{ border-style:dashed; border-color:rgba(255,255,255,0.25); background:rgba(15,23,42,0.18); box-shadow:none; }
+    .battle-vs{ display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.25rem; color:var(--accent3); }
+    .battle-summary{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; }
+    .battle-summary-card{ border-radius:1.2rem; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); padding:1rem; display:flex; flex-direction:column; gap:.45rem; }
+    .battle-summary-card.highlight{ background:linear-gradient(135deg, rgba(250,204,21,0.28), rgba(59,130,246,0.24)); border-color:rgba(250,204,21,0.4); box-shadow:0 22px 48px rgba(250,204,21,0.22); }
+    .battle-winner{ border-radius:1.2rem; background:linear-gradient(135deg, rgba(250,204,21,0.24), rgba(236,72,153,0.18)); border:1px solid rgba(250,204,21,0.42); padding:1rem 1.2rem; display:flex; flex-direction:column; gap:.35rem; font-weight:700; }
+    .battle-winner span{ font-size:.82rem; font-weight:500; opacity:.85; }
+    .battle-rewards{ display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+    .battle-reward-card{ border-radius:1.2rem; background:rgba(15,23,42,0.32); border:1px solid rgba(255,255,255,0.18); padding:1rem; display:flex; flex-direction:column; gap:.55rem; }
+    .battle-reward-chip{ display:inline-flex; align-items:center; gap:.4rem; padding:.32rem .75rem; border-radius:999px; background:rgba(255,255,255,0.16); font-size:.74rem; font-weight:700; }
+    .battle-empty-hint{ border-radius:1.2rem; background:rgba(255,255,255,0.1); border:1px dashed rgba(255,255,255,0.18); padding:1rem; font-size:.85rem; display:flex; align-items:center; gap:.6rem; }
+    @media(max-width:768px){
+      .battle-row{ grid-template-columns:1fr; }
+      .battle-vs{ font-size:1.05rem; }
+      .battle-player{ align-items:flex-start; }
+      .group-battle-card{ padding:1.35rem; }
+    }
     .location-card:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-3px); }
     #btn-view-group[data-empty="true"]{ border-style:dashed; border-color:rgba(255,255,255,0.35); background:linear-gradient(135deg, rgba(236,72,153,0.18), rgba(59,130,246,0.18)); box-shadow:0 18px 35px rgba(14,116,144,0.25); }
     #btn-view-group[data-empty="true"] .location-icon{ background:linear-gradient(135deg, rgba(236,72,153,0.4), rgba(59,130,246,0.4)); color:#fff; }
@@ -2160,6 +2206,11 @@
   }).observe(document.body,{childList:true,subtree:true});
   const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
   const faNum = n => (n===null||n===undefined||Number.isNaN(Number(n))) ? '—' : Number(n).toLocaleString('fa-IR');
+  const faDecimal = (n, digits=1) => {
+    const value = Number(n);
+    if (!Number.isFinite(value)) return '—';
+    return value.toLocaleString('fa-IR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  };
   const enNum = n => Number(n).toLocaleString('en-US');
 function populateProvinceOptions(selectEl, placeholder){
     if(!selectEl) return;
@@ -2767,28 +2818,187 @@ patchPricingKeys(RemoteConfig);
   }
   
   // ===== Server State (Wallet + Subscription only from server) =====
-  const Server = {
-    wallet: { coins: null, lastTxnId: null },
-    subscription: { active:false, status:'unknown', expiry:null, autoRenew:false, plan:null, tier:null },
-    user: { province:'تهران' }, // can be set by your auth bootstrap
-    limits: {
-      matches: { used: 0, lastReset: 0, lastRecovery: 0 },
-      duels: { used: 0, lastReset: 0, lastRecovery: 0 },
-      lives: { used: 0, lastReset: 0, lastRecovery: 0 },
-      groupBattles: { used: 0, lastReset: 0, lastRecovery: 0 },
-      energy: { used: 0, lastReset: 0, lastRecovery: 0 }
-    },
-    pass: {
-      freeXp: 0,
-      premiumXp: 0,
-      season: 1,
-      week: 1,
-      missions: {
-        daily: [],
-        weekly: []
-      }
+const Server = {
+  wallet: { coins: null, lastTxnId: null },
+  subscription: { active:false, status:'unknown', expiry:null, autoRenew:false, plan:null, tier:null },
+  user: { province:'تهران' }, // can be set by your auth bootstrap
+  limits: {
+    matches: { used: 0, lastReset: 0, lastRecovery: 0 },
+    duels: { used: 0, lastReset: 0, lastRecovery: 0 },
+    lives: { used: 0, lastReset: 0, lastRecovery: 0 },
+    groupBattles: { used: 0, lastReset: 0, lastRecovery: 0 },
+    energy: { used: 0, lastReset: 0, lastRecovery: 0 }
+  },
+  pass: {
+    freeXp: 0,
+    premiumXp: 0,
+    season: 1,
+    week: 1,
+    missions: {
+      daily: [],
+      weekly: []
     }
+  }
+};
+
+  const ROSTER_ROLES = ['دانش عمومی','رهبر استراتژی','متخصص علوم','استاد ادبیات','تحلیل‌گر داده','هوش تاریخی','ریاضی‌دان','کارشناس فناوری','حل مسئله سریع','هوش مصنوعی'];
+  const ROSTER_FIRST_NAMES = ['آرمان','نیلوفر','شروین','فرناز','پارسا','یاسمن','کاوه','مینا','هومن','هستی','رامتین','سولماز','آرین','بهاره','پریسا','بردیا','کیانا','مانی','ترانه','هانیه'];
+  const ROSTER_LAST_NAMES = ['قاسمی','حسینی','موسوی','محمدی','کاظمی','نعمتی','شکیبا','زارع','فاضلی','رستگار','صادقی','نیک‌پور','شریفی','فرهادی','پاکزاد','نادری','گودرزی','مرادی','توکلی','شفیعی'];
+
+  const DEFAULT_GROUP_ROSTERS = {
+    g1: [
+      { name:'علی رضایی', avatar:'https://i.pravatar.cc/100?img=12', role:'رهبر تیم', power:94, avgScore:890, accuracy:92, speed:6.1 },
+      { name:'سارا اکبری', avatar:'https://i.pravatar.cc/100?img=32', role:'استاد ادبیات', power:91, avgScore:872, accuracy:90, speed:6.4 },
+      { name:'رضا کریمی', avatar:'https://i.pravatar.cc/100?img=45', role:'تحلیل‌گر تیزبین', power:89, avgScore:860, accuracy:89, speed:6.6 },
+      { name:'ندا فرهمند', avatar:'https://i.pravatar.cc/100?img=36', role:'متخصص تاریخ', power:87, avgScore:845, accuracy:88, speed:6.9 },
+      { name:'پیام سالاری', avatar:'https://i.pravatar.cc/100?img=24', role:'ریاضی برتر', power:85, avgScore:832, accuracy:87, speed:7.1 },
+      { name:'آرزو مرادی', avatar:'https://i.pravatar.cc/100?img=54', role:'هوش کلامی', power:83, avgScore:820, accuracy:85, speed:7.4 },
+      { name:'احسان کاوه', avatar:'https://i.pravatar.cc/100?img=13', role:'مغز تکنولوژی', power:82, avgScore:808, accuracy:84, speed:7.6 },
+      { name:'نگار میرزایی', avatar:'https://i.pravatar.cc/100?img=47', role:'دانش عمومی', power:80, avgScore:798, accuracy:83, speed:7.8 },
+      { name:'شهاب احمدپور', avatar:'https://i.pravatar.cc/100?img=58', role:'فیزیک‌دان جوان', power:78, avgScore:785, accuracy:81, speed:8.0 },
+      { name:'کیانا شریفی', avatar:'https://i.pravatar.cc/100?img=21', role:'تحلیل‌گر داده', power:76, avgScore:770, accuracy:80, speed:8.2 }
+    ],
+    g2: [
+      { name:'سارا محمدی', avatar:'https://i.pravatar.cc/100?img=29', role:'استراتژیست ارشد', power:92, avgScore:875, accuracy:91, speed:6.3 },
+      { name:'مهدی احمدی', avatar:'https://i.pravatar.cc/100?img=17', role:'تحلیل‌گر منطق', power:88, avgScore:852, accuracy:88, speed:6.7 },
+      { name:'الهام برزگر', avatar:'https://i.pravatar.cc/100?img=53', role:'متخصص علوم', power:86, avgScore:838, accuracy:87, speed:7.0 },
+      { name:'حسین فلاح', avatar:'https://i.pravatar.cc/100?img=25', role:'ریاضی‌دان تیم', power:84, avgScore:826, accuracy:85, speed:7.3 },
+      { name:'نگین شریعتی', avatar:'https://i.pravatar.cc/100?img=41', role:'هوش تاریخی', power:83, avgScore:815, accuracy:84, speed:7.5 },
+      { name:'پژمان نظری', avatar:'https://i.pravatar.cc/100?img=34', role:'کارشناس فناوری', power:81, avgScore:804, accuracy:83, speed:7.8 },
+      { name:'بهاره کاظمی', avatar:'https://i.pravatar.cc/100?img=59', role:'ادبیات پژوه', power:79, avgScore:792, accuracy:82, speed:8.0 },
+      { name:'شروین فرهادی', avatar:'https://i.pravatar.cc/100?img=23', role:'هوش مصنوعی', power:78, avgScore:780, accuracy:81, speed:8.2 },
+      { name:'مینا رستگار', avatar:'https://i.pravatar.cc/100?img=42', role:'دانش عمومی', power:76, avgScore:768, accuracy:80, speed:8.4 },
+      { name:'آرین ساعی', avatar:'https://i.pravatar.cc/100?img=14', role:'حل مسئله سریع', power:75, avgScore:756, accuracy:79, speed:8.6 }
+    ],
+    g3: [
+      { name:'رضا قاسمی', avatar:'https://i.pravatar.cc/100?img=19', role:'رهبر خلاق', power:90, avgScore:862, accuracy:89, speed:6.5 },
+      { name:'نازنین فراهانی', avatar:'https://i.pravatar.cc/100?img=38', role:'محقق علوم', power:87, avgScore:840, accuracy:87, speed:6.9 },
+      { name:'کیاوش نادری', avatar:'https://i.pravatar.cc/100?img=49', role:'استاد منطق', power:85, avgScore:828, accuracy:85, speed:7.2 },
+      { name:'الینا رضوی', avatar:'https://i.pravatar.cc/100?img=28', role:'تحلیل‌گر داده', power:83, avgScore:815, accuracy:84, speed:7.4 },
+      { name:'پارسا بهمنی', avatar:'https://i.pravatar.cc/100?img=33', role:'هوش ریاضی', power:82, avgScore:804, accuracy:83, speed:7.6 },
+      { name:'آیدا صفوی', avatar:'https://i.pravatar.cc/100?img=52', role:'تاریخ‌دان', power:80, avgScore:792, accuracy:82, speed:7.9 },
+      { name:'مانی فرهودی', avatar:'https://i.pravatar.cc/100?img=22', role:'متخصص سرعت', power:79, avgScore:780, accuracy:81, speed:8.0 },
+      { name:'سینا کیا', avatar:'https://i.pravatar.cc/100?img=27', role:'کارشناس فناوری', power:77, avgScore:770, accuracy:80, speed:8.2 },
+      { name:'هستی مرادی', avatar:'https://i.pravatar.cc/100?img=44', role:'دانش عمومی', power:75, avgScore:760, accuracy:79, speed:8.4 },
+      { name:'یاشا طاهری', avatar:'https://i.pravatar.cc/100?img=57', role:'حل مسئله منطقی', power:74, avgScore:748, accuracy:78, speed:8.6 }
+    ],
+    g4: [
+      { name:'مریم احمدی', avatar:'https://i.pravatar.cc/100?img=18', role:'رهبر تکنیکی', power:89, avgScore:850, accuracy:88, speed:6.8 },
+      { name:'رها فاضلی', avatar:'https://i.pravatar.cc/100?img=48', role:'هوش ادبی', power:86, avgScore:832, accuracy:86, speed:7.1 },
+      { name:'امیررضا حاتمی', avatar:'https://i.pravatar.cc/100?img=55', role:'ریاضی برتر', power:84, avgScore:820, accuracy:84, speed:7.3 },
+      { name:'مهسا نادری', avatar:'https://i.pravatar.cc/100?img=37', role:'تاریخ پژوه', power:82, avgScore:808, accuracy:83, speed:7.5 },
+      { name:'نیما رجبی', avatar:'https://i.pravatar.cc/100?img=26', role:'تحلیل‌گر سریع', power:81, avgScore:798, accuracy:82, speed:7.7 },
+      { name:'الهه رحیمی', avatar:'https://i.pravatar.cc/100?img=43', role:'دانش علوم', power:80, avgScore:788, accuracy:81, speed:7.9 },
+      { name:'سامیار پاکزاد', avatar:'https://i.pravatar.cc/100?img=46', role:'برنامه‌ریز تیمی', power:78, avgScore:776, accuracy:80, speed:8.1 },
+      { name:'یاسمن گودرزی', avatar:'https://i.pravatar.cc/100?img=31', role:'استراتژیست', power:77, avgScore:766, accuracy:79, speed:8.3 },
+      { name:'هومن جلالی', avatar:'https://i.pravatar.cc/100?img=51', role:'دانش عمومی', power:75, avgScore:756, accuracy:78, speed:8.5 },
+      { name:'بهار قائمی', avatar:'https://i.pravatar.cc/100?img=35', role:'مغز خلاق', power:74, avgScore:744, accuracy:77, speed:8.6 }
+    ],
+    g5: [
+      { name:'امیر حسینی', avatar:'https://i.pravatar.cc/100?img=20', role:'رهبر هوش مصنوعی', power:93, avgScore:880, accuracy:91, speed:6.2 },
+      { name:'هانیه ناصری', avatar:'https://i.pravatar.cc/100?img=39', role:'متخصص زیست', power:90, avgScore:868, accuracy:89, speed:6.5 },
+      { name:'کیارش زندی', avatar:'https://i.pravatar.cc/100?img=56', role:'تحلیل‌گر ریاضی', power:88, avgScore:856, accuracy:88, speed:6.8 },
+      { name:'محدثه توکلی', avatar:'https://i.pravatar.cc/100?img=30', role:'ادبیات پژوه', power:86, avgScore:842, accuracy:87, speed:7.0 },
+      { name:'رامین شکیبا', avatar:'https://i.pravatar.cc/100?img=40', role:'فیزیک‌دان', power:85, avgScore:830, accuracy:85, speed:7.2 },
+      { name:'کیانا نعمتی', avatar:'https://i.pravatar.cc/100?img=60', role:'متخصص تاریخ', power:83, avgScore:818, accuracy:84, speed:7.5 },
+      { name:'رامسین اویسی', avatar:'https://i.pravatar.cc/100?img=15', role:'کارشناس منطق', power:82, avgScore:806, accuracy:83, speed:7.7 },
+      { name:'پریسا آذر', avatar:'https://i.pravatar.cc/100?img=50', role:'دانش عمومی', power:80, avgScore:794, accuracy:82, speed:7.9 },
+      { name:'نوید برومند', avatar:'https://i.pravatar.cc/100?img=16', role:'تحلیل‌گر داده', power:78, avgScore:782, accuracy:81, speed:8.1 },
+      { name:'ترانه شفیعی', avatar:'https://i.pravatar.cc/100?img=61', role:'هوش ترکیبی', power:77, avgScore:770, accuracy:80, speed:8.3 }
+    ]
   };
+
+  function cloneDefaultRoster(groupId){
+    return (DEFAULT_GROUP_ROSTERS[groupId] || []).map(player => ({ ...player }));
+  }
+
+  function stringToSeed(str){
+    if (!str) return 1;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 31 + str.charCodeAt(i)) % 2147483647;
+    }
+    return hash || 1;
+  }
+
+  function seededRandom(seed){
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+
+  function seededFloat(seed, min, max){
+    return min + (max - min) * seededRandom(seed);
+  }
+
+  function pickFrom(list, seed, offset = 0){
+    if (!Array.isArray(list) || list.length === 0) return '';
+    const idx = Math.abs(Math.floor(seed + offset)) % list.length;
+    return list[idx];
+  }
+
+  function createSyntheticNameForGroup(group, index){
+    const seed = stringToSeed(`${group?.id || ''}-${group?.name || ''}`);
+    const first = pickFrom(ROSTER_FIRST_NAMES, seed, index * 3);
+    const last = pickFrom(ROSTER_LAST_NAMES, seed, index * 7);
+    return `${first} ${last}`.trim();
+  }
+
+  function buildRosterEntry(name, index, baseSeed){
+    const seed = baseSeed + index * 17;
+    const role = pickFrom(ROSTER_ROLES, seed, index * 5) || 'دانش عمومی';
+    const power = Math.round(Math.max(68, Math.min(96, seededFloat(seed, 74, 94))));
+    const accuracy = Math.round(Math.max(60, Math.min(97, seededFloat(seed + 5, 72, 95))));
+    const avgScore = Math.round(Math.max(640, Math.min(940, seededFloat(seed + 9, 700, 920))));
+    const speed = Math.round(Math.max(5.2, Math.min(9.0, seededFloat(seed + 13, 5.6, 8.6))) * 10) / 10;
+    return {
+      name,
+      avatar: `https://i.pravatar.cc/100?u=${encodeURIComponent(name)}`,
+      role,
+      power,
+      accuracy,
+      avgScore,
+      speed
+    };
+  }
+
+  function generateRosterFromMembers(group, desiredCount = 10){
+    const roster = [];
+    const used = new Set();
+    const baseSeed = stringToSeed(`${group?.id || ''}-${group?.name || ''}`);
+    const baseMembers = Array.isArray(group?.memberList) ? group.memberList.filter(Boolean) : [];
+    baseMembers.forEach((memberName, idx) => {
+      if (used.has(memberName)) return;
+      const entry = buildRosterEntry(memberName, idx, baseSeed);
+      roster.push(entry);
+      used.add(memberName);
+    });
+    let idx = roster.length;
+    while (roster.length < desiredCount){
+      const synthetic = createSyntheticNameForGroup(group, idx);
+      if (used.has(synthetic)) { idx++; continue; }
+      const entry = buildRosterEntry(synthetic, idx, baseSeed);
+      roster.push(entry);
+      used.add(synthetic);
+      idx++;
+    }
+    return roster.slice(0, desiredCount);
+  }
+
+  function normalizeRosterMember(player, fallback, index, group){
+    const source = player && typeof player === 'object' ? player : {};
+    const baseSeed = stringToSeed(`${group?.id || ''}-${group?.name || ''}-${index}`);
+    const fallbackSource = (fallback && typeof fallback === 'object' && Object.keys(fallback).length)
+      ? fallback
+      : buildRosterEntry(createSyntheticNameForGroup(group, index), index, baseSeed);
+    const name = source.name || fallbackSource.name || createSyntheticNameForGroup(group, index);
+    const avatar = source.avatar || fallbackSource.avatar || `https://i.pravatar.cc/100?u=${encodeURIComponent(name)}`;
+    const role = source.role || fallbackSource.role || pickFrom(ROSTER_ROLES, baseSeed, index * 3) || 'دانش عمومی';
+    const power = Number.isFinite(source.power) ? Math.round(source.power) : Number.isFinite(fallbackSource.power) ? Math.round(fallbackSource.power) : Math.round(Math.max(68, Math.min(96, seededFloat(baseSeed, 74, 92))));
+    const accuracy = Number.isFinite(source.accuracy) ? Math.round(source.accuracy) : Number.isFinite(fallbackSource.accuracy) ? Math.round(fallbackSource.accuracy) : Math.round(Math.max(60, Math.min(97, seededFloat(baseSeed + 5, 72, 94))));
+    const avgScore = Number.isFinite(source.avgScore) ? Math.round(source.avgScore) : Number.isFinite(fallbackSource.avgScore) ? Math.round(fallbackSource.avgScore) : Math.round(Math.max(640, Math.min(920, seededFloat(baseSeed + 9, 690, 900))));
+    const speed = Number.isFinite(source.speed) ? Number(source.speed) : (Number.isFinite(fallbackSource.speed) ? Number(fallbackSource.speed) : Math.round(Math.max(5.4, Math.min(9, seededFloat(baseSeed + 13, 5.6, 8.7))) * 10) / 10);
+    return { name, avatar, role, power, accuracy, avgScore, speed };
+  }
   
   // ===== Network (timeouts + JSON helpers) =====
   const Net = {
@@ -2862,11 +3072,11 @@ patchPricingKeys(RemoteConfig);
     ],
     provinces: [], // populated from data/provinces.json
     groups: [
-      { id: 'g1', name: 'قهرمانان دانش', score: 22100, members: 23, admin: 'علی رضایی', created: '۱۴۰۲/۰۲/۱۵', memberList: ['علی رضایی','سارا اکبری','رضا کریمی'], matches:[{opponent:'متفکران جوان', time:'۱۴۰۳/۰۵/۲۵ ۱۸:۰۰'}], requests: [] },
-      { id: 'g2', name: 'متفکران جوان', score: 19800, members: 18, admin: 'سارا محمدی', created: '۱۴۰۲/۰۳/۲۰', memberList: ['سارا محمدی','مهدی احمدی'], matches:[{opponent:'پیشروان علم', time:'۱۴۰۳/۰۵/۳۰ ۱۹:۰۰'}], requests: [] },
-      { id: 'g3', name: 'چالش‌برانگیزان', score: 20500, members: 21, admin: 'رضا قاسمی', created: '۱۴۰۲/۰۱/۱۰', memberList: ['رضا قاسمی'], matches:[], requests: [] },
-      { id: 'g4', name: 'دانش‌آموزان نخبه', score: 18700, members: 15, admin: 'مریم احمدی', created: '۱۴۰۲/۰۴/۰۵', memberList: ['مریم احمدی'], matches:[], requests: [] },
-      { id: 'g5', name: 'پیشروان علم', score: 21300, members: 27, admin: 'امیر حسینی', created: '۱۴۰۲/۰۲/۲۸', memberList: ['امیر حسینی'], matches:[{opponent:'قهرمانان دانش', time:'۱۴۰۳/۰۶/۰۲ ۲۰:۰۰'}], requests: [] },
+      { id: 'g1', name: 'قهرمانان دانش', score: 22100, members: 23, admin: 'علی رضایی', created: '۱۴۰۲/۰۲/۱۵', memberList: ['علی رضایی','سارا اکبری','رضا کریمی','ندا فرهمند','پیام سالاری'], matches:[{opponent:'متفکران جوان', time:'۱۴۰۳/۰۵/۲۵ ۱۸:۰۰'}], requests: [], roster: cloneDefaultRoster('g1') },
+      { id: 'g2', name: 'متفکران جوان', score: 19800, members: 18, admin: 'سارا محمدی', created: '۱۴۰۲/۰۳/۲۰', memberList: ['سارا محمدی','مهدی احمدی','الهام برزگر','حسین فلاح'], matches:[{opponent:'پیشروان علم', time:'۱۴۰۳/۰۵/۳۰ ۱۹:۰۰'}], requests: [], roster: cloneDefaultRoster('g2') },
+      { id: 'g3', name: 'چالش‌برانگیزان', score: 20500, members: 21, admin: 'رضا قاسمی', created: '۱۴۰۲/۰۱/۱۰', memberList: ['رضا قاسمی','نازنین فراهانی','کیاوش نادری'], matches:[], requests: [], roster: cloneDefaultRoster('g3') },
+      { id: 'g4', name: 'دانش‌آموزان نخبه', score: 18700, members: 15, admin: 'مریم احمدی', created: '۱۴۰۲/۰۴/۰۵', memberList: ['مریم احمدی','رها فاضلی','امیررضا حاتمی'], matches:[], requests: [], roster: cloneDefaultRoster('g4') },
+      { id: 'g5', name: 'پیشروان علم', score: 21300, members: 27, admin: 'امیر حسینی', created: '۱۴۰۲/۰۲/۲۸', memberList: ['امیر حسینی','هانیه ناصری','کیارش زندی'], matches:[{opponent:'قهرمانان دانش', time:'۱۴۰۳/۰۶/۰۲ ۲۰:۰۰'}], requests: [], roster: cloneDefaultRoster('g5') },
     ],
     ads: { banner: [], native: [], interstitial: [], rewarded: [] },
     quiz:{
@@ -2880,6 +3090,7 @@ patchPricingKeys(RemoteConfig);
       { id:'n2', text:'بستهٔ سوالات «ادبیات فارسی» اضافه شد!', time:'دیروز' },
       { id:'n3', text:'با دعوت هر دوست ۲۰💰 هدیه بگیر!', time:'۲ روز پیش' }
     ],
+    groupBattle: { selectedHostId: '', selectedOpponentId: '', lastResult: null },
     referral: {
       code: 'QUIZ5F8A2B',
       referred: [
@@ -2888,6 +3099,25 @@ patchPricingKeys(RemoteConfig);
       ]
     }
   };
+
+
+  function ensureGroupRosters(){
+    if (!Array.isArray(State.groups)) State.groups = [];
+    State.groups.forEach(group => {
+      const defaultRoster = cloneDefaultRoster(group.id);
+      if (!Array.isArray(group.roster) || group.roster.length === 0) {
+        group.roster = defaultRoster.length ? defaultRoster.map(player => ({ ...player })) : generateRosterFromMembers(group);
+      } else {
+        group.roster = group.roster.map((player, idx) => normalizeRosterMember(player, defaultRoster[idx], idx, group));
+      }
+      group.members = Math.max(group.members || 0, group.roster.length);
+      if (!Array.isArray(group.memberList) || group.memberList.length === 0) {
+        group.memberList = group.roster.slice(0, Math.min(5, group.roster.length)).map(p => p.name);
+      }
+    });
+  }
+
+  ensureGroupRosters();
 
 
   // Helper functions for group management
@@ -2915,6 +3145,15 @@ function isUserInGroup() {
     try{
       const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
       if(s) Object.assign(State,s);
+      if (!State.groupBattle || typeof State.groupBattle !== 'object') {
+        State.groupBattle = { selectedHostId: '', selectedOpponentId: '', lastResult: null };
+      } else {
+        State.groupBattle.selectedHostId = State.groupBattle.selectedHostId || '';
+        State.groupBattle.selectedOpponentId = State.groupBattle.selectedOpponentId || '';
+        if (!State.groupBattle.lastResult || typeof State.groupBattle.lastResult !== 'object') {
+          State.groupBattle.lastResult = null;
+        }
+      }
       if (!State.quiz) State.quiz = {};
       if (State.quiz.diffValue == null) {
         const label = State.quiz.diff;
@@ -2948,6 +3187,7 @@ function isUserInGroup() {
     if (!Array.isArray(State.duelHistory)) State.duelHistory = [];
     State.duelHistory = State.duelHistory.slice(0, 20);
     State.duelOpponent = null;
+    ensureGroupRosters();
   }
   
   function saveState(){ 
@@ -3896,6 +4136,7 @@ function openCreateGroup(){
       matches: []
     };
     State.groups.push(newGroup);
+    ensureGroupRosters();
     State.user.group = name;
     saveState();
     renderGroupSelect();
@@ -6161,62 +6402,796 @@ function renderGroupSelect() {
   const list = $('#group-select-list');
   if (!list) return;
   list.innerHTML = '';
-  
+
   // Hide create button if user already has a group
   const createBtn = $('#btn-create-group');
   if (createBtn) {
     createBtn.style.display = isUserInGroup() ? 'none' : 'block';
   }
-  
+
+  const userGroup = isUserInGroup() ? (getUserGroup() || State.groups.find(g => g.name === State.user.group)) : null;
+
   // Add user's current group info if they have one
-  if (isUserInGroup()) {
-    const userGroup = getUserGroup() || State.groups.find(g => g.name === State.user.group);
-    if (userGroup) {
-      const isAdmin = userGroup.admin === State.user.name;
-      const infoCard = document.createElement('div');
-      infoCard.className = 'glass rounded-2xl p-4 mb-4 text-center';
-      infoCard.innerHTML = `
-        <div class="text-lg font-bold mb-2">گروه فعلی شما</div>
-        <div class="text-xl font-bold text-purple-300 mb-2">${userGroup.name}</div>
-        <div class="text-sm opacity-80 mb-3">شما ${isAdmin ? 'مدیر' : 'عضو'} این گروه هستید</div>
-        <button id="btn-leave-delete-group" class="btn ${isAdmin ? 'btn-duel' : 'btn-secondary'} w-full">
-          <i class="fas fa-${isAdmin ? 'trash' : 'sign-out-alt'} ml-2"></i>
-          ${isAdmin ? 'حذف گروه' : 'خروج از گروه'}
-        </button>
-      `;
-      list.appendChild(infoCard);
-      
-      // Add event listener for leave/delete button
-      $('#btn-leave-delete-group')?.addEventListener('click', () => {
-        const confirmMsg = isAdmin 
-          ? 'آیا از حذف گروه اطمینان دارید؟ این عمل غیرقابل بازگشت است.'
-          : 'آیا از خروج از گروه اطمینان دارید؟';
-        
-        if (confirm(confirmMsg)) {
-          if (isAdmin) {
-            deleteGroup(userGroup.id);
-          } else {
-            leaveGroup(userGroup.id);
-          }
+  if (userGroup) {
+    const isAdmin = userGroup.admin === State.user.name;
+    const infoCard = document.createElement('div');
+    infoCard.className = 'glass rounded-2xl p-4 mb-4 text-center';
+    infoCard.innerHTML = `
+      <div class="text-lg font-bold mb-2">گروه فعلی شما</div>
+      <div class="text-xl font-bold text-purple-300 mb-2">${userGroup.name}</div>
+      <div class="text-sm opacity-80 mb-3">شما ${isAdmin ? 'مدیر' : 'عضو'} این گروه هستید</div>
+      <button id="btn-leave-delete-group" class="btn ${isAdmin ? 'btn-duel' : 'btn-secondary'} w-full">
+        <i class="fas fa-${isAdmin ? 'trash' : 'sign-out-alt'} ml-2"></i>
+        ${isAdmin ? 'حذف گروه' : 'خروج از گروه'}
+      </button>
+    `;
+    list.appendChild(infoCard);
+
+    $('#btn-leave-delete-group')?.addEventListener('click', () => {
+      const confirmMsg = isAdmin
+        ? 'آیا از حذف گروه اطمینان دارید؟ این عمل غیرقابل بازگشت است.'
+        : 'آیا از خروج از گروه اطمینان دارید؟';
+
+      if (confirm(confirmMsg)) {
+        if (isAdmin) {
+          deleteGroup(userGroup.id);
+        } else {
+          leaveGroup(userGroup.id);
         }
-      });
-      
-      return; // Don't show other groups if user is already in one
+      }
+    });
+  }
+
+  if (!userGroup) {
+    State.groups.forEach(g => {
+      const card = document.createElement('div');
+      card.className = 'location-card';
+      card.innerHTML = `
+        <div class="location-icon group-icon"><i class="fas fa-users"></i></div>
+        <div class="flex-1"><div class="font-bold">${g.name}</div>
+          <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-user"></i><span>مدیر: ${g.admin}</span></div>
+        </div>
+        <div class="text-sm font-bold text-purple-300"><i class="fas fa-trophy"></i> ${faNum(g.score)}</div>`;
+      card.addEventListener('click', () => showGroupDetail(g));
+      list.appendChild(card);
+    });
+  }
+
+  renderGroupBattleCard(list, userGroup);
+}
+
+
+function getGroupBattleLimitInfo() {
+  const baseLimit = Number(RemoteConfig?.gameLimits?.groupBattles?.daily) || 0;
+  const multiplier = Server.subscription?.active
+    ? (Server.subscription.tier === 'pro' ? 3 : 2)
+    : 1;
+  const limit = Math.max(0, Math.round(baseLimit * multiplier));
+  const used = Math.max(0, Number(Server.limits?.groupBattles?.used) || 0);
+  const remaining = Math.max(0, limit - used);
+  const reached = limit > 0 ? used >= limit : false;
+  return { limit, used, remaining, reached, multiplier };
+}
+
+const GROUP_BATTLE_REWARD_CONFIG = {
+  winner: { coins: 70, score: 220 },
+  loser: { coins: 30, score: 90 },
+  groupScore: 420
+};
+
+function getBattleParticipants(hostGroup, opponentGroup) {
+  ensureGroupRosters();
+
+  const clonePlayers = (group) => (
+    Array.isArray(group?.roster)
+      ? group.roster.slice(0, 10).map(player => ({ ...player }))
+      : []
+  );
+
+  let hostPlayers = clonePlayers(hostGroup);
+  let opponentPlayers = clonePlayers(opponentGroup);
+
+  const userName = State.user?.name?.trim();
+
+  const injectUser = (players, group) => {
+    if (!userName || !group) return players;
+    const belongsToGroup = group.memberList?.includes(userName) || group.name === State.user.group;
+    if (!belongsToGroup) return players;
+    if (players.some(player => player?.name === userName)) return players;
+    const seed = stringToSeed(`${group.id || group.name}-${userName}`);
+    const userEntry = buildRosterEntry(userName, 0, seed);
+    userEntry.role = 'کاپیتان تیم';
+    userEntry.power = Math.min(99, (userEntry.power || 0) + 6);
+    userEntry.avgScore = Math.min(990, (userEntry.avgScore || 0) + 45);
+    userEntry.accuracy = Math.min(99, (userEntry.accuracy || 0) + 4);
+    players = [userEntry, ...players];
+    return players.slice(0, 10);
+  };
+
+  hostPlayers = injectUser(hostPlayers, hostGroup);
+  opponentPlayers = injectUser(opponentPlayers, opponentGroup);
+
+  return {
+    hostPlayers,
+    opponentPlayers
+  };
+}
+
+function createBattlePlaceholder({ icon = 'fa-people-group', title = '', description = '', action = '' } = {}) {
+  return `
+    <div class="glass rounded-2xl p-6 text-center space-y-3 bg-white/5">
+      <div class="text-3xl opacity-90"><i class="fas ${icon}"></i></div>
+      <div class="text-lg font-bold">${title}</div>
+      ${description ? `<p class="text-sm leading-7 opacity-80">${description}</p>` : ''}
+      ${action ? `<div>${action}</div>` : ''}
+    </div>`;
+}
+
+function calculateBattlePerformance(hostPlayer, opponentPlayer, index, baseSeed) {
+  const scoreFrom = (player, seedOffset, boostRange = [0.92, 1.12]) => {
+    if (!player) return 0;
+    const avgScore = Number(player.avgScore) || 0;
+    const power = Number(player.power) || 0;
+    const accuracy = Number(player.accuracy) || 0;
+    const speed = Number(player.speed) || 0;
+    const control = 1 + Math.max(0, (95 - speed * 10)) / 520;
+    const baseline = (avgScore * 0.58) + (power * 7.1) + (accuracy * 5.6) + (control * 120);
+    const randomFactor = seededFloat(baseSeed + seedOffset, boostRange[0], boostRange[1]);
+    return Math.round(Math.max(0, baseline * randomFactor));
+  };
+
+  if (!hostPlayer && !opponentPlayer) {
+    return { hostScore: 0, opponentScore: 0, winner: 'none' };
+  }
+
+  if (hostPlayer && !opponentPlayer) {
+    const soloScore = scoreFrom(hostPlayer, index * 11, [1.05, 1.18]);
+    return { hostScore: soloScore, opponentScore: 0, winner: 'host' };
+  }
+
+  if (!hostPlayer && opponentPlayer) {
+    const soloScore = scoreFrom(opponentPlayer, index * 13, [1.05, 1.18]);
+    return { hostScore: 0, opponentScore: soloScore, winner: 'opponent' };
+  }
+
+  const hostScore = scoreFrom(hostPlayer, index * 17);
+  const opponentScore = scoreFrom(opponentPlayer, index * 23);
+  const diff = hostScore - opponentScore;
+  if (Math.abs(diff) <= 5) {
+    return { hostScore, opponentScore, winner: diff >= 0 ? 'host' : 'opponent' };
+  }
+  return { hostScore, opponentScore, winner: diff > 0 ? 'host' : 'opponent' };
+}
+
+function simulateGroupBattle(hostGroup, opponentGroup) {
+  if (!hostGroup || !opponentGroup) return null;
+
+  const { hostPlayers, opponentPlayers } = getBattleParticipants(hostGroup, opponentGroup);
+  const duelCount = 10;
+  const baseSeed = Date.now();
+  const rounds = [];
+  let hostTotal = 0;
+  let opponentTotal = 0;
+
+  for (let i = 0; i < duelCount; i++) {
+    const hostPlayer = hostPlayers[i] || null;
+    const opponentPlayer = opponentPlayers[i] || null;
+    const performance = calculateBattlePerformance(hostPlayer, opponentPlayer, i, baseSeed);
+    hostTotal += performance.hostScore;
+    opponentTotal += performance.opponentScore;
+    rounds.push({
+      index: i + 1,
+      hostPlayer,
+      opponentPlayer,
+      hostScore: performance.hostScore,
+      opponentScore: performance.opponentScore,
+      winner: performance.winner
+    });
+  }
+
+  const normalizedHostTotal = Math.round(hostTotal);
+  const normalizedOpponentTotal = Math.round(opponentTotal);
+  let winnerGroupId;
+
+  if (normalizedHostTotal === normalizedOpponentTotal) {
+    const hostMax = Math.max(...rounds.map(r => r.hostScore || 0));
+    const opponentMax = Math.max(...rounds.map(r => r.opponentScore || 0));
+    winnerGroupId = hostMax >= opponentMax ? hostGroup.id : opponentGroup.id;
+  } else {
+    winnerGroupId = normalizedHostTotal > normalizedOpponentTotal ? hostGroup.id : opponentGroup.id;
+  }
+
+  return {
+    id: `gb-${baseSeed}`,
+    playedAt: new Date().toISOString(),
+    host: { id: hostGroup.id, name: hostGroup.name, total: normalizedHostTotal, players: hostPlayers.map(p => p ? { ...p } : null) },
+    opponent: { id: opponentGroup.id, name: opponentGroup.name, total: normalizedOpponentTotal, players: opponentPlayers.map(p => p ? { ...p } : null) },
+    rounds,
+    winnerGroupId,
+    diff: normalizedHostTotal - normalizedOpponentTotal
+  };
+}
+
+function applyGroupBattleRewards(result) {
+  if (!result) return null;
+
+  const hostGroup = State.groups.find(g => g.id === result.host?.id);
+  const opponentGroup = State.groups.find(g => g.id === result.opponent?.id);
+  const winnerGroup = result.winnerGroupId === hostGroup?.id ? hostGroup : opponentGroup;
+  const loserGroup = winnerGroup === hostGroup ? opponentGroup : hostGroup;
+
+  if (winnerGroup) {
+    const currentScore = Number(winnerGroup.score) || 0;
+    winnerGroup.score = Math.max(0, Math.round(currentScore + GROUP_BATTLE_REWARD_CONFIG.groupScore));
+  }
+
+  const ensureMatchLog = (group) => {
+    if (!group) return;
+    if (!Array.isArray(group.matches)) group.matches = [];
+  };
+
+  ensureMatchLog(hostGroup);
+  ensureMatchLog(opponentGroup);
+
+  const hostRecord = {
+    opponentId: opponentGroup?.id || '',
+    opponent: opponentGroup?.name || '',
+    result: result.winnerGroupId === hostGroup?.id ? 'win' : 'loss',
+    score: { self: result.host?.total || 0, opponent: result.opponent?.total || 0 },
+    playedAt: result.playedAt
+  };
+
+  const opponentRecord = {
+    opponentId: hostGroup?.id || '',
+    opponent: hostGroup?.name || '',
+    result: result.winnerGroupId === opponentGroup?.id ? 'win' : 'loss',
+    score: { self: result.opponent?.total || 0, opponent: result.host?.total || 0 },
+    playedAt: result.playedAt
+  };
+
+  if (hostGroup) {
+    hostGroup.matches.unshift(hostRecord);
+    hostGroup.matches = hostGroup.matches.slice(0, 10);
+  }
+
+  if (opponentGroup) {
+    opponentGroup.matches.unshift(opponentRecord);
+    opponentGroup.matches = opponentGroup.matches.slice(0, 10);
+  }
+
+  const userGroup = getUserGroup();
+  const userGroupId = userGroup?.id;
+  const userSide = userGroupId === hostGroup?.id ? 'host' : (userGroupId === opponentGroup?.id ? 'opponent' : null);
+  let userReward = { coins: 0, score: 0, applied: false, type: 'none' };
+
+  if (userSide) {
+    const isWinner = result.winnerGroupId === (userSide === 'host' ? hostGroup?.id : opponentGroup?.id);
+    const reward = isWinner ? GROUP_BATTLE_REWARD_CONFIG.winner : GROUP_BATTLE_REWARD_CONFIG.loser;
+    State.coins += reward.coins;
+    State.score += reward.score;
+    userReward = { coins: reward.coins, score: reward.score, applied: true, type: isWinner ? 'winner' : 'loser' };
+  }
+
+  const summary = {
+    winnerGroupId: result.winnerGroupId,
+    winnerName: winnerGroup?.name || '',
+    loserName: loserGroup?.name || '',
+    config: GROUP_BATTLE_REWARD_CONFIG,
+    userReward
+  };
+
+  result.rewards = summary;
+  return summary;
+}
+
+function formatBattleTimestamp(value) {
+  if (!value) return '';
+  try {
+    const date = value instanceof Date ? value : new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    return date.toLocaleString('fa-IR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '';
+  }
+}
+
+function buildBattlePlayerMarkup(player, { side = 'host', roundIndex = 1, score = null, opponentScore = null, winner = null, preview = false } = {}) {
+  const diffBadge = (!preview && Number.isFinite(score) && Number.isFinite(opponentScore))
+    ? `<span class="text-xs font-bold ${score >= opponentScore ? 'text-green-200' : 'text-rose-200'}">${score >= opponentScore ? '+' : ''}${faNum(score - opponentScore)}</span>`
+    : '';
+
+  if (!player) {
+    return `
+      <div class="battle-player battle-player-empty">
+        <div class="battle-player-header">
+          <div class="battle-player-info">
+            <div class="battle-player-avatar placeholder"><i class="fas fa-user"></i></div>
+            <div>
+              <div class="battle-player-name opacity-70">جایگاه خالی</div>
+              <div class="battle-player-role">بازیکن رزرو</div>
+            </div>
+          </div>
+          <div class="battle-player-score">
+            <span>امتیاز</span>
+            <span>—</span>
+          </div>
+        </div>
+        <div class="battle-player-meta">
+          <span><i class="fas fa-bolt"></i>—</span>
+          <span><i class="fas fa-crosshairs"></i>—</span>
+          <span><i class="fas fa-star"></i>—</span>
+          <span><i class="fas fa-stopwatch"></i>—</span>
+        </div>
+        <div class="flex items-center justify-between text-xs opacity-80">
+          <span class="chip px-3 py-1 bg-white/10 border-white/20 text-[0.7rem]">نفر ${faNum(roundIndex)}</span>
+          ${diffBadge}
+        </div>
+      </div>`;
+  }
+
+  const classes = ['battle-player'];
+  if (!preview && winner && winner !== 'none') {
+    const isWinner = (winner === 'host' && side === 'host') || (winner === 'opponent' && side === 'opponent');
+    classes.push(isWinner ? 'battle-player-winner' : 'battle-player-loser');
+  }
+
+  const avatar = player.avatar
+    ? `<img src="${player.avatar}" alt="${player.name}" class="battle-player-avatar">`
+    : `<div class="battle-player-avatar placeholder"><i class="fas fa-user"></i></div>`;
+
+  const scoreLabel = preview ? 'قدرت ترکیبی' : 'امتیاز نبرد';
+  const projectedScore = Number.isFinite(score)
+    ? faNum(score)
+    : preview
+      ? faNum(Math.round((Number(player.avgScore) || 0) * 0.65 + (Number(player.power) || 0) * 5))
+      : '—';
+
+  return `
+    <div class="${classes.join(' ')}">
+      <div class="battle-player-header">
+        <div class="battle-player-info">
+          ${avatar}
+          <div>
+            <div class="battle-player-name">${player.name}</div>
+            <div class="battle-player-role"><i class="fas fa-graduation-cap"></i>${player.role || 'بازیکن گروه'}</div>
+          </div>
+        </div>
+        <div class="battle-player-score">
+          <span>${scoreLabel}</span>
+          <span>${projectedScore}</span>
+        </div>
+      </div>
+      <div class="battle-player-meta">
+        <span><i class="fas fa-star"></i>${faNum(player.avgScore || 0)}</span>
+        <span><i class="fas fa-bolt"></i>${faNum(player.power || 0)}</span>
+        <span><i class="fas fa-crosshairs"></i>${faNum(player.accuracy || 0)}%</span>
+        <span><i class="fas fa-stopwatch"></i>${faNum(player.speed || 0)}</span>
+      </div>
+      <div class="flex items-center justify-between text-xs opacity-80">
+        <span class="chip px-3 py-1 bg-white/10 border-white/20 text-[0.7rem]">نفر ${faNum(roundIndex)}</span>
+        ${diffBadge}
+      </div>
+    </div>`;
+}
+
+function populateGroupBattleResults(card, result, { preview = false } = {}) {
+  if (!card || !result) return;
+  const hostRosterEl = card.querySelector('[data-host-roster]');
+  const opponentRosterEl = card.querySelector('[data-opponent-roster]');
+  const hostNameEl = card.querySelector('[data-host-name]');
+  const opponentNameEl = card.querySelector('[data-opponent-name]');
+  const hostTotalEl = card.querySelector('[data-host-total]');
+  const opponentTotalEl = card.querySelector('[data-opponent-total]');
+  const statusEl = card.querySelector('[data-vs-status]');
+  const subtitleEl = card.querySelector('[data-vs-subtitle]');
+
+  const hostPlayers = Array.isArray(result.host?.players) ? result.host.players : [];
+  const opponentPlayers = Array.isArray(result.opponent?.players) ? result.opponent.players : [];
+
+  const rounds = Array.isArray(result.rounds) && result.rounds.length
+    ? result.rounds
+    : Array.from({ length: 10 }, (_, idx) => ({
+        index: idx + 1,
+        hostPlayer: hostPlayers[idx] || null,
+        opponentPlayer: opponentPlayers[idx] || null,
+        hostScore: null,
+        opponentScore: null,
+        winner: null
+      }));
+
+  if (hostRosterEl) hostRosterEl.innerHTML = '';
+  if (opponentRosterEl) opponentRosterEl.innerHTML = '';
+
+  rounds.slice(0, 10).forEach(round => {
+    hostRosterEl?.insertAdjacentHTML('beforeend', buildBattlePlayerMarkup(round.hostPlayer, {
+      side: 'host',
+      roundIndex: round.index,
+      score: round.hostScore,
+      opponentScore: round.opponentScore,
+      winner: round.winner,
+      preview
+    }));
+
+    opponentRosterEl?.insertAdjacentHTML('beforeend', buildBattlePlayerMarkup(round.opponentPlayer, {
+      side: 'opponent',
+      roundIndex: round.index,
+      score: round.opponentScore,
+      opponentScore: round.hostScore,
+      winner: round.winner,
+      preview
+    }));
+  });
+
+  if (hostNameEl) hostNameEl.textContent = result.host?.name || 'گروه اول';
+  if (opponentNameEl) opponentNameEl.textContent = result.opponent?.name || 'گروه دوم';
+
+  if (hostTotalEl) hostTotalEl.textContent = preview ? '—' : faNum(result.host?.total || 0);
+  if (opponentTotalEl) opponentTotalEl.textContent = preview ? '—' : faNum(result.opponent?.total || 0);
+
+  if (statusEl) {
+    if (preview) {
+      statusEl.textContent = '۱۰ به ۱۰ - آماده نبرد';
+    } else {
+      const winnerName = result.winnerGroupId === result.host?.id ? result.host?.name : result.opponent?.name;
+      statusEl.textContent = winnerName ? `پیروزی ${winnerName}` : 'نتیجه ثبت شد';
     }
   }
-  
-  // Show available groups only if user is not in any group
-  State.groups.forEach(g => {
-    const card = document.createElement('div');
-    card.className = 'location-card';
-    card.innerHTML = `
-      <div class="location-icon group-icon"><i class="fas fa-users"></i></div>
-      <div class="flex-1"><div class="font-bold">${g.name}</div>
-        <div class="text-sm opacity-80 flex items-center gap-1"><i class="fas fa-user"></i><span>مدیر: ${g.admin}</span></div>
+
+  if (subtitleEl) {
+    if (preview) {
+      subtitleEl.textContent = 'نفرات هر ردیف دقیقاً با رقیب هم‌ردیف خود مسابقه می‌دهند.';
+    } else {
+      const diff = Math.abs((result.host?.total || 0) - (result.opponent?.total || 0));
+      subtitleEl.textContent = `اختلاف امتیاز: ${faNum(diff)}`;
+    }
+  }
+}
+
+function renderGroupBattleCard(list, userGroup) {
+  if (!list) return;
+
+  const groups = Array.isArray(State.groups) ? [...State.groups] : [];
+  if (groups.length === 0) return;
+
+  const card = document.createElement('section');
+  card.className = 'group-battle-card';
+  list.appendChild(card);
+
+  if (groups.length < 2) {
+    card.innerHTML = createBattlePlaceholder({
+      icon: 'fa-people-group',
+      title: 'برای شروع نبرد گروه بیشتری نیاز است',
+      description: 'حداقل دو گروه فعال لازم است تا نبرد گروهی برگزار شود. دوستانتان را دعوت کنید تا تیم تازه‌ای بسازند!'
+    });
+    return;
+  }
+
+  card.innerHTML = `
+    <div class="group-battle-header">
+      <div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
+        <div class="space-y-3 text-center xl:text-right">
+          <div class="flex items-center justify-center xl:justify-end gap-2 text-2xl font-extrabold">
+            <i class="fas fa-swords text-indigo-200"></i>
+            <span>نبرد گروهی</span>
+          </div>
+          <p class="text-sm opacity-85 leading-7">
+            ده قهرمان برتر هر گروه در ده راند متوالی با رقیب هم‌ردیف خود رقابت می‌کنند؛ مجموع امتیاز تیم، برنده نهایی را مشخص می‌کند.
+          </p>
+        </div>
+        <div class="flex flex-col items-center xl:items-end gap-2 w-full xl:w-auto">
+          <div class="group-battle-limit" data-battle-limit></div>
+          <button type="button" data-start-battle class="btn btn-group w-full xl:w-auto px-6 py-3">
+            <i class="fas fa-swords ml-2"></i>
+            شروع نبرد گروهی
+          </button>
+          <div class="text-xs opacity-80 text-center xl:text-right leading-6" data-limit-hint></div>
+        </div>
       </div>
-      <div class="text-sm font-bold text-purple-300"><i class="fas fa-trophy"></i> ${faNum(g.score)}</div>`;
-    card.addEventListener('click', () => showGroupDetail(g));
-    list.appendChild(card);
+    </div>
+    <div class="group-battle-select">
+      <div class="group-battle-select-card">
+        <label><i class="fas fa-shield-halved text-indigo-200"></i><span>گروه میزبان</span></label>
+        <select class="form-input w-full" data-group-host></select>
+        <div class="text-xs opacity-75 leading-6" data-host-meta></div>
+      </div>
+      <div class="group-battle-select-card">
+        <label><i class="fas fa-dragon text-rose-200"></i><span>گروه مهمان</span></label>
+        <select class="form-input w-full" data-group-opponent></select>
+        <div class="text-xs opacity-75 leading-6" data-opponent-meta></div>
+      </div>
+    </div>
+    <div class="space-y-4" data-battle-wrapper>
+      <div data-battle-placeholder class="hidden"></div>
+      <div class="grid gap-4 xl:grid-cols-[1fr_auto_1fr] items-start" data-roster-wrapper>
+        <div class="glass rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-bold text-indigo-200 flex items-center gap-2"><i class="fas fa-shield-halved"></i><span data-host-name>گروه میزبان</span></div>
+          </div>
+          <div class="space-y-3" data-host-roster></div>
+        </div>
+        <div class="flex flex-col items-center gap-3 text-center">
+          <span class="chip px-4 py-1.5 text-xs" data-vs-status>۱۰ به ۱۰ - آماده نبرد</span>
+          <div class="flex items-center gap-3 text-2xl font-black">
+            <span data-host-total>—</span>
+            <span class="text-sm font-normal opacity-60">در مقابل</span>
+            <span data-opponent-total>—</span>
+          </div>
+          <div class="text-xs opacity-80" data-vs-subtitle>نفرات هر ردیف دقیقاً با رقیب هم‌ردیف خود مسابقه می‌دهند.</div>
+        </div>
+        <div class="glass rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-bold text-rose-200 flex items-center gap-2"><i class="fas fa-dragon"></i><span data-opponent-name>گروه مهمان</span></div>
+          </div>
+          <div class="space-y-3" data-opponent-roster></div>
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-4 space-y-3 hidden" data-last-result>
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-2 text-sm font-bold"><i class="fas fa-history text-indigo-200"></i><span>آخرین نبرد ثبت‌شده</span></div>
+          <div class="text-xs opacity-70" data-last-time></div>
+        </div>
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm font-semibold">
+          <div class="flex items-center gap-2" data-last-host></div>
+          <div class="text-center text-lg font-black" data-last-score></div>
+          <div class="flex items-center gap-2" data-last-opponent></div>
+        </div>
+        <div class="text-xs opacity-80 leading-6" data-last-summary></div>
+      </div>
+    </div>
+  `;
+
+  const hostSelect = card.querySelector('[data-group-host]');
+  const opponentSelect = card.querySelector('[data-group-opponent]');
+  const startBtn = card.querySelector('[data-start-battle]');
+  const limitBadge = card.querySelector('[data-battle-limit]');
+  const limitHint = card.querySelector('[data-limit-hint]');
+  const hostMeta = card.querySelector('[data-host-meta]');
+  const opponentMeta = card.querySelector('[data-opponent-meta]');
+  const placeholderEl = card.querySelector('[data-battle-placeholder]');
+  const rosterWrapper = card.querySelector('[data-roster-wrapper]');
+  const lastResultWrap = card.querySelector('[data-last-result]');
+
+  const setOptions = () => {
+    const options = groups.map(group => `<option value="${group.id}">${group.name}</option>`).join('');
+    hostSelect.innerHTML = options;
+    opponentSelect.innerHTML = options;
+
+    const storedHost = State.groupBattle?.selectedHostId;
+    const storedOpponent = State.groupBattle?.selectedOpponentId;
+
+    let hostValue = storedHost && groups.some(g => g.id === storedHost)
+      ? storedHost
+      : (userGroup && groups.some(g => g.id === userGroup.id) ? userGroup.id : groups[0].id);
+    hostSelect.value = hostValue;
+
+    let opponentValue = storedOpponent && storedOpponent !== hostValue && groups.some(g => g.id === storedOpponent)
+      ? storedOpponent
+      : (groups.find(g => g.id !== hostValue)?.id || hostValue);
+    opponentSelect.value = opponentValue;
+  };
+
+  const updateGroupMeta = (group, el) => {
+    if (!el) return;
+    if (!group) {
+      el.innerHTML = '<span class="opacity-70">گروهی انتخاب نشده است</span>';
+      return;
+    }
+    const members = faNum(group.members || group.memberList?.length || 0);
+    const score = faNum(group.score || 0);
+    el.innerHTML = `
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center gap-2"><i class="fas fa-user-tie text-indigo-200"></i><span>مدیر: ${group.admin || '—'}</span></div>
+        <div class="flex items-center gap-2"><i class="fas fa-users text-indigo-200"></i><span>اعضا: ${members}</span></div>
+        <div class="flex items-center gap-2"><i class="fas fa-trophy text-yellow-300"></i><span>امتیاز: ${score}</span></div>
+      </div>`;
+  };
+
+  const updateLimitBadge = () => {
+    const info = getGroupBattleLimitInfo();
+    if (limitBadge) {
+      if (info.limit === 0) {
+        limitBadge.innerHTML = '<i class="fas fa-infinity"></i><span>نامحدود</span>';
+      } else {
+        limitBadge.innerHTML = `<i class="fas fa-gauge-high"></i><span>${faNum(info.used)}</span>/<span>${faNum(info.limit)}</span>`;
+      }
+    }
+
+    if (limitHint) {
+      if (!userGroup) {
+        limitHint.textContent = 'برای شروع نبرد باید ابتدا عضو یک گروه شوید.';
+      } else if (info.reached) {
+        limitHint.textContent = 'به سقف نبردهای امروز رسیدید؛ فردا دوباره تلاش کنید یا با خرید VIP محدودیت را افزایش دهید.';
+      } else {
+        limitHint.innerHTML = `پاداش پیروزی: <span class="text-green-200 font-bold">${faNum(GROUP_BATTLE_REWARD_CONFIG.winner.coins)}💰</span> و <span class="text-green-200 font-bold">${faNum(GROUP_BATTLE_REWARD_CONFIG.winner.score)}</span> امتیاز برای هر بازیکن.`;
+      }
+    }
+
+    return info;
+  };
+
+  const refreshLastResult = () => {
+    if (!lastResultWrap) return;
+    const last = State.groupBattle?.lastResult;
+    if (!last) {
+      lastResultWrap.classList.add('hidden');
+      return;
+    }
+
+    lastResultWrap.classList.remove('hidden');
+    const lastTimeEl = card.querySelector('[data-last-time]');
+    const lastHostEl = card.querySelector('[data-last-host]');
+    const lastOpponentEl = card.querySelector('[data-last-opponent]');
+    const lastScoreEl = card.querySelector('[data-last-score]');
+    const lastSummaryEl = card.querySelector('[data-last-summary]');
+
+    if (lastTimeEl) lastTimeEl.textContent = formatBattleTimestamp(last.playedAt) || 'لحظاتی پیش';
+    if (lastHostEl) lastHostEl.innerHTML = `<i class="fas fa-shield-halved text-indigo-200"></i><span>${last.host?.name || '---'}</span>`;
+    if (lastOpponentEl) lastOpponentEl.innerHTML = `<i class="fas fa-dragon text-rose-200"></i><span>${last.opponent?.name || '---'}</span>`;
+    if (lastScoreEl) lastScoreEl.innerHTML = `${faNum(last.host?.total || 0)} <span class="text-xs opacity-70">در مقابل</span> ${faNum(last.opponent?.total || 0)}`;
+    if (lastSummaryEl) {
+      const winnerName = last.rewards?.winnerName || (last.winnerGroupId === last.host?.id ? last.host?.name : last.opponent?.name) || '';
+      const diff = Math.abs((last.host?.total || 0) - (last.opponent?.total || 0));
+      lastSummaryEl.innerHTML = `پیروز نبرد: <span class="text-green-300 font-bold">${winnerName}</span> • اختلاف امتیاز ${faNum(diff)} • پاداش تیم برنده: ${faNum(GROUP_BATTLE_REWARD_CONFIG.winner.coins)}💰 و ${faNum(GROUP_BATTLE_REWARD_CONFIG.winner.score)} امتیاز.`;
+    }
+  };
+
+  const updateBattleView = ({ saveSelection = false } = {}) => {
+    const hostId = hostSelect.value;
+    const opponentId = opponentSelect.value;
+    const hostGroup = groups.find(g => g.id === hostId);
+    const opponentGroup = groups.find(g => g.id === opponentId);
+
+    if (saveSelection) {
+      State.groupBattle = State.groupBattle || { selectedHostId: '', selectedOpponentId: '', lastResult: null };
+      State.groupBattle.selectedHostId = hostGroup?.id || '';
+      State.groupBattle.selectedOpponentId = opponentGroup?.id || '';
+      saveState();
+    }
+
+    updateGroupMeta(hostGroup, hostMeta);
+    updateGroupMeta(opponentGroup, opponentMeta);
+
+    const info = updateLimitBadge();
+
+    const invalid = !hostGroup || !opponentGroup || hostGroup.id === opponentGroup.id;
+    const canStart = !invalid && !!userGroup && userGroup.id === hostGroup.id && !info.reached;
+
+    if (startBtn) {
+      startBtn.disabled = !canStart;
+      startBtn.classList.toggle('opacity-60', startBtn.disabled);
+      startBtn.setAttribute('aria-disabled', startBtn.disabled ? 'true' : 'false');
+    }
+
+    if (invalid) {
+      rosterWrapper?.classList.add('hidden');
+      if (placeholderEl) {
+        placeholderEl.classList.remove('hidden');
+        placeholderEl.innerHTML = createBattlePlaceholder({
+          icon: 'fa-people-arrows',
+          title: 'گروه‌ها را متفاوت انتخاب کنید',
+          description: 'برای شروع نبرد، گروه میزبان و مهمان باید متفاوت باشند.'
+        });
+      }
+      populateGroupBattleResults(card, {
+        host: { id: hostGroup?.id, name: hostGroup?.name, total: 0, players: [] },
+        opponent: { id: opponentGroup?.id, name: opponentGroup?.name, total: 0, players: [] },
+        rounds: [],
+        winnerGroupId: null
+      }, { preview: true });
+      return;
+    }
+
+    if (placeholderEl) placeholderEl.classList.add('hidden');
+    rosterWrapper?.classList.remove('hidden');
+
+    const participants = getBattleParticipants(hostGroup, opponentGroup);
+    const last = State.groupBattle?.lastResult;
+    const matchesLast = last && last.host?.id === hostGroup.id && last.opponent?.id === opponentGroup.id;
+
+    const context = matchesLast
+      ? last
+      : {
+          host: { id: hostGroup.id, name: hostGroup.name, total: 0, players: participants.hostPlayers },
+          opponent: { id: opponentGroup.id, name: opponentGroup.name, total: 0, players: participants.opponentPlayers },
+          rounds: [],
+          winnerGroupId: null
+        };
+
+    populateGroupBattleResults(card, context, { preview: !matchesLast });
+
+    if (limitHint && userGroup && userGroup.id !== hostGroup.id) {
+      limitHint.textContent = 'فقط مدیر یا اعضای گروه میزبان می‌توانند نبرد را آغاز کنند.';
+    }
+  };
+
+  setOptions();
+  updateBattleView({ saveSelection: true });
+  refreshLastResult();
+
+  hostSelect.addEventListener('change', () => {
+    if (hostSelect.value === opponentSelect.value) {
+      const alternative = groups.find(g => g.id !== hostSelect.value);
+      if (alternative) opponentSelect.value = alternative.id;
+    }
+    updateBattleView({ saveSelection: true });
+  });
+
+  opponentSelect.addEventListener('change', () => {
+    if (hostSelect.value === opponentSelect.value) {
+      const alternative = groups.find(g => g.id !== opponentSelect.value);
+      if (alternative) hostSelect.value = alternative.id;
+    }
+    updateBattleView({ saveSelection: true });
+  });
+
+  startBtn.addEventListener('click', async () => {
+    const limitInfo = getGroupBattleLimitInfo();
+    const hostGroup = groups.find(g => g.id === hostSelect.value);
+    const opponentGroup = groups.find(g => g.id === opponentSelect.value);
+
+    if (limitInfo.reached) {
+      toast('به محدودیت نبرد گروهی امروز رسیدی!');
+      return;
+    }
+    if (!userGroup) {
+      toast('برای شروع نبرد ابتدا باید عضو یکی از گروه‌ها شوی.');
+      return;
+    }
+    if (!hostGroup || !opponentGroup || hostGroup.id === opponentGroup.id) {
+      toast('گروه میزبان و مهمان را صحیح انتخاب کن.');
+      return;
+    }
+    if (userGroup.id !== hostGroup.id) {
+      toast('تنها می‌توانی از طرف گروه خود نبرد را آغاز کنی.');
+      return;
+    }
+
+    const originalLabel = startBtn.innerHTML;
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<span class="flex items-center gap-2 justify-center"><span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span><span>در حال شبیه‌سازی...</span></span>';
+
+    await wait(800);
+
+    const result = simulateGroupBattle(hostGroup, opponentGroup);
+    const rewardSummary = applyGroupBattleRewards(result);
+
+    State.groupBattle = State.groupBattle || { selectedHostId: '', selectedOpponentId: '', lastResult: null };
+    State.groupBattle.lastResult = result;
+    State.groupBattle.selectedHostId = hostGroup.id;
+    State.groupBattle.selectedOpponentId = opponentGroup.id;
+
+    Server.limits.groupBattles.used = Number(Server.limits.groupBattles.used || 0) + 1;
+    Server.limits.groupBattles.lastRecovery = Date.now();
+
+    saveState();
+
+    startBtn.disabled = false;
+    startBtn.innerHTML = originalLabel;
+
+    renderTopBars();
+    updateBattleView({ saveSelection: false });
+    refreshLastResult();
+
+    const diff = Math.abs(result.diff || 0);
+    const winnerName = rewardSummary?.winnerName || (result.winnerGroupId === result.host.id ? result.host.name : result.opponent.name);
+    const userReward = rewardSummary?.userReward?.applied
+      ? ` • پاداش شما: ${faNum(rewardSummary.userReward.coins)}💰 و ${faNum(rewardSummary.userReward.score)} امتیاز`
+      : '';
+    toast(`<i class="fas fa-trophy ml-2"></i>${winnerName} با اختلاف ${faNum(diff)} امتیاز پیروز شد${userReward}`);
+
+    logEvent('group_battle_simulated', {
+      host: hostGroup.name,
+      opponent: opponentGroup.name,
+      winner: winnerName,
+      diff,
+      timestamp: result.playedAt
+    });
   });
 }
 
