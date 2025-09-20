@@ -1,3 +1,7 @@
+import { $, $$ } from './src/utils/dom.js';
+import { clamp, faNum, faDecimal, formatDuration, formatRelativeTime } from './src/utils/format.js';
+import { configureFeedback, vibrate, toast, wait, SFX, shootConfetti } from './src/utils/feedback.js';
+
   // Anti-cheating: Detect devtools
   (function() {
     const threshold = 160;
@@ -12,29 +16,6 @@
     setInterval(checkDevTools, 2000);
   })();
   // ===== Helpers =====
-  const $ = s => document.querySelector(s);
-  const $$ = s => Array.from(document.querySelectorAll(s));
-  // Ensure all buttons default to type="button" to avoid unintended form submits
-  function ensureButtonType(root=document){
-    root.querySelectorAll('button:not([type])').forEach(btn=>btn.type='button');
-  }
-  ensureButtonType();
-  new MutationObserver(m=>{
-    m.forEach(mu=>{
-      mu.addedNodes.forEach(node=>{
-        if(node.nodeType!==Node.ELEMENT_NODE) return;
-        if(node.matches && node.matches('button:not([type])')) node.type='button';
-        if(node.querySelectorAll) ensureButtonType(node);
-      });
-    });
-  }).observe(document.body,{childList:true,subtree:true});
-  const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-  const faNum = n => (n===null||n===undefined||Number.isNaN(Number(n))) ? '—' : Number(n).toLocaleString('fa-IR');
-  const faDecimal = (n, digits=1) => {
-    const value = Number(n);
-    if (!Number.isFinite(value)) return '—';
-    return value.toLocaleString('fa-IR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-  };
   const enNum = n => Number(n).toLocaleString('en-US');
 function populateProvinceOptions(selectEl, placeholder){
     if(!selectEl) return;
@@ -79,75 +60,7 @@ function populateProvinceOptions(selectEl, placeholder){
 
 
   
-  const vibrate = ms => { try{ if(State.settings.haptics && navigator.vibrate) navigator.vibrate(ms) }catch{} };
-  const toast = (html, ms=2200) => {
-    const t=document.createElement('div');
-    t.className='fixed top-20 left-1/2 -translate-x-1/2 glass px-5 py-3 rounded-2xl text-white font-bold z-50 fade-in';
-    t.innerHTML=html; document.body.appendChild(t); setTimeout(()=>t.remove(), ms);
-  };
-  const wait = ms => new Promise(r=>setTimeout(r,ms));
-  function formatDuration(ms){
-    if(!Number.isFinite(ms) || ms <= 0) return 'کمتر از یک دقیقه';
-    const totalMinutes = Math.floor(ms / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    const parts = [];
-    if(hours > 0) parts.push(`${faNum(hours)} ساعت`);
-    if(minutes > 0) parts.push(`${faNum(minutes)} دقیقه`);
-    return parts.length ? parts.join(' و ') : 'کمتر از یک دقیقه';
-  }
-  function formatRelativeTime(ts){
-    if(!Number.isFinite(ts)) return 'همین حالا';
-    try{
-      const diff = ts - Date.now();
-      const abs = Math.abs(diff);
-      const rtf = formatRelativeTime.rtf || (formatRelativeTime.rtf = new Intl.RelativeTimeFormat('fa', { numeric: 'auto' }));
-      const units = [
-        { limit: 60 * 1000, divisor: 1000, unit: 'second' },
-        { limit: 60 * 60 * 1000, divisor: 60 * 1000, unit: 'minute' },
-        { limit: 24 * 60 * 60 * 1000, divisor: 60 * 60 * 1000, unit: 'hour' },
-        { limit: 7 * 24 * 60 * 60 * 1000, divisor: 24 * 60 * 60 * 1000, unit: 'day' },
-        { limit: 30 * 24 * 60 * 60 * 1000, divisor: 7 * 24 * 60 * 60 * 1000, unit: 'week' },
-        { limit: 365 * 24 * 60 * 60 * 1000, divisor: 30 * 24 * 60 * 60 * 1000, unit: 'month' },
-        { limit: Infinity, divisor: 365 * 24 * 60 * 60 * 1000, unit: 'year' }
-      ];
-      for(const { limit, divisor, unit } of units){
-        if(abs < limit){
-          const value = Math.round(diff / divisor);
-          return rtf.format(value, unit);
-        }
-      }
-    }catch{}
-    try{ return new Date(ts).toLocaleString('fa-IR'); }catch{ return 'همین حالا'; }
-  }
   const online = () => navigator.onLine;
-  // Minimal sounds
-  const SFX = (()=>{ let ctx; const mk=()=>ctx||(ctx=new (window.AudioContext||window.webkitAudioContext)());
-    const beep=(f=880,d=0.12,t='sine')=>{ if(!State.settings.sound) return; const a=mk(); const o=a.createOscillator(); const g=a.createGain();
-      o.type=t; o.frequency.value=f; o.connect(g); g.connect(a.destination); g.gain.setValueAtTime(0.001,a.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.2,a.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+d);
-      o.start(); o.stop(a.currentTime+d+0.02);
-    };
-    return { correct:()=>{beep(880); setTimeout(()=>beep(1320,0.1,'triangle'),90)}, wrong:()=>beep(160,0.25,'sawtooth'), tick:()=>beep(660,0.05), coin:()=>{beep(1200,0.08); setTimeout(()=>beep(1600,0.08),70)} };
-  })();
-  function shootConfetti(){
-    const canvas = $('#confetti'); const ctx = canvas.getContext('2d');
-    const W = canvas.width = innerWidth, H = canvas.height = innerHeight;
-    const pieces = Array.from({length: 120}, ()=>({
-      x: Math.random()*W, y: -20-Math.random()*H, r: 4+Math.random()*6,
-      c: ['#fde047','#fb923c','#a78bfa','#ec4899','#34d399'][Math.floor(Math.random()*5)],
-      v: 1+Math.random()*3, a: Math.random()*Math.PI*2
-    }));
-    let t=0, run=true;
-    (function anim(){
-      if(!run) return; ctx.clearRect(0,0,W,H);
-      for(const p of pieces){
-        ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-        p.y += p.v; p.x += Math.sin(p.a+t/15); if(p.y>H+10) p.y=-10;
-      }
-      t++; const id=requestAnimationFrame(anim); setTimeout(()=>{run=false; cancelAnimationFrame(id); ctx.clearRect(0,0,W,H)}, 2200);
-    })();
-  }
   
   // ===== Remote Config (in-file) =====
 // === RemoteConfig (اصلاح‌شده) ===
@@ -948,6 +861,8 @@ const Server = {
       ]
     }
   };
+
+  configureFeedback(() => State.settings);
 
 
   function ensureGroupRosters(){
