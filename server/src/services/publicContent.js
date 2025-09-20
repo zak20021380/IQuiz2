@@ -407,7 +407,8 @@ function getFallbackQuestions({ categoryId, difficulty, count }) {
       difficulty: item.difficulty,
       categoryId: item.categoryId,
       categoryName: category ? (category.title || category.name) : '',
-      cat: category ? (category.title || category.name) : ''
+      cat: category ? (category.title || category.name) : '',
+      authorName: 'تیم آیکوئیز'
     };
   });
 }
@@ -438,7 +439,11 @@ function mapQuestionDocument(doc, categoryMap) {
     difficulty: doc.difficulty || null,
     categoryId,
     categoryName,
-    cat: categoryName
+    cat: categoryName,
+    authorName: doc.authorName || doc.createdBy || doc.createdByName || '',
+    status: doc.status,
+    submittedAt: doc.submittedAt,
+    reviewedAt: doc.reviewedAt
   };
 }
 

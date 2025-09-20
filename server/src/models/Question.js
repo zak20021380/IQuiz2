@@ -43,9 +43,20 @@ const questionSchema = new mongoose.Schema(
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     categoryName: { type: String, trim: true },
     active: { type: Boolean, default: true },
-    source: { type: String, enum: ['manual', 'opentdb', 'the-trivia-api'], default: 'manual' },
+    source: { type: String, enum: ['manual', 'opentdb', 'the-trivia-api', 'community'], default: 'manual' },
     lang: { type: String, trim: true, default: 'en' },
     type: { type: String, trim: true, default: 'multiple' },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected', 'draft', 'archived'],
+      default: 'approved'
+    },
+    authorName: { type: String, trim: true, default: 'IQuiz Team' },
+    submittedBy: { type: String, trim: true },
+    submittedAt: { type: Date },
+    reviewedAt: { type: Date },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    reviewNotes: { type: String, trim: true },
     checksum: { type: String, required: true, trim: true }
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
