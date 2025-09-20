@@ -1109,29 +1109,7 @@
           <span class="chip"><i class="fas fa-key ml-1"></i> شما: <b id="keys-count">۰</b></span>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <!-- k1 -->
-          <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k1" title="خرید ۱ کلید">
-            <div class="text-xs opacity-80">بسته کوچک</div>
-            <div class="font-extrabold text-lg"><span data-amount>۱</span> کلید</div>
-            <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۳۰</span> سکه</div>
-          </button>
-
-          <!-- k3 -->
-          <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k3" title="خرید ۳ کلید">
-            <div class="ribbon">به‌صرفه</div>
-            <div class="text-xs opacity-80">بسته اقتصادی</div>
-            <div class="font-extrabold text-lg"><span data-amount>۳</span> کلید</div>
-            <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۸۰</span> سکه</div>
-          </button>
-
-          <!-- k10 -->
-          <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k10" title="خرید ۱۰ کلید">
-            <div class="text-xs opacity-80">بسته بزرگ</div>
-            <div class="font-extrabold text-lg"><span data-amount>۱۰</span> کلید</div>
-            <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۲۵۰</span> سکه</div>
-          </button>
-        </div>
+        <div id="keys-packages" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
 
         <div class="text-xs opacity-70 mt-2">کلید با «سکهٔ بازی» پرداخت می‌شه، نه کیف پول.</div>
       </div>
@@ -1176,7 +1154,190 @@
 </section>
 
 
-    
+    <!-- ADMIN: SHOP MANAGEMENT -->
+    <section id="page-admin-shop" class="hidden space-y-5">
+      <div class="glass rounded-3xl overflow-hidden">
+        <div class="bg-white/10 border-b border-white/15 px-5 py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="chip bg-emerald-500/20 border-emerald-400/30 text-emerald-100"><i class="fas fa-shield-halved ml-1"></i> مدیریت فروشگاه</span>
+              <span id="admin-summary-dirty" class="chip bg-amber-500/20 border-amber-400/30 text-amber-100 hidden"><i class="fas fa-floppy-disk ml-1"></i> تغییرات ذخیره نشده</span>
+            </div>
+            <h3 class="text-2xl font-extrabold mt-3">کنسول مدیریت فروشگاه</h3>
+            <p class="text-sm opacity-75 mt-1 max-w-2xl leading-relaxed">بسته‌های کلید، قیمت‌گذاری سکه و اشتراک VIP را در لحظه تنظیم کن. تمام تغییرات تنها پس از ذخیره‌سازی اعمال می‌شوند.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 w-full md:w-auto">
+            <button id="btn-admin-shop-sync" class="btn btn-secondary btn-inline"><i class="fas fa-rotate ml-1"></i> همگام‌سازی مجدد</button>
+            <button id="btn-admin-shop-export" class="btn btn-tertiary btn-inline"><i class="fas fa-file-export ml-1"></i> خروجی JSON</button>
+          </div>
+        </div>
+        <div class="p-5 space-y-6">
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="glass-dark rounded-2xl p-4">
+              <div class="text-xs opacity-70 mb-1 flex items-center gap-2"><i class="fas fa-key text-pink-300"></i> کلیدها</div>
+              <div id="admin-summary-keys" class="text-2xl font-black">۰ بسته</div>
+              <div id="admin-summary-keys-ratio" class="text-xs opacity-70 mt-2 leading-relaxed">—</div>
+            </div>
+            <div class="glass-dark rounded-2xl p-4">
+              <div class="text-xs opacity-70 mb-1 flex items-center gap-2"><i class="fas fa-coins text-amber-300"></i> بسته‌های سکه</div>
+              <div id="admin-summary-coins" class="text-2xl font-black">۰ بسته</div>
+              <div id="admin-summary-coins-value" class="text-xs opacity-70 mt-2 leading-relaxed">—</div>
+            </div>
+            <div class="glass-dark rounded-2xl p-4">
+              <div class="text-xs opacity-70 mb-1 flex items-center gap-2"><i class="fas fa-crown text-yellow-300"></i> اشتراک VIP</div>
+              <div id="admin-summary-vip" class="text-2xl font-black">—</div>
+              <div class="text-xs opacity-70 mt-2 leading-relaxed">نرخ تبدیل فعلی: <span id="admin-summary-rate">—</span></div>
+            </div>
+            <div class="glass-dark rounded-2xl p-4">
+              <div class="text-xs opacity-70 mb-1 flex items-center gap-2"><i class="fas fa-clock text-sky-300"></i> آخرین فعالیت</div>
+              <div id="admin-summary-updated" class="text-lg font-bold">—</div>
+              <div id="admin-summary-loaded" class="text-xs opacity-70 mt-2 leading-relaxed">همگام‌سازی اولیه: —</div>
+            </div>
+          </div>
+
+          <div class="glass-dark rounded-2xl p-5 space-y-5">
+            <div class="flex items-start justify-between gap-3 flex-col md:flex-row">
+              <div>
+                <h4 class="text-xl font-extrabold flex items-center gap-2"><i class="fas fa-key text-pink-300"></i> مدیریت بسته‌های کلید</h4>
+                <p class="text-sm opacity-75 mt-1">چینش کارت‌ها براساس مقدار کلید مرتب می‌شود. برای حذف یک کارت، حداقل یک بسته باید باقی بماند.</p>
+              </div>
+              <button id="btn-admin-add-key" class="btn btn-tertiary btn-inline"><i class="fas fa-plus ml-1"></i> افزودن بسته جدید</button>
+            </div>
+            <div id="admin-keys-list" class="space-y-4"></div>
+          </div>
+
+          <div class="glass-dark rounded-2xl p-5 space-y-5">
+            <div class="flex items-start justify-between gap-3 flex-col md:flex-row">
+              <div>
+                <h4 class="text-xl font-extrabold flex items-center gap-2"><i class="fas fa-coins text-amber-300"></i> مدیریت بسته‌های سکه</h4>
+                <p class="text-sm opacity-75 mt-1">مبلغ هر بسته بر حسب تومان وارد شود؛ مقدار دریافتی بر اساس بونوس محاسبه و در فروشگاه اعمال می‌گردد.</p>
+              </div>
+              <button id="btn-admin-add-coin" class="btn btn-secondary btn-inline"><i class="fas fa-plus ml-1"></i> بسته سکه جدید</button>
+            </div>
+            <div id="admin-coins-list" class="space-y-4"></div>
+          </div>
+
+          <div class="glass-dark rounded-2xl p-5 space-y-5">
+            <div>
+              <h4 class="text-xl font-extrabold flex items-center gap-2"><i class="fas fa-crown text-yellow-300"></i> قیمت‌گذاری VIP و نرخ تبدیل</h4>
+              <p class="text-sm opacity-75 mt-1">نرخ تبدیل (تومان به دلار) برای محاسبه قیمت دلاری به کار می‌رود. قیمت‌ها بر حسب تومان هستند.</p>
+            </div>
+            <div class="grid sm:grid-cols-3 gap-3">
+              <div>
+                <label class="form-label" for="admin-usd-rate">نرخ تبدیل هر دلار (تومان)</label>
+                <input type="number" id="admin-usd-rate" class="form-input" min="1000" step="500" placeholder="۷۰,۰۰۰">
+              </div>
+              <div>
+                <label class="form-label" for="admin-vip-lite">VIP لایت (تومان / ماه)</label>
+                <input type="number" id="admin-vip-lite" class="form-input" min="1000" step="1000">
+              </div>
+              <div>
+                <label class="form-label" for="admin-vip-pro">VIP پرو (تومان / ماه)</label>
+                <input type="number" id="admin-vip-pro" class="form-input" min="1000" step="1000">
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-dark rounded-2xl p-5">
+            <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <div class="space-y-1">
+                <div class="font-bold text-lg flex items-center gap-2"><i class="fas fa-cloud-upload-alt text-emerald-300"></i> اعمال تغییرات</div>
+                <p class="text-sm opacity-70">برای ذخیره‌سازی نهایی روی «ذخیره تنظیمات فروشگاه» کلیک کنید. امکان بازنشانی به آخرین نسخه بارگذاری‌شده نیز وجود دارد.</p>
+              </div>
+              <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <button id="btn-admin-reset" class="btn btn-group w-full sm:w-auto"><i class="fas fa-undo ml-1"></i> بازنشانی پیش‌نویس</button>
+                <button id="btn-admin-save" class="btn btn-primary w-full sm:w-auto" disabled><i class="fas fa-floppy-disk ml-1"></i> ذخیره تنظیمات فروشگاه</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="w-full py-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/20 transition flex items-center justify-center gap-2" data-admin-back>
+        <i class="fas fa-arrow-right"></i> بازگشت به داشبورد
+      </button>
+    </section>
+
+    <template id="tpl-admin-key-item">
+      <article class="glass-dark rounded-2xl p-4 space-y-4 admin-item">
+        <div class="flex items-start justify-between gap-3 flex-col md:flex-row">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-400/80 to-rose-500/80 flex items-center justify-center text-lg">
+              <i class="fas fa-key"></i>
+            </div>
+            <div>
+              <div class="font-bold text-lg" data-title>بسته جدید</div>
+              <div class="text-xs opacity-70" data-subtitle>شناسه: —</div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-duel btn-inline shrink-0" data-action="delete-key"><i class="fas fa-trash ml-1"></i> حذف</button>
+        </div>
+        <div class="grid gap-3 md:grid-cols-5">
+          <div class="md:col-span-2">
+            <label class="form-label">نام نمایشی</label>
+            <input type="text" class="form-input" data-field="label" placeholder="مثال: بسته اقتصادی">
+          </div>
+          <div>
+            <label class="form-label">شناسه</label>
+            <input type="text" class="form-input text-left" dir="ltr" data-field="id" placeholder="k1">
+          </div>
+          <div>
+            <label class="form-label">تعداد کلید</label>
+            <input type="number" class="form-input" min="1" data-field="amount">
+          </div>
+          <div>
+            <label class="form-label">قیمت (سکه بازی)</label>
+            <input type="number" class="form-input" min="1" data-field="priceGame">
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs opacity-70">
+          <span>هر کلید: <strong data-unit>—</strong> سکه بازی</span>
+          <span>پیش‌نمایش: <strong data-preview>—</strong></span>
+        </div>
+      </article>
+    </template>
+
+    <template id="tpl-admin-coin-item">
+      <article class="glass-dark rounded-2xl p-4 space-y-4 admin-item">
+        <div class="flex items-start justify-between gap-3 flex-col md:flex-row">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400/80 to-amber-600/80 flex items-center justify-center text-lg">
+              <i class="fas fa-coins"></i>
+            </div>
+            <div>
+              <div class="font-bold text-lg" data-title>بسته سکه</div>
+              <div class="text-xs opacity-70" data-subtitle>شناسه: —</div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-duel btn-inline shrink-0" data-action="delete-coin"><i class="fas fa-trash ml-1"></i> حذف</button>
+        </div>
+        <div class="grid gap-3 md:grid-cols-5">
+          <div class="md:col-span-2">
+            <label class="form-label">شناسه</label>
+            <input type="text" class="form-input text-left" dir="ltr" data-field="id" placeholder="c100">
+          </div>
+          <div>
+            <label class="form-label">تعداد پایه</label>
+            <input type="number" class="form-input" min="10" data-field="amount">
+          </div>
+          <div>
+            <label class="form-label">بونوس (%)</label>
+            <input type="number" class="form-input" min="0" data-field="bonus">
+          </div>
+          <div>
+            <label class="form-label">قیمت (تومان)</label>
+            <input type="number" class="form-input" min="1000" step="1000" data-field="priceToman">
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs opacity-70">
+          <span>کل دریافتی: <strong data-received>—</strong> سکه</span>
+          <span>بازدهی تقریبی: <strong data-value>—</strong> سکه / ۱٬۰۰۰ تومان</span>
+        </div>
+      </article>
+    </template>
+
+
+
     <!-- WALLET (Buy Coins) -->
     <section id="page-wallet" class="hidden space-y-5">
       <div class="glass rounded-3xl p-6">
@@ -1216,7 +1377,7 @@
                 <i class="fas fa-crown text-amber-300"></i>
                 <span>وی‌آی‌پی لایت</span>
               </div>
-              <div class="font-bold">۹۹,۰۰۰ تومان / ماه</div>
+              <div class="font-bold"><span id="vip-lite-price-display">۹۹,۰۰۰</span> تومان / ماه</div>
             </div>
             <ul class="text-sm opacity-90 space-y-1 list-disc pr-5 mb-3">
               <li>حذف تبلیغات بنری</li>
@@ -1232,7 +1393,7 @@
                 <i class="fas fa-crown text-yellow-300"></i>
                 <span>وی‌آی‌پی پرو</span>
               </div>
-              <div class="font-bold">۱۹۹,۰۰۰ تومان / ماه</div>
+              <div class="font-bold"><span id="vip-pro-price-display">۱۹۹,۰۰۰</span> تومان / ماه</div>
             </div>
             <ul class="text-sm opacity-90 space-y-1 list-disc pr-5 mb-3">
               <li>حذف تمام تبلیغات (بنری، همسان، میانی، ویدیویی)</li>
@@ -1678,26 +1839,30 @@
   
   <!-- Bottom Nav -->
   <nav class="glass safe sticky bottom-0 z-50 w-full shadow-lg">
-    <div class="max-w-md mx-auto grid grid-cols-5">
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="dashboard" aria-label="خانه">
+    <div id="bottom-nav" class="max-w-3xl mx-auto flex">
+      <button class="py-4 text-center hover:bg-white/10 transition nav-item flex-1" data-tab="dashboard" aria-label="خانه">
         <i class="fas fa-home text-xl mb-1"></i>
         <div class="text-xs">خانه</div>
       </button>
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="quiz" aria-label="مسابقه">
+      <button class="py-4 text-center hover:bg-white/10 transition nav-item flex-1" data-tab="quiz" aria-label="مسابقه">
         <i class="fas fa-gamepad text-xl mb-1"></i>
         <div class="text-xs">مسابقه</div>
       </button>
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="leaderboard" aria-label="لیدربورد">
+      <button class="py-4 text-center hover:bg-white/10 transition nav-item flex-1" data-tab="leaderboard" aria-label="لیدربورد">
         <i class="fas fa-chart-line text-xl mb-1"></i>
         <div class="text-xs">لیدربورد</div>
       </button>
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="shop" aria-label="فروشگاه">
+      <button class="py-4 text-center hover:bg-white/10 transition nav-item flex-1" data-tab="shop" aria-label="فروشگاه">
         <i class="fas fa-store text-xl mb-1"></i>
         <div class="text-xs">فروشگاه</div>
       </button>
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="support" aria-label="پشتیبانی">
+      <button class="py-4 text-center hover:bg-white/10 transition nav-item flex-1" data-tab="support" aria-label="پشتیبانی">
         <i class="fas fa-headset text-xl mb-1"></i>
         <div class="text-xs">پشتیبانی</div>
+      </button>
+      <button id="nav-admin" class="py-4 text-center hover:bg-white/10 transition nav-item flex-1 hidden" data-tab="admin-shop" aria-label="مدیریت">
+        <i class="fas fa-shield-halved text-xl mb-1"></i>
+        <div class="text-xs">مدیریت</div>
       </button>
     </div>
   </nav>
@@ -1762,6 +1927,22 @@
           </label>
           <p class="text-xs opacity-70 mt-1 pr-1">با فعال کردن این گزینه، هیچ درخواست نبرد تن‌به‌تن دریافت نخواهید کرد.</p>
         </div>
+      </div>
+      <div class="divider"></div>
+      <div id="admin-settings-block" class="space-y-3">
+        <div class="flex items-start justify-between gap-3 flex-col sm:flex-row sm:items-center">
+          <div>
+            <div class="font-bold">حالت مدیر فروشگاه</div>
+            <div class="text-xs opacity-70 mt-1">با وارد کردن رمز مدیریتی، ابزار مدیریت فروشگاه فعال می‌شود.</div>
+          </div>
+          <span id="admin-mode-badge" class="chip bg-white/15 border border-white/25 text-xs">غیرفعال</span>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-2">
+          <input type="password" id="admin-passcode" class="form-input sm:col-span-2" placeholder="رمز مدیریت" autocomplete="off" inputmode="numeric">
+          <button id="btn-admin-enter" class="btn btn-tertiary w-full sm:w-auto"><i class="fas fa-lock-open ml-1"></i> فعال‌سازی</button>
+        </div>
+        <button id="btn-admin-exit" class="btn btn-duel w-full hidden"><i class="fas fa-right-from-bracket ml-1"></i> خروج از حالت مدیر</button>
+        <p class="text-xs opacity-70">برای امنیت بیشتر پس از اتمام کار از حالت مدیر خارج شوید.</p>
       </div>
       <div class="divider"></div>
       <button id="btn-clear" class="w-full py-3 rounded-xl bg-white/10 border border-white/20">پاک‌سازی داده‌ها (ریست)</button>
@@ -2196,6 +2377,45 @@ function patchPricingKeys(RemoteConfig){
 // ⚡️ بلافاصله بعد از تعریف RemoteConfig صدا بزن:
 patchPricingKeys(RemoteConfig);
 
+function coinPriceToman(pkg){
+  if (!pkg) return 0;
+  if (typeof pkg.priceToman === 'number' && pkg.priceToman > 0) {
+    return Math.round(pkg.priceToman);
+  }
+  const cents = Number(pkg.priceCents);
+  const rate = Number(RemoteConfig?.pricing?.usdToToman) || 70_000;
+  if (cents > 0) {
+    return Math.round((cents / 100) * rate);
+  }
+  return 0;
+}
+
+function vipPriceToman(tier){
+  const pricing = RemoteConfig?.pricing?.vip?.[tier];
+  if (!pricing) return 0;
+  if (typeof pricing.priceToman === 'number' && pricing.priceToman > 0) {
+    return Math.round(pricing.priceToman);
+  }
+  const cents = Number(pricing.priceCents);
+  if (!cents) return 0;
+  const rate = Number(RemoteConfig?.pricing?.usdToToman) || 70_000;
+  return Math.round((cents / 100) * rate);
+}
+
+function formatToman(value){
+  const amount = Math.max(0, Math.round(Number(value) || 0));
+  return `${faNum(amount)} تومان`;
+}
+
+function updateVipPricesDisplay(){
+  const lite = vipPriceToman('lite');
+  const pro = vipPriceToman('pro');
+  const liteEl = $('#vip-lite-price-display');
+  if (liteEl) liteEl.textContent = lite ? faNum(lite) : '—';
+  const proEl = $('#vip-pro-price-display');
+  if (proEl) proEl.textContent = pro ? faNum(pro) : '—';
+}
+
   const DEFAULT_DIFFS = [
     { value: 'easy', label: 'آسان' },
     { value: 'medium', label: 'متوسط' },
@@ -2587,6 +2807,7 @@ patchPricingKeys(RemoteConfig);
     score:0, coins:120, lives:3, vip:false, // vip will be overridden by server
     streak:0, lastClaim:0, boostUntil:0,
     theme:'ocean',
+    adminMode:false,
     duelOpponent:null,
     duelWins:0,
     duelLosses:0,
@@ -2627,6 +2848,18 @@ patchPricingKeys(RemoteConfig);
         { id: 'u2', name: 'رضا کریمی', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), reward: 50 }
       ]
     }
+  };
+
+  const ADMIN_PASSCODE = 'quiz-admin-2024';
+
+  const AdminShopState = {
+    keysDraft: [],
+    coinsDraft: [],
+    vipDraft: { lite: 0, pro: 0 },
+    usdToToman: Number(RemoteConfig?.pricing?.usdToToman) || 70_000,
+    lastLoadedAt: Date.now(),
+    lastSavedAt: null,
+    dirty: false
   };
 
 
@@ -2688,6 +2921,7 @@ function isUserInGroup() {
     if (!Array.isArray(State.duelHistory)) State.duelHistory = [];
     State.duelHistory = State.duelHistory.slice(0, 20);
     State.duelOpponent = null;
+    if (typeof State.adminMode !== 'boolean') State.adminMode = false;
   }
   
   function saveState(){ 
@@ -3181,13 +3415,18 @@ function isUserInGroup() {
   updateLifelineStates();
   
   function navTo(page){
-    ['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support'].forEach(p=>$('#page-'+p)?.classList.add('hidden'));
+    if (page === 'admin-shop' && !isAdminMode()){
+      toast('برای دسترسی به این بخش باید حالت مدیر فعال باشد');
+      return;
+    }
+    ['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support','admin-shop'].forEach(p=>$('#page-'+p)?.classList.add('hidden'));
     $('#page-'+page)?.classList.remove('hidden'); $('#page-'+page)?.classList.add('fade-in');
     $$('nav [data-tab]').forEach(b=>{ b.classList.toggle('bg-white/10', b.dataset.tab===page); b.classList.toggle('active', b.dataset.tab===page); });
     if(page==='dashboard') { renderDashboard(); AdManager.renderNative('#ad-native-dashboard'); }
     if(page==='leaderboard'){ renderLeaderboard(); AdManager.renderNative('#ad-native-lb'); }
     if(page==='wallet'){ buildPackages(); }
     if(page==='vip'){ updateVipUI(); }
+    if(page==='admin-shop'){ renderAdminShop(); }
   }
   
   // ===== Leaderboard / Details (unchanged + detail popups) =====
@@ -4206,32 +4445,516 @@ function renderShop(){
   if ($('#shop-wallet'))  $('#shop-wallet').textContent  = (Server.wallet.coins==null?'—':faNum(Server.wallet.coins));
   if ($('#keys-count'))   $('#keys-count').textContent   = faNum(State.keys || 0);
 
-  // بسته‌ها را از RemoteConfig بخوان و دکمه‌ها را آپدیت کن
-  const packs = RemoteConfig.pricing.keys || [];
-  packs.forEach(p => {
-    const el = document.querySelector(`[data-buy-key="${p.id}"]`);
-    if(!el) return;
-    el.querySelector('[data-amount]').textContent = faNum(p.amount);
-    el.querySelector('[data-price]').textContent  = faNum(p.priceGame);
-    const cant = State.coins < p.priceGame;
-    el.disabled = cant;
-    el.title = cant ? 'سکهٔ بازی کافی نیست' : `خرید ${faNum(p.amount)} کلید`;
-  });
+  const container = $('#keys-packages');
+  const packsRaw = Array.isArray(RemoteConfig?.pricing?.keys) ? RemoteConfig.pricing.keys : [];
+  if (container){
+    container.innerHTML = '';
 
-  // نشان «به‌صرفه‌ترین» را روی بهترین نسبت قیمت/تعداد بگذار
-  const best = packs.reduce((a,b)=> (a.priceGame/a.amount <= b.priceGame/b.amount) ? a : b, packs[0]);
-  document.querySelectorAll('.product-card .ribbon.auto').forEach(n=>n.remove());
-  if (best) {
-    const bestBtn = document.querySelector(`[data-buy-key="${best.id}"]`);
-    if (bestBtn && !bestBtn.querySelector('.ribbon')) {
-      const badge = document.createElement('div');
-      badge.className = 'ribbon auto';
-      badge.textContent = 'به‌صرفه‌ترین';
-      bestBtn.appendChild(badge);
+    if (!packsRaw.length){
+      container.innerHTML = `<div class="glass-dark rounded-2xl p-4 text-center text-sm opacity-80">در حال حاضر بسته‌ای موجود نیست</div>`;
+    } else {
+      const packs = packsRaw.map(p => ({
+        id: String(p.id || `k${p.amount || 1}`),
+        amount: Math.max(1, Number(p.amount) || 0),
+        priceGame: Math.max(1, Number(p.priceGame) || 0),
+        label: p.label || (Number(p.amount) <= 1 ? 'بسته کوچک' : Number(p.amount) <= 3 ? 'بسته اقتصادی' : 'بسته ویژه')
+      })).sort((a,b) => a.amount - b.amount);
+
+      const best = packs.length
+        ? packs.reduce((acc, pack) => {
+            if (!acc) return pack;
+            const accRatio = acc.priceGame / acc.amount;
+            const packRatio = pack.priceGame / pack.amount;
+            return packRatio < accRatio ? pack : acc;
+          }, null)
+        : null;
+
+      packs.forEach(pack => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.buyKey = pack.id;
+        btn.className = 'product-card glass-dark rounded-2xl p-4 card-hover text-right relative flex flex-col gap-3';
+
+        const unitPrice = pack.amount > 0 ? (pack.priceGame / pack.amount) : pack.priceGame;
+        const unitLabel = Number(unitPrice).toLocaleString('fa-IR', {
+          maximumFractionDigits: unitPrice % 1 ? 1 : 0,
+          minimumFractionDigits: unitPrice % 1 ? 1 : 0
+        });
+
+        btn.innerHTML = `
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="text-xs opacity-70 flex items-center gap-1"><i class="fas fa-key text-pink-300"></i><span>${pack.label}</span></div>
+              <div class="text-2xl font-extrabold mt-1">${faNum(pack.amount)} کلید</div>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+              <span class="chip bg-white/20"><i class="fas fa-coins ml-1"></i> ${faNum(pack.priceGame)}</span>
+              <span class="text-xs opacity-70">هر کلید: ${unitLabel}</span>
+            </div>
+          </div>
+          <div class="text-xs opacity-70 flex items-center justify-between gap-2">
+            <span>شناسه: <span class="font-bold text-white/90" dir="ltr">${pack.id}</span></span>
+            <span class="flex items-center gap-1"><i class="fas fa-bolt text-amber-300"></i>تحویل فوری</span>
+          </div>
+        `;
+
+        if (best && best.id === pack.id){
+          const badge = document.createElement('div');
+          badge.className = 'ribbon auto';
+          badge.textContent = 'به‌صرفه‌ترین';
+          btn.appendChild(badge);
+        }
+
+        const cant = State.coins < pack.priceGame;
+        btn.disabled = cant;
+        btn.title = cant ? 'سکهٔ بازی کافی نیست' : `خرید ${faNum(pack.amount)} کلید`;
+
+        container.appendChild(btn);
+      });
     }
+  }
+
+  updateVipPricesDisplay();
+}
+
+function isAdminMode(){
+  return !!State.adminMode;
+}
+
+function sanitizeKeyDraft(pack){
+  const amount = Math.max(1, Number(pack?.amount) || 0);
+  const priceGame = Math.max(1, Number(pack?.priceGame) || 0);
+  const labelRaw = typeof pack?.label === 'string' ? pack.label.trim() : '';
+  const label = labelRaw || (amount <= 1 ? 'بسته کوچک' : amount <= 3 ? 'بسته اقتصادی' : 'بسته ویژه');
+  const idRaw = typeof pack?.id === 'string' ? pack.id.trim() : '';
+  const id = idRaw || `k${amount}`;
+  return { id, amount, priceGame, label };
+}
+
+function sanitizeCoinDraft(pack){
+  const amount = Math.max(1, Number(pack?.amount) || 0);
+  const bonus = Math.max(0, Number(pack?.bonus) || 0);
+  const priceToman = Math.max(0, Math.round(Number(pack?.priceToman) || coinPriceToman(pack) || 0));
+  const idRaw = typeof pack?.id === 'string' ? pack.id.trim() : '';
+  const id = idRaw || `c${amount}`;
+  return { id, amount, bonus, priceToman };
+}
+
+function resetAdminShopDrafts(){
+  const keys = Array.isArray(RemoteConfig?.pricing?.keys) ? RemoteConfig.pricing.keys : [];
+  const coins = Array.isArray(RemoteConfig?.pricing?.coins) ? RemoteConfig.pricing.coins : [];
+  AdminShopState.keysDraft = keys.map(sanitizeKeyDraft);
+  AdminShopState.coinsDraft = coins.map(sanitizeCoinDraft);
+  AdminShopState.vipDraft = {
+    lite: vipPriceToman('lite'),
+    pro: vipPriceToman('pro')
+  };
+  AdminShopState.usdToToman = Number(RemoteConfig?.pricing?.usdToToman) || AdminShopState.usdToToman || 70_000;
+  AdminShopState.dirty = false;
+  AdminShopState.lastLoadedAt = Date.now();
+}
+
+function ensureAdminShopDrafts(force=false){
+  if (force || (!AdminShopState.keysDraft.length && Array.isArray(RemoteConfig?.pricing?.keys))){
+    resetAdminShopDrafts();
   }
 }
 
+function makeAdminId(prefix, existing){
+  const taken = new Set(existing.map(id => String(id || '').toLowerCase()));
+  let index = existing.length + 1;
+  while (index < existing.length + 10_000){
+    const candidate = `${prefix}${index}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+    index++;
+  }
+  return `${prefix}${Date.now().toString(36)}`;
+}
+
+function formatFaDecimal(value, digits=1){
+  const num = Number(value) || 0;
+  const hasDecimal = Math.abs(num % 1) > 0.0001;
+  return num.toLocaleString('fa-IR', {
+    maximumFractionDigits: hasDecimal ? digits : 0,
+    minimumFractionDigits: hasDecimal ? digits : 0
+  });
+}
+
+function renderAdminKeysList(){
+  const wrap = $('#admin-keys-list');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  if (!AdminShopState.keysDraft.length){
+    wrap.innerHTML = `<div class="glass-dark rounded-2xl p-4 text-center text-sm opacity-75">هیچ بسته‌ای تعریف نشده است؛ «افزودن بسته جدید» را انتخاب کن.</div>`;
+    return;
+  }
+
+  const tpl = document.getElementById('tpl-admin-key-item');
+  AdminShopState.keysDraft.forEach((pack, idx) => {
+    const node = tpl?.content?.firstElementChild?.cloneNode(true);
+    if (!node) return;
+    node.dataset.index = idx;
+
+    const fallbackLabel = pack.label || (pack.amount <= 1 ? 'بسته کوچک' : pack.amount <= 3 ? 'بسته اقتصادی' : 'بسته ویژه');
+    const title = node.querySelector('[data-title]');
+    if (title) title.textContent = fallbackLabel;
+    const subtitle = node.querySelector('[data-subtitle]');
+    if (subtitle) subtitle.textContent = `شناسه: ${pack.id || '—'}`;
+
+    const labelInput = node.querySelector('[data-field="label"]');
+    if (labelInput) labelInput.value = pack.label || '';
+    const idInput = node.querySelector('[data-field="id"]');
+    if (idInput) idInput.value = pack.id;
+    const amountInput = node.querySelector('[data-field="amount"]');
+    if (amountInput) amountInput.value = pack.amount;
+    const priceInput = node.querySelector('[data-field="priceGame"]');
+    if (priceInput) priceInput.value = pack.priceGame;
+
+    const unit = node.querySelector('[data-unit]');
+    if (unit){
+      const ratio = pack.amount > 0 ? (pack.priceGame / pack.amount) : 0;
+      unit.textContent = ratio ? formatFaDecimal(ratio, 1) : '۰';
+    }
+
+    const preview = node.querySelector('[data-preview]');
+    if (preview) preview.textContent = `${faNum(pack.amount)} کلید • ${faNum(pack.priceGame)} سکه`;
+
+    const deleteBtn = node.querySelector('[data-action="delete-key"]');
+    if (deleteBtn) deleteBtn.disabled = AdminShopState.keysDraft.length <= 1;
+
+    wrap.appendChild(node);
+  });
+}
+
+function renderAdminCoinsList(){
+  const wrap = $('#admin-coins-list');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  if (!AdminShopState.coinsDraft.length){
+    wrap.innerHTML = `<div class="glass-dark rounded-2xl p-4 text-center text-sm opacity-75">هیچ بستهٔ سکه‌ای تعریف نشده است.</div>`;
+    return;
+  }
+
+  const tpl = document.getElementById('tpl-admin-coin-item');
+  AdminShopState.coinsDraft.forEach((pack, idx) => {
+    const node = tpl?.content?.firstElementChild?.cloneNode(true);
+    if (!node) return;
+    node.dataset.index = idx;
+
+    const title = node.querySelector('[data-title]');
+    if (title) title.textContent = `بسته ${faNum(pack.amount)} سکه`;
+    const subtitle = node.querySelector('[data-subtitle]');
+    if (subtitle) subtitle.textContent = `شناسه: ${pack.id || '—'}`;
+
+    const idInput = node.querySelector('[data-field="id"]');
+    if (idInput) idInput.value = pack.id;
+    const amountInput = node.querySelector('[data-field="amount"]');
+    if (amountInput) amountInput.value = pack.amount;
+    const bonusInput = node.querySelector('[data-field="bonus"]');
+    if (bonusInput) bonusInput.value = pack.bonus;
+    const priceInput = node.querySelector('[data-field="priceToman"]');
+    if (priceInput) priceInput.value = pack.priceToman;
+
+    const received = pack.amount + Math.floor(pack.amount * pack.bonus / 100);
+    const receivedEl = node.querySelector('[data-received]');
+    if (receivedEl) receivedEl.textContent = faNum(received);
+    const valueEl = node.querySelector('[data-value]');
+    const efficiency = pack.priceToman > 0 ? (received / pack.priceToman) * 1000 : 0;
+    if (valueEl) valueEl.textContent = efficiency ? formatFaDecimal(efficiency, 2) : '۰';
+
+    const deleteBtn = node.querySelector('[data-action="delete-coin"]');
+    if (deleteBtn) deleteBtn.disabled = AdminShopState.coinsDraft.length <= 1;
+
+    wrap.appendChild(node);
+  });
+}
+
+function renderAdminVipFields(){
+  const rateInput = $('#admin-usd-rate');
+  if (rateInput){
+    rateInput.value = AdminShopState.usdToToman || '';
+  }
+  const liteInput = $('#admin-vip-lite');
+  if (liteInput){
+    liteInput.value = AdminShopState.vipDraft.lite || '';
+  }
+  const proInput = $('#admin-vip-pro');
+  if (proInput){
+    proInput.value = AdminShopState.vipDraft.pro || '';
+  }
+}
+
+function formatAdminTimestamp(ts){
+  if (!ts) return '—';
+  try {
+    return new Date(ts).toLocaleString('fa-IR', { hour12:false });
+  } catch {
+    return '—';
+  }
+}
+
+function updateAdminShopSummary(){
+  const keyCount = AdminShopState.keysDraft.length;
+  const keySummary = $('#admin-summary-keys');
+  if (keySummary) keySummary.textContent = keyCount ? `${faNum(keyCount)} بسته` : '۰ بسته';
+  const keyRatioEl = $('#admin-summary-keys-ratio');
+  if (keyRatioEl){
+    if (!keyCount){
+      keyRatioEl.textContent = 'برای فعال شدن فروشگاه حداقل یک بسته کلید اضافه کن.';
+    } else {
+      const best = AdminShopState.keysDraft.reduce((acc, pack) => {
+        const ratio = pack.amount > 0 ? (pack.priceGame / pack.amount) : Infinity;
+        if (!acc || ratio < acc.ratio){
+          return { ratio, pack };
+        }
+        return acc;
+      }, null);
+      if (best && isFinite(best.ratio)){
+        keyRatioEl.textContent = `بهترین نسبت: ${formatFaDecimal(best.ratio, 1)} سکه برای هر کلید (${faNum(best.pack.amount)} کلید)`;
+      } else {
+        keyRatioEl.textContent = 'نسبت قیمت قابل محاسبه نیست.';
+      }
+    }
+  }
+
+  const coinCount = AdminShopState.coinsDraft.length;
+  const coinSummary = $('#admin-summary-coins');
+  if (coinSummary) coinSummary.textContent = coinCount ? `${faNum(coinCount)} بسته` : '۰ بسته';
+  const coinValueEl = $('#admin-summary-coins-value');
+  if (coinValueEl){
+    if (!coinCount){
+      coinValueEl.textContent = 'هیچ بستهٔ سکه‌ای تعریف نشده است.';
+    } else {
+      const bestCoin = AdminShopState.coinsDraft.reduce((acc, pack) => {
+        const received = pack.amount + Math.floor(pack.amount * pack.bonus / 100);
+        const value = pack.priceToman > 0 ? (received / pack.priceToman) * 1000 : 0;
+        if (!acc || value > acc.value){
+          return { value, pack, received };
+        }
+        return acc;
+      }, null);
+      if (bestCoin && bestCoin.value > 0){
+        coinValueEl.textContent = `بیشترین بازده: ${formatFaDecimal(bestCoin.value, 2)} سکه / ۱٬۰۰۰ تومان (${faNum(bestCoin.received)} دریافتی)`;
+      } else {
+        coinValueEl.textContent = 'برای محاسبه بازده، قیمت معتبر وارد کن.';
+      }
+    }
+  }
+
+  const vipSummary = $('#admin-summary-vip');
+  if (vipSummary){
+    const lite = AdminShopState.vipDraft.lite || 0;
+    const pro = AdminShopState.vipDraft.pro || 0;
+    vipSummary.textContent = `لایت: ${lite ? faNum(lite) : '—'} تومان • پرو: ${pro ? faNum(pro) : '—'} تومان`;
+  }
+
+  const rateEl = $('#admin-summary-rate');
+  if (rateEl) rateEl.textContent = AdminShopState.usdToToman ? faNum(AdminShopState.usdToToman) : '—';
+
+  const savedEl = $('#admin-summary-updated');
+  if (savedEl) savedEl.textContent = AdminShopState.lastSavedAt ? `آخرین ذخیره: ${formatAdminTimestamp(AdminShopState.lastSavedAt)}` : 'ذخیره‌سازی نشده';
+
+  const loadedEl = $('#admin-summary-loaded');
+  if (loadedEl) loadedEl.textContent = AdminShopState.lastLoadedAt ? `همگام‌سازی: ${formatAdminTimestamp(AdminShopState.lastLoadedAt)}` : 'همگام‌سازی: —';
+
+  updateAdminSaveState();
+}
+
+function updateAdminSaveState(){
+  const dirty = !!AdminShopState.dirty;
+  $('#admin-summary-dirty')?.classList.toggle('hidden', !dirty);
+  const saveBtn = $('#btn-admin-save');
+  if (saveBtn) saveBtn.disabled = !dirty;
+}
+
+function markAdminShopDirty(flag=true){
+  AdminShopState.dirty = !!flag;
+  updateAdminSaveState();
+  updateAdminShopSummary();
+}
+
+function renderAdminShop({ force=false } = {}){
+  if (!isAdminMode()) return;
+  ensureAdminShopDrafts(force);
+  AdminShopState.keysDraft.sort((a,b)=> a.amount - b.amount);
+  AdminShopState.coinsDraft.sort((a,b)=> a.priceToman - b.priceToman || a.amount - b.amount);
+  renderAdminKeysList();
+  renderAdminCoinsList();
+  renderAdminVipFields();
+  updateAdminShopSummary();
+}
+
+function refreshAdminSettingsUI(){
+  const badge = $('#admin-mode-badge');
+  if (badge){
+    badge.textContent = State.adminMode ? 'فعال' : 'غیرفعال';
+    badge.classList.toggle('bg-white/15', !State.adminMode);
+    badge.classList.toggle('border-white/25', !State.adminMode);
+    badge.classList.toggle('bg-emerald-500/20', State.adminMode);
+    badge.classList.toggle('border-emerald-400/40', State.adminMode);
+    badge.classList.toggle('text-emerald-100', State.adminMode);
+  }
+  const exitBtn = $('#btn-admin-exit');
+  if (exitBtn) exitBtn.classList.toggle('hidden', !State.adminMode);
+  const enterBtn = $('#btn-admin-enter');
+  if (enterBtn) enterBtn.disabled = !!State.adminMode;
+  const passInput = $('#admin-passcode');
+  if (passInput){
+    passInput.value = '';
+    passInput.placeholder = State.adminMode ? 'حالت مدیر فعال است' : 'رمز مدیریت';
+    passInput.disabled = !!State.adminMode;
+  }
+}
+
+function setAdminMode(enabled, opts={}){
+  const next = !!enabled;
+  const prev = !!State.adminMode;
+  if (prev === next && !opts.force){
+    refreshAdminSettingsUI();
+    const navBtn = $('#nav-admin');
+    if (navBtn) navBtn.classList.toggle('hidden', !next);
+    return;
+  }
+
+  State.adminMode = next;
+  if (opts.persist !== false) saveState();
+
+  document.body.classList.toggle('admin-mode', next);
+  const navBtn = $('#nav-admin');
+  if (navBtn) navBtn.classList.toggle('hidden', !next);
+
+  if (next){
+    renderAdminShop({ force:true });
+  } else {
+    if (!$('#page-admin-shop')?.classList.contains('hidden')){
+      navTo('dashboard');
+    }
+  }
+
+  refreshAdminSettingsUI();
+
+  if (prev !== next && !opts.silent){
+    toast(next ? '<i class="fas fa-lock-open ml-1"></i> حالت مدیر فعال شد' : '<i class="fas fa-lock ml-1"></i> حالت مدیر غیرفعال شد');
+  }
+}
+
+function exportAdminShopConfig(){
+  ensureAdminShopDrafts();
+  const payload = {
+    pricing: {
+      usdToToman: AdminShopState.usdToToman,
+      keys: AdminShopState.keysDraft.map(sanitizeKeyDraft),
+      coins: AdminShopState.coinsDraft.map(pack => {
+        const clean = sanitizeCoinDraft(pack);
+        return {
+          ...clean,
+          priceCents: AdminShopState.usdToToman > 0 ? Math.max(1, Math.round((clean.priceToman / AdminShopState.usdToToman) * 100)) : undefined
+        };
+      }),
+      vip: {
+        lite: { priceToman: Math.round(Math.max(0, Number(AdminShopState.vipDraft.lite) || 0)) },
+        pro:  { priceToman: Math.round(Math.max(0, Number(AdminShopState.vipDraft.pro)  || 0)) }
+      }
+    }
+  };
+
+  const text = JSON.stringify(payload, null, 2);
+  if (navigator?.clipboard?.writeText){
+    navigator.clipboard.writeText(text).then(() => {
+      toast('<i class="fas fa-copy ml-1"></i> پیکربندی فروشگاه کپی شد');
+    }).catch(() => {
+      toast('کپی در کلیپ‌بورد انجام نشد');
+    });
+  } else {
+    const blob = new Blob([text], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'shop-config.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('<i class="fas fa-download ml-1"></i> فایل تنظیمات دانلود شد');
+  }
+}
+
+function applyAdminShopChanges(){
+  ensureAdminShopDrafts();
+
+  const usdRate = Math.max(0, Number(AdminShopState.usdToToman) || 0);
+  if (!usdRate){
+    toast('نرخ تبدیل معتبر نیست');
+    return false;
+  }
+
+  const keys = AdminShopState.keysDraft.map(sanitizeKeyDraft).filter(p => p.amount > 0 && p.priceGame > 0);
+  if (!keys.length){
+    toast('حداقل یک بستهٔ کلید باید فعال باشد');
+    return false;
+  }
+  const keyIds = new Set();
+  for (const pack of keys){
+    const key = pack.id.toLowerCase();
+    if (keyIds.has(key)){
+      toast('شناسهٔ بسته‌های کلید نباید تکراری باشد');
+      return false;
+    }
+    keyIds.add(key);
+  }
+
+  const coins = AdminShopState.coinsDraft.map(sanitizeCoinDraft).filter(p => p.amount > 0 && p.priceToman > 0);
+  if (!coins.length){
+    toast('حداقل یک بستهٔ سکه تنظیم کن');
+    return false;
+  }
+  const coinIds = new Set();
+  for (const pack of coins){
+    if (!pack.id){
+      pack.id = makeAdminId('c', Array.from(coinIds));
+    }
+    const key = pack.id.toLowerCase();
+    if (coinIds.has(key)){
+      toast('شناسهٔ بسته‌های سکه نباید تکراری باشد');
+      return false;
+    }
+    coinIds.add(key);
+  }
+
+  const litePrice = Math.max(1000, Math.round(Number(AdminShopState.vipDraft.lite) || 0));
+  const proPrice  = Math.max(1000, Math.round(Number(AdminShopState.vipDraft.pro)  || 0));
+
+  RemoteConfig.pricing = RemoteConfig.pricing || {};
+  RemoteConfig.pricing.usdToToman = usdRate;
+  RemoteConfig.pricing.keys = keys.sort((a,b)=>a.amount - b.amount);
+  RemoteConfig.pricing.coins = coins.map(pack => {
+    const priceToman = Math.round(Math.max(1000, pack.priceToman));
+    const priceCents = Math.max(1, Math.round((priceToman / usdRate) * 100));
+    return { ...pack, priceToman, priceCents };
+  });
+  RemoteConfig.pricing.vip = RemoteConfig.pricing.vip || {};
+  RemoteConfig.pricing.vip.lite = RemoteConfig.pricing.vip.lite || {};
+  RemoteConfig.pricing.vip.pro  = RemoteConfig.pricing.vip.pro  || {};
+  RemoteConfig.pricing.vip.lite.priceToman = litePrice;
+  RemoteConfig.pricing.vip.pro.priceToman = proPrice;
+  RemoteConfig.pricing.vip.lite.priceCents = Math.max(1, Math.round((litePrice / usdRate) * 100));
+  RemoteConfig.pricing.vip.pro.priceCents  = Math.max(1, Math.round((proPrice  / usdRate) * 100));
+
+  patchPricingKeys(RemoteConfig);
+  renderShop();
+  buildPackages();
+  updateVipPricesDisplay();
+
+  AdminShopState.lastSavedAt = Date.now();
+  resetAdminShopDrafts();
+  renderAdminShop({ force:true });
+  markAdminShopDirty(false);
+
+  toast('<i class="fas fa-check-circle ml-1"></i> تنظیمات فروشگاه ذخیره شد');
+  if (typeof logEvent === 'function'){
+    logEvent('admin_shop_saved', { keys: keys.length, coins: coins.length, usdToToman: usdRate });
+  }
+  return true;
+}
 
 function buyKeys(packId){
   const pack = RemoteConfig.pricing.keys.find(p => p.id === packId);
@@ -4983,13 +5706,167 @@ async function startPurchaseCoins(pkgId){
     buy(btn.dataset.buy);
   });
   $$('nav [data-tab]').forEach(b=> b.addEventListener('click', e=>{
-    const tab=e.currentTarget.dataset.tab; if(tab==='quiz'){ openSetupSheet(); } else navTo(tab);
+    const tab = e.currentTarget.dataset.tab;
+    if(tab==='quiz'){ openSetupSheet(); return; }
+    if(tab==='admin-shop' && !isAdminMode()){
+      toast('ابتدا حالت مدیر را فعال کن');
+      return;
+    }
+    navTo(tab);
   }));
+  $('#btn-admin-enter')?.addEventListener('click', ()=>{
+    if (State.adminMode){ toast('حالت مدیر همین حالا فعال است'); return; }
+    const input = $('#admin-passcode');
+    const code = input?.value?.trim();
+    if (!code){ toast('رمز مدیریت را وارد کن'); input?.focus({ preventScroll:true }); return; }
+    if (code !== ADMIN_PASSCODE){ toast('رمز مدیریت اشتباه است'); input?.focus({ preventScroll:true }); return; }
+    setAdminMode(true);
+  });
+  $('#btn-admin-exit')?.addEventListener('click', ()=>{
+    if (!State.adminMode) return;
+    setAdminMode(false);
+  });
+  $('#btn-admin-add-key')?.addEventListener('click', ()=>{
+    ensureAdminShopDrafts();
+    const ids = AdminShopState.keysDraft.map(p => p.id);
+    const nextId = makeAdminId('k', ids);
+    AdminShopState.keysDraft.push({ id: nextId, amount: 1, priceGame: 30, label: 'بسته جدید' });
+    markAdminShopDirty();
+    renderAdminShop();
+    setTimeout(()=>{
+      $('#admin-keys-list [data-index="'+(AdminShopState.keysDraft.length-1)+'"] [data-field="label"]`)?.focus({ preventScroll:true });
+    }, 0);
+  });
+  $('#btn-admin-add-coin')?.addEventListener('click', ()=>{
+    ensureAdminShopDrafts();
+    const ids = AdminShopState.coinsDraft.map(p => p.id);
+    const nextId = makeAdminId('c', ids);
+    const defaultPrice = Math.max(1000, Math.round(AdminShopState.usdToToman || 70_000));
+    AdminShopState.coinsDraft.push({ id: nextId, amount: 100, bonus: 0, priceToman: defaultPrice });
+    markAdminShopDirty();
+    renderAdminShop();
+    setTimeout(()=>{
+      $('#admin-coins-list [data-index="'+(AdminShopState.coinsDraft.length-1)+'"] [data-field="amount"]`)?.focus({ preventScroll:true });
+    }, 0);
+  });
+  $('#btn-admin-reset')?.addEventListener('click', ()=>{
+    resetAdminShopDrafts();
+    renderAdminShop({ force:true });
+    toast('پیش‌نویس به آخرین نسخه بازگردانده شد');
+  });
+  $('#btn-admin-save')?.addEventListener('click', ()=>{
+    applyAdminShopChanges();
+  });
+  $('#btn-admin-shop-sync')?.addEventListener('click', ()=>{
+    resetAdminShopDrafts();
+    renderAdminShop({ force:true });
+    toast('همگام‌سازی با تنظیمات فعلی انجام شد');
+  });
+  $('#btn-admin-shop-export')?.addEventListener('click', exportAdminShopConfig);
+  document.querySelectorAll('[data-admin-back]')?.forEach(btn => btn.addEventListener('click', ()=> navTo('dashboard')));
+  $('#admin-keys-list')?.addEventListener('input', (e)=>{
+    const field = e.target.dataset.field;
+    if (!field) return;
+    const card = e.target.closest('[data-index]');
+    if (!card) return;
+    const index = Number(card.dataset.index);
+    const pack = AdminShopState.keysDraft[index];
+    if (!pack) return;
+    if (field === 'label'){
+      pack.label = e.target.value;
+      const title = card.querySelector('[data-title]');
+      if (title){
+        const fallback = pack.label || (pack.amount <= 1 ? 'بسته کوچک' : pack.amount <= 3 ? 'بسته اقتصادی' : 'بسته ویژه');
+        title.textContent = fallback;
+      }
+    } else if (field === 'id'){
+      pack.id = e.target.value.trim();
+      const subtitle = card.querySelector('[data-subtitle]');
+      if (subtitle) subtitle.textContent = `شناسه: ${pack.id || '—'}`;
+    } else if (field === 'amount' || field === 'priceGame'){
+      const numeric = Math.max(0, Number(e.target.value) || 0);
+      pack[field] = numeric;
+      const unit = card.querySelector('[data-unit]');
+      if (unit){
+        const ratio = pack.amount > 0 ? (pack.priceGame / pack.amount) : 0;
+        unit.textContent = ratio ? formatFaDecimal(ratio, 1) : '۰';
+      }
+      const preview = card.querySelector('[data-preview]');
+      if (preview) preview.textContent = `${faNum(pack.amount || 0)} کلید • ${faNum(pack.priceGame || 0)} سکه`;
+      const title = card.querySelector('[data-title]');
+      if (title){
+        const fallback = pack.label || (pack.amount <= 1 ? 'بسته کوچک' : pack.amount <= 3 ? 'بسته اقتصادی' : 'بسته ویژه');
+        title.textContent = fallback;
+      }
+    }
+    markAdminShopDirty();
+  });
+  $('#admin-keys-list')?.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-action="delete-key"]');
+    if (!btn) return;
+    const card = btn.closest('[data-index]');
+    if (!card) return;
+    if (AdminShopState.keysDraft.length <= 1){ toast('حداقل یک بسته باید فعال بماند'); return; }
+    const index = Number(card.dataset.index);
+    AdminShopState.keysDraft.splice(index, 1);
+    markAdminShopDirty();
+    renderAdminShop();
+  });
+  $('#admin-coins-list')?.addEventListener('input', (e)=>{
+    const field = e.target.dataset.field;
+    if (!field) return;
+    const card = e.target.closest('[data-index]');
+    if (!card) return;
+    const index = Number(card.dataset.index);
+    const pack = AdminShopState.coinsDraft[index];
+    if (!pack) return;
+    if (field === 'id'){
+      pack.id = e.target.value.trim();
+      const subtitle = card.querySelector('[data-subtitle]');
+      if (subtitle) subtitle.textContent = `شناسه: ${pack.id || '—'}`;
+    } else if (field === 'amount' || field === 'bonus' || field === 'priceToman'){
+      const numeric = Math.max(0, Number(e.target.value) || 0);
+      pack[field] = numeric;
+      const received = pack.amount + Math.floor(pack.amount * pack.bonus / 100);
+      const receivedEl = card.querySelector('[data-received]');
+      if (receivedEl) receivedEl.textContent = faNum(received);
+      const valueEl = card.querySelector('[data-value]');
+      const efficiency = pack.priceToman > 0 ? (received / pack.priceToman) * 1000 : 0;
+      if (valueEl) valueEl.textContent = efficiency ? formatFaDecimal(efficiency, 2) : '۰';
+      const title = card.querySelector('[data-title]');
+      if (title) title.textContent = `بسته ${faNum(pack.amount)} سکه`;
+    }
+    markAdminShopDirty();
+  });
+  $('#admin-coins-list')?.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-action="delete-coin"]');
+    if (!btn) return;
+    const card = btn.closest('[data-index]');
+    if (!card) return;
+    if (AdminShopState.coinsDraft.length <= 1){ toast('حداقل یک بستهٔ سکه لازم است'); return; }
+    const index = Number(card.dataset.index);
+    AdminShopState.coinsDraft.splice(index, 1);
+    markAdminShopDirty();
+    renderAdminShop();
+  });
+  $('#admin-usd-rate')?.addEventListener('input', (e)=>{
+    AdminShopState.usdToToman = Math.max(0, Number(e.target.value) || 0);
+    markAdminShopDirty();
+  });
+  $('#admin-vip-lite')?.addEventListener('input', (e)=>{
+    AdminShopState.vipDraft.lite = Math.max(0, Number(e.target.value) || 0);
+    markAdminShopDirty();
+  });
+  $('#admin-vip-pro')?.addEventListener('input', (e)=>{
+    AdminShopState.vipDraft.pro = Math.max(0, Number(e.target.value) || 0);
+    markAdminShopDirty();
+  });
   $('#btn-settings')?.addEventListener('click', ()=>{
     $('#set-sound').checked = !!State.settings.sound;
     $('#set-haptics').checked = !!State.settings.haptics;
     $('#set-block-duels').checked = !!State.settings.blockDuels;
     $('#set-theme').checked = (State.theme==='night');
+    refreshAdminSettingsUI();
     openModal('#modal-settings');
   });
   $('#btn-theme')?.addEventListener('click', ()=>{
@@ -6319,7 +7196,11 @@ function leaveGroup(groupId) {
 async function init(){
     try{
       applyExpiredDuelPenalties({ skipRender: true });
-      renderHeader(); renderDashboard(); navTo('dashboard');
+      renderHeader();
+      renderDashboard();
+      updateVipPricesDisplay();
+      setAdminMode(State.adminMode, { silent:true, persist:false, force:true });
+      navTo('dashboard');
 
       if(!State.user.province){
         const sel = $('#first-province');
