@@ -3999,8 +3999,15 @@ function isUserInGroup() {
 
   updateLifelineStates();
   
+  const NAV_PAGES=['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support','question-lab'];
+  const NAV_PAGE_SET=new Set(NAV_PAGES);
+
   function navTo(page){
-    ['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support','question-lab'].forEach(p=>$('#page-'+p)?.classList.add('hidden'));
+    if(!NAV_PAGE_SET.has(page)){
+      console.warn(`[navTo] Unknown page target: ${page}`);
+      return;
+    }
+    NAV_PAGES.forEach(p=>$('#page-'+p)?.classList.add('hidden'));
     $('#page-'+page)?.classList.remove('hidden'); $('#page-'+page)?.classList.add('fade-in');
     $$('nav [data-tab]').forEach(b=>{ b.classList.toggle('bg-white/10', b.dataset.tab===page); b.classList.toggle('active', b.dataset.tab===page); });
     if(page==='dashboard') { renderDashboard(); AdManager.renderNative('#ad-native-dashboard'); }
@@ -5848,9 +5855,16 @@ async function startPurchaseCoins(pkgId){
     if (!btn) return;
     buy(btn.dataset.buy);
   });
-  $$('nav [data-tab]').forEach(b=> b.addEventListener('click', e=>{
-    const tab=e.currentTarget.dataset.tab; if(tab==='quiz'){ openSetupSheet(); } else navTo(tab);
-  }));
+  document.addEventListener('click', event=>{
+    const trigger=event.target.closest('[data-tab]');
+    if(!trigger) return;
+    if(trigger.classList.contains('leaderboard-tab') || trigger.classList.contains('support-tab')) return;
+    const tab=trigger.dataset.tab;
+    if(!tab || !NAV_PAGE_SET.has(tab)) return;
+    event.preventDefault();
+    if(tab==='quiz'){ openSetupSheet(); }
+    else{ navTo(tab); }
+  });
   $('#btn-settings')?.addEventListener('click', ()=>{
     $('#set-sound').checked = !!State.settings.sound;
     $('#set-haptics').checked = !!State.settings.haptics;
