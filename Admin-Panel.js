@@ -288,6 +288,36 @@ const adsState = {
 
 let adsSearchDebounce;
 
+const userFilterRoleSelect = $('#user-filter-role');
+const userFilterStatusSelect = $('#user-filter-status');
+const userFilterSearchInput = $('#user-filter-search');
+const userFilterSortSelect = $('#user-filter-sort');
+const userFilterProvinceSelect = $('#user-filter-province');
+const usersTableBody = $('#users-tbody');
+const addUserUsernameInput = $('#add-user-username');
+const addUserEmailInput = $('#add-user-email');
+const addUserPasswordInput = $('#add-user-password');
+const addUserRoleSelect = $('#add-user-role');
+const addUserProvinceSelect = $('#add-user-province');
+
+const usersState = {
+  filters: {
+    role: userFilterRoleSelect ? userFilterRoleSelect.value : '',
+    status: userFilterStatusSelect ? userFilterStatusSelect.value : '',
+    province: userFilterProvinceSelect ? userFilterProvinceSelect.value : '',
+    sort: userFilterSortSelect ? userFilterSortSelect.value || 'newest' : 'newest',
+    search: userFilterSearchInput ? userFilterSearchInput.value.trim() : ''
+  },
+  pagination: {
+    page: 1,
+    limit: 50
+  },
+  provinces: [],
+  provincesPromise: null
+};
+
+let userSearchDebounce;
+
 function sanitizeProviderList(list) {
   const fallbackMap = new Map(DEFAULT_TRIVIA_PROVIDERS.map((provider) => [provider.id, provider]));
   if (!Array.isArray(list) || list.length === 0) {
@@ -2953,42 +2983,349 @@ async function loadQuestions(overrides = {}) {
   }
 }
 
-async function loadUsers() {
+const USER_ROLE_META = {
+  user:  { label: 'عادی', badge: 'badge-info' },
+  vip:   { label: 'VIP', badge: 'badge-warning' },
+  admin: { label: 'ادمین', badge: 'badge-danger' }
+};
+
+const USER_STATUS_META = {
+  active:  { label: 'فعال', badge: 'badge-success' },
+  pending: { label: 'در حال بررسی', badge: 'badge-warning' },
+  blocked: { label: 'مسدود شده', badge: 'badge-danger' }
+};
+
+function normalizeProvinceName(value) {
+  if (typeof value === 'string') return value.trim();
+  if (value && typeof value.name === 'string') return value.name.trim();
+  return '';
+}
+
+async function fetchProvinceListForUsers() {
+  if (Array.isArray(usersState.provinces) && usersState.provinces.length) {
+    return usersState.provinces;
+  }
+
+  if (usersState.provincesPromise) {
+    return usersState.provincesPromise;
+  }
+
+  if (Array.isArray(adsState?.provinces) && adsState.provinces.length) {
+    usersState.provinces = [...adsState.provinces];
+    return usersState.provinces;
+  }
+
+  usersState.provincesPromise = fetch('/api/public/provinces', { cache: 'no-store' })
+    .then((res) => res.json())
+    .then((data) => {
+      const names = Array.isArray(data)
+        ? data.map((item) => normalizeProvinceName(item)).filter(Boolean)
+        : [];
+      const unique = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, 'fa'));
+      usersState.provinces = unique;
+      if (Array.isArray(adsState?.provinces) && !adsState.provinces.length) {
+        adsState.provinces = unique.slice();
+      }
+      return unique;
+    })
+    .catch((error) => {
+      console.warn('Failed to load provinces for user management', error);
+      usersState.provinces = [];
+      throw error;
+    })
+    .finally(() => {
+      usersState.provincesPromise = null;
+    });
+
+  return usersState.provincesPromise;
+}
+
+function populateUserProvinceSelect(select, provinces, placeholder) {
+  if (!select) return;
+  const previousValue = select.value;
+  select.innerHTML = '';
+
+  if (typeof placeholder === 'string') {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = placeholder;
+    select.appendChild(option);
+  }
+
+  provinces.forEach((province) => {
+    const option = document.createElement('option');
+    option.value = province;
+    option.textContent = province;
+    select.appendChild(option);
+  });
+
+  if (previousValue && provinces.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    select.value = '';
+  }
+}
+
+async function initializeUserProvinceOptions() {
+  const selects = [];
+  if (userFilterProvinceSelect) {
+    selects.push({ element: userFilterProvinceSelect, placeholder: 'همه استان‌ها' });
+  }
+  if (addUserProvinceSelect) {
+    selects.push({ element: addUserProvinceSelect, placeholder: 'انتخاب استان (اختیاری)' });
+  }
+  if (!selects.length) return;
+
+  const resetToPlaceholder = () => {
+    selects.forEach(({ element, placeholder }) => {
+      if (!element) return;
+      populateUserProvinceSelect(element, [], placeholder);
+      element.disabled = false;
+    });
+  };
+
+  selects.forEach(({ element, placeholder }) => {
+    if (!element) return;
+    populateUserProvinceSelect(element, [], placeholder);
+    element.disabled = true;
+  });
+
   try {
-    const u = await api('/users?limit=50');
-    const tbody = $('#users-tbody');
-    tbody.innerHTML = u.data.map(item => `
-      <tr>
-        <td>
-          <div class="flex items-center gap-2">
-            <img src="https://i.pravatar.cc/40?u=${item._id}" class="w-8 h-8 rounded-full" alt="user">
-            <span>${item.username}</span>
-          </div>
-        </td>
-        <td>${item.email}</td>
-        <td>${(item.score || 0).toLocaleString('fa-IR')}</td>
-        <td>${(item.coins || 0).toLocaleString('fa-IR')}</td>
-        <td><span class="badge ${item.role==='vip'?'badge-warning':item.role==='admin'?'badge-danger':'badge-info'}">${item.role==='vip'?'VIP':item.role==='admin'?'ادمین':'عادی'}</span></td>
-        <td><span class="badge ${item.status==='active'?'badge-success':item.status==='pending'?'badge-warning':'badge-danger'}">${item.status==='active'?'فعال':item.status==='pending'?'در حال بررسی':'مسدود'}</span></td>
-        <td>
-          <div class="flex gap-2">
-            <button class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center" data-edit-u="${item._id}">
-              <i class="fas fa-edit text-blue-400"></i>
-            </button>
-            <button class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center" data-del-u="${item._id}">
-              <i class="fas fa-ban text-red-400"></i>
-            </button>
+    const provinces = await fetchProvinceListForUsers();
+    selects.forEach(({ element, placeholder }) => {
+      if (!element) return;
+      populateUserProvinceSelect(element, provinces, placeholder);
+      element.disabled = false;
+    });
+  } catch (error) {
+    resetToPlaceholder();
+  }
+}
+
+async function loadUsers(showLoading = true) {
+  if (!usersTableBody) return;
+
+  if (!getToken()) {
+    usersTableBody.innerHTML = `
+      <tr class="empty-row">
+        <td colspan="8">
+          <div class="empty-state">
+            <i class="fas fa-lock"></i>
+            <p>برای مشاهده کاربران ابتدا وارد شوید</p>
           </div>
         </td>
       </tr>
-    `).join('');
-    tbody.addEventListener('click', async (e) => {
-      const id = e.target.closest('button')?.dataset?.delU;
-      if (!id) return;
-      if (!confirm('حذف کاربر؟')) return;
-      try { await api(`/users/${id}`, { method:'DELETE' }); showToast('حذف شد','success'); loadUsers(); } catch (err){ showToast(err.message,'error'); }
+    `;
+    return;
+  }
+
+  if (showLoading) {
+    usersTableBody.innerHTML = `
+      <tr class="loading-row">
+        <td colspan="8">
+          <div class="loading-state">
+            <span class="loading-spinner"></span>
+            <p>در حال بارگذاری کاربران...</p>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  const params = new URLSearchParams();
+  const limit = Math.max(1, Number(usersState.pagination.limit) || 50);
+  const page = Math.max(1, Number(usersState.pagination.page) || 1);
+  params.set('limit', String(limit));
+  params.set('page', String(page));
+
+  const role = (usersState.filters.role || '').trim();
+  if (role) params.set('role', role);
+
+  const status = (usersState.filters.status || '').trim();
+  if (status) params.set('status', status);
+
+  const province = (usersState.filters.province || '').trim();
+  if (province) params.set('province', province);
+
+  const sort = (usersState.filters.sort || 'newest').trim();
+  params.set('sort', sort === 'oldest' ? 'oldest' : 'newest');
+
+  const search = (usersState.filters.search || '').trim();
+  if (search) params.set('q', search);
+
+  try {
+    const response = await api(`/users?${params.toString()}`);
+    const list = Array.isArray(response?.data) ? response.data : [];
+
+    if (!list.length) {
+      usersTableBody.innerHTML = `
+        <tr class="empty-row">
+          <td colspan="8">
+            <div class="empty-state">
+              <i class="fas fa-users-slash"></i>
+              <p>کاربری با فیلتر فعلی یافت نشد</p>
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    usersTableBody.innerHTML = list
+      .map((item = {}) => {
+        const idRaw = typeof item._id === 'string' ? item._id : '';
+        const usernameRaw = typeof item.username === 'string' ? item.username : '';
+        const emailRaw = typeof item.email === 'string' ? item.email : '';
+        const provinceRaw = typeof item.province === 'string' ? item.province.trim() : '';
+        const username = usernameRaw ? escapeHtml(usernameRaw) : '—';
+        const email = emailRaw ? escapeHtml(emailRaw) : '—';
+        const provinceLabel = provinceRaw ? escapeHtml(provinceRaw) : '—';
+        const score = formatNumberFa(item.score || 0);
+        const coins = formatNumberFa(item.coins || 0);
+        const roleMeta = USER_ROLE_META[item.role] || USER_ROLE_META.user;
+        const statusMeta = USER_STATUS_META[item.status] || { label: 'نامشخص', badge: 'badge-info' };
+        const avatarSeed = idRaw || emailRaw || usernameRaw || 'user';
+        const avatarUrl = `https://i.pravatar.cc/40?u=${encodeURIComponent(avatarSeed)}`;
+        const avatarSrc = escapeHtml(avatarUrl);
+        const idAttr = escapeHtml(idRaw);
+
+        return `
+          <tr>
+            <td>
+              <div class="flex items-center gap-2">
+                <img src="${avatarSrc}" class="w-8 h-8 rounded-full" alt="user">
+                <span>${username}</span>
+              </div>
+            </td>
+            <td>${email}</td>
+            <td>${provinceLabel}</td>
+            <td>${score}</td>
+            <td>${coins}</td>
+            <td><span class="badge ${roleMeta.badge}">${roleMeta.label}</span></td>
+            <td><span class="badge ${statusMeta.badge}">${statusMeta.label}</span></td>
+            <td>
+              <div class="flex gap-2">
+                <button class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center" data-edit-u="${idAttr}">
+                  <i class="fas fa-edit text-blue-400"></i>
+                </button>
+                <button class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center" data-del-u="${idAttr}">
+                  <i class="fas fa-ban text-red-400"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  } catch (error) {
+    console.error('Failed to load users', error);
+    usersTableBody.innerHTML = `
+      <tr class="empty-row">
+        <td colspan="8">
+          <div class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>${escapeHtml(error.message || 'مشکل در دریافت کاربران')}</p>
+          </div>
+        </td>
+      </tr>
+    `;
+    showToast(error.message || 'مشکل در دریافت کاربران', 'error');
+  }
+}
+
+function setupUserManagement() {
+  if (userFilterRoleSelect) {
+    userFilterRoleSelect.value = usersState.filters.role || '';
+  }
+
+  if (userFilterRoleSelect) {
+    userFilterRoleSelect.addEventListener('change', () => {
+      usersState.filters.role = userFilterRoleSelect.value || '';
+      usersState.pagination.page = 1;
+      if (!getToken()) return;
+      loadUsers();
     });
-  } catch (e) { showToast('مشکل در دریافت کاربران','error'); }
+  }
+
+  if (userFilterStatusSelect) {
+    userFilterStatusSelect.value = usersState.filters.status || '';
+  }
+
+  if (userFilterStatusSelect) {
+    userFilterStatusSelect.addEventListener('change', () => {
+      usersState.filters.status = userFilterStatusSelect.value || '';
+      usersState.pagination.page = 1;
+      if (!getToken()) return;
+      loadUsers();
+    });
+  }
+
+  if (userFilterProvinceSelect) {
+    userFilterProvinceSelect.value = usersState.filters.province || '';
+  }
+
+  if (userFilterProvinceSelect) {
+    userFilterProvinceSelect.addEventListener('change', () => {
+      usersState.filters.province = userFilterProvinceSelect.value || '';
+      usersState.pagination.page = 1;
+      if (!getToken()) return;
+      loadUsers();
+    });
+  }
+
+  if (userFilterSortSelect) {
+    userFilterSortSelect.value = usersState.filters.sort || 'newest';
+  }
+
+  if (userFilterSortSelect) {
+    userFilterSortSelect.addEventListener('change', () => {
+      const value = userFilterSortSelect.value || 'newest';
+      usersState.filters.sort = value;
+      usersState.pagination.page = 1;
+      if (!getToken()) return;
+      loadUsers();
+    });
+  }
+
+  if (userFilterSearchInput) {
+    userFilterSearchInput.value = usersState.filters.search || '';
+  }
+
+  if (userFilterSearchInput) {
+    userFilterSearchInput.addEventListener('input', () => {
+      const value = userFilterSearchInput.value || '';
+      clearTimeout(userSearchDebounce);
+      userSearchDebounce = setTimeout(() => {
+        usersState.filters.search = value.trim();
+        usersState.pagination.page = 1;
+        if (!getToken()) return;
+        loadUsers(false);
+      }, 300);
+    });
+  }
+
+  if (usersTableBody) {
+    usersTableBody.addEventListener('click', async (event) => {
+      const deleteBtn = event.target.closest('[data-del-u]');
+      if (!deleteBtn) return;
+      const id = deleteBtn.dataset.delU;
+      if (!id) return;
+      if (!getToken()) {
+        showToast('برای مدیریت کاربران ابتدا وارد شوید', 'warning');
+        return;
+      }
+      if (!confirm('حذف کاربر؟')) return;
+      try {
+        await api(`/users/${id}`, { method: 'DELETE' });
+        showToast('کاربر حذف شد', 'success');
+        loadUsers();
+      } catch (error) {
+        showToast(error.message || 'حذف کاربر ناموفق بود', 'error');
+      }
+    });
+  }
+
+  initializeUserProvinceOptions();
 }
 
 if (filterCategorySelect) {
@@ -3375,19 +3712,33 @@ if (saveCategoryBtn) {
 }
 
 $('#save-user-btn').addEventListener('click', async () => {
-  const m = $('#add-user-modal');
-  const username = m.querySelector('input[type="text"]').value.trim();
-  const email = m.querySelector('input[type="email"]').value.trim();
-  const password = m.querySelector('input[type="password"]').value.trim();
-  const roleFa = m.querySelector('select').value;
-  const role = roleFa === 'VIP' ? 'vip' : roleFa === 'مدیر' ? 'admin' : 'user';
-  if (!username || !email || !password) return showToast('ورودی‌ها کامل نیست','warning');
+  const username = addUserUsernameInput ? addUserUsernameInput.value.trim() : '';
+  const email = addUserEmailInput ? addUserEmailInput.value.trim() : '';
+  const password = addUserPasswordInput ? addUserPasswordInput.value.trim() : '';
+  const role = addUserRoleSelect ? (addUserRoleSelect.value || 'user') : 'user';
+  const province = addUserProvinceSelect ? addUserProvinceSelect.value.trim() : '';
+
+  if (!username || !email || !password) {
+    showToast('ورودی‌ها کامل نیست', 'warning');
+    return;
+  }
+
+  const payload = { username, email, password, role };
+  if (province) payload.province = province;
+
   try {
-    await api('/users', { method:'POST', body: JSON.stringify({ username, email, password, role }) });
-    showToast('کاربر ذخیره شد','success');
+    await api('/users', { method: 'POST', body: JSON.stringify(payload) });
+    showToast('کاربر ذخیره شد', 'success');
     closeModal('#add-user-modal');
+    if (addUserUsernameInput) addUserUsernameInput.value = '';
+    if (addUserEmailInput) addUserEmailInput.value = '';
+    if (addUserPasswordInput) addUserPasswordInput.value = '';
+    if (addUserRoleSelect) addUserRoleSelect.value = 'user';
+    if (addUserProvinceSelect) addUserProvinceSelect.value = '';
     loadUsers();
-  } catch (e) { showToast(e.message,'error'); }
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
 });
 
 $('#save-achievement-btn').addEventListener('click', async () => {
@@ -3804,6 +4155,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+setupUserManagement();
 setupShopControls();
 renderTriviaProviders();
 updateProviderInfoDisplay();

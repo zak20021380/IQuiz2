@@ -1961,28 +1961,41 @@
 
         <!-- Filters -->
         <div class="glass rounded-2xl p-4">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label class="block text-sm mb-1">نوع کاربر</label>
-              <select class="form-select">
-                <option>همه کاربران</option>
-                <option>کاربران عادی</option>
-                <option>کاربران VIP</option>
-                <option>مدیران</option>
+              <select id="user-filter-role" class="form-select">
+                <option value="">همه کاربران</option>
+                <option value="user">کاربران عادی</option>
+                <option value="vip">کاربران VIP</option>
+                <option value="admin">مدیران</option>
               </select>
             </div>
             <div>
               <label class="block text-sm mb-1">وضعیت</label>
-              <select class="form-select">
-                <option>همه وضعیت‌ها</option>
-                <option>فعال</option>
-                <option>مسدود شده</option>
-                <option>در حال بررسی</option>
+              <select id="user-filter-status" class="form-select">
+                <option value="">همه وضعیت‌ها</option>
+                <option value="active">فعال</option>
+                <option value="pending">در حال بررسی</option>
+                <option value="blocked">مسدود شده</option>
               </select>
             </div>
             <div>
+              <label class="block text-sm mb-1">استان</label>
+              <select id="user-filter-province" class="form-select">
+                <option value="">همه استان‌ها</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">ترتیب نمایش</label>
+              <select id="user-filter-sort" class="form-select">
+                <option value="newest">جدیدترین کاربران</option>
+                <option value="oldest">قدیمی‌ترین کاربران</option>
+              </select>
+            </div>
+            <div class="md:col-span-2 lg:col-span-4">
               <label class="block text-sm mb-1">جستجو</label>
-              <input type="text" placeholder="جستجوی کاربر..." class="form-input">
+              <input id="user-filter-search" type="text" placeholder="جستجوی کاربر..." class="form-input">
             </div>
           </div>
         </div>
@@ -1995,6 +2008,7 @@
                 <tr>
                   <th>نام کاربری</th>
                   <th>ایمیل</th>
+                  <th>استان</th>
                   <th>امتیاز</th>
                   <th>سکه</th>
                   <th>نوع کاربر</th>
@@ -2011,6 +2025,7 @@
                     </div>
                   </td>
                   <td>zaki@example.com</td>
+                  <td>تهران</td>
                   <td>۲,۴۵۰</td>
                   <td>۱۲۰</td>
                   <td><span class="badge badge-warning">VIP</span></td>
@@ -2034,6 +2049,7 @@
                     </div>
                   </td>
                   <td>sara@example.com</td>
+                  <td>اصفهان</td>
                   <td>۱,۸۹۰</td>
                   <td>۸۵</td>
                   <td><span class="badge badge-info">عادی</span></td>
@@ -2057,6 +2073,7 @@
                     </div>
                   </td>
                   <td>reza@example.com</td>
+                  <td>البرز</td>
                   <td>۳,۲۱۰</td>
                   <td>۲۰۰</td>
                   <td><span class="badge badge-warning">VIP</span></td>
@@ -2080,6 +2097,7 @@
                     </div>
                   </td>
                   <td>maryam@example.com</td>
+                  <td>خراسان رضوی</td>
                   <td>۹۸۰</td>
                   <td>۴۵</td>
                   <td><span class="badge badge-info">عادی</span></td>
@@ -2103,6 +2121,7 @@
                     </div>
                   </td>
                   <td>amir@example.com</td>
+                  <td>آذربایجان شرقی</td>
                   <td>۱,۵۶۰</td>
                   <td>۷۰</td>
                   <td><span class="badge badge-info">عادی</span></td>
@@ -3745,22 +3764,28 @@
       <div class="space-y-4">
         <div>
           <label class="block text-sm mb-1">نام کاربری</label>
-          <input type="text" class="form-input" placeholder="نام کاربری را وارد کنید...">
+          <input id="add-user-username" type="text" class="form-input" placeholder="نام کاربری را وارد کنید...">
         </div>
         <div>
           <label class="block text-sm mb-1">ایمیل</label>
-          <input type="email" class="form-input" placeholder="ایمیل را وارد کنید...">
+          <input id="add-user-email" type="email" class="form-input" placeholder="ایمیل را وارد کنید...">
         </div>
         <div>
           <label class="block text-sm mb-1">رمز عبور</label>
-          <input type="password" class="form-input" placeholder="رمز عبور را وارد کنید...">
+          <input id="add-user-password" type="password" class="form-input" placeholder="رمز عبور را وارد کنید...">
         </div>
         <div>
           <label class="block text-sm mb-1">نوع کاربر</label>
-          <select class="form-select">
-            <option>عادی</option>
-            <option>VIP</option>
-            <option>مدیر</option>
+          <select id="add-user-role" class="form-select">
+            <option value="user">عادی</option>
+            <option value="vip">VIP</option>
+            <option value="admin">مدیر</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm mb-1">استان (اختیاری)</label>
+          <select id="add-user-province" class="form-select">
+            <option value="">انتخاب استان (اختیاری)</option>
           </select>
         </div>
         <div class="flex gap-3">
