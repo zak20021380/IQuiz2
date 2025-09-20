@@ -198,6 +198,7 @@ const adRewardAmountInput = $('#ad-reward-amount');
 const adProvinceOptionsEl = $('#ad-province-options');
 const adSubmitBtn = $('#ad-submit-btn');
 const adSubmitBtnDefault = adSubmitBtn ? adSubmitBtn.innerHTML : '';
+const adModalScroll = adForm ? adForm.querySelector('.ad-modal-scroll') : null;
 const adModalHelperCreative = adModal ? adModal.querySelector('[data-ad-helper="creative"]') : null;
 const adModalSections = adModal ? Array.from(adModal.querySelectorAll('[data-show-placements]')) : [];
 
@@ -1057,6 +1058,7 @@ function resetAdForm() {
   if (adModal) adModal.dataset.selectedProvinces = '[]';
   renderAdProvinceOptions([]);
   updateAdPlacementFields(adPlacementSelect ? adPlacementSelect.value : 'banner');
+  if (adModalScroll) adModalScroll.scrollTop = 0;
 }
 
 function updateAdPlacementFields(placement) {
@@ -1185,6 +1187,7 @@ function openAdModal(mode = 'create', ad = null) {
   }
   updateAdPlacementFields(adPlacementSelect ? adPlacementSelect.value : 'banner');
   openModal('#ad-modal');
+  if (adModalScroll) adModalScroll.scrollTop = 0;
 }
 
 function handleAdEdit(adId) {
