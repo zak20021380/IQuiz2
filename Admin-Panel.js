@@ -202,6 +202,31 @@ const adModalScroll = adForm ? adForm.querySelector('.ad-modal-scroll') : null;
 const adModalHelperCreative = adModal ? adModal.querySelector('[data-ad-helper="creative"]') : null;
 const adModalSections = adModal ? Array.from(adModal.querySelectorAll('[data-show-placements]')) : [];
 
+const shopSettingsPage = $('#page-shop-settings');
+const shopGlobalToggle = $('#shop-enable-toggle');
+const shopStatusChip = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-status-chip]') : null;
+const shopStatusLabel = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-status-label]') : null;
+const shopLastUpdateEl = shopSettingsPage ? shopSettingsPage.querySelector('#shop-last-update') : null;
+const shopMetricElements = {
+  activeSections: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-metric="activeSections"]') : null,
+  packages: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-metric="packages"]') : null,
+  vipPlans: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-metric="vipPlans"]') : null
+};
+const shopLockableSections = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-lockable]')) : [];
+const shopSectionToggles = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-section-toggle]')) : [];
+const shopPackageToggles = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-package-active]')) : [];
+const shopVipToggles = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-vip-active]')) : [];
+const shopHeroPreview = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-hero-preview]') : null;
+const shopHeroThemeSelect = $('#shop-hero-theme');
+const shopHeroLinkInput = $('#shop-hero-cta-link');
+const shopPreviewCta = $('#shop-preview-cta');
+const shopBoundInputs = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-bind-target]')) : [];
+const shopHeroToggle = $('#shop-hero-toggle');
+const shopKeysToggle = $('#shop-keys-toggle');
+const shopWalletToggle = $('#shop-wallet-toggle');
+const shopVipToggle = $('#shop-vip-toggle');
+const shopPromotionsToggle = $('#shop-promotions-toggle');
+
 const questionFilters = {
   category: '',
   difficulty: '',
@@ -3245,6 +3270,375 @@ $('#save-achievement-btn').addEventListener('click', async () => {
   } catch (e) { showToast(e.message,'error'); }
 });
 
+// --------------- SHOP SETTINGS ---------------
+const shopToggleDisableMap = new WeakMap();
+const shopToggleVisibilityMap = new WeakMap();
+const shopState = {
+  enabled: shopGlobalToggle ? shopGlobalToggle.checked : true,
+  initialized: false,
+  lastUpdated: null,
+  metrics: {
+    activeSections: { total: shopSectionToggles.length, active: 0 },
+    packages: { total: shopPackageToggles.length, active: 0 },
+    vipPlans: { total: shopVipToggles.length, active: 0 }
+  }
+};
+
+function parseSelectorList(selectors) {
+  if (typeof selectors !== 'string') return [];
+  return selectors.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function getToggleTargets(toggle) {
+  if (!toggle || !toggle.dataset) return [];
+  if (!toggle.__shopToggleTargets) {
+    const selectors = parseSelectorList(toggle.dataset.toggleTarget || '');
+    toggle.__shopToggleTargets = selectors.flatMap((selector) => Array.from(document.querySelectorAll(selector)));
+  }
+  return toggle.__shopToggleTargets;
+}
+
+function updateDisableBehavior(target, toggle, isChecked) {
+  if (!target) return;
+  if (!shopToggleDisableMap.has(target)) {
+    shopToggleDisableMap.set(target, new Set());
+  }
+  const toggles = shopToggleDisableMap.get(target);
+  if (isChecked) {
+    toggles.delete(toggle);
+  } else {
+    toggles.add(toggle);
+  }
+
+  const shouldDisable = toggles.size > 0;
+  if (target.matches('input, select, textarea, button')) {
+    if (!target.dataset.toggleOriginalDisabled) {
+      target.dataset.toggleOriginalDisabled = target.disabled ? 'true' : 'false';
+    }
+    const originalDisabled = target.dataset.toggleOriginalDisabled === 'true';
+    target.disabled = shouldDisable || originalDisabled;
+  } else {
+    const controls = target.querySelectorAll('input, select, textarea, button');
+    controls.forEach((control) => {
+      if (!control.dataset.toggleOriginalDisabled) {
+        control.dataset.toggleOriginalDisabled = control.disabled ? 'true' : 'false';
+      }
+      const originalDisabled = control.dataset.toggleOriginalDisabled === 'true';
+      control.disabled = shouldDisable || originalDisabled;
+    });
+  }
+
+  if (!target.hasAttribute('data-shop-lockable')) {
+    target.classList.toggle('settings-section-disabled', shouldDisable);
+  }
+  if (shouldDisable) {
+    target.setAttribute('aria-disabled', 'true');
+  } else if (!shopToggleDisableMap.get(target)?.size) {
+    target.removeAttribute('aria-disabled');
+  }
+}
+
+function updateVisibilityBehavior(target, toggle, isChecked) {
+  if (!target) return;
+  if (!shopToggleVisibilityMap.has(target)) {
+    shopToggleVisibilityMap.set(target, new Set());
+  }
+  const toggles = shopToggleVisibilityMap.get(target);
+  if (isChecked) {
+    toggles.delete(toggle);
+  } else {
+    toggles.add(toggle);
+  }
+  const hidden = toggles.size > 0;
+  target.classList.toggle('hidden', hidden);
+  target.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+}
+
+function applyToggleTargets(toggle, isChecked) {
+  if (!toggle) return;
+  const behavior = toggle.dataset.toggleBehavior || 'disable';
+  const targets = getToggleTargets(toggle);
+  targets.forEach((target) => {
+    if (behavior === 'visibility') {
+      updateVisibilityBehavior(target, toggle, isChecked);
+    } else {
+      updateDisableBehavior(target, toggle, isChecked);
+    }
+  });
+}
+
+function updateToggleTexts(toggle, isChecked) {
+  if (!toggle) return;
+  const label = toggle.closest('label');
+  if (label) {
+    const labelText = label.querySelector('[data-toggle-text]');
+    if (labelText) {
+      if (!labelText.dataset.toggleOnText) {
+        labelText.dataset.toggleOnText = toggle.dataset.toggleOn || labelText.textContent || 'روشن';
+      }
+      if (!labelText.dataset.toggleOffText) {
+        labelText.dataset.toggleOffText = toggle.dataset.toggleOff || labelText.textContent || 'خاموش';
+      }
+      labelText.textContent = isChecked ? labelText.dataset.toggleOnText : labelText.dataset.toggleOffText;
+    }
+  }
+
+  const labelTargets = parseSelectorList(toggle.dataset.toggleLabelTarget || '');
+  labelTargets.forEach((selector) => {
+    document.querySelectorAll(selector).forEach((target) => {
+      if (!target) return;
+      if (!target.dataset.toggleOriginalText) {
+        target.dataset.toggleOriginalText = target.textContent.trim();
+      }
+      if (!target.dataset.toggleOnText && toggle.dataset.toggleOn) {
+        target.dataset.toggleOnText = toggle.dataset.toggleOn;
+      }
+      if (!target.dataset.toggleOffText && toggle.dataset.toggleOff) {
+        target.dataset.toggleOffText = toggle.dataset.toggleOff;
+      }
+      const onText = target.dataset.toggleOnText || target.dataset.toggleOriginalText;
+      const offText = target.dataset.toggleOffText || target.dataset.toggleOriginalText;
+      target.textContent = isChecked ? onText : offText;
+    });
+  });
+}
+
+function getSectionToggleForElement(element) {
+  if (!element) return null;
+  const section = element.closest('[data-shop-lockable]');
+  if (!section) return null;
+  return section.querySelector('[data-shop-section-toggle]');
+}
+
+function isShopFeatureActive(element) {
+  if (!shopState.enabled) return false;
+  const sectionToggle = getSectionToggleForElement(element);
+  if (sectionToggle && !sectionToggle.checked) return false;
+  return true;
+}
+
+function updateSectionVisualState() {
+  if (!shopLockableSections.length) return;
+  shopLockableSections.forEach((section) => {
+    const sectionToggle = section.querySelector('[data-shop-section-toggle]');
+    const sectionActive = shopState.enabled && (!sectionToggle || sectionToggle.checked);
+    section.classList.toggle('settings-section-disabled', !sectionActive);
+    section.setAttribute('aria-disabled', sectionActive ? 'false' : 'true');
+  });
+}
+
+function updateShopStatus(isEnabled) {
+  if (shopStatusChip) {
+    shopStatusChip.classList.remove('status-active', 'status-inactive');
+    shopStatusChip.classList.add(isEnabled ? 'status-active' : 'status-inactive');
+    const icon = shopStatusChip.querySelector('i');
+    if (icon) {
+      icon.className = isEnabled ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-minus';
+    }
+  }
+  if (shopStatusLabel) {
+    if (!shopStatusLabel.dataset.toggleOriginalText) {
+      shopStatusLabel.dataset.toggleOriginalText = shopStatusLabel.textContent.trim();
+    }
+    shopStatusLabel.textContent = isEnabled ? 'فروشگاه فعال است' : 'فروشگاه غیرفعال است';
+  }
+}
+
+function formatRatio(active, total) {
+  if (!Number.isFinite(total) || total <= 0) {
+    return formatNumberFa(active);
+  }
+  return `${formatNumberFa(active)} / ${formatNumberFa(total)}`;
+}
+
+function isSectionEnabled(toggle) {
+  if (!shopState.enabled) return false;
+  if (!toggle) return true;
+  return toggle.checked;
+}
+
+function updateShopMetrics() {
+  const sectionsTotal = shopSectionToggles.length;
+  const sectionsActive = shopState.enabled
+    ? shopSectionToggles.filter((toggle) => toggle.checked).length
+    : 0;
+  shopState.metrics.activeSections = { total: sectionsTotal, active: sectionsActive };
+  if (shopMetricElements.activeSections) {
+    shopMetricElements.activeSections.textContent = formatRatio(sectionsActive, sectionsTotal);
+  }
+
+  const packagesTotal = shopPackageToggles.length;
+  const packagesActive = shopState.enabled
+    ? shopPackageToggles.filter((toggle) => toggle.checked && isShopFeatureActive(toggle)).length
+    : 0;
+  shopState.metrics.packages = { total: packagesTotal, active: packagesActive };
+  if (shopMetricElements.packages) {
+    shopMetricElements.packages.textContent = formatRatio(packagesActive, packagesTotal);
+  }
+
+  const vipTotal = shopVipToggles.length;
+  const vipActive = shopState.enabled && isSectionEnabled(shopVipToggle)
+    ? shopVipToggles.filter((toggle) => toggle.checked).length
+    : 0;
+  shopState.metrics.vipPlans = { total: vipTotal, active: vipActive };
+  if (shopMetricElements.vipPlans) {
+    shopMetricElements.vipPlans.textContent = formatRatio(vipActive, vipTotal);
+  }
+}
+
+function updateHeroTheme() {
+  if (!shopHeroPreview || !shopHeroThemeSelect) return;
+  const theme = shopHeroThemeSelect.value || 'sky';
+  shopHeroPreview.dataset.theme = theme;
+}
+
+function updateHeroLink() {
+  if (!shopPreviewCta) return;
+  const linkValue = shopHeroLinkInput ? shopHeroLinkInput.value.trim() : '';
+  shopPreviewCta.setAttribute('href', linkValue || '#');
+}
+
+function updateBoundTargets(input) {
+  if (!input) return;
+  const selectors = parseSelectorList(input.dataset.bindTarget || '');
+  const value = typeof input.value === 'string' ? input.value : String(input.value ?? '');
+  selectors.forEach((selector) => {
+    document.querySelectorAll(selector).forEach((target) => {
+      if (!target) return;
+      if (!target.dataset.shopBindFallback) {
+        target.dataset.shopBindFallback = target.textContent;
+      }
+      const trimmed = value.trim();
+      if (target.id === 'shop-preview-note') {
+        const fallback = target.dataset.shopBindFallback || '';
+        if (trimmed) {
+          target.textContent = trimmed;
+          target.classList.remove('hidden', 'opacity-50');
+          target.setAttribute('aria-hidden', 'false');
+        } else {
+          target.textContent = fallback;
+          target.classList.add('hidden');
+          target.classList.add('opacity-50');
+          target.setAttribute('aria-hidden', 'true');
+        }
+      } else {
+        const placeholder = target.dataset.shopBindPlaceholder || '—';
+        target.textContent = trimmed || placeholder;
+        target.classList.toggle('opacity-50', trimmed.length === 0);
+      }
+    });
+  });
+}
+
+function markShopUpdated() {
+  if (!shopLastUpdateEl) return;
+  const now = new Date();
+  shopState.lastUpdated = now;
+  try {
+    const formatter = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit' });
+    const timeText = formatter.format(now);
+    shopLastUpdateEl.textContent = `لحظاتی پیش (${timeText})`;
+  } catch (error) {
+    shopLastUpdateEl.textContent = 'لحظاتی پیش';
+  }
+}
+
+function initializeShopToggle(toggle) {
+  if (!toggle) return;
+  const isChecked = toggle.checked;
+  toggle.dataset.toggleAppliedState = isChecked ? 'on' : 'off';
+  applyToggleTargets(toggle, isChecked);
+  updateToggleTexts(toggle, isChecked);
+}
+
+function handleShopToggleChange(toggle) {
+  if (!toggle) return;
+  const isChecked = toggle.checked;
+  const previousState = toggle.dataset.toggleAppliedState === 'on';
+  if (previousState === isChecked && shopState.initialized) {
+    updateToggleTexts(toggle, isChecked);
+    return;
+  }
+  toggle.dataset.toggleAppliedState = isChecked ? 'on' : 'off';
+  applyToggleTargets(toggle, isChecked);
+  updateToggleTexts(toggle, isChecked);
+
+  if (toggle === shopGlobalToggle) {
+    shopState.enabled = isChecked;
+    updateShopStatus(isChecked);
+  }
+
+  updateSectionVisualState();
+  updateShopMetrics();
+
+  if (shopState.initialized) {
+    markShopUpdated();
+  }
+}
+
+function handleShopInputEvent(event) {
+  const target = event.target;
+  if (!target || !shopState.initialized) return;
+  if (target.matches('input[type="checkbox"], input[type="radio"]')) return;
+  if (target.hasAttribute('data-bind-target')) return;
+  markShopUpdated();
+}
+
+function setupShopControls() {
+  if (!shopSettingsPage) return;
+
+  const toggles = Array.from(shopSettingsPage.querySelectorAll('input[type="checkbox"]'));
+  toggles.forEach((toggle) => {
+    initializeShopToggle(toggle);
+    toggle.addEventListener('change', () => handleShopToggleChange(toggle));
+  });
+
+  shopBoundInputs.forEach((input) => {
+    updateBoundTargets(input);
+    input.addEventListener('input', (event) => {
+      updateBoundTargets(event.target);
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+    });
+  });
+
+  if (shopHeroThemeSelect) {
+    updateHeroTheme();
+    shopHeroThemeSelect.addEventListener('change', () => {
+      updateHeroTheme();
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+    });
+  }
+
+  if (shopHeroLinkInput) {
+    updateHeroLink();
+    shopHeroLinkInput.addEventListener('input', () => {
+      updateHeroLink();
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+    });
+  }
+
+  shopSettingsPage.addEventListener('input', handleShopInputEvent);
+  shopSettingsPage.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!target || !shopState.initialized) return;
+    if (target.matches('select') && target !== shopHeroThemeSelect) {
+      markShopUpdated();
+    }
+  });
+
+  updateShopStatus(shopState.enabled);
+  updateSectionVisualState();
+  updateShopMetrics();
+
+  shopState.initialized = true;
+}
+
 // --------------- INIT ---------------
 async function loadAllData() {
   await loadTriviaProviders();
@@ -3276,6 +3670,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+setupShopControls();
 renderTriviaProviders();
 updateProviderInfoDisplay();
 updateCategoryCardContent();
