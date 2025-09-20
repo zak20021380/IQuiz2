@@ -63,6 +63,12 @@
       cursor: pointer;
       transform: translateZ(0);
     }
+    .btn[class~="w-auto"] {
+      width: auto;
+    }
+    .btn[class~="w-full"] {
+      width: 100%;
+    }
     .btn:hover{
       transform: scale(1.02);
       box-shadow: 0 16px 40px -18px rgba(15, 23, 42, 0.75);
@@ -298,6 +304,12 @@
       padding: 1rem;
       opacity: 0;
       transition: opacity 0.3s ease;
+      overflow-y: auto;
+    }
+    @media (max-width: 640px) {
+      .modal {
+        align-items: flex-start;
+      }
     }
     .modal.active {
       display: flex;
@@ -306,6 +318,89 @@
     .modal-content {
       transform: translateY(20px);
       transition: transform 0.3s ease;
+    }
+    #ad-modal .modal-content {
+      width: min(100%, 760px);
+      max-height: calc(100vh - 2rem);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 0;
+    }
+    #ad-modal .ad-modal-header {
+      padding: clamp(1.5rem, 3vw, 2rem);
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    #ad-modal .ad-modal-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      padding: clamp(1.5rem, 3vw, 2rem);
+      padding-bottom: 1.75rem;
+      overflow: hidden;
+    }
+    #ad-modal .ad-modal-scroll {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      scrollbar-gutter: stable both-edges;
+    }
+    #ad-modal .ad-modal-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    #ad-modal .ad-modal-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 9999px;
+    }
+    #ad-modal .ad-modal-actions {
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    #ad-modal .ad-modal-actions p {
+      margin: 0;
+    }
+    #ad-modal .ad-modal-actions-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      width: 100%;
+    }
+    #ad-modal .ad-modal-actions-buttons .btn {
+      width: 100%;
+    }
+    @media (min-width: 640px) {
+      #ad-modal .modal-content {
+        border-radius: 1.75rem;
+      }
+      #ad-modal .ad-modal-actions {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      #ad-modal .ad-modal-actions-buttons {
+        flex-direction: row;
+        justify-content: flex-start;
+        width: auto;
+      }
+      #ad-modal .ad-modal-actions-buttons .btn {
+        width: auto;
+        min-width: 140px;
+      }
+    }
+    @media (max-width: 640px) {
+      #ad-modal .modal-content {
+        width: 100%;
+        border-radius: 1.5rem;
+        margin: 1rem 0 1.5rem;
+      }
     }
     .modal.active .modal-content {
       transform: translateY(0);
@@ -2503,106 +2598,108 @@
   </div>
   <!-- Ad Modal -->
   <div id="ad-modal" class="modal">
-    <div class="glass rounded-3xl p-6 max-w-3xl w-full mx-4 modal-content">
-      <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+    <div class="glass rounded-3xl max-w-3xl w-full mx-4 modal-content">
+      <div class="ad-modal-header flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h3 class="text-xl font-extrabold" data-ad-modal-title>ایجاد تبلیغ جدید</h3>
           <p class="text-sm text-white/70" data-ad-modal-description>فرم زیر را تکمیل کنید تا تبلیغ در جایگاه‌های انتخابی نمایش داده شود.</p>
         </div>
-        <button class="close-modal w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+        <button type="button" class="close-modal w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
           <i class="fa-solid fa-times"></i>
         </button>
       </div>
-      <form id="ad-form" class="space-y-5">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm mb-1">نام کمپین</label>
-            <input type="text" id="ad-name" class="form-input" placeholder="مثال: کمپین زمستانه فروشگاه" required>
+      <form id="ad-form" class="ad-modal-body">
+        <div class="ad-modal-scroll">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm mb-1">نام کمپین</label>
+              <input type="text" id="ad-name" class="form-input" placeholder="مثال: کمپین زمستانه فروشگاه" required>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">جایگاه نمایش</label>
+              <select id="ad-placement-select" class="form-select">
+                <option value="banner">بنر ثابت (۳۲۰×۱۰۰)</option>
+                <option value="native">تبلیغ همسان داشبورد</option>
+                <option value="interstitial">تبلیغ میانی تمام‌صفحه</option>
+                <option value="rewarded">ویدیویی پاداش‌دار</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm mb-1">وضعیت کمپین</label>
+              <select id="ad-status" class="form-select">
+                <option value="active">فعال</option>
+                <option value="paused">متوقف</option>
+                <option value="draft">پیش‌نویس</option>
+                <option value="archived">آرشیو</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">اولویت نمایش</label>
+              <input type="number" id="ad-priority" class="form-input" min="0" max="100" value="1">
+              <span class="helper-text">عدد بالاتر یعنی نمایش بیشتر نسبت به سایر کمپین‌ها.</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm mb-1">تاریخ شروع</label>
+              <input type="date" id="ad-start-date" class="form-input" required>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">تاریخ پایان</label>
+              <input type="date" id="ad-end-date" class="form-input" required>
+            </div>
           </div>
           <div>
-            <label class="block text-sm mb-1">جایگاه نمایش</label>
-            <select id="ad-placement-select" class="form-select">
-              <option value="banner">بنر ثابت (۳۲۰×۱۰۰)</option>
-              <option value="native">تبلیغ همسان داشبورد</option>
-              <option value="interstitial">تبلیغ میانی تمام‌صفحه</option>
-              <option value="rewarded">ویدیویی پاداش‌دار</option>
-            </select>
+            <label class="block text-sm mb-1">آدرس رسانه</label>
+            <input type="url" id="ad-creative-url" class="form-input" placeholder="https://example.com/banner.jpg" required>
+            <span class="helper-text" data-ad-helper="creative">برای بنر و همسان تصویر JPG/PNG، برای ویدیویی لینک فایل MP4 و برای میانی لینک صفحه فرود (HTTPS).</span>
+          </div>
+          <div data-show-placements="banner,native,rewarded">
+            <label class="block text-sm mb-1">لینک مقصد</label>
+            <input type="url" id="ad-landing-url" class="form-input" placeholder="https://example.com">
+            <span class="helper-text">کاربر پس از کلیک روی تبلیغ به این آدرس هدایت می‌شود.</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-show-placements="native">
+            <div>
+              <label class="block text-sm mb-1">عنوان تبلیغ همسان</label>
+              <input type="text" id="ad-headline" class="form-input" placeholder="مثال: ۵۰٪ تخفیف فقط امروز">
+            </div>
+            <div>
+              <label class="block text-sm mb-1">متن دکمه</label>
+              <input type="text" id="ad-cta" class="form-input" placeholder="مشاهده" value="مشاهده">
+            </div>
+          </div>
+          <div data-show-placements="native">
+            <label class="block text-sm mb-1">توضیح کوتاه</label>
+            <textarea id="ad-description" class="form-input" rows="2" placeholder="توضیحی درباره پیشنهاد یا برند"></textarea>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-show-placements="rewarded">
+            <div>
+              <label class="block text-sm mb-1">نوع پاداش</label>
+              <select id="ad-reward-type" class="form-select">
+                <option value="coins">سکه</option>
+                <option value="life">جان اضافه</option>
+                <option value="custom">سفارشی</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">مقدار پاداش</label>
+              <input type="number" id="ad-reward-amount" class="form-input" min="1" max="1000" value="20">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm mb-2">استان‌های هدف</label>
+            <div id="ad-province-options" class="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 rounded-2xl bg-white/5 border border-white/10"></div>
+            <span class="helper-text">در صورت عدم انتخاب، تبلیغ در تمام استان‌ها نمایش داده می‌شود.</span>
           </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm mb-1">وضعیت کمپین</label>
-            <select id="ad-status" class="form-select">
-              <option value="active">فعال</option>
-              <option value="paused">متوقف</option>
-              <option value="draft">پیش‌نویس</option>
-              <option value="archived">آرشیو</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm mb-1">اولویت نمایش</label>
-            <input type="number" id="ad-priority" class="form-input" min="0" max="100" value="1">
-            <span class="helper-text">عدد بالاتر یعنی نمایش بیشتر نسبت به سایر کمپین‌ها.</span>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm mb-1">تاریخ شروع</label>
-            <input type="date" id="ad-start-date" class="form-input" required>
-          </div>
-          <div>
-            <label class="block text-sm mb-1">تاریخ پایان</label>
-            <input type="date" id="ad-end-date" class="form-input" required>
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm mb-1">آدرس رسانه</label>
-          <input type="url" id="ad-creative-url" class="form-input" placeholder="https://example.com/banner.jpg" required>
-          <span class="helper-text" data-ad-helper="creative">برای بنر و همسان تصویر JPG/PNG، برای ویدیویی لینک فایل MP4 و برای میانی لینک صفحه فرود (HTTPS).</span>
-        </div>
-        <div data-show-placements="banner,native,rewarded">
-          <label class="block text-sm mb-1">لینک مقصد</label>
-          <input type="url" id="ad-landing-url" class="form-input" placeholder="https://example.com">
-          <span class="helper-text">کاربر پس از کلیک روی تبلیغ به این آدرس هدایت می‌شود.</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-show-placements="native">
-          <div>
-            <label class="block text-sm mb-1">عنوان تبلیغ همسان</label>
-            <input type="text" id="ad-headline" class="form-input" placeholder="مثال: ۵۰٪ تخفیف فقط امروز">
-          </div>
-          <div>
-            <label class="block text-sm mb-1">متن دکمه</label>
-            <input type="text" id="ad-cta" class="form-input" placeholder="مشاهده" value="مشاهده">
-          </div>
-        </div>
-        <div data-show-placements="native">
-          <label class="block text-sm mb-1">توضیح کوتاه</label>
-          <textarea id="ad-description" class="form-input" rows="2" placeholder="توضیحی درباره پیشنهاد یا برند"></textarea>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-show-placements="rewarded">
-          <div>
-            <label class="block text-sm mb-1">نوع پاداش</label>
-            <select id="ad-reward-type" class="form-select">
-              <option value="coins">سکه</option>
-              <option value="life">جان اضافه</option>
-              <option value="custom">سفارشی</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm mb-1">مقدار پاداش</label>
-            <input type="number" id="ad-reward-amount" class="form-input" min="1" max="1000" value="20">
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm mb-2">استان‌های هدف</label>
-          <div id="ad-province-options" class="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 rounded-2xl bg-white/5 border border-white/10"></div>
-          <span class="helper-text">در صورت عدم انتخاب، تبلیغ در تمام استان‌ها نمایش داده می‌شود.</span>
-        </div>
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-xs text-white/60">پس از ذخیره، کمپین در لیست تبلیغات قابل مدیریت است.</p>
-          <div class="flex gap-2">
-            <button type="button" class="btn btn-secondary close-modal">انصراف</button>
-            <button type="submit" id="ad-submit-btn" class="btn btn-primary w-auto px-6">ذخیره تبلیغ</button>
+        <div class="ad-modal-actions safe">
+          <p class="text-xs text-white/60 leading-6">پس از ذخیره، کمپین در لیست تبلیغات قابل مدیریت است.</p>
+          <div class="ad-modal-actions-buttons">
+            <button type="button" class="btn btn-secondary close-modal px-5">انصراف</button>
+            <button type="submit" id="ad-submit-btn" class="btn btn-primary px-6">ذخیره تبلیغ</button>
           </div>
         </div>
       </form>
