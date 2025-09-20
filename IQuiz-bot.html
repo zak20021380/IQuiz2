@@ -356,8 +356,50 @@
     .mission-item.completed{ opacity:0.6 }
     .mission-reward{ font-size:0.8rem; display:flex; align-items:center; gap:0.25rem }
     /* Referral */
-    .referral-code{ background:rgba(255,255,255,0.1); border-radius:0.75rem; padding:0.75rem 1rem; font-family:monospace; font-size:1.1rem; text-align:center; margin:0.5rem 0 }
-    .referral-tier{ display:flex; align-items:center; justify-content:space-between; padding:0.75rem; background:rgba(255,255,255,0.1); border-radius:0.75rem; margin-bottom:0.5rem }
+    .referral-hero{ position:relative; overflow:hidden; display:flex; flex-direction:column; gap:1.5rem; padding:1.75rem; border-radius:1.75rem; background:linear-gradient(145deg, rgba(14,165,233,0.32), rgba(59,130,246,0.28), rgba(16,185,129,0.32)); border:1px solid rgba(255,255,255,0.22); box-shadow:0 24px 60px rgba(15,23,42,0.28); }
+    .referral-hero::before{ content:''; position:absolute; inset:-35% 50% auto auto; width:320px; height:320px; background:radial-gradient(circle at center, rgba(255,255,255,0.55), transparent 65%); opacity:0.7; pointer-events:none; }
+    .referral-hero::after{ content:''; position:absolute; inset:auto -25% -45% auto; width:280px; height:280px; background:radial-gradient(circle at center, rgba(56,189,248,0.25), transparent 70%); opacity:0.6; pointer-events:none; }
+    .referral-hero > *{ position:relative; z-index:1; }
+    .referral-hero-badge{ display:inline-flex; align-items:center; gap:.45rem; padding:.4rem .85rem; border-radius:999px; font-size:.78rem; font-weight:800; background:rgba(15,23,42,0.35); border:1px solid rgba(255,255,255,0.28); box-shadow:0 12px 30px rgba(14,116,144,0.25); }
+    .referral-hero-visual{ display:flex; align-items:center; justify-content:center; text-align:center; padding:1.5rem; }
+    .referral-coin-glow{ position:relative; width:180px; height:180px; border-radius:999px; background:radial-gradient(circle at center, rgba(250,204,21,0.85), rgba(250,204,21,0.35)); display:grid; place-items:center; box-shadow:0 0 40px rgba(250,204,21,0.35),0 25px 45px rgba(15,23,42,0.35); }
+    .referral-coin-glow::after{ content:''; position:absolute; inset:18px; border-radius:999px; border:2px dashed rgba(255,255,255,0.35); opacity:0.8; animation:coinPulse 6s infinite linear; }
+    .referral-coin-value{ position:relative; font-weight:900; font-size:3rem; color:#0f172a; text-shadow:0 6px 16px rgba(250,204,21,0.45); }
+    @keyframes coinPulse{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+    .referral-code-display{ font-family:'Vazirmatn',monospace; font-weight:800; font-size:1.35rem; letter-spacing:.22rem; text-align:center; background:rgba(15,23,42,0.45); border:1px solid rgba(255,255,255,0.3); border-radius:1.25rem; padding:0.85rem 1.2rem; box-shadow:0 12px 28px rgba(15,23,42,0.25); }
+    .referral-condition{ display:flex; align-items:flex-start; gap:.75rem; padding:.9rem 1rem; border-radius:1.25rem; background:rgba(15,23,42,0.48); border:1px dashed rgba(125,211,252,0.4); box-shadow:0 12px 30px rgba(8,47,73,0.25); font-size:.82rem; line-height:1.9; }
+    .referral-condition-icon{ width:42px; height:42px; border-radius:1rem; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, rgba(125,211,252,0.45), rgba(14,165,233,0.65)); color:#0f172a; box-shadow:0 12px 28px rgba(14,116,144,0.28); font-size:1.1rem; }
+    .referral-stat-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; }
+    .referral-stat{ display:flex; align-items:center; gap:.9rem; border-radius:1.25rem; padding:1rem 1.1rem; background:linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05)); border:1px solid rgba(255,255,255,0.18); box-shadow:0 15px 35px rgba(15,23,42,0.22); min-height:96px; }
+    .referral-stat-icon{ width:3rem; height:3rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; background:rgba(15,23,42,0.35); color:#bae6fd; font-size:1.35rem; box-shadow:0 12px 28px rgba(15,23,42,0.25); }
+    .referral-stat-value{ font-size:1.75rem; font-weight:900; letter-spacing:-0.01em; }
+    .referral-stat-sub{ font-size:.75rem; opacity:.8; margin-top:.15rem; }
+    .referral-hint{ margin-top:1.5rem; border-radius:1rem; padding:.85rem 1rem; background:rgba(15,23,42,0.4); border:1px dashed rgba(148,163,184,0.35); font-size:.78rem; line-height:1.8; display:flex; align-items:center; gap:.65rem; flex-wrap:wrap; }
+    .referral-steps{ display:grid; gap:.9rem; }
+    .referral-step{ position:relative; display:flex; gap:.85rem; align-items:flex-start; padding:.9rem 1rem; border-radius:1.1rem; background:rgba(15,23,42,0.38); border:1px solid rgba(255,255,255,0.18); box-shadow:0 12px 30px rgba(15,23,42,0.2); transition:border-color .3s ease, transform .3s ease; }
+    .referral-step:hover{ transform:translateY(-2px); border-color:rgba(125,211,252,0.55); }
+    .referral-step-icon{ width:40px; height:40px; border-radius:1rem; display:flex; align-items:center; justify-content:center; font-weight:800; background:linear-gradient(135deg, rgba(59,130,246,0.9), rgba(14,165,233,0.85)); color:#0f172a; box-shadow:0 10px 24px rgba(14,116,144,0.25); }
+    .referral-step[data-state="active"]{ border-color:rgba(250,204,21,0.55); background:linear-gradient(145deg, rgba(250,204,21,0.16), rgba(59,130,246,0.12)); }
+    .referral-step[data-state="done"]{ border-color:rgba(34,197,94,0.55); background:linear-gradient(145deg, rgba(34,197,94,0.2), rgba(59,130,246,0.12)); }
+    .referral-friend-card{ position:relative; display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.1rem 1.2rem; border-radius:1.25rem; background:linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05)); border:1px solid rgba(255,255,255,0.16); box-shadow:0 18px 40px rgba(15,23,42,0.24); transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+    .referral-friend-card:hover{ transform:translateY(-3px); border-color:rgba(125,211,252,0.5); box-shadow:0 22px 48px rgba(15,23,42,0.3); }
+    .referral-friend-meta{ display:flex; align-items:center; gap:1rem; flex:1; min-width:0; }
+    .referral-friend-avatar{ width:54px; height:54px; border-radius:1.2rem; object-fit:cover; border:2px solid rgba(255,255,255,0.32); box-shadow:0 12px 30px rgba(15,23,42,0.25); }
+    .referral-status{ display:inline-flex; align-items:center; gap:.4rem; padding:.32rem .75rem; border-radius:999px; font-size:.72rem; font-weight:800; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.24); }
+    .referral-status[data-state="completed"]{ background:rgba(34,197,94,0.25); border-color:rgba(34,197,94,0.45); color:#bbf7d0; }
+    .referral-status[data-state="awaiting_quiz"]{ background:rgba(250,204,21,0.22); border-color:rgba(250,204,21,0.45); color:#fef9c3; }
+    .referral-status[data-state="awaiting_start"]{ background:rgba(125,211,252,0.22); border-color:rgba(125,211,252,0.45); color:#e0f2fe; }
+    .referral-reward{ display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .85rem; border-radius:999px; font-weight:800; font-size:.85rem; border:1px solid rgba(255,255,255,0.25); background:rgba(15,23,42,0.35); }
+    .referral-reward[data-earned="true"]{ background:rgba(34,197,94,0.25); border-color:rgba(34,197,94,0.45); color:#bbf7d0; box-shadow:0 12px 30px rgba(16,185,129,0.3); }
+    .referral-reward[data-earned="false"]{ background:rgba(59,130,246,0.2); border-color:rgba(59,130,246,0.45); color:#bfdbfe; }
+    .referral-friend-badges{ display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.45rem; }
+    .referral-empty{ border-radius:1.25rem; border:1px dashed rgba(255,255,255,0.35); padding:1.5rem; text-align:center; background:rgba(15,23,42,0.35); box-shadow:0 18px 40px rgba(15,23,42,0.22); display:grid; gap:1rem; place-items:center; }
+    .referral-empty-icon{ width:70px; height:70px; border-radius:1.5rem; display:flex; align-items:center; justify-content:center; background:rgba(59,130,246,0.25); color:#e0f2fe; font-size:1.8rem; box-shadow:0 14px 36px rgba(15,23,42,0.28); }
+    .referral-tips{ display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+    .referral-tip-card{ border-radius:1.25rem; padding:1rem 1.1rem; background:rgba(15,23,42,0.38); border:1px solid rgba(255,255,255,0.18); box-shadow:0 15px 35px rgba(15,23,42,0.22); display:flex; align-items:flex-start; gap:.85rem; }
+    .referral-tip-icon{ width:42px; height:42px; border-radius:1rem; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.15); color:#fff; font-size:1.15rem; box-shadow:0 12px 28px rgba(15,23,42,0.22); }
+    @media(min-width:1024px){ .referral-hero{ flex-direction:row; align-items:stretch; } .referral-hero-visual{ width:240px; } }
+    @media(max-width:639px){ .referral-hero{ padding:1.35rem; } .referral-code-display{ font-size:1.15rem; letter-spacing:.18rem; } .referral-stat{ flex-direction:column; align-items:flex-start; } .referral-stat-icon{ width:2.75rem; height:2.75rem; border-radius:.9rem; font-size:1.15rem; } }
     /* Support & Advertisers */
     .form-group{ margin-bottom:1rem }
     .form-label{ display:block; margin-bottom:0.5rem; font-weight:500 }
@@ -1521,83 +1563,198 @@
     
     <!-- REFERRAL -->
     <section id="page-referral" class="hidden space-y-5">
-      <div class="glass rounded-3xl p-6">
-        <h3 class="text-2xl font-extrabold mb-5 flex items-center gap-2">
-          <i class="fas fa-user-plus text-blue-300"></i>
-          <span>دعوت دوستان و کسب جایزه</span>
-        </h3>
-        
-        <div class="text-center mb-6">
-          <div class="text-lg font-bold mb-2">کد دعوت شما</div>
-          <div class="referral-code">QUIZ5F8A2B</div>
-          <button class="btn btn-primary w-full mt-3" id="btn-copy-referral">
-            <i class="fas fa-copy ml-2"></i> کپی کد دعوت
-          </button>
-        </div>
-        
-        <div class="mb-6">
-          <h4 class="font-bold mb-3 flex items-center gap-2">
-            <i class="fas fa-gift text-yellow-300"></i>
-            <span>جایزه‌های دعوت</span>
-          </h4>
-          <div class="space-y-3">
-            <div class="referral-tier">
-              <div>
-                <div class="font-medium">دعوت مستقیم (سطح ۱)</div>
-                <div class="text-xs opacity-70">هر دوست: ۵۰ سکه</div>
-              </div>
-              <div class="text-sm font-bold text-yellow-300">۷ روز اول</div>
+      <div class="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
+        <div class="referral-hero glass">
+          <div class="flex-1 space-y-5">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <span class="referral-hero-badge">
+                <i class="fas fa-coins ml-2"></i>
+                <span id="referral-reward-per-friend">۵</span>
+                <span>سکه برای هر دعوت موفق</span>
+              </span>
+              <span class="chip bg-white/20 text-[0.7rem]"><i class="fas fa-shield-check ml-1"></i> برنامه فعال</span>
             </div>
-            <div class="referral-tier">
-              <div>
-                <div class="font-medium">دعوت غیرمستقیم (سطح ۲)</div>
-                <div class="text-xs opacity-70">هر دوست: ۲۰ سکه</div>
+            <div class="space-y-2">
+              <h3 class="text-3xl font-black leading-snug">باشگاه دعوت حرفه‌ای Quiz WebApp</h3>
+              <p class="text-sm opacity-90 leading-7">
+                دوستان خود را به ربات معرفی کن و پس از اولین مسابقه‌ای که انجام می‌دهند، <strong>۵ سکه طلایی</strong> هدیه بگیر. همه چیز از داخل همین داشبورد قابل ردیابی است.
+              </p>
+            </div>
+            <div class="glass-dark border border-white/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center sm:items-stretch gap-4">
+              <div class="flex-1 text-center sm:text-right space-y-2">
+                <div class="text-xs uppercase tracking-[0.2rem] opacity-70 font-bold">کد اختصاصی شما</div>
+                <div id="referral-code-value" class="referral-code-display">QUIZ5F8A2B</div>
               </div>
-              <div class="text-sm font-bold text-yellow-300">۷ روز اول</div>
+              <button class="btn btn-primary btn-inline" id="btn-copy-referral">
+                <i class="fas fa-copy ml-2"></i> کپی کد
+              </button>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <button class="btn btn-secondary btn-inline" id="btn-share-referral">
+                <i class="fas fa-share-nodes ml-2"></i> اشتراک‌گذاری فوری
+              </button>
+              <button class="btn btn-tertiary btn-inline" type="button" onclick="navTo('duel')">
+                <i class="fas fa-user-friends ml-2"></i> دعوت به نبرد دو نفره
+              </button>
+            </div>
+            <div class="referral-condition">
+              <div class="referral-condition-icon"><i class="fas fa-shield-heart"></i></div>
+              <div>
+                <div class="font-bold text-sm mb-1">شرایط فعال شدن پاداش</div>
+                <p class="opacity-90 text-[0.82rem] leading-7">
+                  سکه‌ها زمانی به حساب شما واریز می‌شوند که دوست دعوت‌شده <strong>ربات را استارت</strong> کند و حداقل <strong>یک مسابقه یا کوییز</strong> را به پایان برساند. وضعیت هر دوست را در لیست زیر دنبال کنید.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div class="mb-6">
-          <h4 class="font-bold mb-3 flex items-center gap-2">
-            <i class="fas fa-users text-green-300"></i>
-            <span>دوستان دعوت شده</span>
-          </h4>
-          <div class="space-y-3">
-            <div class="glass-dark rounded-2xl p-4 flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <img src="https://i.pravatar.cc/50?img=1" class="w-10 h-10 rounded-full border-2 border-white/30" alt="friend">
-                <div>
-                  <div class="font-bold">سارا اکبری</div>
-                  <div class="text-xs opacity-70">۲ روز پیش</div>
-                </div>
-              </div>
-              <div class="text-sm font-bold text-green-300">+۵۰💰</div>
+          <div class="referral-hero-visual hidden lg:flex flex-col gap-4">
+            <div class="referral-coin-glow">
+              <span class="referral-coin-value">+5</span>
             </div>
-            <div class="glass-dark rounded-2xl p-4 flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <img src="https://i.pravatar.cc/50?img=2" class="w-10 h-10 rounded-full border-2 border-white/30" alt="friend">
-                <div>
-                  <div class="font-bold">رضا کریمی</div>
-                  <div class="text-xs opacity-70">۵ روز پیش</div>
-                </div>
-              </div>
-              <div class="text-sm font-bold text-green-300">+۵۰💰</div>
-            </div>
+            <p class="text-xs opacity-90 leading-6 max-w-[220px] mx-auto">
+              هر دعوت موفق معادل ۵ سکه طلایی تازه برای حساب شماست.
+            </p>
           </div>
         </div>
-        
-        <div class="text-center">
-          <button class="btn btn-secondary w-full" id="btn-share-referral">
-            <i class="fas fa-share-nodes ml-2"></i> اشتراک گذاری لینک دعوت
-          </button>
+        <div class="glass rounded-3xl p-6 space-y-5">
+          <div class="flex items-center justify-between gap-3">
+            <h4 class="text-lg font-bold flex items-center gap-2">
+              <i class="fas fa-chart-line text-sky-200"></i>
+              داشبورد عملکرد
+            </h4>
+            <span class="chip bg-white/20 text-[0.7rem]"><i class="fas fa-rotate ml-1"></i> لحظه‌ای</span>
+          </div>
+          <div class="referral-stat-grid">
+            <div class="referral-stat">
+              <div class="referral-stat-icon"><i class="fas fa-paper-plane"></i></div>
+              <div>
+                <div class="referral-stat-label text-sm opacity-80">دعوت‌های ارسال شده</div>
+                <div id="referral-stat-total" class="referral-stat-value">۰</div>
+                <div class="referral-stat-sub">کل دوستان ثبت‌شده</div>
+              </div>
+            </div>
+            <div class="referral-stat">
+              <div class="referral-stat-icon"><i class="fas fa-rocket"></i></div>
+              <div>
+                <div class="referral-stat-label text-sm opacity-80">ربات استارت شده</div>
+                <div id="referral-stat-active" class="referral-stat-value">۰</div>
+                <div class="referral-stat-sub">دعوت‌های در مرحله فعال</div>
+              </div>
+            </div>
+            <div class="referral-stat">
+              <div class="referral-stat-icon"><i class="fas fa-check-circle"></i></div>
+              <div>
+                <div class="referral-stat-label text-sm opacity-80">دعوت‌های موفق</div>
+                <div id="referral-stat-qualified" class="referral-stat-value">۰</div>
+                <div class="referral-stat-sub">پاداش آماده برداشت</div>
+              </div>
+            </div>
+            <div class="referral-stat">
+              <div class="referral-stat-icon"><i class="fas fa-coins"></i></div>
+              <div>
+                <div class="referral-stat-label text-sm opacity-80">سکه‌های آزاد شده</div>
+                <div class="referral-stat-value flex items-center gap-1">
+                  <span id="referral-stat-earned">۰</span>
+                  <span class="text-base">💰</span>
+                </div>
+                <div class="referral-stat-sub">واریز شده به حساب</div>
+              </div>
+            </div>
+          </div>
+          <div id="referral-pending-hint" class="referral-hint hidden">
+            <i class="fas fa-hourglass-half text-amber-300 text-lg"></i>
+            <span></span>
+          </div>
         </div>
       </div>
+
+      <div class="grid gap-5 lg:grid-cols-2">
+        <div class="glass rounded-3xl p-6 space-y-5">
+          <div class="flex items-center justify-between gap-3">
+            <h4 class="text-lg font-bold flex items-center gap-2">
+              <i class="fas fa-route text-teal-200"></i>
+              مسیر تبدیل دعوت به پاداش
+            </h4>
+            <span class="chip bg-white/20 text-[0.7rem]"><i class="fas fa-bolt ml-1"></i> راهنمای سریع</span>
+          </div>
+          <div class="referral-steps">
+            <div class="referral-step" data-state="done">
+              <div class="referral-step-icon">۱</div>
+              <div class="space-y-1">
+                <div class="font-bold">ارسال لینک اختصاصی</div>
+                <p class="text-xs opacity-80 leading-6">لینک یا کد دعوت را برای دوستان خود در پیام‌رسان‌ها، گروه‌ها یا شبکه‌های اجتماعی ارسال کن.</p>
+              </div>
+            </div>
+            <div class="referral-step" data-state="active">
+              <div class="referral-step-icon">۲</div>
+              <div class="space-y-1">
+                <div class="font-bold">شروع ربات توسط دوست</div>
+                <p class="text-xs opacity-80 leading-6">دوست دعوت‌شده باید ربات را استارت کرده و ثبت‌نام اولیه را کامل کند تا وضعیتش فعال شود.</p>
+              </div>
+            </div>
+            <div class="referral-step" data-state="active">
+              <div class="referral-step-icon">۳</div>
+              <div class="space-y-1">
+                <div class="font-bold">انجام اولین مسابقه یا کوییز</div>
+                <p class="text-xs opacity-80 leading-6">پس از پایان اولین بازی توسط دوست شما، سیستم به صورت خودکار احراز می‌کند.</p>
+              </div>
+            </div>
+            <div class="referral-step" data-state="done">
+              <div class="referral-step-icon">۴</div>
+              <div class="space-y-1">
+                <div class="font-bold">دریافت ۵ سکه طلایی</div>
+                <p class="text-xs opacity-80 leading-6">۵ سکه به حساب شما و دوستتان واریز می‌شود و در داشبورد بالا قابل مشاهده است.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="glass rounded-3xl p-6 space-y-5">
+          <div class="flex items-center justify-between gap-3">
+            <h4 class="text-lg font-bold flex items-center gap-2">
+              <i class="fas fa-users text-emerald-200"></i>
+              لیست دوستان دعوت‌شده
+            </h4>
+            <span class="chip bg-white/20 text-[0.7rem]" id="referral-friends-count">۰ دوست</span>
+          </div>
+          <div id="referral-friends" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <div class="glass rounded-3xl p-6 space-y-5">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-lightbulb text-yellow-300"></i>
+          <h4 class="text-lg font-bold">ترفندهای افزایش بازده دعوت</h4>
+        </div>
+        <div class="referral-tips">
+          <div class="referral-tip-card">
+            <div class="referral-tip-icon"><i class="fas fa-comment-dots"></i></div>
+            <div class="space-y-1">
+              <div class="font-bold text-sm">پیام شخصی‌سازی شده</div>
+              <p class="text-xs opacity-80 leading-6">یک توضیح کوتاه و صمیمی درباره مزایای ربات برای دوستتان ارسال کن تا شانس استارت افزایش یابد.</p>
+            </div>
+          </div>
+          <div class="referral-tip-card">
+            <div class="referral-tip-icon"><i class="fas fa-clock-rotate-left"></i></div>
+            <div class="space-y-1">
+              <div class="font-bold text-sm">پیگیری بعد از استارت</div>
+              <p class="text-xs opacity-80 leading-6">اگر دوستت ربات را استارت کرده اما هنوز مسابقه نداده است، با ارسال یک مسابقه جذاب او را تشویق کن.</p>
+            </div>
+          </div>
+          <div class="referral-tip-card">
+            <div class="referral-tip-icon"><i class="fas fa-trophy"></i></div>
+            <div class="space-y-1">
+              <div class="font-bold text-sm">تشویق به رقابت</div>
+              <p class="text-xs opacity-80 leading-6">برای اولین کوییز یک رقابت دوستانه ایجاد کن تا هر دو سریع‌تر به پاداش ۵ سکه‌ای برسید.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <button class="w-full py-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/20 transition flex items-center justify-center gap-2" id="btn-back-referral">
         <i class="fas fa-arrow-right"></i> بازگشت
       </button>
     </section>
-    
+
     <!-- SUPPORT & ADVERTISERS -->
     <section id="page-support" class="hidden space-y-5">
       <div class="glass rounded-3xl p-6">
@@ -3088,14 +3245,39 @@ const Server = {
     notifications:[
       { id:'n1', text:'جام هفتگی از ساعت ۲۰:۰۰ شروع می‌شود. آماده‌ای؟', time:'امروز' },
       { id:'n2', text:'بستهٔ سوالات «ادبیات فارسی» اضافه شد!', time:'دیروز' },
-      { id:'n3', text:'با دعوت هر دوست ۲۰💰 هدیه بگیر!', time:'۲ روز پیش' }
+      { id:'n3', text:'با دعوت هر دوست ۵💰 هدیه بگیر! تنها بعد از اولین کوییز فعال می‌شود.', time:'۲ روز پیش' }
     ],
     groupBattle: { selectedHostId: '', selectedOpponentId: '', lastResult: null },
     referral: {
       code: 'QUIZ5F8A2B',
+      rewardPerFriend: 5,
       referred: [
-        { id: 'u1', name: 'سارا اکبری', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), reward: 50 },
-        { id: 'u2', name: 'رضا کریمی', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), reward: 50 }
+        {
+          id: 'u1',
+          name: 'سارا اکبری',
+          avatar: 'https://i.pravatar.cc/120?img=47',
+          invitedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+          startedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
+          firstQuizAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000),
+          quizzesPlayed: 3,
+          status: 'completed'
+        },
+        {
+          id: 'u2',
+          name: 'رضا کریمی',
+          avatar: 'https://i.pravatar.cc/120?img=15',
+          invitedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+          startedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 6 * 60 * 60 * 1000),
+          quizzesPlayed: 0,
+          status: 'awaiting_quiz'
+        },
+        {
+          id: 'u3',
+          name: 'نیلوفر احمدی',
+          avatar: 'https://i.pravatar.cc/120?img=20',
+          invitedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+          status: 'awaiting_start'
+        }
       ]
     }
   };
@@ -3604,6 +3786,143 @@ function isUserInGroup() {
     updateLifelineStates();
   }
 
+  function renderReferral(){
+    const rewardPerFriend = Number(State.referral?.rewardPerFriend ?? 5);
+    const code = State.referral?.code || '—';
+    const codeEl = $('#referral-code-value');
+    if (codeEl) codeEl.textContent = code;
+    const rewardBadge = $('#referral-reward-per-friend');
+    if (rewardBadge) rewardBadge.textContent = faNum(rewardPerFriend);
+    const heroCoin = document.querySelector('.referral-coin-value');
+    if (heroCoin) heroCoin.textContent = `+${faNum(rewardPerFriend)}`;
+
+    const rawList = Array.isArray(State.referral?.referred) ? State.referral.referred : [];
+    const parseDate = value => {
+      if (!value) return null;
+      if (value instanceof Date) return value;
+      const parsed = new Date(value);
+      return Number.isFinite(parsed.getTime()) ? parsed : null;
+    };
+
+    const normalized = rawList.map(friend => {
+      const invitedAt = parseDate(friend.invitedAt ?? friend.date);
+      const startedAt = parseDate(friend.startedAt);
+      const firstQuizAt = parseDate(friend.firstQuizAt);
+      const status = friend.status || (firstQuizAt ? 'completed' : startedAt ? 'awaiting_quiz' : 'awaiting_start');
+      const avatar = friend.avatar || `https://i.pravatar.cc/120?u=${encodeURIComponent(friend.id || friend.name || Math.random())}`;
+      const quizzesPlayed = friend.quizzesPlayed ?? (firstQuizAt ? Math.max(1, Number(friend.quizzesPlayed) || 1) : 0);
+      Object.assign(friend, { invitedAt, startedAt, firstQuizAt, status, avatar, quizzesPlayed });
+      if (status === 'completed') friend.reward = rewardPerFriend;
+      return { ...friend };
+    });
+
+    const total = normalized.length;
+    const active = normalized.filter(f => f.status !== 'awaiting_start').length;
+    const qualified = normalized.filter(f => f.status === 'completed').length;
+    const pendingQuiz = normalized.filter(f => f.status === 'awaiting_quiz').length;
+    const pendingStart = normalized.filter(f => f.status === 'awaiting_start').length;
+    const earned = qualified * rewardPerFriend;
+    const potential = (total - qualified) * rewardPerFriend;
+
+    const setNumber = (id, value) => {
+      const el = $('#'+id);
+      if (el) el.textContent = faNum(value);
+    };
+    setNumber('referral-stat-total', total);
+    setNumber('referral-stat-active', active);
+    setNumber('referral-stat-qualified', qualified);
+    setNumber('referral-stat-earned', earned);
+
+    const friendsCount = $('#referral-friends-count');
+    if (friendsCount) friendsCount.textContent = total ? `${faNum(total)} دوست` : '۰ دوست';
+
+    const pendingHint = $('#referral-pending-hint');
+    if (pendingHint) {
+      if (!total) {
+        pendingHint.classList.add('hidden');
+      } else {
+        const span = pendingHint.querySelector('span');
+        const parts = [];
+        if (pendingQuiz) parts.push(`${faNum(pendingQuiz)} دوست منتظر اولین کوییز`);
+        if (pendingStart) parts.push(`${faNum(pendingStart)} دوست هنوز ربات را استارت نکرده‌اند`);
+        if (parts.length) {
+          if (span) span.innerHTML = `${parts.join(' و ')} • پاداش بالقوه: <span class="text-yellow-300 font-bold">${faNum(potential)}💰</span>`;
+          pendingHint.classList.remove('hidden');
+        } else {
+          if (span) span.innerHTML = `همه دعوت‌ها تایید شده‌اند. مجموع پاداش آزاد شده: <span class="text-yellow-300 font-bold">${faNum(earned)}💰</span>`;
+          pendingHint.classList.remove('hidden');
+        }
+      }
+    }
+
+    const listWrap = $('#referral-friends');
+    if (listWrap) {
+      listWrap.innerHTML = '';
+      if (!normalized.length) {
+        listWrap.innerHTML = `
+          <div class="referral-empty">
+            <div class="referral-empty-icon"><i class="fas fa-user-plus"></i></div>
+            <p class="text-sm leading-7 opacity-90">هنوز دوستی دعوت نشده است. لینک بالا را ارسال کن تا بعد از اولین کوییز، ${faNum(rewardPerFriend)} سکه هدیه بگیری.</p>
+            <button class="btn btn-secondary btn-inline w-full sm:w-auto" id="referral-empty-share">
+              <i class="fas fa-share-nodes ml-2"></i> شروع دعوت
+            </button>
+          </div>`;
+        listWrap.querySelector('#referral-empty-share')?.addEventListener('click', () => $('#btn-share-referral')?.click());
+      } else {
+        const order = { completed: 0, awaiting_quiz: 1, awaiting_start: 2 };
+        normalized.sort((a, b) => {
+          const stateDiff = (order[a.status] ?? 3) - (order[b.status] ?? 3);
+          if (stateDiff !== 0) return stateDiff;
+          const timeA = (a.firstQuizAt || a.startedAt || a.invitedAt)?.getTime?.() || 0;
+          const timeB = (b.firstQuizAt || b.startedAt || b.invitedAt)?.getTime?.() || 0;
+          return timeB - timeA;
+        });
+
+        normalized.forEach(friend => {
+          const statusMeta = {
+            completed: { icon: 'fa-circle-check', label: 'پاداش واریز شد', state: 'completed' },
+            awaiting_quiz: { icon: 'fa-hourglass-half', label: 'در انتظار اولین کوییز', state: 'awaiting_quiz' },
+            awaiting_start: { icon: 'fa-paper-plane', label: 'منتظر شروع ربات', state: 'awaiting_start' }
+          };
+          const meta = statusMeta[friend.status] || statusMeta.awaiting_start;
+          let timeline = 'در انتظار اقدام دوست';
+          if (friend.status === 'completed' && friend.firstQuizAt) {
+            timeline = `پاداش تایید شد ${formatRelativeTime(friend.firstQuizAt.getTime())}`;
+          } else if (friend.status === 'awaiting_quiz' && friend.startedAt) {
+            timeline = `ربات استارت شده ${formatRelativeTime(friend.startedAt.getTime())}`;
+          } else if (friend.invitedAt) {
+            timeline = `دعوت ارسال شد ${formatRelativeTime(friend.invitedAt.getTime())}`;
+          }
+
+          const badges = [];
+          if (friend.invitedAt) badges.push(`<span class="chip text-[0.7rem] bg-white/10 border-white/20"><i class="fas fa-paper-plane ml-1"></i>${formatRelativeTime(friend.invitedAt.getTime())}</span>`);
+          if (friend.startedAt) badges.push(`<span class="chip text-[0.7rem] bg-sky-500/20 border-sky-300/40"><i class="fas fa-rocket ml-1"></i>${formatRelativeTime(friend.startedAt.getTime())}</span>`);
+          if (friend.firstQuizAt) badges.push(`<span class="chip text-[0.7rem] bg-emerald-500/20 border-emerald-300/40"><i class="fas fa-check ml-1"></i>${faNum(friend.quizzesPlayed || 1)} کوییز</span>`);
+
+          const card = document.createElement('div');
+          card.className = 'referral-friend-card';
+          card.innerHTML = `
+            <div class="referral-friend-meta">
+              <img src="${friend.avatar}" class="referral-friend-avatar" alt="${friend.name}">
+              <div class="min-w-0 space-y-1">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <span class="font-bold text-base truncate">${friend.name}</span>
+                  <span class="referral-status" data-state="${meta.state}"><i class="fas ${meta.icon} ml-1"></i>${meta.label}</span>
+                </div>
+                <div class="text-xs opacity-75 leading-6">${timeline}</div>
+                <div class="referral-friend-badges">${badges.join('')}</div>
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+              <span class="referral-reward" data-earned="${friend.status === 'completed'}">${friend.status === 'completed' ? `+${faNum(rewardPerFriend)}💰` : `۰/${faNum(rewardPerFriend)}💰`}</span>
+              ${friend.status === 'completed' && friend.quizzesPlayed ? `<span class="text-[0.7rem] opacity-75 flex items-center gap-1"><i class="fas fa-trophy text-yellow-300"></i>${faNum(friend.quizzesPlayed)} مسابقه</span>` : ''}
+            </div>`;
+          listWrap.appendChild(card);
+        });
+      }
+    }
+  }
+
   function animateKeyChip(){
     const chip = $('#lives')?.closest('.chip');
     if(!chip) return;
@@ -3688,6 +4007,7 @@ function isUserInGroup() {
     if(page==='leaderboard'){ renderLeaderboard(); AdManager.renderNative('#ad-native-lb'); }
     if(page==='wallet'){ buildPackages(); }
     if(page==='vip'){ updateVipUI(); }
+    if(page==='referral'){ renderReferral(); }
     if(page==='question-lab'){ buildCommunityQuestionForm(); prefillCommunityAuthor(); syncCommunityOptionStates(); }
   }
   
@@ -7554,14 +7874,17 @@ function leaveGroup(groupId) {
   
   // Referral
   $('#btn-copy-referral')?.addEventListener('click', () => {
-    navigator.clipboard.writeText(State.referral.code);
+    navigator.clipboard.writeText(State.referral.code || '');
     toast('<i class="fas fa-check-circle ml-2"></i>کد دعوت کپی شد!');
   });
-  
+
   $('#btn-share-referral')?.addEventListener('click', () => {
+    const reward = Number(State.referral?.rewardPerFriend ?? 5);
+    const code = State.referral?.code || '';
     const link = `https://t.me/your_bot?start=ref_${State.user.id}`;
-    const text = `با کد دعوت من در Quiz WebApp Pro ثبت‌نام کن و جایزه بگیر! کد: ${State.referral.code}`;
-    
+    const rewardLabel = faNum(reward);
+    const text = `با کد دعوت من در Quiz WebApp Pro ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم! کد: ${code}`;
+
     try {
       if (navigator.share) {
         navigator.share({
