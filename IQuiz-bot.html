@@ -124,6 +124,43 @@
     .detail-popup.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     .detail-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 99; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
     .detail-overlay.show { opacity: 1; pointer-events: all; }
+    .invite-modal-card{ position:relative; width:min(540px,94vw); background:linear-gradient(155deg, rgba(15,23,42,0.94), rgba(59,130,246,0.32)); border:1px solid rgba(255,255,255,0.18); border-radius:1.8rem; padding:1.75rem 1.5rem; color:#fff; overflow:hidden; box-shadow:0 25px 70px rgba(15,23,42,0.4); }
+    .invite-modal-card::before{ content:''; position:absolute; inset:auto -25% -40% auto; width:320px; height:320px; background:radial-gradient(circle at center, rgba(59,130,246,0.45), transparent 70%); opacity:.8; pointer-events:none; }
+    .invite-modal-header{ display:flex; align-items:flex-start; gap:1rem; margin-bottom:1.5rem; position:relative; z-index:1; }
+    .invite-modal-icon{ width:3.5rem; height:3.5rem; border-radius:1.2rem; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#0f172a; font-size:1.5rem; box-shadow:0 12px 30px rgba(59,130,246,0.35); }
+    .invite-modal-title{ font-size:1.3rem; font-weight:900; margin-bottom:.35rem; letter-spacing:-0.01em; }
+    .invite-modal-sub{ font-size:.92rem; line-height:1.8; opacity:.88; }
+    .invite-highlight{ color:#fde047; font-weight:800; }
+    .invite-modal-close{ position:absolute; top:1rem; left:1rem; width:2.3rem; height:2.3rem; display:flex; align-items:center; justify-content:center; border-radius:999px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.22); transition:all .2s ease; z-index:2; }
+    .invite-modal-close:hover{ background:rgba(255,255,255,0.22); }
+    .invite-modal-body{ display:flex; flex-direction:column; gap:1.5rem; position:relative; z-index:1; }
+    .invite-feature-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+    .invite-feature{ display:flex; gap:.75rem; padding:.9rem 1rem; border-radius:1.2rem; background:rgba(15,23,42,0.35); border:1px solid rgba(255,255,255,0.14); backdrop-filter:blur(10px); }
+    .invite-feature i{ width:2.25rem; height:2.25rem; border-radius:.8rem; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.12); color:#fde047; flex-shrink:0; font-size:1rem; }
+    .invite-feature strong{ display:block; font-weight:800; margin-bottom:.25rem; }
+    .invite-feature span{ font-size:.8rem; line-height:1.7; opacity:.85; display:block; }
+    .invite-share-box{ display:flex; flex-direction:column; gap:1rem; padding:1.1rem; border-radius:1.4rem; background:rgba(15,23,42,0.32); border:1px solid rgba(255,255,255,0.16); }
+    .invite-share-row label{ display:block; font-size:.78rem; opacity:.75; margin-bottom:.45rem; font-weight:600; }
+    .invite-share-input{ display:flex; align-items:center; gap:.6rem; background:rgba(15,23,42,0.55); border-radius:1rem; border:1px solid rgba(255,255,255,0.18); padding:.4rem; }
+    .invite-share-input input,
+    .invite-share-input textarea{ flex:1; background:transparent; border:none; color:#fff; font-size:.82rem; line-height:1.6; resize:none; }
+    .invite-share-input input{ direction:ltr; }
+    .invite-share-input textarea{ min-height:72px; padding:.2rem 0; }
+    .invite-share-input input:focus,
+    .invite-share-input textarea:focus{ outline:none; }
+    .invite-copy-btn{ padding:.55rem 1rem; border-radius:.9rem; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#0f172a; font-weight:800; font-size:.85rem; box-shadow:0 12px 28px rgba(59,130,246,0.35); display:inline-flex; align-items:center; gap:.4rem; transition:transform .2s ease; white-space:nowrap; }
+    .invite-copy-btn:active{ transform:scale(.97); }
+    .invite-stats{ display:flex; gap:.75rem; flex-wrap:wrap; }
+    .invite-stat{ display:flex; align-items:center; gap:.5rem; padding:.55rem .9rem; border-radius:999px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); font-size:.8rem; font-weight:700; }
+    .invite-stat i{ color:#38bdf8; }
+    @media(max-width:600px){
+      .invite-modal-card{ padding:1.4rem 1.1rem; border-radius:1.5rem; }
+      .invite-modal-header{ flex-direction:column; text-align:center; align-items:center; }
+      .invite-modal-close{ top:.9rem; left:.9rem; }
+      .invite-feature-grid{ grid-template-columns:1fr; }
+      .invite-share-input{ flex-direction:column; align-items:stretch; }
+      .invite-copy-btn{ justify-content:center; width:100%; }
+    }
     .duel-rule-banner{ display:flex; align-items:flex-start; gap:1rem; padding:1.25rem 1.4rem; border-radius:1.5rem; background:linear-gradient(135deg, rgba(248,113,113,0.22), rgba(236,72,153,0.18)); border:1px solid rgba(248,113,113,0.35); box-shadow:0 18px 40px rgba(15,23,42,0.22); }
     .duel-rule-banner p{ line-height:1.8; }
     .duel-rule-icon{ width:3rem; height:3rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; background:rgba(248,113,113,0.18); color:#fee2e2; font-size:1.4rem; box-shadow:0 10px 24px rgba(244,63,94,0.35); }
@@ -2149,6 +2186,80 @@
         <button class="px-3 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20" data-close="#modal-notify"><i class="fas fa-times"></i></button>
       </div>
       <div id="notif-list" class="space-y-3 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- Invite Friends Modal -->
+  <div id="modal-invite" class="modal">
+    <div class="invite-modal-card">
+      <button class="invite-modal-close" data-close="#modal-invite"><i class="fas fa-times"></i></button>
+      <div class="invite-modal-header">
+        <div class="invite-modal-icon"><i class="fas fa-gift"></i></div>
+        <div>
+          <div class="invite-modal-title">دعوت دوستان و دریافت پاداش</div>
+          <p class="invite-modal-sub">
+            با دعوت دوستانت به <strong>Quiz WebApp Pro</strong> بعد از اولین کوییز آن‌ها
+            <span class="invite-highlight"><span id="invite-reward">۵</span> سکه</span> هدیه می‌گیری.
+          </p>
+        </div>
+      </div>
+      <div class="invite-modal-body">
+        <div class="invite-stats">
+          <div class="invite-stat"><i class="fas fa-users"></i><span>دعوت‌های ارسال‌شده: <strong id="invite-total">۰</strong></span></div>
+          <div class="invite-stat"><i class="fas fa-trophy"></i><span>دعوت‌های موفق: <strong id="invite-success">۰</strong></span></div>
+        </div>
+        <div class="invite-feature-grid">
+          <div class="invite-feature">
+            <i class="fas fa-star"></i>
+            <div>
+              <strong>چطور پاداش بگیری؟</strong>
+              <span>دوستت باید ربات را استارت کند و اولین کوییز را کامل کند تا سکه‌ها فعال شوند.</span>
+            </div>
+          </div>
+          <div class="invite-feature">
+            <i class="fas fa-scale-balanced"></i>
+            <div>
+              <strong>قوانین دعوت</strong>
+              <span>هر لینک مختص توست؛ ارسال آن برای دوستان جدید و رعایت قوانین ربات الزامی است.</span>
+            </div>
+          </div>
+        </div>
+        <div class="invite-share-box">
+          <div class="invite-share-row">
+            <label>لینک اختصاصی تو</label>
+            <div class="invite-share-input">
+              <input id="invite-link" type="text" readonly dir="ltr" value="">
+              <button type="button" class="invite-copy-btn" data-copy-target="invite-link">
+                <i class="fas fa-copy"></i>
+                کپی لینک
+              </button>
+            </div>
+          </div>
+          <div class="invite-share-row">
+            <label>کد دعوت</label>
+            <div class="invite-share-input">
+              <input id="invite-code" type="text" readonly dir="ltr" value="">
+              <button type="button" class="invite-copy-btn" data-copy-target="invite-code">
+                <i class="fas fa-copy"></i>
+                کپی کد
+              </button>
+            </div>
+          </div>
+          <div class="invite-share-row">
+            <label>پیام آماده ارسال برای دوستان</label>
+            <div class="invite-share-input">
+              <textarea id="invite-message" readonly dir="auto"></textarea>
+              <button type="button" class="invite-copy-btn" data-copy-target="invite-message">
+                <i class="fas fa-paper-plane"></i>
+                کپی پیام
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="text-xs opacity-80 leading-6 text-center">
+          با اشتراک‌گذاری منصفانه و رعایت قوانین Quiz WebApp Pro کمک کن تا همه تجربه‌ای عادلانه داشته باشند.
+        </div>
+      </div>
     </div>
   </div>
 
@@ -5787,7 +5898,7 @@ async function startPurchaseCoins(pkgId){
   function renderSupportTickets() {
     const ticketsList = $('#tickets-list');
     ticketsList.innerHTML = '<div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text"></div>';
-    
+
     // Simulate loading tickets
     setTimeout(() => {
       ticketsList.innerHTML = `
@@ -5810,7 +5921,72 @@ async function startPurchaseCoins(pkgId){
       `;
     }, 1000);
   }
-  
+
+  function composeInviteMessage(link, rewardLabel){
+    return `سلام! با لینک من در Quiz WebApp Pro ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم 🎁\n${link}`;
+  }
+
+  function prepareInviteModal(){
+    const reward = Number(State.referral?.rewardPerFriend ?? 5);
+    const rewardLabel = faNum(reward);
+    const link = `https://t.me/your_bot?start=ref_${State.user.id}`;
+    const code = State.referral?.code || '';
+    const referred = Array.isArray(State.referral?.referred) ? State.referral.referred : [];
+    const completed = referred.filter(friend => friend?.status === 'completed').length;
+
+    const rewardEl = $('#invite-reward');
+    if (rewardEl) rewardEl.textContent = rewardLabel;
+
+    const totalEl = $('#invite-total');
+    if (totalEl) totalEl.textContent = faNum(referred.length);
+
+    const successEl = $('#invite-success');
+    if (successEl) successEl.textContent = faNum(completed);
+
+    const linkEl = $('#invite-link');
+    if (linkEl) {
+      linkEl.value = link;
+      linkEl.dataset.value = link;
+    }
+
+    const codeEl = $('#invite-code');
+    if (codeEl) {
+      codeEl.value = code;
+      codeEl.dataset.value = code;
+    }
+
+    const messageEl = $('#invite-message');
+    if (messageEl) {
+      const message = composeInviteMessage(link, rewardLabel);
+      messageEl.value = message;
+      messageEl.dataset.value = message;
+    }
+
+    openModal('#modal-invite');
+  }
+
+  async function copyToClipboard(text){
+    try{
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      return true;
+    } catch (err) {
+      console.error('copy failed', err);
+      return false;
+    }
+  }
+
   // ===== Events =====
   // Delegate wallet package purchase buttons to handle re-renders
   $('#pkg-grid')?.addEventListener('click', (e) => {
@@ -5831,19 +6007,29 @@ async function startPurchaseCoins(pkgId){
     navTo('dashboard');
   });
   $('#btn-claim-streak')?.addEventListener('click', claimStreak);
-  $('#btn-invite')?.addEventListener('click', ()=>{
-    const link=`https://t.me/share/url?url=${encodeURIComponent('https://t.me/your_bot?start=ref_'+State.user.id)}&text=${encodeURIComponent('بیا تو مسابقه!')}`;
-    try{
-      if (navigator.share) {
-        navigator.share({
-          title: 'دعوت به مسابقه',
-          text: 'بیا تو مسابقه!',
-          url: `https://t.me/your_bot?start=ref_${State.user.id}`
-        });
-      } else {
-        window.open(link,'_blank');
+  $('#btn-invite')?.addEventListener('click', prepareInviteModal);
+
+  $$('[data-copy-target]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const target = btn.dataset.copyTarget;
+      const map = {
+        'invite-link': 'لینک دعوت',
+        'invite-code': 'کد دعوت',
+        'invite-message': 'پیام دعوت'
+      };
+      const el = target ? document.getElementById(target) : null;
+      const value = el?.value || el?.dataset?.value || '';
+      if (!value) {
+        toast('چیزی برای کپی وجود ندارد');
+        return;
       }
-    }catch{ navigator.clipboard.writeText(link); toast('<i class="fas fa-check-circle ml-2"></i>لینک کپی شد'); }
+      const ok = await copyToClipboard(value);
+      if (ok) {
+        toast(`<i class="fas fa-check-circle ml-2"></i>${map[target] || 'محتوا'} کپی شد!`);
+      } else {
+        toast('امکان کپی کردن وجود ندارد');
+      }
+    });
   });
   $('#btn-advertisers')?.addEventListener('click', ()=>{
     navTo('support');
@@ -7764,6 +7950,7 @@ function leaveGroup(groupId) {
   $$('[data-close="#modal-receipt"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-receipt')));
   $$('[data-close="#modal-pay-confirm"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-pay-confirm')));
   $$('[data-close="#modal-province-soon"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-province-soon')));
+  $$('[data-close="#modal-invite"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-invite')));
 
   // Game Limits CTAs
   $('#btn-buy-vip-limit')?.addEventListener('click', () => {
