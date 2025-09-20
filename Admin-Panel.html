@@ -191,6 +191,20 @@
       transform: translateY(-4px);
       box-shadow: 0 22px 50px -22px rgba(59,130,246,0.6);
     }
+    #shop-settings-card {
+      position: relative;
+    }
+    #shop-settings-sections {
+      align-items: stretch;
+    }
+    #shop-settings-aside {
+      position: static;
+    }
+    #shop-hero-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
     .shop-metric-label {
       font-size: 0.75rem;
       letter-spacing: 0.08em;
@@ -807,6 +821,55 @@
     }
     .shop-preview-cta i {
       font-size: 0.9rem;
+    }
+    @media (min-width: 1280px) {
+      #shop-settings-card {
+        padding: 2rem 2.25rem;
+      }
+      #shop-settings-sections {
+        gap: 2rem;
+        align-items: flex-start;
+      }
+      #shop-settings-main,
+      #shop-settings-aside {
+        display: flex;
+        flex-direction: column;
+      }
+      #shop-settings-aside {
+        position: sticky;
+        top: 6.5rem;
+        max-height: calc(100vh - 7.5rem);
+        overflow-y: auto;
+        padding-left: 0.25rem;
+        scrollbar-gutter: stable;
+      }
+      #shop-settings-aside::-webkit-scrollbar {
+        width: 6px;
+      }
+      #shop-settings-aside::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.25);
+        border-radius: 9999px;
+      }
+      #shop-settings-aside::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      #shop-hero-fields {
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
+        gap: 1.75rem;
+        align-items: stretch;
+      }
+      #shop-hero-preview {
+        min-height: 100%;
+      }
+    }
+    @media (min-width: 1536px) {
+      #shop-hero-fields {
+        grid-template-columns: minmax(0, 1.1fr) minmax(360px, 1fr);
+      }
+      #shop-settings-aside {
+        top: 7rem;
+        max-height: calc(100vh - 8rem);
+      }
     }
     .status-dot {
       width: 8px;
@@ -2665,8 +2728,8 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6" id="shop-settings-sections">
-              <div class="space-y-6 xl:col-span-2">
+            <div id="shop-settings-sections" class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(360px,1fr)]">
+              <div id="shop-settings-main" class="space-y-6">
 
                 <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6">
                   <div class="flex flex-wrap items-center justify-between gap-3">
@@ -3137,7 +3200,7 @@
                 </div>
 
               </div>
-              <div class="space-y-6">
+              <div id="shop-settings-aside" class="space-y-6">
                 <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-5 shop-lockable" data-shop-lockable id="shop-promotions-card">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
