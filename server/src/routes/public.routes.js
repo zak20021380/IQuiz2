@@ -14,6 +14,7 @@ const {
   getFallbackQuestions,
   mapQuestionDocument
 } = require('../services/publicContent');
+const { getActiveProvincesWithFallback } = require('../services/provinceService');
 
 const MAX_PUBLIC_QUESTIONS = 20;
 const AD_PLACEMENTS = new Set(AdModel.AD_PLACEMENTS || ['banner', 'native', 'interstitial', 'rewarded']);
@@ -155,8 +156,21 @@ router.get('/categories', async (req, res) => {
   return res.json(getFallbackCategories());
 });
 
-router.get('/provinces', (req, res) => {
-  res.json(getFallbackProvinces());
+router.get('/provinces', async (req, res) => {
+  try {
+    const provinces = await getActiveProvincesWithFallback();
+    const payload = provinces.map((province, index) => ({
+      name: province.name,
+      code: province.code,
+      sortOrder: Number.isFinite(province.sortOrder) ? Number(province.sortOrder) : index,
+      score: Number.isFinite(province.score) ? Number(province.score) : 0,
+      members: Number.isFinite(province.members) ? Number(province.members) : 0
+    }));
+    res.json(payload);
+  } catch (error) {
+    logger.warn(`Failed to serve provinces: ${error.message}`);
+    res.json(getFallbackProvinces());
+  }
 });
 
 router.get('/questions', async (req, res) => {

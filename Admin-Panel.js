@@ -202,6 +202,25 @@ const adModalScroll = adForm ? adForm.querySelector('.ad-modal-scroll') : null;
 const adModalHelperCreative = adModal ? adModal.querySelector('[data-ad-helper="creative"]') : null;
 const adModalSections = adModal ? Array.from(adModal.querySelectorAll('[data-show-placements]')) : [];
 
+const provinceForm = $('#province-form');
+const provinceFormTitle = $('#province-form-title');
+const provinceFormStatusLabel = document.querySelector('[data-province-form-status]');
+const provinceNameInput = $('#province-name');
+const provinceCodeInput = $('#province-code');
+const provinceSortOrderInput = $('#province-sort-order');
+const provinceActiveInput = $('#province-active');
+const provinceSubmitBtn = $('#province-submit-btn');
+const provinceCancelBtn = $('#province-cancel-btn');
+const provinceSubmitBtnDefault = provinceSubmitBtn ? provinceSubmitBtn.innerHTML : '';
+const provincesTableBody = $('#provinces-table-body');
+const provincesLoadingState = $('#provinces-loading-state');
+const provincesEmptyState = $('#provinces-empty-state');
+const provinceRefreshBtn = $('#province-refresh-btn');
+const provinceCountChips = {
+  total: document.querySelector('[data-province-count="total"]'),
+  active: document.querySelector('[data-province-count="active"]')
+};
+
 const shopSettingsPage = $('#page-shop-settings');
 const shopGlobalToggle = $('#shop-enable-toggle');
 const shopStatusChip = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-status-chip]') : null;
@@ -276,6 +295,351 @@ const adsState = {
 };
 
 let adsSearchDebounce;
+
+const provincesState = {
+  items: [],
+  loading: false,
+  formMode: 'create',
+  formBusy: false,
+  editingId: null
+};
+
+const sanitizeProvinceString = (value) => (typeof value === 'string' ? value.trim() : '');
+
+function normalizeProvince(raw = {}) {
+  const id = raw.id || (raw._id ? String(raw._id) : '');
+  const name = sanitizeProvinceString(raw.name);
+  const code = sanitizeProvinceString(raw.code);
+  const sortOrder = Number.isFinite(Number(raw.sortOrder)) ? Number(raw.sortOrder) : 0;
+  const isActive = raw.isActive !== false;
+  const createdAt = raw.createdAt || null;
+  const updatedAt = raw.updatedAt || null;
+  return { id, name, code, sortOrder, isActive, createdAt, updatedAt };
+}
+
+function findProvinceById(id) {
+  if (!id) return null;
+  return provincesState.items.find((province) => province.id === id) || null;
+}
+
+function sortProvinces(list) {
+  return list.slice().sort((a, b) => {
+    const orderA = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : 0;
+    const orderB = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 0;
+    if (orderA !== orderB) return orderA - orderB;
+    const nameA = sanitizeProvinceString(a.name);
+    const nameB = sanitizeProvinceString(b.name);
+    return nameA.localeCompare(nameB, 'fa', { sensitivity: 'base' });
+  });
+}
+
+function getActiveProvinceNamesFromState() {
+  const list = Array.isArray(provincesState.items) ? provincesState.items : [];
+  return sortProvinces(list.filter((item) => item.isActive))
+    .map((item) => sanitizeProvinceString(item.name))
+    .filter(Boolean);
+}
+
+function getSelectedProvinceValues() {
+  if (!adProvinceOptionsEl) return [];
+  return Array.from(adProvinceOptionsEl.querySelectorAll('input[type="checkbox"]:checked'))
+    .map((input) => sanitizeProvinceString(input.value))
+    .filter(Boolean);
+}
+
+function syncAdProvincesFromState(selected = null) {
+  const activeNames = getActiveProvinceNamesFromState();
+  if (!activeNames.length) return false;
+  adsState.provinces = activeNames;
+  const selectedList = Array.isArray(selected) ? selected : getSelectedProvinceValues();
+  renderAdProvinceOptions(selectedList);
+  return true;
+}
+
+function setProvinceFormMode(mode, province = null) {
+  const normalized = mode === 'edit' && province ? 'edit' : 'create';
+  provincesState.formMode = normalized;
+  provincesState.editingId = normalized === 'edit' && province ? province.id : null;
+
+  if (normalized === 'edit' && province) {
+    if (provinceNameInput) provinceNameInput.value = province.name || '';
+    if (provinceCodeInput) provinceCodeInput.value = province.code || '';
+    if (provinceSortOrderInput) provinceSortOrderInput.value = Number.isFinite(province.sortOrder) ? String(province.sortOrder) : '0';
+    if (provinceActiveInput) provinceActiveInput.checked = province.isActive !== false;
+  } else {
+    if (provinceForm) provinceForm.reset();
+    if (provinceSortOrderInput) provinceSortOrderInput.value = '0';
+    if (provinceActiveInput) provinceActiveInput.checked = true;
+    if (provinceCodeInput) provinceCodeInput.value = '';
+    if (provinceNameInput) provinceNameInput.value = '';
+  }
+
+  if (provinceFormTitle) provinceFormTitle.textContent = normalized === 'edit' ? 'ویرایش استان' : 'افزودن استان جدید';
+  if (provinceFormStatusLabel) {
+    if (normalized === 'edit' && province?.name) {
+      provinceFormStatusLabel.textContent = `ویرایش ${province.name}`;
+    } else if (normalized === 'edit') {
+      provinceFormStatusLabel.textContent = 'حالت ویرایش';
+    } else {
+      provinceFormStatusLabel.textContent = 'در حالت ایجاد';
+    }
+  }
+  if (provinceSubmitBtn) {
+    provinceSubmitBtn.dataset.mode = normalized;
+    provinceSubmitBtn.innerHTML = normalized === 'edit'
+      ? '<i class="fa-solid fa-floppy-disk ml-2"></i> ذخیره تغییرات'
+      : (provinceSubmitBtnDefault || '<i class="fa-solid fa-floppy-disk ml-2"></i> ذخیره استان');
+  }
+  if (provinceCancelBtn) {
+    provinceCancelBtn.classList.toggle('hidden', normalized !== 'edit');
+  }
+}
+
+function resetProvinceForm() {
+  setProvinceFormMode('create');
+}
+
+function setProvinceFormBusy(busy) {
+  provincesState.formBusy = Boolean(busy);
+  if (provinceSubmitBtn) {
+    provinceSubmitBtn.disabled = busy;
+    provinceSubmitBtn.classList.toggle('opacity-70', busy);
+    provinceSubmitBtn.classList.toggle('cursor-not-allowed', busy);
+    provinceSubmitBtn.classList.toggle('pointer-events-none', busy);
+  }
+  if (provinceCancelBtn) {
+    provinceCancelBtn.disabled = busy;
+    provinceCancelBtn.classList.toggle('opacity-70', busy);
+    provinceCancelBtn.classList.toggle('cursor-not-allowed', busy);
+    provinceCancelBtn.classList.toggle('pointer-events-none', busy);
+  }
+}
+
+function createProvinceRow(province) {
+  const id = province.id || '';
+  const name = province.name || '—';
+  const code = province.code || '—';
+  const sortOrder = Number.isFinite(province.sortOrder) ? formatNumberFa(province.sortOrder) : '۰';
+  const statusLabel = province.isActive ? 'فعال' : 'غیرفعال';
+  const statusClass = province.isActive
+    ? 'bg-emerald-500/10 text-emerald-200'
+    : 'bg-rose-500/10 text-rose-200';
+  const updatedLabel = province.updatedAt ? formatDateTime(province.updatedAt) : '—';
+
+  return `
+    <tr data-province-row="${escapeHtml(id)}">
+      <td class="font-semibold text-white" data-label="نام استان">${escapeHtml(name)}</td>
+      <td class="text-white/70" data-label="کد">${escapeHtml(code)}</td>
+      <td class="text-white/70" data-label="ترتیب">${escapeHtml(sortOrder)}</td>
+      <td data-label="وضعیت">
+        <span class="px-3 py-1 rounded-full text-xs ${statusClass}">${escapeHtml(statusLabel)}</span>
+      </td>
+      <td class="text-white/60" data-label="به‌روزرسانی">${escapeHtml(updatedLabel)}</td>
+      <td data-label="عملیات">
+        <div class="flex items-center gap-2">
+          <button class="action-btn edit" data-action="edit-province" data-province-id="${escapeHtml(id)}" title="ویرایش استان">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button class="action-btn delete" data-action="delete-province" data-province-id="${escapeHtml(id)}" title="حذف استان">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderProvinces() {
+  if (!provincesTableBody) return;
+  const loading = provincesState.loading;
+  if (provincesLoadingState) {
+    provincesLoadingState.classList.toggle('hidden', !loading);
+  }
+  if (loading) {
+    provincesTableBody.innerHTML = '';
+    if (provincesEmptyState) provincesEmptyState.classList.add('hidden');
+    return;
+  }
+
+  const items = Array.isArray(provincesState.items) ? sortProvinces(provincesState.items) : [];
+  const total = items.length;
+  const activeCount = items.filter((item) => item.isActive).length;
+  if (provinceCountChips.total) {
+    provinceCountChips.total.textContent = `${formatNumberFa(total)} استان ثبت‌شده`;
+  }
+  if (provinceCountChips.active) {
+    provinceCountChips.active.textContent = `${formatNumberFa(activeCount)} استان فعال`;
+  }
+
+  if (!total) {
+    provincesTableBody.innerHTML = '';
+    if (provincesEmptyState) provincesEmptyState.classList.remove('hidden');
+    return;
+  }
+
+  if (provincesEmptyState) provincesEmptyState.classList.add('hidden');
+  provincesTableBody.innerHTML = items.map(createProvinceRow).join('');
+}
+
+async function loadProvinces(showToastOnError = false) {
+  if (!getToken()) {
+    provincesState.items = [];
+    provincesState.loading = false;
+    renderProvinces();
+    return [];
+  }
+
+  provincesState.loading = true;
+  renderProvinces();
+  try {
+    const res = await api('/provinces');
+    const list = Array.isArray(res?.data) ? res.data : [];
+    provincesState.items = list.map(normalizeProvince).filter((item) => item.name);
+    provincesState.loading = false;
+    renderProvinces();
+    if (!syncAdProvincesFromState()) {
+      await loadAdProvinces();
+    }
+    return provincesState.items;
+  } catch (error) {
+    console.error('Failed to load provinces', error);
+    provincesState.items = [];
+    provincesState.loading = false;
+    renderProvinces();
+    if (showToastOnError) {
+      showToast(error.message || 'دریافت استان‌ها با خطا مواجه شد', 'error');
+    }
+    return [];
+  }
+}
+
+async function handleProvinceSubmit(event) {
+  event.preventDefault();
+  if (!getToken()) {
+    showToast('برای مدیریت استان‌ها ابتدا وارد شوید', 'warning');
+    return;
+  }
+
+  const mode = provincesState.formMode === 'edit' ? 'edit' : 'create';
+  const editingId = provincesState.editingId || '';
+  const name = provinceNameInput ? provinceNameInput.value.trim() : '';
+  const code = provinceCodeInput ? provinceCodeInput.value.trim() : '';
+  const sortOrderRaw = provinceSortOrderInput ? provinceSortOrderInput.value : '0';
+  const sortOrder = Number.isFinite(Number(sortOrderRaw)) ? Number(sortOrderRaw) : 0;
+  const isActive = provinceActiveInput ? Boolean(provinceActiveInput.checked) : true;
+
+  if (!name) {
+    showToast('نام استان را وارد کنید', 'warning');
+    return;
+  }
+
+  const payload = { name, code, sortOrder, isActive };
+  const originalHtml = provinceSubmitBtn ? provinceSubmitBtn.innerHTML : '';
+  setProvinceFormBusy(true);
+  if (provinceSubmitBtn) {
+    provinceSubmitBtn.innerHTML = `
+      <span class="flex items-center gap-2 justify-center">
+        <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+        <span>در حال ذخیره...</span>
+      </span>
+    `;
+  }
+
+  try {
+    if (mode === 'edit' && editingId) {
+      await api(`/provinces/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      showToast('تغییرات استان ذخیره شد', 'success');
+    } else {
+      await api('/provinces', { method: 'POST', body: JSON.stringify(payload) });
+      showToast('استان جدید ثبت شد', 'success');
+    }
+    await loadProvinces();
+    resetProvinceForm();
+    syncAdProvincesFromState();
+  } catch (error) {
+    showToast(error.message || 'ذخیره استان با خطا مواجه شد', 'error');
+  } finally {
+    setProvinceFormBusy(false);
+    if (provinceSubmitBtn) {
+      provinceSubmitBtn.innerHTML = provinceSubmitBtn.dataset.mode === 'edit'
+        ? '<i class="fa-solid fa-floppy-disk ml-2"></i> ذخیره تغییرات'
+        : (provinceSubmitBtnDefault || '<i class="fa-solid fa-floppy-disk ml-2"></i> ذخیره استان');
+    }
+    if (provinceSubmitBtn && !provinceSubmitBtn.innerHTML.trim()) {
+      provinceSubmitBtn.innerHTML = originalHtml;
+    }
+  }
+}
+
+function handleProvinceEdit(id) {
+  if (!getToken()) {
+    showToast('برای مدیریت استان‌ها ابتدا وارد شوید', 'warning');
+    return;
+  }
+  const province = findProvinceById(id);
+  if (!province) {
+    showToast('استان مورد نظر یافت نشد', 'error');
+    return;
+  }
+  setProvinceFormMode('edit', province);
+  if (provinceNameInput) {
+    provinceNameInput.focus();
+  }
+}
+
+async function handleProvinceDelete(id, trigger) {
+  if (!getToken()) {
+    showToast('برای مدیریت استان‌ها ابتدا وارد شوید', 'warning');
+    return;
+  }
+  const province = findProvinceById(id);
+  if (!province) {
+    showToast('استان مورد نظر یافت نشد', 'error');
+    return;
+  }
+  const confirmed = window.confirm(`آیا از حذف استان «${province.name}» مطمئن هستید؟`);
+  if (!confirmed) return;
+
+  const originalHtml = trigger ? trigger.innerHTML : '';
+  if (trigger) {
+    trigger.disabled = true;
+    trigger.classList.add('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+    trigger.innerHTML = '<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>';
+  }
+
+  try {
+    await api(`/provinces/${id}`, { method: 'DELETE' });
+    showToast('استان حذف شد', 'success');
+    if (provincesState.editingId === id) {
+      resetProvinceForm();
+    }
+    await loadProvinces();
+    syncAdProvincesFromState();
+  } catch (error) {
+    showToast(error.message || 'حذف استان با خطا مواجه شد', 'error');
+  } finally {
+    if (trigger) {
+      trigger.disabled = false;
+      trigger.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
+      trigger.innerHTML = originalHtml;
+    }
+  }
+}
+
+function handleProvinceTableClick(event) {
+  const target = event.target.closest('[data-action]');
+  if (!target) return;
+  const action = target.dataset.action;
+  const provinceId = target.dataset.provinceId || '';
+  if (action === 'edit-province') {
+    event.preventDefault();
+    handleProvinceEdit(provinceId);
+  }
+  if (action === 'delete-province') {
+    event.preventDefault();
+    handleProvinceDelete(provinceId, target);
+  }
+}
 
 function sanitizeProviderList(list) {
   const fallbackMap = new Map(DEFAULT_TRIVIA_PROVIDERS.map((provider) => [provider.id, provider]));
@@ -1012,24 +1376,39 @@ function renderAdProvinceOptions(selected = []) {
 }
 
 async function loadAdProvinces() {
+  const selected = getSelectedProvinceValues();
+  if (syncAdProvincesFromState(selected)) {
+    return;
+  }
+
+  if (getToken()) {
+    try {
+      const res = await api('/provinces?active=true');
+      const list = Array.isArray(res?.data) ? res.data : [];
+      const names = list
+        .map((item) => (typeof item === 'string' ? item : item?.name))
+        .map((name) => sanitizeProvinceString(name))
+        .filter(Boolean);
+      if (names.length) {
+        adsState.provinces = names.sort((a, b) => a.localeCompare(b, 'fa'));
+        renderAdProvinceOptions(selected);
+        return;
+      }
+    } catch (error) {
+      console.warn('Failed to load provinces from admin API', error);
+    }
+  }
+
   try {
     const res = await fetch('/api/public/provinces', { cache: 'no-store' });
     const data = await res.json();
     const names = Array.isArray(data)
       ? data
           .map((item) => (typeof item === 'string' ? item : item?.name))
-          .map((name) => sanitizeAdString(name))
+          .map((name) => sanitizeProvinceString(name))
           .filter(Boolean)
       : [];
     adsState.provinces = names.sort((a, b) => a.localeCompare(b, 'fa'));
-    let selected = [];
-    if (adModal && adModal.dataset.selectedProvinces) {
-      try {
-        selected = JSON.parse(adModal.dataset.selectedProvinces) || [];
-      } catch (err) {
-        selected = [];
-      }
-    }
     renderAdProvinceOptions(selected);
   } catch (error) {
     console.warn('Failed to load provinces', error);
@@ -2098,6 +2477,31 @@ adsStatusFilterButtons.forEach((button) => {
     renderAds();
   });
 });
+
+if (provinceForm) {
+  provinceForm.addEventListener('submit', handleProvinceSubmit);
+}
+
+if (provinceCancelBtn) {
+  provinceCancelBtn.addEventListener('click', () => {
+    resetProvinceForm();
+  });
+}
+
+if (provinceRefreshBtn) {
+  provinceRefreshBtn.addEventListener('click', async () => {
+    if (!getToken()) {
+      showToast('برای مشاهده استان‌ها ابتدا وارد شوید', 'warning');
+      return;
+    }
+    await loadProvinces(true);
+    syncAdProvincesFromState();
+  });
+}
+
+if (provincesTableBody) {
+  provincesTableBody.addEventListener('click', handleProvinceTableClick);
+}
 
 if (adsSearchInput) {
   adsSearchInput.addEventListener('input', (event) => {
@@ -3647,7 +4051,8 @@ async function loadAllData() {
     loadCategoryFilterOptions(),
     loadQuestions(),
     loadUsers(),
-    loadAds()
+    loadAds(),
+    loadProvinces()
   ]);
 }
 
@@ -3683,6 +4088,8 @@ renderCategoryManagement();
 resetAdForm();
 updateAdsStats();
 renderAds();
+resetProvinceForm();
+renderProvinces();
 loadAdProvinces();
 
 // صفحه پیش‌فرض

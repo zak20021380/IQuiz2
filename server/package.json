@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node src/index.js",
-    "seed:admin": "node src/seed/createAdmin.js"
+    "seed:admin": "node src/seed/createAdmin.js",
+    "seed:provinces": "node src/seed/seedProvinces.js",
+    "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

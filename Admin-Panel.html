@@ -1342,6 +1342,12 @@
             </a>
           </li>
           <li>
+            <a href="#" class="sidebar-item flex items-center gap-3 p-3 rounded-xl" data-page="provinces">
+              <i class="fa-solid fa-map-location-dot"></i>
+              <span>مدیریت استان‌ها</span>
+            </a>
+          </li>
+          <li>
             <a href="#" class="sidebar-item flex items-center gap-3 p-3 rounded-xl" data-page="users">
               <i class="fa-solid fa-users"></i>
               <span>مدیریت کاربران</span>
@@ -1412,6 +1418,12 @@
           <a href="#" class="sidebar-item flex items-center gap-3 p-3 rounded-xl" data-page="categories">
             <i class="fa-solid fa-th-large"></i>
             <span>مدیریت دسته‌بندی‌ها</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="sidebar-item flex items-center gap-3 p-3 rounded-xl" data-page="provinces">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <span>مدیریت استان‌ها</span>
           </a>
         </li>
         <li>
@@ -2313,6 +2325,109 @@
                 </div>
                 <div class="text-sm opacity-80">۶۵ بازی</div>
               </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROVINCE MANAGEMENT -->
+      <section id="page-provinces" class="hidden space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold">مدیریت استان‌ها</h1>
+            <p class="text-sm text-white/70 mt-1">استان‌های فعال برای هدف‌گیری تبلیغات و گزارش‌های منطقه‌ای را مدیریت کنید.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="province-refresh-btn" class="btn btn-secondary w-auto px-4">
+              <i class="fa-solid fa-rotate ml-2"></i>
+              بروزرسانی فهرست
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div class="glass rounded-2xl p-6 space-y-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="province-form-title" class="text-xl font-bold">افزودن استان جدید</h2>
+                <p class="text-xs text-white/60 mt-1">نام استان را وارد کنید و وضعیت نمایش آن را مشخص نمایید.</p>
+              </div>
+              <span data-province-form-status class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs text-white/70">در حالت ایجاد</span>
+            </div>
+
+            <form id="province-form" class="space-y-4">
+              <div>
+                <label for="province-name" class="block text-sm mb-1">نام استان</label>
+                <input id="province-name" name="name" type="text" class="form-input" placeholder="مثلاً تهران" required />
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="province-code" class="block text-sm mb-1">کد لاتین (اختیاری)</label>
+                  <input id="province-code" name="code" type="text" class="form-input" placeholder="tehran" />
+                </div>
+                <div>
+                  <label for="province-sort-order" class="block text-sm mb-1">ترتیب نمایش</label>
+                  <input id="province-sort-order" name="sortOrder" type="number" min="0" class="form-input" value="0" />
+                </div>
+              </div>
+              <label class="toggle">
+                <input id="province-active" type="checkbox" checked />
+                <span class="toggle-label">فعال</span>
+                <span class="toggle-helper">در فهرست عمومی نمایش داده شود</span>
+              </label>
+              <div class="flex flex-wrap items-center gap-3 pt-2">
+                <button id="province-submit-btn" type="submit" class="btn btn-primary w-auto px-5">
+                  <i class="fa-solid fa-floppy-disk ml-2"></i>
+                  ذخیره استان
+                </button>
+                <button id="province-cancel-btn" type="button" class="btn btn-secondary w-auto px-4 hidden">
+                  <i class="fa-solid fa-rotate-left ml-2"></i>
+                  انصراف
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="xl:col-span-2 space-y-4">
+            <div class="glass rounded-2xl p-6 space-y-5">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 class="text-xl font-bold">فهرست استان‌ها</h2>
+                  <p class="text-xs text-white/60 mt-1">این لیست تنها استان‌های ذخیره‌شده در پایگاه داده را نمایش می‌دهد.</p>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-white/70">
+                  <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-200" data-province-count="active">۰ استان فعال</span>
+                  <span class="px-3 py-1 rounded-full bg-white/10 text-white/70" data-province-count="total">۰ استان ثبت‌شده</span>
+                </div>
+              </div>
+
+              <div id="provinces-loading-state" class="glass-dark rounded-2xl border border-dashed border-white/10 p-5 text-sm text-white/80 hidden">
+                <div class="flex items-center gap-3">
+                  <span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  <span>در حال دریافت استان‌ها...</span>
+                </div>
+              </div>
+
+              <div id="provinces-empty-state" class="glass-dark rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-white/70 hidden">
+                <p class="font-semibold mb-2">استانی ثبت نشده است</p>
+                <p class="text-xs text-white/60">با استفاده از فرم سمت راست، اولین استان را اضافه کنید.</p>
+              </div>
+
+              <div class="table-container">
+                <table class="table text-sm text-white/80" id="provinces-table">
+                  <thead>
+                    <tr class="text-white/60 text-xs uppercase tracking-wider">
+                      <th class="text-right">نام استان</th>
+                      <th class="text-right">کد</th>
+                      <th class="text-right">ترتیب</th>
+                      <th class="text-right">وضعیت</th>
+                      <th class="text-right">به‌روزرسانی</th>
+                      <th class="text-right">عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody id="provinces-table-body"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </section>

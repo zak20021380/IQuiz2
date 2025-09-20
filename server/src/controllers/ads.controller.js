@@ -6,6 +6,7 @@ const {
   AD_CREATIVE_TYPES,
   AD_REWARD_TYPES
 } = AdModel;
+const { filterAllowedProvinceNames } = require('../services/provinceService');
 
 const Ad = AdModel;
 
@@ -114,7 +115,11 @@ exports.create = async (req, res, next) => {
     const headline = sanitizeString(req.body.headline);
     const body = sanitizeString(req.body.body);
     const ctaLabel = sanitizeString(req.body.ctaLabel) || 'مشاهده';
-    const provinces = sanitizeProvinces(req.body.provinces);
+    const requestedProvinces = sanitizeProvinces(req.body.provinces);
+    const provinces = await filterAllowedProvinceNames(requestedProvinces);
+    if (requestedProvinces.length !== provinces.length) {
+      return res.status(400).json({ ok: false, message: 'برخی از استان‌های انتخاب‌شده معتبر نیستند' });
+    }
     const startDate = sanitizeDate(req.body.startDate);
     const endDate = sanitizeDate(req.body.endDate);
     const rewardType = sanitizeRewardType(req.body.rewardType, 'coins');
@@ -276,7 +281,12 @@ exports.update = async (req, res, next) => {
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'provinces')) {
-      ad.provinces = sanitizeProvinces(req.body.provinces);
+      const requested = sanitizeProvinces(req.body.provinces);
+      const allowed = await filterAllowedProvinceNames(requested);
+      if (requested.length !== allowed.length) {
+        return res.status(400).json({ ok: false, message: 'برخی از استان‌های انتخاب‌شده معتبر نیستند' });
+      }
+      ad.provinces = allowed;
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'startDate')) {
