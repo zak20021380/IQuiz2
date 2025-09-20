@@ -30,7 +30,8 @@ const DIFFICULTY_META = {
 
 const SOURCE_META = {
   manual: { label: 'ایجاد دستی', class: 'meta-chip source-manual', icon: 'fa-pen-nib' },
-  opentdb: { label: 'OpenTDB', class: 'meta-chip source-opentdb', icon: 'fa-database' }
+  opentdb: { label: 'OpenTDB', class: 'meta-chip source-opentdb', icon: 'fa-database' },
+  community: { label: 'سازنده‌ها', class: 'meta-chip source-community', icon: 'fa-users-gear' }
 };
 
 const TRIVIA_PROVIDER_ICONS = {
@@ -72,6 +73,8 @@ const decodeHtmlEntities = (value = '') => {
 const STATUS_META = {
   active:    { label: 'فعال', class: 'meta-chip status-active', dot: 'active' },
   pending:   { label: 'در انتظار بررسی', class: 'meta-chip status-pending', dot: 'pending' },
+  approved:  { label: 'تایید شده', class: 'meta-chip status-approved', dot: 'active' },
+  rejected:  { label: 'رد شده', class: 'meta-chip status-rejected', dot: 'inactive' },
   review:    { label: 'در حال بررسی', class: 'meta-chip status-pending', dot: 'pending' },
   draft:     { label: 'پیش‌نویس', class: 'meta-chip status-pending', dot: 'pending' },
   inactive:  { label: 'غیرفعال', class: 'meta-chip status-inactive', dot: 'inactive' },
@@ -101,6 +104,7 @@ const filterCategorySelect = $('#filter-category');
 const filterDifficultySelect = $('#filter-difficulty');
 const filterSearchInput = $('#filter-search');
 const filterSortSelect = $('#filter-sort');
+const filterStatusSelect = $('#filter-status');
 const questionStatsCard = document.querySelector('[data-dashboard-card="questions"]');
 const questionTotalEl = $('#dashboard-question-total');
 const questionTrendEl = $('#dashboard-question-trend');
@@ -140,6 +144,12 @@ const saveQuestionBtnDefault = saveQuestionBtn ? saveQuestionBtn.innerHTML : '';
 const questionDetailCategorySelect = $('#question-detail-category');
 const questionDetailDifficultySelect = $('#question-detail-difficulty');
 const questionDetailActiveToggle = $('#question-detail-active');
+const questionDetailAuthorInput = $('#question-detail-author');
+const questionDetailStatusSelect = $('#question-detail-status');
+const questionDetailNotesInput = $('#question-detail-notes');
+const addQuestionAuthorInput = $('#add-question-author');
+const pendingCommunityCountEl = $('#pending-community-count');
+const viewPendingQuestionsBtn = $('#btn-view-pending-questions');
 const categoriesGridEl = $('#categories-grid');
 const categoriesLoadingEl = $('#categories-loading-state');
 const categoriesEmptyEl = $('#categories-empty-state');
@@ -230,6 +240,7 @@ const shopPromotionsToggle = $('#shop-promotions-toggle');
 const questionFilters = {
   category: '',
   difficulty: '',
+  status: '',
   search: '',
   sort: 'newest'
 };
@@ -2011,6 +2022,7 @@ function resetAddQuestionForm() {
   if (addQuestionDifficultySelect) addQuestionDifficultySelect.value = 'easy';
   if (addQuestionCategorySelect) addQuestionCategorySelect.value = '';
   if (addQuestionActiveInput) addQuestionActiveInput.checked = true;
+  if (addQuestionAuthorInput) addQuestionAuthorInput.value = '';
   if (addQuestionOptionsWrapper) {
     addQuestionOptionsWrapper.querySelectorAll('input.form-input').forEach((input) => {
       input.value = '';
@@ -2289,6 +2301,17 @@ function normalizeQuestion(raw = {}) {
   const decodedOptions = options.map(opt => decodeHtmlEntities(opt));
   const decodedText = decodeHtmlEntities(raw.text ?? raw.question ?? '');
   const sourceKey = typeof raw.source === 'string' ? raw.source.toLowerCase() : 'manual';
+  const normalizedSource = SOURCE_META[sourceKey] ? sourceKey : 'manual';
+  const authorRaw = typeof raw.authorName === 'string' ? raw.authorName.trim() : '';
+  const normalizedAuthor = authorRaw || (normalizedSource === 'community' ? 'کاربر آیکوئیز' : 'تیم آیکوئیز');
+  const statusRaw = typeof raw.status === 'string' ? raw.status.trim().toLowerCase() : '';
+  let normalizedStatus = statusRaw;
+  if (!normalizedStatus) {
+    normalizedStatus = raw.active === false ? 'inactive' : 'active';
+  } else if (!Object.prototype.hasOwnProperty.call(STATUS_META, normalizedStatus)) {
+    normalizedStatus = raw.active === false ? 'inactive' : 'active';
+  }
+  const reviewNotes = typeof raw.reviewNotes === 'string' ? raw.reviewNotes.trim() : '';
   return {
     ...raw,
     text: decodedText,
@@ -2296,7 +2319,10 @@ function normalizeQuestion(raw = {}) {
     correctIdx,
     categoryName: decodeHtmlEntities(categoryNameRaw),
     categoryId,
-    source: SOURCE_META[sourceKey] ? sourceKey : 'manual'
+    source: normalizedSource,
+    authorName: normalizedAuthor,
+    status: normalizedStatus,
+    reviewNotes
   };
 }
 
@@ -2425,6 +2451,21 @@ function renderQuestionOptions(options = [], correctIdx = 0) {
   setOptionRowStates();
 }
 
+function syncQuestionDetailStatusUi(statusValue) {
+  if (!questionDetailActiveToggle) return;
+  const normalized = typeof statusValue === 'string' ? statusValue.trim().toLowerCase() : '';
+  const shouldDisable = normalized !== 'approved';
+  const toggleLabel = questionDetailActiveToggle.closest('label');
+  if (shouldDisable) {
+    questionDetailActiveToggle.checked = false;
+    questionDetailActiveToggle.disabled = true;
+    if (toggleLabel) toggleLabel.classList.add('opacity-60');
+  } else {
+    questionDetailActiveToggle.disabled = false;
+    if (toggleLabel) toggleLabel.classList.remove('opacity-60');
+  }
+}
+
 function populateQuestionDetail(question) {
   if (!questionDetailModal) return;
   const normalized = normalizeQuestion(question);
@@ -2443,6 +2484,21 @@ function populateQuestionDetail(question) {
   if (questionDetailActiveToggle) {
     questionDetailActiveToggle.checked = normalized.active !== false;
   }
+  if (questionDetailAuthorInput) {
+    questionDetailAuthorInput.value = normalized.authorName || '';
+  }
+  if (questionDetailStatusSelect) {
+    const candidate = normalized.status || 'approved';
+    const hasOption = Boolean(questionDetailStatusSelect.querySelector(`option[value="${candidate}"]`));
+    const resolvedStatus = hasOption ? candidate : 'approved';
+    questionDetailStatusSelect.value = resolvedStatus;
+    syncQuestionDetailStatusUi(resolvedStatus);
+  } else {
+    syncQuestionDetailStatusUi(normalized.status);
+  }
+  if (questionDetailNotesInput) {
+    questionDetailNotesInput.value = normalized.reviewNotes || '';
+  }
   if (questionDetailForm) {
     const textarea = questionDetailForm.querySelector('[name="question-text"]');
     if (textarea) textarea.value = normalized.text || '';
@@ -2452,11 +2508,13 @@ function populateQuestionDetail(question) {
     const difficultyMeta = DIFFICULTY_META[normalized.difficulty] || DIFFICULTY_META.medium;
     const statusKey = normalized.status || (normalized.active === false ? 'inactive' : 'active');
     const statusMeta = STATUS_META[statusKey] || STATUS_META.active;
+    const authorSafe = escapeHtml(normalized.authorName || 'نامشخص');
     const sourceMeta = SOURCE_META[normalized.source] || SOURCE_META.manual;
     questionMetaEl.innerHTML = `
       <span class="meta-chip category" title="دسته‌بندی"><i class="fas fa-layer-group"></i>${categoryNameSafe}</span>
       <span class="${difficultyMeta.class}" title="سطح دشواری"><i class="fas ${difficultyMeta.icon}"></i>${difficultyMeta.label}</span>
       <span class="${sourceMeta.class}" title="منبع"><i class="fas ${sourceMeta.icon}"></i>${sourceMeta.label}</span>
+      <span class="meta-chip author" title="سازنده"><i class="fas fa-user-pen"></i>${authorSafe}</span>
       <span class="${statusMeta.class}" title="وضعیت"><span class="status-dot ${statusMeta.dot}"></span>${statusMeta.label}</span>
     `;
   }
@@ -2511,6 +2569,12 @@ if (questionOptionsWrapper) {
   });
 }
 
+if (questionDetailStatusSelect) {
+  questionDetailStatusSelect.addEventListener('change', () => {
+    syncQuestionDetailStatusUi(questionDetailStatusSelect.value || '');
+  });
+}
+
 if (updateQuestionBtn) {
   updateQuestionBtn.addEventListener('click', async () => {
     if (!questionDetailModal) return;
@@ -2539,6 +2603,11 @@ if (updateQuestionBtn) {
     const difficultyRaw = questionDetailDifficultySelect ? questionDetailDifficultySelect.value : 'medium';
     const difficulty = ['easy', 'medium', 'hard'].includes(difficultyRaw) ? difficultyRaw : 'medium';
     const active = questionDetailActiveToggle ? Boolean(questionDetailActiveToggle.checked) : true;
+    const authorName = questionDetailAuthorInput ? questionDetailAuthorInput.value.trim() : '';
+    const statusCandidate = questionDetailStatusSelect ? (questionDetailStatusSelect.value || 'approved') : 'approved';
+    const allowedStatuses = ['approved', 'pending', 'rejected', 'draft', 'archived'];
+    const statusValue = allowedStatuses.includes(statusCandidate) ? statusCandidate : 'approved';
+    const reviewNotes = questionDetailNotesInput ? questionDetailNotesInput.value.trim() : '';
 
     if (!text) {
       showToast('متن سوال را وارد کنید', 'warning');
@@ -2568,7 +2637,10 @@ if (updateQuestionBtn) {
       difficulty,
       active,
       categoryId,
-      categoryName: category.displayName || category.name
+      categoryName: category.displayName || category.name,
+      authorName,
+      status: statusValue,
+      reviewNotes
     };
     updateQuestionBtn.disabled = true;
     updateQuestionBtn.classList.add('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
@@ -2697,6 +2769,9 @@ async function loadQuestions(overrides = {}) {
       if (Object.prototype.hasOwnProperty.call(overrides, 'difficulty')) {
         questionFilters.difficulty = overrides.difficulty || '';
       }
+      if (Object.prototype.hasOwnProperty.call(overrides, 'status')) {
+        questionFilters.status = overrides.status || '';
+      }
       if (Object.prototype.hasOwnProperty.call(overrides, 'search')) {
         questionFilters.search = (overrides.search || '').trim();
       }
@@ -2708,6 +2783,12 @@ async function loadQuestions(overrides = {}) {
 
     if (filterSortSelect && questionFilters.sort && filterSortSelect.value !== questionFilters.sort) {
       filterSortSelect.value = questionFilters.sort;
+    }
+    if (filterStatusSelect) {
+      const nextStatus = questionFilters.status || '';
+      if (filterStatusSelect.value !== nextStatus) {
+        filterStatusSelect.value = nextStatus;
+      }
     }
 
     if (tbody) {
@@ -2727,16 +2808,31 @@ async function loadQuestions(overrides = {}) {
     const params = new URLSearchParams({ limit: '50' });
     if (questionFilters.category) params.append('category', questionFilters.category);
     if (questionFilters.difficulty) params.append('difficulty', questionFilters.difficulty);
+    if (questionFilters.status) params.append('status', questionFilters.status);
     if (questionFilters.search) params.append('q', questionFilters.search);
     if (questionFilters.sort) params.append('sort', questionFilters.sort);
 
     const response = await api(`/questions?${params.toString()}`);
+    const pendingTotal = Number(response?.meta?.pendingTotal);
+    if (pendingCommunityCountEl) {
+      const safePending = Number.isFinite(pendingTotal) ? pendingTotal : 0;
+      pendingCommunityCountEl.textContent = formatNumberFa(safePending);
+    }
+    if (viewPendingQuestionsBtn) {
+      const safePending = Number.isFinite(pendingTotal) ? pendingTotal : 0;
+      const highlight = questionFilters.status === 'pending';
+      const shouldDisable = safePending === 0 && !highlight;
+      viewPendingQuestionsBtn.disabled = shouldDisable;
+      viewPendingQuestionsBtn.classList.toggle('opacity-60', shouldDisable);
+      viewPendingQuestionsBtn.classList.toggle('cursor-not-allowed', shouldDisable);
+      viewPendingQuestionsBtn.dataset.active = highlight ? 'true' : 'false';
+    }
     questionsCache.clear();
 
     if (!tbody) return;
 
     if (!Array.isArray(response.data) || response.data.length === 0) {
-      const hasFilters = Boolean(questionFilters.category || questionFilters.difficulty || questionFilters.search);
+      const hasFilters = Boolean(questionFilters.category || questionFilters.difficulty || questionFilters.status || questionFilters.search);
       const emptyMessage = hasFilters
         ? 'هیچ سوالی با فیلترهای انتخاب شده یافت نشد.'
         : 'هنوز سوالی ثبت نشده است. از دکمه «افزودن سوال» یا ابزار دریافت سوالات خودکار استفاده کنید.';
@@ -2762,6 +2858,7 @@ async function loadQuestions(overrides = {}) {
       const questionText = escapeHtml(item.text || 'بدون متن');
       const categoryName = escapeHtml(item.categoryName || 'بدون دسته‌بندی');
       const difficulty = DIFFICULTY_META[item.difficulty] || DIFFICULTY_META.medium;
+      const authorSafe = escapeHtml(item.authorName || 'IQuiz Team');
       const statusKey = item.status || (item.active === false ? 'inactive' : 'active');
       const status = STATUS_META[statusKey] || STATUS_META.active;
       const sourceMeta = SOURCE_META[item.source] || SOURCE_META.manual;
@@ -2778,6 +2875,9 @@ async function loadQuestions(overrides = {}) {
               </span>
               <span class="${difficulty.class}" title="سطح دشواری">
                 <i class="fas ${difficulty.icon}"></i>${difficulty.label}
+              </span>
+              <span class="meta-chip author" title="سازنده سوال">
+                <i class="fas fa-user-pen"></i>${authorSafe}
               </span>
               <span class="${sourceMeta.class}" title="منبع سوال">
                 <i class="fas ${sourceMeta.icon}"></i>${sourceMeta.label}
@@ -2841,6 +2941,14 @@ async function loadQuestions(overrides = {}) {
         </tr>
       `;
     }
+    if (pendingCommunityCountEl) {
+      pendingCommunityCountEl.textContent = '—';
+    }
+    if (viewPendingQuestionsBtn) {
+      viewPendingQuestionsBtn.disabled = true;
+      viewPendingQuestionsBtn.classList.add('opacity-60', 'cursor-not-allowed');
+      viewPendingQuestionsBtn.dataset.active = 'false';
+    }
     showToast('مشکل در دریافت سوالات','error');
   }
 }
@@ -2897,6 +3005,13 @@ if (filterDifficultySelect) {
   });
 }
 
+if (filterStatusSelect) {
+  filterStatusSelect.addEventListener('change', () => {
+    if (!getToken()) return;
+    loadQuestions({ status: filterStatusSelect.value || '' });
+  });
+}
+
 if (filterSearchInput) {
   filterSearchInput.addEventListener('input', () => {
     if (!getToken()) return;
@@ -2913,6 +3028,20 @@ if (filterSortSelect) {
     if (!getToken()) return;
     const value = filterSortSelect.value || 'newest';
     loadQuestions({ sort: value });
+  });
+}
+
+if (viewPendingQuestionsBtn) {
+  viewPendingQuestionsBtn.addEventListener('click', () => {
+    if (!getToken()) {
+      showToast('برای مدیریت سوالات ابتدا وارد شوید', 'warning');
+      return;
+    }
+    if (filterStatusSelect && filterStatusSelect.value !== 'pending') {
+      filterStatusSelect.value = 'pending';
+    }
+    loadQuestions({ status: 'pending' });
+    viewPendingQuestionsBtn.blur();
   });
 }
 
@@ -3077,6 +3206,8 @@ if (saveQuestionBtn) {
     const difficultyRaw = addQuestionDifficultySelect ? addQuestionDifficultySelect.value : 'easy';
     const difficulty = ['easy', 'medium', 'hard'].includes(difficultyRaw) ? difficultyRaw : 'easy';
     const active = addQuestionActiveInput ? Boolean(addQuestionActiveInput.checked) : true;
+    const authorName = addQuestionAuthorInput ? addQuestionAuthorInput.value.trim() : '';
+    const statusValue = active ? 'approved' : 'draft';
     const optionInputs = addQuestionOptionsWrapper
       ? Array.from(addQuestionOptionsWrapper.querySelectorAll('input.form-input'))
       : [];
@@ -3127,7 +3258,10 @@ if (saveQuestionBtn) {
           difficulty,
           categoryId,
           categoryName: category.displayName || category.name,
-          active
+          active,
+          authorName,
+          status: statusValue,
+          reviewNotes: ''
         })
       });
       showToast('سوال ذخیره شد', 'success');

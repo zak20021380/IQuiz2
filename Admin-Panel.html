@@ -90,10 +90,22 @@
       color:#fff;
       box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
     }
-    .btn-tertiary{ 
-      background: linear-gradient(135deg, #60a5fa, #6366f1); 
+    .btn-tertiary{
+      background: linear-gradient(135deg, #60a5fa, #6366f1);
       color:#fff;
       box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+    #btn-view-pending-questions[data-active="true"] {
+      background: linear-gradient(135deg, rgba(253, 224, 71, 0.95), rgba(251, 191, 36, 0.85));
+      color: #1f2937;
+      border: 1px solid rgba(253, 224, 71, 0.45);
+      box-shadow: 0 18px 45px -18px rgba(251, 191, 36, 0.55);
+    }
+    #btn-view-pending-questions[data-active="true"]:hover {
+      box-shadow: 0 24px 55px -20px rgba(251, 191, 36, 0.65);
+    }
+    #btn-view-pending-questions[data-active="true"] i {
+      color: inherit;
     }
     .safe { padding-bottom: env(safe-area-inset-bottom); }
     .divider{
@@ -691,6 +703,11 @@
       background: linear-gradient(135deg, rgba(236,72,153,0.16), rgba(129,140,248,0.14));
       color: #fbcfe8;
     }
+    .meta-chip.source-community {
+      border-color: rgba(56, 189, 248, 0.35);
+      background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(251,191,36,0.16));
+      color: #bae6fd;
+    }
     .meta-chip.status-active {
       border-color: rgba(34, 197, 94, 0.4);
       background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(34,197,94,0.12));
@@ -701,15 +718,30 @@
       background: linear-gradient(135deg, rgba(245,158,11,0.16), rgba(250,204,21,0.1));
       color: #fbbf24;
     }
+    .meta-chip.status-approved {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(96,165,250,0.12));
+      color: #7dd3fc;
+    }
     .meta-chip.status-inactive {
       border-color: rgba(248, 113, 113, 0.35);
       background: linear-gradient(135deg, rgba(248,113,113,0.16), rgba(239,68,68,0.1));
       color: #f87171;
     }
+    .meta-chip.status-rejected {
+      border-color: rgba(248, 113, 113, 0.5);
+      background: linear-gradient(135deg, rgba(248,113,113,0.2), rgba(239,68,68,0.12));
+      color: #fecaca;
+    }
     .meta-chip.status-archived {
       border-color: rgba(129, 140, 248, 0.35);
       background: linear-gradient(135deg, rgba(129,140,248,0.16), rgba(165,180,252,0.1));
       color: #a5b4fc;
+    }
+    .meta-chip.author {
+      border-color: rgba(251, 191, 36, 0.35);
+      background: linear-gradient(135deg, rgba(251,191,36,0.18), rgba(253,224,71,0.12));
+      color: #facc15;
     }
     .shop-preview {
       position: relative;
@@ -1670,9 +1702,33 @@
           </button>
         </div>
 
+        <div class="glass rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-br from-sky-500/15 via-violet-500/10 to-emerald-500/15 border border-white/10">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-2xl text-amber-300 shadow-lg">
+              <i class="fa-solid fa-lightbulb-on"></i>
+            </div>
+            <div>
+              <p class="text-sm text-white/70">سوالات ارسالی توسط کاربران حرفه‌ای</p>
+              <p class="text-xl font-extrabold text-white mt-1">
+                <span id="pending-community-count">۰</span>
+                <span class="text-sm font-semibold text-white/70 mr-2">سوال در انتظار تایید</span>
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 text-sm">
+            <button id="btn-view-pending-questions" class="btn btn-secondary w-full sm:w-auto px-5">
+              <i class="fa-solid fa-inbox ml-2"></i>
+              مشاهده سوالات معلق
+            </button>
+            <div class="text-xs text-white/60 leading-6 max-w-xs">
+              پس از تایید، سوال به صورت خودکار در تمام مسابقات عمومی نمایش داده می‌شود و نام سازنده در اپ ثبت خواهد شد.
+            </div>
+          </div>
+        </div>
+
         <!-- Filters -->
         <div class="glass rounded-2xl p-4">
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             <div>
               <label class="block text-sm mb-1">دسته‌بندی</label>
               <select id="filter-category" class="form-select">
@@ -1702,6 +1758,16 @@
               <select id="filter-sort" class="form-select">
                 <option value="newest">جدیدترین سوالات</option>
                 <option value="oldest">قدیمی‌ترین سوالات</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">وضعیت</label>
+              <select id="filter-status" class="form-select">
+                <option value="">همه وضعیت‌ها</option>
+                <option value="pending">در انتظار تایید</option>
+                <option value="approved">تایید شده</option>
+                <option value="rejected">رد شده</option>
+                <option value="inactive">غیرفعال</option>
               </select>
             </div>
           </div>
@@ -3484,6 +3550,28 @@
               </label>
             </div>
           </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm mb-2 font-semibold text-white/80" for="question-detail-author">نام سازنده</label>
+              <input id="question-detail-author" type="text" class="form-input" placeholder="نام نمایش داده شده در اپ">
+              <p class="text-xs text-white/60 mt-2 leading-6">این نام در هنگام نمایش سوال در مسابقات به کاربران نشان داده می‌شود.</p>
+            </div>
+            <div>
+              <label class="block text-sm mb-2 font-semibold text-white/80" for="question-detail-status">وضعیت بازبینی</label>
+              <select id="question-detail-status" class="form-select">
+                <option value="approved">تایید شده</option>
+                <option value="pending">در انتظار تایید</option>
+                <option value="rejected">رد شده</option>
+                <option value="draft">پیش‌نویس</option>
+                <option value="archived">آرشیو شده</option>
+              </select>
+              <p class="text-xs text-white/60 mt-2 leading-6">با تایید، سوال فعال می‌شود و در مسابقات آیکوئیز قرار می‌گیرد.</p>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm mb-2 font-semibold text-white/80" for="question-detail-notes">یادداشت بازبینی</label>
+            <textarea id="question-detail-notes" class="form-input min-h-[80px] text-sm leading-relaxed" placeholder="توضیحات تکمیلی برای تیم محتوا (اختیاری)"></textarea>
+          </div>
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <label class="block text-sm font-semibold text-white/80">گزینه‌ها</label>
@@ -3547,6 +3635,11 @@
             </select>
             <span class="helper-text">سطح دشواری روی امتیاز و تجربه کاربران تاثیر می‌گذارد.</span>
           </div>
+        </div>
+        <div class="field-group">
+          <label for="add-question-author">نام سازنده</label>
+          <input id="add-question-author" class="form-input" placeholder="مثلاً تیم محتوای IQuiz">
+          <span class="helper-text">این نام هنگام نمایش سوال در اپلیکیشن دیده می‌شود.</span>
         </div>
         <div class="field-group">
           <span class="field-label">وضعیت سوال</span>

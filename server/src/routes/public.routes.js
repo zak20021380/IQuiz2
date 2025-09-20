@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const logger = require('../config/logger');
 const Category = require('../models/Category');
 const Question = require('../models/Question');
+const questionsController = require('../controllers/questions.controller');
 const AdModel = require('../models/Ad');
 const {
   getFallbackCategories,
@@ -140,6 +141,8 @@ router.get('/config', (req, res) => {
   res.json(getFallbackConfig());
 });
 
+router.post('/questions/submit', questionsController.submitPublic);
+
 router.get('/categories', async (req, res) => {
   try {
     const docs = await Category.find({ status: 'active' }).sort({ name: 1 }).lean();
@@ -169,7 +172,13 @@ router.get('/questions', async (req, res) => {
   };
 
   let useFallback = false;
-  const match = { active: true };
+  const match = {
+    active: true,
+    $or: [
+      { status: { $exists: false } },
+      { status: 'approved' }
+    ]
+  };
   if (difficulty) {
     match.difficulty = difficulty;
   }

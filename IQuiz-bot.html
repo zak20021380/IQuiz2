@@ -69,6 +69,10 @@
     .choice:hover{ background:rgba(255,255,255,.20); transform:translateY(-1px) }
     .choice.correct{ background:rgba(16,185,129,.25); border-color:rgba(16,185,129,.7); box-shadow:0 0 18px rgba(16,185,129,.35) }
     .choice.wrong{ background:rgba(244,63,94,.25); border-color:rgba(244,63,94,.7); box-shadow:0 0 18px rgba(244,63,94,.35) }
+    #community-options .option-row{ transition:all .25s ease; cursor:text; }
+    #community-options .option-row.selected{ border-color:rgba(250,204,21,0.55); background:linear-gradient(135deg, rgba(250,204,21,0.18), rgba(251,191,36,0.12)); box-shadow:0 14px 28px rgba(15,23,42,0.28); }
+    #community-options .option-row input.form-input{ background:rgba(15,23,42,0.45); }
+    #community-options .option-row input[type="radio"]{ cursor:pointer; }
     .lifeline-btn{ position:relative; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:.5rem; padding:.8rem .75rem; border-radius:1.2rem; background:linear-gradient(150deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06)); border:1px solid rgba(255,255,255,0.24); box-shadow:0 12px 30px rgba(15,23,42,0.16); transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease; min-height:0; text-align:center; }
     .lifeline-btn:hover{ transform:translateY(-3px); box-shadow:0 18px 36px rgba(15,23,42,0.2); border-color:rgba(255,255,255,0.3); }
     .lifeline-btn:active{ transform:translateY(-1px); }
@@ -930,6 +934,17 @@
           </div>
         </div>
         <h3 id="question" class="text-xl font-bold mt-4 leading-8 text-center"></h3>
+        <div id="question-author" class="mt-4 flex justify-center hidden">
+          <div class="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 shadow-lg backdrop-blur">
+            <div class="w-10 h-10 rounded-2xl flex items-center justify-center bg-gradient-to-br from-amber-200/80 to-amber-400/60 text-emerald-900 shadow-inner" data-author-badge>
+              <i class="fas fa-user-astronaut text-lg" data-author-icon></i>
+            </div>
+            <div class="text-right leading-tight">
+              <div class="text-[11px] text-white/70 font-semibold" data-author-text>سوال منتخب کاربران</div>
+              <div class="text-sm font-extrabold text-white" id="question-author-name"></div>
+            </div>
+          </div>
+        </div>
       </div>
       
       <!-- Lifelines -->
@@ -1674,11 +1689,162 @@
         <i class="fas fa-arrow-right"></i> بازگشت
       </button>
     </section>
+
+    <!-- COMMUNITY QUESTION LAB -->
+    <section id="page-question-lab" class="hidden space-y-6">
+      <div class="glass rounded-3xl p-6 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-40 pointer-events-none" aria-hidden="true"
+          style="background: radial-gradient(circle at 80% 0%, rgba(251,191,36,0.28), transparent 50%), radial-gradient(circle at 10% 100%, rgba(59,130,246,0.22), transparent 55%);"></div>
+        <div class="relative z-10 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-white/10 border border-white/20 mb-2">
+                <i class="fas fa-sparkles text-amber-300"></i>
+                آتلیه محتوای کاربران
+              </span>
+              <h2 class="text-2xl font-extrabold leading-snug">سوال حرفه‌ای خودت را بساز</h2>
+              <p class="text-sm text-white/70 mt-2 leading-7">اینجا جایی است که ایده‌های درخشان شما تبدیل به سوالات رسمی مسابقات می‌شود. سوال را بنویس، گزینه درست را مشخص کن و منتظر تایید تیم محتوا بمان.</p>
+            </div>
+            <div class="glass-dark rounded-2xl border border-white/10 p-4 flex flex-col gap-2 text-sm max-w-xs">
+              <div class="flex items-center gap-2 text-white/80">
+                <i class="fas fa-user-check text-emerald-300"></i>
+                <span>تایید دستی توسط ادمین</span>
+              </div>
+              <div class="flex items-center gap-2 text-white/80">
+                <i class="fas fa-trophy text-amber-300"></i>
+                <span>نمایش در تمامی حالت‌های مسابقه</span>
+              </div>
+              <div class="flex items-center gap-2 text-white/80">
+                <i class="fas fa-badge-check text-sky-300"></i>
+                <span>نام شما زیر سوال خواهد درخشید</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass rounded-3xl p-6 space-y-6">
+        <form id="community-question-form" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div class="space-y-2">
+              <label for="community-author" class="text-sm font-semibold text-white/80 flex items-center gap-2">
+                <i class="fas fa-user-pen text-amber-300"></i>
+                نام سازنده
+              </label>
+              <input id="community-author" type="text" class="form-input" placeholder="نام و نام خانوادگی" autocomplete="name">
+              <p class="text-xs text-white/60 leading-5">این نام هنگام نمایش سوال به صورت شاخص نمایش داده می‌شود.</p>
+            </div>
+            <div class="space-y-2">
+              <label for="community-category" class="text-sm font-semibold text-white/80 flex items-center gap-2">
+                <i class="fas fa-layer-group text-sky-300"></i>
+                دسته‌بندی سوال
+              </label>
+              <select id="community-category" class="form-input"></select>
+              <p class="text-xs text-white/60 leading-5">دسته‌بندی مناسب باعث می‌شود سوال شما در مسابقه درست نمایش داده شود.</p>
+            </div>
+            <div class="space-y-2">
+              <label for="community-difficulty" class="text-sm font-semibold text-white/80 flex items-center gap-2">
+                <i class="fas fa-signal text-purple-300"></i>
+                سطح دشواری
+              </label>
+              <select id="community-difficulty" class="form-input">
+                <option value="easy">آسون</option>
+                <option value="medium">متوسط</option>
+                <option value="hard">سخت</option>
+              </select>
+              <p class="text-xs text-white/60 leading-5">سطح دشواری مناسب، امتیاز‌دهی در مسابقه را دقیق‌تر می‌کند.</p>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="community-question" class="text-sm font-semibold text-white/80 flex items-center gap-2">
+              <i class="fas fa-pen-to-square text-rose-300"></i>
+              متن سوال
+            </label>
+            <textarea id="community-question" class="form-input min-h-[140px] text-sm leading-relaxed" placeholder="سوال خود را با دقت و شفاف بنویسید..."></textarea>
+            <p class="text-xs text-white/60 leading-6">برای تجربه بهتر بازیکنان، متن سوال را کوتاه، روشن و بدون ابهام بنویسید.</p>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div class="text-sm font-semibold text-white/80 flex items-center gap-2">
+                <i class="fas fa-list-ol text-emerald-300"></i>
+                چهار گزینه با پاسخ صحیح
+              </div>
+              <div class="text-xs text-white/60 flex items-center gap-1">
+                <i class="fas fa-circle-check text-amber-300"></i>
+                یکی از گزینه‌ها را به عنوان پاسخ صحیح انتخاب کنید.
+              </div>
+            </div>
+            <div id="community-options" class="space-y-3">
+              <div class="glass-dark rounded-2xl border border-white/10 px-4 py-3 flex items-center gap-3 option-row" data-community-option>
+                <input type="radio" name="community-correct" value="0" class="accent-amber-400">
+                <input type="text" class="form-input flex-1" placeholder="گزینه ۱" data-option-index="0">
+              </div>
+              <div class="glass-dark rounded-2xl border border-white/10 px-4 py-3 flex items-center gap-3 option-row" data-community-option>
+                <input type="radio" name="community-correct" value="1" class="accent-amber-400">
+                <input type="text" class="form-input flex-1" placeholder="گزینه ۲" data-option-index="1">
+              </div>
+              <div class="glass-dark rounded-2xl border border-white/10 px-4 py-3 flex items-center gap-3 option-row" data-community-option>
+                <input type="radio" name="community-correct" value="2" class="accent-amber-400">
+                <input type="text" class="form-input flex-1" placeholder="گزینه ۳" data-option-index="2">
+              </div>
+              <div class="glass-dark rounded-2xl border border-white/10 px-4 py-3 flex items-center gap-3 option-row" data-community-option>
+                <input type="radio" name="community-correct" value="3" class="accent-amber-400">
+                <input type="text" class="form-input flex-1" placeholder="گزینه ۴" data-option-index="3">
+              </div>
+            </div>
+            <div class="glass-dark rounded-2xl border border-white/5 px-4 py-3 flex items-center justify-between text-sm text-white/80">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-md"></span>
+                <span data-correct-label>پاسخ انتخاب‌شده</span>
+              </div>
+              <span id="community-correct-preview" class="font-bold text-amber-300">---</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button type="button" id="community-reset" class="btn btn-secondary">
+              <i class="fas fa-eraser ml-2"></i>
+              پاک‌سازی فرم
+            </button>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-paper-plane ml-2"></i>
+              ارسال برای بررسی
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="glass-dark rounded-3xl border border-white/10 p-5 space-y-2">
+          <div class="flex items-center gap-2 text-sm font-semibold text-white/80">
+            <i class="fas fa-hourglass-start text-amber-300"></i>
+            زمان بررسی
+          </div>
+          <p class="text-sm text-white/70 leading-6">تیم محتوای آیکوئیز سوال شما را حداکثر طی ۲۴ ساعت بررسی و تایید می‌کند. نتیجه از طریق اعلان به شما اطلاع داده می‌شود.</p>
+        </div>
+        <div class="glass-dark rounded-3xl border border-white/10 p-5 space-y-2">
+          <div class="flex items-center gap-2 text-sm font-semibold text-white/80">
+            <i class="fas fa-shield-check text-emerald-300"></i>
+            قوانین کیفیت
+          </div>
+          <p class="text-sm text-white/70 leading-6">از سوالات تکراری، پاسخ‌های مبهم و گزینه‌های بسیار طولانی خودداری کنید. در صورت نیاز، ادمین‌ها متن را با حفظ نام شما ویرایش می‌کنند.</p>
+        </div>
+        <div class="glass-dark rounded-3xl border border-white/10 p-5 space-y-2">
+          <div class="flex items-center gap-2 text-sm font-semibold text-white/80">
+            <i class="fas fa-award text-sky-300"></i>
+            امتیاز ویژه سازندگان
+          </div>
+          <p class="text-sm text-white/70 leading-6">هر سوال تاییدشده امتیاز اعتباری ویژه‌ای برای شما ثبت می‌کند و نامتان در مسابقات به عنوان خالق محتوا نمایش داده می‌شود.</p>
+        </div>
+      </div>
+    </section>
   </main>
   
   <!-- Bottom Nav -->
   <nav class="glass safe sticky bottom-0 z-50 w-full shadow-lg">
-    <div class="max-w-md mx-auto grid grid-cols-5">
+    <div class="max-w-md mx-auto grid grid-cols-6">
       <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="dashboard" aria-label="خانه">
         <i class="fas fa-home text-xl mb-1"></i>
         <div class="text-xs">خانه</div>
@@ -1686,6 +1852,10 @@
       <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="quiz" aria-label="مسابقه">
         <i class="fas fa-gamepad text-xl mb-1"></i>
         <div class="text-xs">مسابقه</div>
+      </button>
+      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="question-lab" aria-label="ساخت سوال">
+        <i class="fas fa-lightbulb text-xl mb-1"></i>
+        <div class="text-xs">سوال‌ساز</div>
       </button>
       <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="leaderboard" aria-label="لیدربورد">
         <i class="fas fa-chart-line text-xl mb-1"></i>
@@ -2343,6 +2513,7 @@ patchPricingKeys(RemoteConfig);
 
     renderProvinceSelect();
     buildSetupFromAdmin();
+    buildCommunityQuestionForm();
     applyConfigToUI();
   }
 
@@ -2450,6 +2621,95 @@ patchPricingKeys(RemoteConfig);
     });
 
     updateCatLabel();
+  }
+
+  function buildCommunityQuestionForm(){
+    const categorySelect = document.getElementById('community-category');
+    const difficultySelect = document.getElementById('community-difficulty');
+    if (!categorySelect) return;
+
+    const categories = Array.isArray(Admin.categories) ? Admin.categories.filter(cat => cat && cat.id != null) : [];
+    const previousCategory = categorySelect.value;
+    categorySelect.innerHTML = '';
+
+    if (categories.length === 0) {
+      const emptyOption = document.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = 'هنوز دسته‌بندی فعالی ثبت نشده است';
+      emptyOption.disabled = true;
+      emptyOption.selected = true;
+      categorySelect.appendChild(emptyOption);
+      categorySelect.disabled = true;
+    } else {
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'انتخاب دسته‌بندی';
+      placeholder.disabled = true;
+      categorySelect.appendChild(placeholder);
+
+      categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.title || cat.name || 'دسته‌بندی';
+        categorySelect.appendChild(option);
+      });
+
+      categorySelect.disabled = false;
+      if (previousCategory && categorySelect.querySelector(`option[value="${previousCategory}"]`)) {
+        categorySelect.value = previousCategory;
+      } else {
+        categorySelect.selectedIndex = categories.length ? 1 : 0;
+      }
+    }
+
+    if (difficultySelect) {
+      const diffs = Array.isArray(Admin.diffs) && Admin.diffs.length ? Admin.diffs : DEFAULT_DIFFS;
+      const previousDiff = difficultySelect.value;
+      difficultySelect.innerHTML = diffs.map(diff => `<option value="${diff.value}">${diff.label}</option>`).join('');
+      if (previousDiff && diffs.some(diff => diff.value === previousDiff)) {
+        difficultySelect.value = previousDiff;
+      } else if (diffs.length) {
+        difficultySelect.value = diffs[0].value;
+      }
+    }
+
+    prefillCommunityAuthor();
+    syncCommunityOptionStates();
+  }
+
+  function prefillCommunityAuthor(force){
+    const input = document.getElementById('community-author');
+    if (!input) return;
+    if (force || !input.value.trim()) {
+      const candidate = (State?.user?.name || '').trim();
+      if (candidate) input.value = candidate;
+    }
+  }
+
+  function updateCommunityCorrectPreview(){
+    const preview = document.getElementById('community-correct-preview');
+    const wrapper = document.getElementById('community-options');
+    if (!preview || !wrapper) return;
+    const selected = wrapper.querySelector('input[name="community-correct"]:checked');
+    if (!selected) {
+      preview.textContent = '---';
+      return;
+    }
+    const idx = Number(selected.value);
+    const input = wrapper.querySelector(`[data-option-index="${idx}"]`);
+    const value = input ? input.value.trim() : '';
+    preview.textContent = value || '---';
+  }
+
+  function syncCommunityOptionStates(){
+    const wrapper = document.getElementById('community-options');
+    if (!wrapper) return;
+    wrapper.querySelectorAll('[data-community-option]').forEach(row => {
+      const radio = row.querySelector('input[type="radio"]');
+      if (radio && radio.checked) row.classList.add('selected');
+      else row.classList.remove('selected');
+    });
+    updateCommunityCorrectPreview();
   }
 
   function applyConfigToUI(){
@@ -3181,13 +3441,14 @@ function isUserInGroup() {
   updateLifelineStates();
   
   function navTo(page){
-    ['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support'].forEach(p=>$('#page-'+p)?.classList.add('hidden'));
+    ['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support','question-lab'].forEach(p=>$('#page-'+p)?.classList.add('hidden'));
     $('#page-'+page)?.classList.remove('hidden'); $('#page-'+page)?.classList.add('fade-in');
     $$('nav [data-tab]').forEach(b=>{ b.classList.toggle('bg-white/10', b.dataset.tab===page); b.classList.toggle('active', b.dataset.tab===page); });
     if(page==='dashboard') { renderDashboard(); AdManager.renderNative('#ad-native-dashboard'); }
     if(page==='leaderboard'){ renderLeaderboard(); AdManager.renderNative('#ad-native-lb'); }
     if(page==='wallet'){ buildPackages(); }
     if(page==='vip'){ updateVipUI(); }
+    if(page==='question-lab'){ buildCommunityQuestionForm(); prefillCommunityAuthor(); syncCommunityOptionStates(); }
   }
   
   // ===== Leaderboard / Details (unchanged + detail popups) =====
@@ -3720,6 +3981,39 @@ function openCreateGroup(){
     $('#qnum').textContent = faNum(State.quiz.idx+1);
     $('#qtotal').textContent = faNum(State.quiz.list.length);
     $('#question').textContent = q.q;
+    const authorWrapper = $('#question-author');
+    const authorNameEl = $('#question-author-name');
+    if (authorWrapper && authorNameEl) {
+      const sourceKey = (q.source || '').toString().toLowerCase();
+      let authorDisplay = (q.authorName || '').toString().trim();
+      if (!authorDisplay) {
+        authorDisplay = sourceKey === 'community' ? 'قهرمان ناشناس' : 'تیم محتوایی IQuiz';
+      }
+      authorNameEl.textContent = authorDisplay;
+      const authorLabelEl = authorWrapper.querySelector('[data-author-text]');
+      if (authorLabelEl) {
+        authorLabelEl.textContent = sourceKey === 'community'
+          ? 'پیشنهاد جامعه آیکوئیز'
+          : 'منتشر شده توسط تیم محتوا';
+      }
+      const authorIconEl = authorWrapper.querySelector('[data-author-icon]');
+      if (authorIconEl) {
+        authorIconEl.className = sourceKey === 'community'
+          ? 'fas fa-user-astronaut text-lg'
+          : 'fas fa-shield-heart text-lg';
+      }
+      const badgeEl = authorWrapper.querySelector('[data-author-badge]');
+      if (badgeEl) {
+        if (sourceKey === 'community') {
+          badgeEl.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.9), rgba(249,115,22,0.8))';
+          badgeEl.style.color = '#0f172a';
+        } else {
+          badgeEl.style.background = 'linear-gradient(135deg, rgba(94,234,212,0.85), rgba(59,130,246,0.78))';
+          badgeEl.style.color = '#0f172a';
+        }
+      }
+      authorWrapper.classList.remove('hidden');
+    }
     const box = $('#choices'); box.innerHTML='';
     q.c.forEach((txt,idx)=>{
       const btn = document.createElement('button');
@@ -3956,8 +4250,19 @@ async function startQuizFromAdmin(arg) {
         }
       }
 
+      var questionSource = '';
+      if (q && typeof q.source === 'string') questionSource = q.source;
+      else if (q && typeof q.provider === 'string') questionSource = q.provider;
+      questionSource = questionSource ? String(questionSource).toLowerCase() : 'manual';
+
+      var authorNameValue = '';
+      if (q && typeof q.authorName === 'string') authorNameValue = q.authorName.trim();
+      else if (q && typeof q.author === 'string') authorNameValue = q.author.trim();
+      else if (q && typeof q.createdByName === 'string') authorNameValue = q.createdByName.trim();
+      else if (q && typeof q.submittedByName === 'string') authorNameValue = q.submittedByName.trim();
+
       if (valid && typeof answerIdx === 'number' && answerIdx >= 0 && answerIdx < choices.length) {
-        normalized.push({ q: qq, c: choices, a: answerIdx });
+        normalized.push({ q: qq, c: choices, a: answerIdx, authorName: authorNameValue, source: questionSource });
       }
     }
 
@@ -5979,7 +6284,143 @@ function leaveGroup(groupId) {
     openCreateGroup();
     logEvent('cta_group_create');
   });
-  
+
+  const communityForm = $('#community-question-form');
+  const communityOptionsEl = $('#community-options');
+  const communityResetBtn = $('#community-reset');
+
+  if (communityOptionsEl) {
+    communityOptionsEl.addEventListener('change', (e) => {
+      if (e.target.matches('input[type="radio"][name="community-correct"]')) {
+        syncCommunityOptionStates();
+      }
+    });
+    communityOptionsEl.addEventListener('click', (e) => {
+      const row = e.target.closest('[data-community-option]');
+      if (!row) return;
+      if (e.target.matches('input[type="text"]')) return;
+      const radio = row.querySelector('input[type="radio"]');
+      if (radio && !radio.checked) {
+        radio.checked = true;
+        syncCommunityOptionStates();
+      }
+    });
+    communityOptionsEl.addEventListener('input', (e) => {
+      if (e.target.matches('[data-option-index]')) {
+        const row = e.target.closest('[data-community-option]');
+        if (row?.querySelector('input[type="radio"]').checked) {
+          updateCommunityCorrectPreview();
+        }
+      }
+    });
+  }
+
+  $('#community-author')?.addEventListener('focus', () => prefillCommunityAuthor());
+
+  if (communityResetBtn) {
+    communityResetBtn.addEventListener('click', () => {
+      if (!communityForm) return;
+      communityForm.reset();
+      buildCommunityQuestionForm();
+      prefillCommunityAuthor(true);
+      syncCommunityOptionStates();
+      toast('<i class="fas fa-broom ml-2"></i>فرم خالی شد');
+    });
+  }
+
+  if (communityForm) {
+    communityForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const authorInput = $('#community-author');
+      const categorySelect = $('#community-category');
+      const difficultySelect = $('#community-difficulty');
+      const questionInput = $('#community-question');
+      const authorName = authorInput ? authorInput.value.trim() : '';
+      const categoryId = categorySelect ? categorySelect.value : '';
+      const difficultyValue = difficultySelect ? difficultySelect.value : 'medium';
+      const questionText = questionInput ? questionInput.value.trim() : '';
+      const optionInputs = communityOptionsEl
+        ? Array.from(communityOptionsEl.querySelectorAll('[data-option-index]'))
+        : [];
+      const options = optionInputs.map(input => input.value.trim());
+      const radios = communityOptionsEl
+        ? Array.from(communityOptionsEl.querySelectorAll('input[type="radio"][name="community-correct"]'))
+        : [];
+      const selectedRadio = radios.find(radio => radio.checked);
+      const correctIdx = selectedRadio ? Number(selectedRadio.value) : -1;
+
+      if (!authorName) {
+        toast('<i class="fas fa-exclamation-circle ml-2"></i>لطفاً نام خود را وارد کنید');
+        authorInput?.focus();
+        return;
+      }
+      if (!categoryId) {
+        toast('<i class="fas fa-exclamation-circle ml-2"></i>دسته‌بندی سوال را انتخاب کنید');
+        categorySelect?.focus();
+        return;
+      }
+      if (!questionText) {
+        toast('<i class="fas fa-exclamation-circle ml-2"></i>متن سوال را بنویسید');
+        questionInput?.focus();
+        return;
+      }
+      if (options.length !== 4 || options.some(opt => !opt)) {
+        toast('<i class="fas fa-exclamation-circle ml-2"></i>تمام گزینه‌ها باید تکمیل شوند');
+        return;
+      }
+      if (!Number.isInteger(correctIdx) || correctIdx < 0 || correctIdx >= options.length) {
+        toast('<i class="fas fa-exclamation-circle ml-2"></i>گزینه صحیح را مشخص کنید');
+        return;
+      }
+
+      const payload = {
+        authorName,
+        text: questionText,
+        options,
+        correctIdx,
+        categoryId,
+        difficulty: difficultyValue,
+        submittedBy: State?.user?.id || undefined
+      };
+
+      const submitBtn = communityForm.querySelector('button[type="submit"]');
+      const submitDefault = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="flex items-center gap-2"><span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span><span>در حال ارسال...</span></span>';
+      }
+
+      try {
+        const res = await fetch('/api/public/questions/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        let data = null;
+        try { data = await res.json(); } catch { data = null; }
+        if (!res.ok) {
+          throw new Error(data?.message || 'خطا در ارسال سوال');
+        }
+        toast(`<i class="fas fa-check-circle ml-2"></i>${data?.message || 'سوال شما برای بررسی ارسال شد'}`);
+        logEvent('community_question_submitted', {
+          category: categoryId,
+          difficulty: difficultyValue
+        });
+        communityForm.reset();
+        buildCommunityQuestionForm();
+        prefillCommunityAuthor(true);
+        syncCommunityOptionStates();
+      } catch (err) {
+        toast(`<i class="fas fa-exclamation-circle ml-2"></i>${err.message || 'ارسال سوال با خطا مواجه شد'}`);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = submitDefault;
+        }
+      }
+    });
+  }
+
   // Back Buttons for New Pages
   $('#btn-back-duel')?.addEventListener('click', () => navTo('dashboard'));
   $('#btn-back-province')?.addEventListener('click', () => navTo('dashboard'));
