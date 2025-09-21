@@ -533,27 +533,34 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
     const isApproved = normalizedStatus === 'approved';
     const active = typeof question.active === 'boolean' ? question.active : isApproved;
     const authorName = sanitizeText(question.authorName) || 'IQuiz Team';
+    const providerForUpdate = normalizedProvider || normalizedSource;
+    const updateDocument = {
+      $setOnInsert: {
+        text,
+        choices: sanitizedChoices,
+        correctIndex: parsedCorrectIndex,
+        difficulty,
+        category: categoryDoc._id,
+        categoryName: categoryDoc.name,
+        provider: providerForUpdate,
+        source: normalizedSource,
+        lang: normalizedLang,
+        type: normalizedType,
+        checksum,
+        active,
+        status: normalizedStatus,
+        authorName
+      }
+    };
+
+    if (providerForUpdate) {
+      updateDocument.$set = { provider: providerForUpdate };
+    }
+
     operations.push({
       updateOne: {
         filter: { checksum },
-        update: {
-          $setOnInsert: {
-            text,
-            choices: sanitizedChoices,
-            correctIndex: parsedCorrectIndex,
-            difficulty,
-            category: categoryDoc._id,
-            categoryName: categoryDoc.name,
-            provider: normalizedProvider,
-            source: normalizedSource,
-            lang: normalizedLang,
-            type: normalizedType,
-            checksum,
-            active,
-            status: normalizedStatus,
-            authorName
-          }
-        },
+        update: updateDocument,
         upsert: true
       }
     });
