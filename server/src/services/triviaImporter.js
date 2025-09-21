@@ -533,8 +533,6 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
     const isApproved = normalizedStatus === 'approved';
     const active = typeof question.active === 'boolean' ? question.active : isApproved;
     const authorName = sanitizeText(question.authorName) || 'IQuiz Team';
-    const insertedAt = new Date();
-
     operations.push({
       updateOne: {
         filter: { checksum },
@@ -553,9 +551,7 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
             checksum,
             active,
             status: normalizedStatus,
-            authorName,
-            createdAt: insertedAt,
-            updatedAt: insertedAt
+            authorName
           }
         },
         upsert: true
