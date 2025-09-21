@@ -20,6 +20,19 @@ function generateChecksum(text, choices) {
   return crypto.createHash('sha256').update(payload).digest('hex');
 }
 
+function deriveCorrectAnswer(choices, correctIndex) {
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return '';
+  }
+
+  const index = Number(correctIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= choices.length) {
+    return '';
+  }
+
+  return normalizeChoice(choices[index]);
+}
+
 const questionSchema = new mongoose.Schema(
   {
     text: { type: String, required: true, trim: true },
@@ -39,6 +52,7 @@ const questionSchema = new mongoose.Schema(
       required: true,
       alias: 'correctIdx'
     },
+    correctAnswer: { type: String, trim: true, default: '' },
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'easy' },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     categoryName: { type: String, trim: true },
@@ -60,22 +74,45 @@ const questionSchema = new mongoose.Schema(
     reviewedAt: { type: Date },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewNotes: { type: String, trim: true },
-    checksum: { type: String, required: true, trim: true },
+    hash: { type: String, required: true, trim: true },
+    checksum: { type: String, trim: true, default: '' },
     meta: { type: mongoose.Schema.Types.Mixed, default: {} }
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
-questionSchema.index({ checksum: 1 }, { unique: true, sparse: true });
-questionSchema.index({ provider: 1, providerId: 1 }, { unique: true, sparse: true });
+questionSchema.index({ provider: 1, hash: 1 }, { unique: true, sparse: true, name: 'uniq_provider_hash' });
+questionSchema.index(
+  { categoryName: 1, difficulty: 1, correctAnswer: 1, createdAt: -1 },
+  { name: 'idx_category_difficulty_correctAnswer_createdAt' }
+);
 
-questionSchema.pre('validate', function deriveChecksum(next) {
-  if (!this.checksum && this.text && Array.isArray(this.choices) && this.choices.length > 0) {
-    this.checksum = this.constructor.generateChecksum(this.text, this.choices);
+questionSchema.pre('validate', function deriveHashesAndAnswers(next) {
+  try {
+    const hasChoices = Array.isArray(this.choices) && this.choices.length > 0;
+    if (this.text && hasChoices) {
+      const computed = this.constructor.generateChecksum(this.text, this.choices);
+      if (computed) {
+        this.hash = computed;
+        this.checksum = computed;
+      }
+    }
+
+    const answer = deriveCorrectAnswer(this.choices, this.correctIndex);
+    this.correctAnswer = answer;
+
+    if (!this.hash) {
+      this.invalidate('hash', 'hash is required');
+    }
+  } catch (error) {
+    next(error);
+    return;
   }
+
   next();
 });
 
 questionSchema.statics.generateChecksum = generateChecksum;
+questionSchema.statics.generateHash = generateChecksum;
 
 module.exports = mongoose.model('Question', questionSchema);
