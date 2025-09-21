@@ -266,11 +266,28 @@ function sanitizePayloadText(text) {
   }
 
   const firstJsonCharIndex = trimmed.search(/[\[{]/);
-  if (firstJsonCharIndex > 0) {
-    return trimmed.slice(firstJsonCharIndex);
+  if (firstJsonCharIndex < 0) {
+    return '';
   }
 
-  return trimmed;
+  // Ignore any prefix that might precede the JSON payload (e.g. stray bytes
+  // or CloudFront HTML/CSS error responses). If we can't confidently detect
+  // the start of a JSON object/array we bail out and let the caller retry.
+  const candidate = trimmed.slice(firstJsonCharIndex);
+  if (!candidate) {
+    return '';
+  }
+
+  if (candidate[0] === '{') {
+    const afterBrace = candidate.slice(1).trimStart();
+    if (afterBrace && afterBrace[0] !== '"' && afterBrace[0] !== '}') {
+      return '';
+    }
+  } else if (candidate[0] !== '[') {
+    return '';
+  }
+
+  return candidate;
 }
 
 function normalizeClueList(payload) {
