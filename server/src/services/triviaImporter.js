@@ -45,6 +45,8 @@ const JSERVICE_FALLBACK_DISTRACTORS = [
 ];
 
 const AUTO_IMPORT_SOURCES = ['opentdb', 'the-trivia-api', 'jservice'];
+const DEFAULT_IMPORTED_STATUS = (env.importer?.autoApprove !== false) ? 'approved' : 'pending';
+const VALID_IMPORTED_STATUSES = new Set(['pending', 'approved', 'rejected', 'draft', 'archived']);
 
 let ensureAutoImportStatusPromise;
 
@@ -61,15 +63,15 @@ async function ensureAutoImportStatuses() {
               { status: '' }
             ]
           },
-          { $set: { status: 'approved' } }
+          { $set: { status: DEFAULT_IMPORTED_STATUS } }
         );
 
         const modified = result?.modifiedCount || result?.nModified || 0;
         if (modified > 0) {
-          logger.info(`[TriviaImporter] Backfilled approved status for ${modified} auto-imported questions.`);
+          logger.info(`[TriviaImporter] Backfilled status "${DEFAULT_IMPORTED_STATUS}" for ${modified} auto-imported questions.`);
         }
       } catch (err) {
-        logger.error(`[TriviaImporter] Failed to backfill approved status on auto-imported questions: ${err.message}`);
+        logger.error(`[TriviaImporter] Failed to backfill import status on auto-imported questions: ${err.message}`);
       }
     })();
   }
@@ -101,6 +103,21 @@ function decodeHtml(value) {
 function sanitizeText(value) {
   if (value === undefined || value === null) return '';
   return String(value).trim();
+}
+
+function normalizeImportStatus(value) {
+  const normalized = sanitizeText(value).toLowerCase();
+  if (VALID_IMPORTED_STATUSES.has(normalized)) {
+    return normalized;
+  }
+  return DEFAULT_IMPORTED_STATUS;
+}
+
+function normalizeImportProvider(value, fallback = '') {
+  const normalized = sanitizeText(value).toLowerCase();
+  if (normalized) return normalized;
+  const fallbackNormalized = sanitizeText(fallback).toLowerCase();
+  return fallbackNormalized;
 }
 
 function normalizeDifficulty(value) {
@@ -319,7 +336,9 @@ function normalizeOpenTdbQuestion(raw) {
     checksum,
     type: normalizedType,
     lang: 'en',
-    source: 'opentdb'
+    source: 'opentdb',
+    provider: 'opentdb',
+    status: DEFAULT_IMPORTED_STATUS
   };
 }
 
@@ -475,26 +494,66 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
       continue;
     }
 
+    const checksum = sanitizeText(question.checksum);
+    if (!checksum) {
+      logger.warn('[TriviaImporter] Skipping imported question with missing checksum.');
+      continue;
+    }
+
+    const text = sanitizeText(question.text);
+    if (!text) {
+      logger.warn(`[TriviaImporter] Skipping imported question ${checksum} due to empty text.`);
+      continue;
+    }
+
+    const rawChoices = Array.isArray(question.choices) ? question.choices : [];
+    const sanitizedChoices = rawChoices.map((choice) => sanitizeText(choice));
+    if (sanitizedChoices.length !== 4) {
+      logger.warn(`[TriviaImporter] Skipping imported question ${checksum} due to invalid choice count (${sanitizedChoices.length}).`);
+      continue;
+    }
+    if (sanitizedChoices.some((choice) => !choice)) {
+      logger.warn(`[TriviaImporter] Skipping imported question ${checksum} due to empty choice value.`);
+      continue;
+    }
+
+    const parsedCorrectIndex = Number(question.correctIndex);
+    if (!Number.isInteger(parsedCorrectIndex) || parsedCorrectIndex < 0 || parsedCorrectIndex >= sanitizedChoices.length) {
+      logger.warn(`[TriviaImporter] Skipping imported question ${checksum} due to invalid correct index (${question.correctIndex}).`);
+      continue;
+    }
+
+    const normalizedDifficulty = sanitizeText(question.difficulty).toLowerCase();
+    const difficulty = ALLOWED_DIFFICULTIES.has(normalizedDifficulty) ? normalizedDifficulty : 'medium';
+    const normalizedSource = normalizeImportProvider(question.source, 'manual') || 'manual';
+    const normalizedProvider = normalizeImportProvider(question.provider, normalizedSource);
+    const normalizedType = sanitizeText(question.type) || 'multiple';
+    const normalizedLang = sanitizeText(question.lang) || 'en';
+    const normalizedStatus = normalizeImportStatus(question.status);
+    const isApproved = normalizedStatus === 'approved';
+    const active = typeof question.active === 'boolean' ? question.active : isApproved;
+    const authorName = sanitizeText(question.authorName) || 'IQuiz Team';
     const insertedAt = new Date();
 
     operations.push({
       updateOne: {
-        filter: { checksum: question.checksum },
+        filter: { checksum },
         update: {
           $setOnInsert: {
-            text: question.text,
-            choices: question.choices,
-            correctIndex: question.correctIndex,
-            difficulty: question.difficulty,
+            text,
+            choices: sanitizedChoices,
+            correctIndex: parsedCorrectIndex,
+            difficulty,
             category: categoryDoc._id,
-            categoryName: question.categoryName,
-            source: question.source,
-            lang: question.lang,
-            type: question.type,
-            checksum: question.checksum,
-            active: true,
-            status: 'approved',
-            authorName: question.authorName || 'IQuiz Team',
+            categoryName: categoryDoc.name,
+            provider: normalizedProvider,
+            source: normalizedSource,
+            lang: normalizedLang,
+            type: normalizedType,
+            checksum,
+            active,
+            status: normalizedStatus,
+            authorName,
             createdAt: insertedAt,
             updatedAt: insertedAt
           }
@@ -660,7 +719,9 @@ function normalizeTriviaApiQuestion(raw) {
     checksum,
     type: sanitizeText(raw.type) || 'multiple',
     lang: sanitizeText(raw.lang) || 'en',
-    source: 'the-trivia-api'
+    source: 'the-trivia-api',
+    provider: 'the-trivia-api',
+    status: DEFAULT_IMPORTED_STATUS
   };
 }
 
@@ -852,22 +913,44 @@ function buildJServiceIncorrectAnswers(clue, pool) {
   return incorrect.slice(0, 3);
 }
 
+function logJServiceSkip(clue, reason) {
+  const clueId = clue && clue.id !== undefined && clue.id !== null ? `#${clue.id}` : '#unknown';
+  const categoryTitle = sanitizeText(clue?.category?.title);
+  const context = categoryTitle ? ` (${categoryTitle})` : '';
+  logger.warn(`[TriviaImporter] Skipping JService clue ${clueId}${context}: ${reason}`);
+}
+
 function normalizeJServiceQuestion(clue, pool) {
   if (!clue) return null;
 
   const questionText = sanitizeText(clue.question);
   const correctAnswer = sanitizeText(clue.answer);
   if (!questionText || !correctAnswer) {
+    logJServiceSkip(clue, 'missing question or answer');
     return null;
   }
 
   const incorrectAnswers = buildJServiceIncorrectAnswers(clue, pool);
-  if (!incorrectAnswers) return null;
+  if (!incorrectAnswers) {
+    logJServiceSkip(clue, 'insufficient incorrect answers');
+    return null;
+  }
 
   const baseAnswers = [correctAnswer, ...incorrectAnswers];
   const choices = shuffle(baseAnswers);
+  if (!Array.isArray(choices) || choices.length !== 4) {
+    logJServiceSkip(clue, `invalid choice count (${Array.isArray(choices) ? choices.length : 0})`);
+    return null;
+  }
+  if (choices.some((choice) => !choice)) {
+    logJServiceSkip(clue, 'one or more empty choices detected');
+    return null;
+  }
   const correctIndex = choices.findIndex((choice) => choice === correctAnswer);
-  if (correctIndex < 0) return null;
+  if (correctIndex < 0) {
+    logJServiceSkip(clue, 'correct answer missing from shuffled choices');
+    return null;
+  }
 
   const checksum = Question.generateChecksum(questionText, baseAnswers);
 
@@ -878,9 +961,11 @@ function normalizeJServiceQuestion(clue, pool) {
     difficulty: normalizeJServiceDifficulty(clue.value),
     categoryName: normalizeJServiceCategory(clue.category),
     checksum,
-    type: 'multiple',
+    type: 'mcq',
     lang: 'en',
-    source: 'jservice'
+    source: 'jservice',
+    provider: 'jservice',
+    status: DEFAULT_IMPORTED_STATUS
   };
 }
 

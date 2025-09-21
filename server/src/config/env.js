@@ -59,6 +59,7 @@ const jserviceUrl = process.env.JSERVICE_URL || DEFAULT_JSERVICE_URL;
 const jserviceBase = JSERVICE_BASE;
 const port = parseNumber(process.env.PORT, DEFAULT_PORT, { min: 1 });
 const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+const importApprove = parseBoolean(process.env.IMPORT_APPROVE, true);
 
 const env = {
   nodeEnv,
@@ -76,6 +77,9 @@ const env = {
     theTriviaUrl,
     jserviceUrl,
     jserviceBase,
+  },
+  importer: {
+    autoApprove: importApprove
   },
   cors: {
     allowedOrigins

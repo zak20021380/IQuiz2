@@ -31,6 +31,7 @@ const DIFFICULTY_META = {
 const SOURCE_META = {
   manual: { label: 'ایجاد دستی', class: 'meta-chip source-manual', icon: 'fa-pen-nib' },
   opentdb: { label: 'OpenTDB', class: 'meta-chip source-opentdb', icon: 'fa-database' },
+  'the-trivia-api': { label: 'The Trivia API', class: 'meta-chip source-triviaapi', icon: 'fa-globe' },
   jservice: { label: 'JService', class: 'meta-chip source-jservice', icon: 'fa-layer-group' },
   community: { label: 'سازنده‌ها', class: 'meta-chip source-community', icon: 'fa-users-gear' }
 };
@@ -143,6 +144,7 @@ const updateQuestionBtn = $('#update-question-btn');
 const updateQuestionBtnDefault = updateQuestionBtn ? updateQuestionBtn.innerHTML : '';
 const filterCategorySelect = $('#filter-category');
 const filterDifficultySelect = $('#filter-difficulty');
+const filterProviderSelect = $('#filter-provider');
 const filterSearchInput = $('#filter-search');
 const filterSortSelect = $('#filter-sort');
 const filterStatusSelect = $('#filter-status');
@@ -281,10 +283,50 @@ const shopPromotionsToggle = $('#shop-promotions-toggle');
 const questionFilters = {
   category: '',
   difficulty: '',
+  provider: '',
   status: '',
   search: '',
   sort: 'newest'
 };
+
+function initializeProviderFilterOptions() {
+  if (!filterProviderSelect) return;
+
+  const getProviderLabel = (id, fallback) => {
+    const normalized = resolveProviderId(id) || id;
+    const providers = Array.isArray(triviaControlState.providers) ? triviaControlState.providers : [];
+    const dynamic = providers.find((provider) => {
+      const providerId = resolveProviderId(provider?.id ?? provider?.provider ?? provider?.providerId);
+      return providerId === normalized;
+    });
+    const defaults = DEFAULT_TRIVIA_PROVIDERS.find((provider) => provider.id === normalized);
+    return dynamic?.shortName || dynamic?.name || defaults?.shortName || defaults?.name || fallback || normalized;
+  };
+
+  const options = [
+    { value: '', label: 'همه منابع' },
+    { value: 'opentdb', label: getProviderLabel('opentdb', 'OpenTDB') },
+    { value: 'the-trivia-api', label: getProviderLabel('the-trivia-api', 'The Trivia API') },
+    { value: 'jservice', label: getProviderLabel('jservice', 'JService') },
+    { value: 'manual', label: SOURCE_META.manual?.label || 'ایجاد دستی' },
+    { value: 'community', label: SOURCE_META.community?.label || 'سازنده‌ها' }
+  ];
+
+  const seen = new Set();
+  filterProviderSelect.innerHTML = options
+    .filter((option) => {
+      if (seen.has(option.value)) return false;
+      seen.add(option.value);
+      return true;
+    })
+    .map((option) => `<option value="${option.value}">${escapeHtml(option.label)}</option>`)
+    .join('');
+
+  const initial = questionFilters.provider || '';
+  if (filterProviderSelect.value !== initial) {
+    filterProviderSelect.value = initial;
+  }
+}
 
 const TRIVIA_DIFFICULTY_LABELS = {
   easy: 'آسون',
@@ -1945,6 +1987,7 @@ async function loadTriviaProviders() {
   }
 
   triviaControlState.providers = providers;
+  initializeProviderFilterOptions();
   ensureActiveProvider();
   setActiveTriviaProvider(triviaControlState.provider, { autoLoadCategories: false });
 
@@ -2449,6 +2492,8 @@ function normalizeQuestion(raw = {}) {
   const decodedText = decodeHtmlEntities(raw.text ?? raw.question ?? '');
   const sourceKey = typeof raw.source === 'string' ? raw.source.toLowerCase() : 'manual';
   const normalizedSource = SOURCE_META[sourceKey] ? sourceKey : 'manual';
+  const providerKey = typeof raw.provider === 'string' ? resolveProviderId(raw.provider) : '';
+  const normalizedProvider = providerKey || normalizedSource;
   const authorRaw = typeof raw.authorName === 'string' ? raw.authorName.trim() : '';
   const normalizedAuthor = authorRaw || (normalizedSource === 'community' ? 'کاربر آیکوئیز' : 'تیم آیکوئیز');
   const statusRaw = typeof raw.status === 'string' ? raw.status.trim().toLowerCase() : '';
@@ -2467,6 +2512,7 @@ function normalizeQuestion(raw = {}) {
     categoryName: decodeHtmlEntities(categoryNameRaw),
     categoryId,
     source: normalizedSource,
+    provider: normalizedProvider,
     authorName: normalizedAuthor,
     status: normalizedStatus,
     reviewNotes
@@ -2916,6 +2962,10 @@ async function loadQuestions(overrides = {}) {
       if (Object.prototype.hasOwnProperty.call(overrides, 'difficulty')) {
         questionFilters.difficulty = overrides.difficulty || '';
       }
+      if (Object.prototype.hasOwnProperty.call(overrides, 'provider')) {
+        const providerValue = overrides.provider || '';
+        questionFilters.provider = providerValue ? resolveProviderId(providerValue) : '';
+      }
       if (Object.prototype.hasOwnProperty.call(overrides, 'status')) {
         questionFilters.status = overrides.status || '';
       }
@@ -2930,6 +2980,12 @@ async function loadQuestions(overrides = {}) {
 
     if (filterSortSelect && questionFilters.sort && filterSortSelect.value !== questionFilters.sort) {
       filterSortSelect.value = questionFilters.sort;
+    }
+    if (filterProviderSelect) {
+      const nextProvider = questionFilters.provider || '';
+      if (filterProviderSelect.value !== nextProvider) {
+        filterProviderSelect.value = nextProvider;
+      }
     }
     if (filterStatusSelect) {
       const nextStatus = questionFilters.status || '';
@@ -2955,6 +3011,7 @@ async function loadQuestions(overrides = {}) {
     const params = new URLSearchParams({ limit: '50' });
     if (questionFilters.category) params.append('category', questionFilters.category);
     if (questionFilters.difficulty) params.append('difficulty', questionFilters.difficulty);
+    if (questionFilters.provider) params.append('provider', questionFilters.provider);
     if (questionFilters.status) params.append('status', questionFilters.status);
     if (questionFilters.search) params.append('q', questionFilters.search);
     if (questionFilters.sort) params.append('sort', questionFilters.sort);
@@ -2979,7 +3036,13 @@ async function loadQuestions(overrides = {}) {
     if (!tbody) return;
 
     if (!Array.isArray(response.data) || response.data.length === 0) {
-      const hasFilters = Boolean(questionFilters.category || questionFilters.difficulty || questionFilters.status || questionFilters.search);
+    const hasFilters = Boolean(
+      questionFilters.category
+      || questionFilters.difficulty
+      || questionFilters.provider
+      || questionFilters.status
+      || questionFilters.search
+    );
       const emptyMessage = hasFilters
         ? 'هیچ سوالی با فیلترهای انتخاب شده یافت نشد.'
         : 'هنوز سوالی ثبت نشده است. از دکمه «افزودن سوال» یا ابزار دریافت سوالات خودکار استفاده کنید.';
@@ -3456,6 +3519,14 @@ if (filterDifficultySelect) {
   filterDifficultySelect.addEventListener('change', () => {
     if (!getToken()) return;
     loadQuestions({ difficulty: filterDifficultySelect.value || '' });
+  });
+}
+
+if (filterProviderSelect) {
+  filterProviderSelect.addEventListener('change', () => {
+    if (!getToken()) return;
+    const value = filterProviderSelect.value || '';
+    loadQuestions({ provider: value });
   });
 }
 
@@ -4292,6 +4363,7 @@ document.addEventListener('keydown', (e) => {
 setupUserManagement();
 setupShopControls();
 renderTriviaProviders();
+initializeProviderFilterOptions();
 updateProviderInfoDisplay();
 updateCategoryCardContent();
 applyAmountConstraints();

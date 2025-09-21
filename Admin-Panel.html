@@ -1733,7 +1733,7 @@
 
         <!-- Filters -->
         <div class="glass rounded-2xl p-4">
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
             <div>
               <label class="block text-sm mb-1">دسته‌بندی</label>
               <select id="filter-category" class="form-select">
@@ -1747,6 +1747,17 @@
                 <option value="easy">آسون</option>
                 <option value="medium">متوسط</option>
                 <option value="hard">سخت</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">منبع</label>
+              <select id="filter-provider" class="form-select">
+                <option value="">همه منابع</option>
+                <option value="opentdb">OpenTDB</option>
+                <option value="the-trivia-api">The Trivia API</option>
+                <option value="jservice">JService</option>
+                <option value="manual">ایجاد دستی</option>
+                <option value="community">سازنده‌ها</option>
               </select>
             </div>
             <div>
