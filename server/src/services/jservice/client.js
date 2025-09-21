@@ -5,7 +5,7 @@ const zlib = require('zlib');
 const env = require('../../config/env');
 const { fetchWithRetry } = require('../../lib/http');
 
-const DEFAULT_BASE_URL = 'http://jservice.io/api';
+const DEFAULT_BASE_URL = 'https://jservice.io/api';
 const CONFIGURED_BASE = env && env.trivia && env.trivia.jserviceBase;
 const JSERVICE_BASE = (CONFIGURED_BASE || DEFAULT_BASE_URL).replace(/\/+$/, '');
 const MAX_BATCH = 100;

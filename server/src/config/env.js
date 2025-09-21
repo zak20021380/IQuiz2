@@ -6,7 +6,7 @@ const DEFAULT_MONGO_URI = 'mongodb://localhost:27017/iquiz';
 const DEFAULT_TRIVIA_URL = 'https://opentdb.com/api.php?amount=20&type=multiple';
 const DEFAULT_TRIVIA_INTERVAL = 5000;
 const DEFAULT_THE_TRIVIA_URL = 'https://the-trivia-api.com/v2/questions?limit=20';
-const JSERVICE_BASE = process.env.JSERVICE_BASE || 'http://jservice.io/api';
+const JSERVICE_BASE = process.env.JSERVICE_BASE || 'https://jservice.io/api';
 const DEFAULT_JSERVICE_URL = `${JSERVICE_BASE.replace(/\/+$/, '')}/random`;
 const DEFAULT_MONGO_MAX_POOL = 10;
 
