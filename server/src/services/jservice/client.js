@@ -1,5 +1,7 @@
 'use strict';
 
+const zlib = require('zlib');
+
 const env = require('../../config/env');
 const { fetchWithRetry } = require('../../lib/http');
 
@@ -123,6 +125,56 @@ function normalizeClue(raw) {
  * @param {number} count
  * @returns {Promise<object[]>}
  */
+function decodeResponseBuffer(buffer, encoding) {
+  if (!buffer || buffer.length === 0) {
+    return '';
+  }
+
+  const normalizedEncoding = typeof encoding === 'string' ? encoding.toLowerCase() : '';
+
+  try {
+    if (normalizedEncoding === 'br') {
+      if (typeof zlib.brotliDecompressSync === 'function') {
+        return zlib.brotliDecompressSync(buffer).toString('utf8');
+      }
+      // If brotli is not supported fall back to plain text to avoid throwing.
+    } else if (normalizedEncoding === 'gzip' || normalizedEncoding === 'x-gzip') {
+      return zlib.gunzipSync(buffer).toString('utf8');
+    } else if (normalizedEncoding === 'deflate' || normalizedEncoding === 'x-deflate') {
+      try {
+        return zlib.inflateSync(buffer).toString('utf8');
+      } catch (inflateErr) {
+        return zlib.inflateRawSync(buffer).toString('utf8');
+      }
+    }
+  } catch (error) {
+    const err = new Error('Failed to decode JService response');
+    err.cause = error;
+    throw err;
+  }
+
+  return buffer.toString('utf8');
+}
+
+function sanitizePayloadText(text) {
+  if (typeof text !== 'string') {
+    return '';
+  }
+
+  const withoutBom = text.replace(/^[\uFEFF\u200B\u200C\u200D\u2060]+/, '');
+  const trimmed = withoutBom.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const firstJsonCharIndex = trimmed.search(/[\[{]/);
+  if (firstJsonCharIndex > 0) {
+    return trimmed.slice(firstJsonCharIndex);
+  }
+
+  return trimmed;
+}
+
 async function fetchRandomClues(count) {
   const size = Math.min(Math.max(Math.floor(count) || 1, 1), MAX_BATCH);
   const url = `${API_ENDPOINT}?count=${size}`;
@@ -147,12 +199,29 @@ async function fetchRandomClues(count) {
     throw err;
   }
 
+  let rawBuffer;
+  try {
+    rawBuffer = await response.buffer();
+  } catch (error) {
+    const err = new Error('Failed to read JService response');
+    err.cause = error;
+    throw err;
+  }
+
+  const encoding = response.headers.get('content-encoding');
+  const bodyText = sanitizePayloadText(decodeResponseBuffer(rawBuffer, encoding));
+
+  if (!bodyText) {
+    return [];
+  }
+
   let payload;
   try {
-    payload = await response.json();
+    payload = JSON.parse(bodyText);
   } catch (error) {
     const err = new Error('Failed to parse JService response');
     err.cause = error;
+    err.responseSnippet = bodyText.slice(0, 200);
     throw err;
   }
 
