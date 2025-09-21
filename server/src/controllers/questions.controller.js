@@ -5,6 +5,8 @@ const { normalizeProviderId } = require('../services/triviaProviders');
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'draft', 'archived'];
 const ALLOWED_SOURCES = ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'];
 const ALLOWED_PROVIDERS = ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'];
+const TRUTHY_QUERY_VALUES = new Set(['1', 'true', 'yes', 'y', 'on']);
+const FALSY_QUERY_VALUES = new Set(['0', 'false', 'no', 'n', 'off']);
 
 function normalizeStatus(status, fallback = 'approved') {
   if (typeof status !== 'string') return fallback;
@@ -40,6 +42,15 @@ function normalizeProvider(value, fallback = '') {
   }
 
   return '';
+}
+
+function parseBooleanQuery(value, fallback = false) {
+  if (value === undefined || value === null) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (TRUTHY_QUERY_VALUES.has(normalized)) return true;
+  if (FALSY_QUERY_VALUES.has(normalized)) return false;
+  return fallback;
 }
 
 exports.create = async (req, res, next) => {
@@ -122,7 +133,8 @@ exports.create = async (req, res, next) => {
       source: safeSource,
       provider: safeProvider,
       status: normalizedStatus,
-      authorName: resolvedAuthor
+      authorName: resolvedAuthor,
+      isApproved: normalizedStatus === 'approved'
     };
 
     if (req.user?._id) {
@@ -162,9 +174,12 @@ exports.list = async (req, res, next) => {
       source,
       status,
       provider,
-      type
+      type,
+      includeUnapproved: includeUnapprovedRaw
     } = req.query;
     const where = {};
+    const includeUnapproved = parseBooleanQuery(includeUnapprovedRaw, false);
+    const providerCandidate = provider ? normalizeProvider(provider, '') : '';
     if (q) where.text = { $regex: q, $options: 'i' };
     if (category) where.category = category;
     if (difficulty) where.difficulty = difficulty;
@@ -172,49 +187,21 @@ exports.list = async (req, res, next) => {
       const sourceCandidate = String(source).trim().toLowerCase();
       if (ALLOWED_SOURCES.includes(sourceCandidate)) where.source = sourceCandidate;
     }
-    if (provider) {
-      const providerCandidate = normalizeProvider(provider, '');
-      if (providerCandidate) {
-        if (providerCandidate === 'jservice') {
-          const providerMissingConditions = {
-            $or: [
-              { provider: { $exists: false } },
-              { provider: null },
-              { provider: '' }
-            ]
-          };
+    if (providerCandidate) {
+      const providerRegex = new RegExp(`^${providerCandidate}$`, 'i');
+      const providerConditions = [
+        { provider: providerRegex },
+        { source: providerRegex },
+        { 'sourceRef.provider': providerRegex }
+      ];
 
-          const jserviceProviderConditions = [
-            { provider: providerCandidate },
-            {
-              $and: [
-                { source: providerCandidate },
-                providerMissingConditions
-              ]
-            },
-            {
-              $and: [
-                { 'sourceRef.provider': providerCandidate },
-                providerMissingConditions
-              ]
-            },
-            {
-              $and: [
-                { 'sourceRef.jserviceId': { $exists: true, $ne: null, $ne: '' } },
-                providerMissingConditions
-              ]
-            }
-          ];
-
-          if (Array.isArray(where.$or)) {
-            where.$or = where.$or.concat(jserviceProviderConditions);
-          } else {
-            where.$or = jserviceProviderConditions;
-          }
-        } else {
-          where.provider = providerCandidate;
-        }
+      if (providerCandidate === 'jservice') {
+        providerConditions.push({ 'meta.jservice.id': { $exists: true } });
+        providerConditions.push({ 'sourceRef.jserviceId': { $exists: true, $ne: null, $ne: '' } });
       }
+
+      if (!where.$and) where.$and = [];
+      where.$and.push({ $or: providerConditions });
     }
     if (status) {
       const candidate = String(status).trim().toLowerCase();
@@ -225,6 +212,9 @@ exports.list = async (req, res, next) => {
       } else if (candidate === 'inactive') {
         where.active = false;
       }
+    }
+    if (providerCandidate === 'jservice' && !includeUnapproved && !where.status) {
+      where.status = 'approved';
     }
     if (type) {
       const typeCandidate = String(type).trim().toLowerCase();
@@ -329,6 +319,7 @@ exports.update = async (req, res, next) => {
       const nextStatus = normalizeStatus(req.body.status, null);
       if (nextStatus) {
         updates.status = nextStatus;
+        updates.isApproved = nextStatus === 'approved';
         if (nextStatus === 'pending') {
           updates.submittedAt = new Date();
           updates.reviewedAt = null;
@@ -436,6 +427,7 @@ exports.submitPublic = async (req, res, next) => {
       lang: 'fa',
       source: 'community',
       status: 'pending',
+      isApproved: false,
       authorName: resolvedAuthor,
       submittedBy: typeof body.submittedBy === 'string' ? body.submittedBy.trim() : undefined,
       submittedAt: now

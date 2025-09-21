@@ -20,8 +20,20 @@ const HTML_ENTITY_MAP = {
   '&ldquo;': '"',
   '&rdquo;': '"',
   '&hellip;': '…',
-  '&amp;quot;': '"'
+  '&amp;quot;': '"',
+  '&nbsp;': ' '
 };
+
+const HTML_TAG_REGEX = /<[^>]*>/g;
+const JSERVICE_QUOTE_PAIRS = [
+  ['“', '”'],
+  ['‘', '’'],
+  ['«', '»'],
+  ['‹', '›'],
+  ['"', '"'],
+  ["'", "'"],
+  ['`', '`']
+];
 
 const DEFAULT_TRIVIA_CATEGORY = 'General Knowledge';
 const OPEN_TDB_MAX_AMOUNT = 200;
@@ -29,23 +41,17 @@ const TRIVIA_API_MAX_LIMIT = 50;
 const JSERVICE_MAX_AMOUNT = 50;
 const JSERVICE_FETCH_LIMIT = 100;
 const JSERVICE_MAX_ATTEMPTS = 3;
-const JSERVICE_FALLBACK_DISTRACTORS = [
-  'Mount Everest',
-  'Photosynthesis',
-  'Alexander Hamilton',
-  'The Pacific Ocean',
-  'Isaac Newton',
-  'Saturn',
-  'The Amazon River',
-  'The Mona Lisa',
-  'Pythagoras',
-  'Silicon Valley',
-  'Mercury',
-  'Neil Armstrong'
-];
 
 const AUTO_IMPORT_SOURCES = ['opentdb', 'the-trivia-api', 'jservice'];
-const DEFAULT_IMPORTED_STATUS = (env.importer?.autoApprove !== false) ? 'approved' : 'pending';
+const AUTO_APPROVE_PROVIDER_SET = new Set(
+  Array.isArray(env.importer?.autoApproveProviders)
+    ? env.importer.autoApproveProviders
+        .map((providerId) => normalizeImportProvider(providerId))
+        .filter(Boolean)
+    : []
+);
+const GLOBAL_AUTO_APPROVE = env.importer?.autoApprove !== false;
+const DEFAULT_IMPORTED_STATUS = GLOBAL_AUTO_APPROVE ? 'approved' : 'pending';
 const VALID_IMPORTED_STATUSES = new Set(['pending', 'approved', 'rejected', 'draft', 'archived']);
 
 let ensureAutoImportStatusPromise;
@@ -63,7 +69,7 @@ async function ensureAutoImportStatuses() {
               { status: '' }
             ]
           },
-          { $set: { status: DEFAULT_IMPORTED_STATUS } }
+          { $set: { status: DEFAULT_IMPORTED_STATUS, isApproved: DEFAULT_IMPORTED_STATUS === 'approved' } }
         );
 
         const modified = result?.modifiedCount || result?.nModified || 0;
@@ -118,6 +124,14 @@ function normalizeImportProvider(value, fallback = '') {
   if (normalized) return normalized;
   const fallbackNormalized = sanitizeText(fallback).toLowerCase();
   return fallbackNormalized;
+}
+
+function shouldAutoApproveProvider(providerId) {
+  const normalized = normalizeImportProvider(providerId);
+  if (normalized && AUTO_APPROVE_PROVIDER_SET.has(normalized)) {
+    return true;
+  }
+  return GLOBAL_AUTO_APPROVE;
 }
 
 function normalizeDifficulty(value) {
@@ -529,10 +543,24 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
     const normalizedProvider = normalizeImportProvider(question.provider, normalizedSource);
     const normalizedType = sanitizeText(question.type) || 'multiple';
     const normalizedLang = sanitizeText(question.lang) || 'en';
-    const normalizedStatus = normalizeImportStatus(question.status);
+    const providerId = sanitizeText(question.providerId);
+    const rawStatus = typeof question.status === 'string' ? question.status : null;
+    const normalizedStatus = rawStatus
+      ? normalizeImportStatus(rawStatus)
+      : typeof question.isApproved === 'boolean'
+        ? (question.isApproved ? 'approved' : 'pending')
+        : DEFAULT_IMPORTED_STATUS;
     const isApproved = normalizedStatus === 'approved';
     const active = typeof question.active === 'boolean' ? question.active : isApproved;
     const authorName = sanitizeText(question.authorName) || 'IQuiz Team';
+    let meta = null;
+    if (question.meta && typeof question.meta === 'object' && !Array.isArray(question.meta)) {
+      try {
+        meta = JSON.parse(JSON.stringify(question.meta));
+      } catch (err) {
+        meta = null;
+      }
+    }
     const providerForUpdate = normalizedProvider || normalizedSource;
     const updateDocument = {
       $setOnInsert: {
@@ -549,13 +577,30 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
         checksum,
         active,
         status: normalizedStatus,
-        authorName
+        authorName,
+        isApproved
       }
     };
 
     if (providerForUpdate) {
       updateDocument.$set = { provider: providerForUpdate };
+    } else {
+      updateDocument.$set = {};
     }
+
+    if (providerId) {
+      updateDocument.$setOnInsert.providerId = providerId;
+      updateDocument.$set.providerId = providerId;
+    }
+
+    if (meta) {
+      updateDocument.$setOnInsert.meta = meta;
+      updateDocument.$set.meta = meta;
+    }
+
+    updateDocument.$set.status = normalizedStatus;
+    updateDocument.$set.isApproved = isApproved;
+    updateDocument.$set.active = active;
 
     operations.push({
       updateOne: {
@@ -644,6 +689,12 @@ async function importFromOpenTdb(options = {}) {
 
   logger.info(`[TriviaImporter] OpenTDB inserted ${storeResult.inserted} questions (duplicates: ${storeResult.duplicates})`);
 
+  const counts = {
+    inserted: storeResult.inserted,
+    duplicates: storeResult.duplicates,
+    invalid: []
+  };
+
   return {
     provider: 'opentdb',
     providerName: 'Open Trivia Database',
@@ -651,12 +702,14 @@ async function importFromOpenTdb(options = {}) {
     count: storeResult.inserted,
     inserted: storeResult.inserted,
     duplicates: storeResult.duplicates,
+    invalid: [],
     totalRequested,
     totalReceived: aggregatedQuestions.length,
     totalStored: storeResult.total,
     fetchDurationMs: storeResult.fetchDurationMs,
     breakdown,
-    partial
+    partial,
+    counts
   };
 }
 
@@ -805,6 +858,12 @@ async function importFromTheTriviaApi(options = {}) {
 
   logger.info(`[TriviaImporter] The Trivia API inserted ${storeResult.inserted} questions (duplicates: ${storeResult.duplicates})`);
 
+  const counts = {
+    inserted: storeResult.inserted,
+    duplicates: storeResult.duplicates,
+    invalid: []
+  };
+
   return {
     provider: 'the-trivia-api',
     providerName: 'The Trivia API',
@@ -812,18 +871,69 @@ async function importFromTheTriviaApi(options = {}) {
     count: storeResult.inserted,
     inserted: storeResult.inserted,
     duplicates: storeResult.duplicates,
+    invalid: [],
     totalRequested: limit,
     totalReceived: normalizedQuestions.length,
     totalStored: storeResult.total,
     fetchDurationMs: storeResult.fetchDurationMs,
     breakdown,
-    partial
+    partial,
+    counts
   };
 }
 
 function sanitizeJServiceAmount(value) {
   const amount = sanitizePositiveInteger(value, { min: 1, max: JSERVICE_MAX_AMOUNT });
   return amount || 15;
+}
+
+function sanitizeJServicePlainText(value) {
+  if (value === undefined || value === null) return '';
+  const decoded = decodeHtml(value);
+  const withoutTags = decoded.replace(HTML_TAG_REGEX, ' ');
+  return withoutTags.replace(/\s+/g, ' ').trim();
+}
+
+function stripTrailingParentheses(text) {
+  if (!text) return '';
+  let result = text;
+  let previous;
+  const pattern = /\s*\((?:[^)(]|\([^)(]*\))*\)\s*$/;
+  do {
+    previous = result;
+    result = result.replace(pattern, '').trim();
+  } while (result !== previous);
+  return result;
+}
+
+function unwrapJServiceQuotes(value) {
+  if (!value) return '';
+  let result = value.trim();
+  let changed = true;
+  while (changed && result.length >= 2) {
+    changed = false;
+    for (const [open, close] of JSERVICE_QUOTE_PAIRS) {
+      if (result.startsWith(open) && result.endsWith(close)) {
+        const inner = result.slice(open.length, result.length - close.length).trim();
+        result = inner;
+        changed = true;
+        break;
+      }
+    }
+  }
+  return result.trim();
+}
+
+function sanitizeJServiceQuestionText(value) {
+  return sanitizeJServicePlainText(value);
+}
+
+function sanitizeJServiceAnswer(value) {
+  let sanitized = sanitizeJServicePlainText(value);
+  sanitized = stripTrailingParentheses(sanitized);
+  sanitized = unwrapJServiceQuotes(sanitized);
+  sanitized = sanitized.replace(/^["'`]+/, '').replace(/["'`]+$/, '');
+  return sanitized.trim();
 }
 
 function normalizeJServiceDifficulty(value) {
@@ -851,64 +961,68 @@ function normalizeJServiceCategory(value) {
   return normalized || DEFAULT_TRIVIA_CATEGORY;
 }
 
-function gatherJServiceCandidates(currentClue, pool) {
-  const correctAnswer = sanitizeText(currentClue?.answer);
-  if (!correctAnswer) return [];
-  const targetLength = correctAnswer.length;
-  const categoryKey = normalizeJServiceCategory(currentClue?.category).toLowerCase();
-  const candidates = [];
-
-  (Array.isArray(pool) ? pool : []).forEach((candidate) => {
-    if (!candidate || candidate.id === currentClue.id) return;
-    const candidateAnswer = sanitizeText(candidate.answer);
-    if (!candidateAnswer) return;
-    const normalizedAnswer = candidateAnswer.toLowerCase();
-    const normalizedCategory = normalizeJServiceCategory(candidate.category).toLowerCase();
-    const sameCategory = categoryKey && normalizedCategory === categoryKey;
-    const weight = Math.abs(candidateAnswer.length - targetLength);
-    candidates.push({
-      value: candidateAnswer,
-      normalizedAnswer,
-      sameCategory,
-      weight
-    });
-  });
-
-  candidates.sort((a, b) => {
-    if (a.sameCategory !== b.sameCategory) {
-      return a.sameCategory ? -1 : 1;
-    }
-    return a.weight - b.weight;
-  });
-
-  return candidates;
+function getJServiceClueKey(clue) {
+  if (!clue) return null;
+  if (clue.id !== undefined && clue.id !== null) {
+    return `id:${String(clue.id)}`;
+  }
+  const questionText = sanitizeJServicePlainText(clue?.question);
+  if (questionText) {
+    return `text:${questionText.toLowerCase()}`;
+  }
+  return null;
 }
 
-function buildJServiceIncorrectAnswers(clue, pool) {
-  const correctAnswer = sanitizeText(clue?.answer);
-  if (!correctAnswer) return null;
+function recordInvalidJService(clue, reason, invalidMap) {
+  logJServiceSkip(clue, reason);
+  if (!invalidMap) return;
+  const entry = {
+    id: clue?.id != null ? String(clue.id) : null,
+    category: normalizeJServiceCategory(clue?.category),
+    reason
+  };
+  const key = getJServiceClueKey(clue) || `unknown:${invalidMap.size + 1}`;
+  invalidMap.set(key, entry);
+}
 
-  const normalizedCorrect = correctAnswer.toLowerCase();
-  const seen = new Set([normalizedCorrect]);
+function buildJServiceIncorrectAnswers(clue, pool, correctAnswer) {
   const incorrect = [];
+  const seen = new Set();
+  const normalizedCorrect = sanitizeText(correctAnswer).toLowerCase();
+  if (normalizedCorrect) {
+    seen.add(normalizedCorrect);
+  }
 
-  const prioritized = gatherJServiceCandidates(clue, pool);
-  prioritized.forEach((candidate) => {
-    if (incorrect.length >= 3) return;
-    if (seen.has(candidate.normalizedAnswer)) return;
-    seen.add(candidate.normalizedAnswer);
-    incorrect.push(candidate.value);
-  });
+  const addCandidate = (rawAnswer) => {
+    const candidateAnswer = sanitizeJServiceAnswer(rawAnswer);
+    if (!candidateAnswer) return false;
+    const normalizedCandidate = candidateAnswer.toLowerCase();
+    if (!normalizedCandidate || seen.has(normalizedCandidate)) return false;
+    seen.add(normalizedCandidate);
+    incorrect.push(candidateAnswer);
+    return incorrect.length >= 3;
+  };
+
+  const poolArray = Array.isArray(pool) ? pool : [];
+  const categoryKey = normalizeJServiceCategory(clue?.category).toLowerCase();
+  if (categoryKey) {
+    for (const candidate of poolArray) {
+      if (!candidate || candidate.id === clue?.id) continue;
+      const candidateCategory = normalizeJServiceCategory(candidate.category).toLowerCase();
+      if (!candidateCategory || candidateCategory !== categoryKey) continue;
+      if (addCandidate(candidate.answer)) {
+        break;
+      }
+    }
+  }
 
   if (incorrect.length < 3) {
-    for (const fallback of JSERVICE_FALLBACK_DISTRACTORS) {
+    for (const candidate of poolArray) {
       if (incorrect.length >= 3) break;
-      const sanitized = sanitizeText(fallback);
-      if (!sanitized) continue;
-      const normalized = sanitized.toLowerCase();
-      if (seen.has(normalized)) continue;
-      seen.add(normalized);
-      incorrect.push(sanitized);
+      if (!candidate || candidate.id === clue?.id) continue;
+      if (addCandidate(candidate.answer)) {
+        break;
+      }
     }
   }
 
@@ -923,39 +1037,66 @@ function logJServiceSkip(clue, reason) {
   logger.warn(`[TriviaImporter] Skipping JService clue ${clueId}${context}: ${reason}`);
 }
 
-function normalizeJServiceQuestion(clue, pool) {
+function normalizeJServiceQuestion(clue, pool, invalidMap) {
   if (!clue) return null;
 
-  const questionText = sanitizeText(clue.question);
-  const correctAnswer = sanitizeText(clue.answer);
-  if (!questionText || !correctAnswer) {
-    logJServiceSkip(clue, 'missing question or answer');
+  const providerId = String(clue?.id ?? '').trim();
+  if (!providerId) {
+    recordInvalidJService(clue, 'missing clue identifier', invalidMap);
     return null;
   }
 
-  const incorrectAnswers = buildJServiceIncorrectAnswers(clue, pool);
+  const questionText = sanitizeJServiceQuestionText(clue.question);
+  const correctAnswer = sanitizeJServiceAnswer(clue.answer);
+  if (!questionText || !correctAnswer) {
+    recordInvalidJService(clue, 'missing question or answer', invalidMap);
+    return null;
+  }
+
+  const incorrectAnswers = buildJServiceIncorrectAnswers(clue, pool, correctAnswer);
   if (!incorrectAnswers) {
-    logJServiceSkip(clue, 'insufficient incorrect answers');
+    recordInvalidJService(clue, 'insufficient incorrect answers', invalidMap);
     return null;
   }
 
   const baseAnswers = [correctAnswer, ...incorrectAnswers];
   const choices = shuffle(baseAnswers);
   if (!Array.isArray(choices) || choices.length !== 4) {
-    logJServiceSkip(clue, `invalid choice count (${Array.isArray(choices) ? choices.length : 0})`);
+    recordInvalidJService(clue, `invalid choice count (${Array.isArray(choices) ? choices.length : 0})`, invalidMap);
     return null;
   }
   if (choices.some((choice) => !choice)) {
-    logJServiceSkip(clue, 'one or more empty choices detected');
+    recordInvalidJService(clue, 'one or more empty choices detected', invalidMap);
     return null;
   }
   const correctIndex = choices.findIndex((choice) => choice === correctAnswer);
   if (correctIndex < 0) {
-    logJServiceSkip(clue, 'correct answer missing from shuffled choices');
+    recordInvalidJService(clue, 'correct answer missing from shuffled choices', invalidMap);
     return null;
   }
 
   const checksum = Question.generateChecksum(questionText, baseAnswers);
+  if (!checksum) {
+    recordInvalidJService(clue, 'failed to generate checksum', invalidMap);
+    return null;
+  }
+
+  if (invalidMap) {
+    const key = getJServiceClueKey(clue);
+    if (key) invalidMap.delete(key);
+  }
+
+  const isApproved = shouldAutoApproveProvider('jservice');
+  const numericValue = Number.parseInt(clue?.value, 10);
+  const meta = {
+    jservice: {
+      id: clue?.id ?? null,
+      value: Number.isFinite(numericValue) ? numericValue : null,
+      airdate: clue?.airdate || null,
+      round: clue?.round || null,
+      categoryId: clue?.category_id ?? clue?.category?.id ?? null
+    }
+  };
 
   return {
     text: questionText,
@@ -964,11 +1105,15 @@ function normalizeJServiceQuestion(clue, pool) {
     difficulty: normalizeJServiceDifficulty(clue.value),
     categoryName: normalizeJServiceCategory(clue.category),
     checksum,
-    type: 'mcq',
+    type: 'multiple',
     lang: 'en',
     source: 'jservice',
     provider: 'jservice',
-    status: DEFAULT_IMPORTED_STATUS
+    providerId,
+    isApproved,
+    status: isApproved ? 'approved' : 'pending',
+    active: isApproved,
+    meta
   };
 }
 
@@ -977,6 +1122,7 @@ async function importFromJService(options = {}) {
   const pool = [];
   const normalizedQuestions = [];
   const usedClueIds = new Set();
+  const invalidMap = new Map();
   let totalFetchDurationMs = 0;
   let attempts = 0;
 
@@ -1001,7 +1147,7 @@ async function importFromJService(options = {}) {
     for (const clue of pool) {
       if (normalizedQuestions.length >= amount) break;
       if (!clue || usedClueIds.has(clue.id)) continue;
-      const question = normalizeJServiceQuestion(clue, pool);
+      const question = normalizeJServiceQuestion(clue, pool, invalidMap);
       if (!question) continue;
       normalizedQuestions.push(question);
       usedClueIds.add(clue.id);
@@ -1012,6 +1158,7 @@ async function importFromJService(options = {}) {
 
   const limitedQuestions = normalizedQuestions.slice(0, amount);
   const storeResult = await storeNormalizedQuestions(limitedQuestions, { fetchDurationMs: totalFetchDurationMs });
+  const invalidEntries = Array.from(invalidMap.values());
 
   const breakdown = [{
     providerCategoryId: null,
@@ -1025,8 +1172,14 @@ async function importFromJService(options = {}) {
   }];
 
   const { partial } = summarizeBreakdown(breakdown);
+  const counts = {
+    inserted: storeResult.inserted,
+    duplicates: storeResult.duplicates,
+    invalid: invalidEntries
+  };
 
-  logger.info(`[TriviaImporter] JService inserted ${storeResult.inserted} questions (duplicates: ${storeResult.duplicates})`);
+  logger.info(`[TriviaImporter] JService inserted ${storeResult.inserted} questions (duplicates: ${storeResult.duplicates}, invalid: ${invalidEntries.length})`);
+  logger.info(`[TriviaImporter] JService import counts ${JSON.stringify({ inserted: counts.inserted, duplicates: counts.duplicates, invalid: invalidEntries.length })}`);
 
   return {
     provider: 'jservice',
@@ -1035,12 +1188,14 @@ async function importFromJService(options = {}) {
     count: storeResult.inserted,
     inserted: storeResult.inserted,
     duplicates: storeResult.duplicates,
+    invalid: invalidEntries,
     totalRequested: amount,
     totalReceived: limitedQuestions.length,
     totalStored: storeResult.total,
     fetchDurationMs: storeResult.fetchDurationMs,
     breakdown,
-    partial
+    partial,
+    counts
   };
 }
 

@@ -148,6 +148,10 @@ const filterProviderSelect = $('#filter-provider');
 const filterSearchInput = $('#filter-search');
 const filterSortSelect = $('#filter-sort');
 const filterStatusSelect = $('#filter-status');
+const filterTypeToggle = $('#filter-type-toggle');
+const filterTypeHelper = $('#filter-type-helper');
+const filterApprovedOnlyToggle = $('#filter-approved-only');
+const filterApprovedHelper = $('#filter-approved-helper');
 const questionStatsCard = document.querySelector('[data-dashboard-card="questions"]');
 const questionTotalEl = $('#dashboard-question-total');
 const questionTrendEl = $('#dashboard-question-trend');
@@ -286,7 +290,14 @@ const questionFilters = {
   provider: '',
   status: '',
   search: '',
-  sort: 'newest'
+  sort: 'newest',
+  type: undefined,
+  approvedOnly: undefined
+};
+
+const lastJServiceFilters = {
+  type: undefined,
+  approvedOnly: undefined
 };
 
 function initializeProviderFilterOptions() {
@@ -1811,6 +1822,18 @@ function renderTriviaImportResult(result) {
   const totalReceived = Number.isFinite(result?.totalReceived) ? Number(result.totalReceived) : breakdown.reduce((sum, item) => sum + (Number.isFinite(item?.received) ? Number(item.received) : 0), 0);
   const totalStored = Number.isFinite(result?.totalStored) ? Number(result.totalStored) : 0;
   const fetchDurationMs = Number.isFinite(result?.fetchDurationMs) ? Number(result.fetchDurationMs) : 0;
+  const invalidEntriesRaw = Array.isArray(result?.counts?.invalid)
+    ? result.counts.invalid
+    : Array.isArray(result?.invalid)
+      ? result.invalid
+      : [];
+  const invalidEntries = invalidEntriesRaw
+    .map((entry) => ({
+      id: entry?.id != null ? String(entry.id) : null,
+      category: typeof entry?.category === 'string' ? entry.category : '',
+      reason: typeof entry?.reason === 'string' ? entry.reason : ''
+    }))
+    .filter((entry) => entry.reason);
 
   const metrics = [
     { label: 'سوالات ثبت‌شده جدید', value: inserted ? formatNumberFa(inserted) : null },
@@ -1818,11 +1841,31 @@ function renderTriviaImportResult(result) {
     { label: 'تعداد درخواستی', value: totalRequested ? formatNumberFa(totalRequested) : null },
     { label: 'موارد تکراری', value: formatNumberFa(duplicates) },
     { label: 'پس از حذف تکراری', value: totalStored ? formatNumberFa(totalStored) : null },
-    { label: 'زمان دریافت', value: fetchDurationMs ? `${formatNumberFa(fetchDurationMs)} میلی‌ثانیه` : null }
-  ].filter((item) => item.value && item.value !== '۰');
+    { label: 'زمان دریافت', value: fetchDurationMs ? `${formatNumberFa(fetchDurationMs)} میلی‌ثانیه` : null },
+    invalidEntries.length ? { label: 'موارد نامعتبر', value: formatNumberFa(invalidEntries.length) } : null
+  ].filter((item) => item && item.value && item.value !== '۰');
 
   const metricsHtml = metrics.length
     ? `<ul class="space-y-1 text-xs text-white/70">${metrics.map((item) => `<li><span class="text-white/60">${item.label}:</span> <span class="text-white">${item.value}</span></li>`).join('')}</ul>`
+    : '';
+
+  const invalidHtml = invalidEntries.length
+    ? (() => {
+        const limit = Math.min(invalidEntries.length, 6);
+        const items = invalidEntries.slice(0, limit).map((entry) => {
+          const idLabel = entry.id ? `#${escapeHtml(entry.id)}` : 'بدون شناسه';
+          const categoryLabel = entry.category ? ` – ${escapeHtml(entry.category)}` : '';
+          return `<li class="leading-5">${idLabel}${categoryLabel}<span class="text-white/50">: ${escapeHtml(entry.reason)}</span></li>`;
+        }).join('');
+        const moreCount = invalidEntries.length - limit;
+        const moreHtml = moreCount > 0 ? `<li class="text-white/50">${formatNumberFa(moreCount)} مورد دیگر...</li>` : '';
+        return `
+          <div class="glass-dark rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 space-y-2">
+            <p class="text-xs font-semibold text-rose-200">سوالات نامعتبر (${formatNumberFa(invalidEntries.length)})</p>
+            <ul class="text-[11px] text-white/70 space-y-1">${items}${moreHtml}</ul>
+          </div>
+        `;
+      })()
     : '';
 
   const breakdownHtml = breakdown.length
@@ -1871,7 +1914,7 @@ function renderTriviaImportResult(result) {
       </div>
       ${metricsHtml || '<p class="text-xs text-white/60">گزارشی برای نمایش وجود ندارد.</p>'}
     </div>
-    <div class="space-y-3 mt-4">${breakdownHtml}</div>
+    <div class="space-y-3 mt-4">${[invalidHtml, breakdownHtml].filter(Boolean).join('')}</div>
   `;
 
   if (result.ok === false) {
@@ -2976,6 +3019,46 @@ async function loadQuestions(overrides = {}) {
         const candidate = typeof overrides.sort === 'string' ? overrides.sort : 'newest';
         questionFilters.sort = ['oldest', 'newest'].includes(candidate) ? candidate : 'newest';
       }
+      if (Object.prototype.hasOwnProperty.call(overrides, 'type')) {
+        const value = overrides.type;
+        if (value === undefined) {
+          questionFilters.type = undefined;
+        } else if (value === null || value === '') {
+          questionFilters.type = null;
+        } else {
+          questionFilters.type = value;
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(overrides, 'approvedOnly')) {
+        const value = overrides.approvedOnly;
+        if (value === undefined) {
+          questionFilters.approvedOnly = undefined;
+        } else if (value === null) {
+          questionFilters.approvedOnly = null;
+        } else {
+          questionFilters.approvedOnly = Boolean(value);
+        }
+      }
+    }
+
+    const activeProvider = questionFilters.provider || '';
+    const isJServiceProvider = activeProvider === 'jservice';
+    if (isJServiceProvider && typeof questionFilters.type === 'undefined') {
+      questionFilters.type = typeof lastJServiceFilters.type !== 'undefined'
+        ? lastJServiceFilters.type
+        : 'multiple';
+    }
+    if (isJServiceProvider && typeof questionFilters.approvedOnly === 'undefined') {
+      questionFilters.approvedOnly = typeof lastJServiceFilters.approvedOnly !== 'undefined'
+        ? lastJServiceFilters.approvedOnly
+        : true;
+    }
+    if (questionFilters.status && questionFilters.status !== 'approved') {
+      questionFilters.approvedOnly = false;
+    }
+    if (isJServiceProvider) {
+      lastJServiceFilters.type = questionFilters.type;
+      lastJServiceFilters.approvedOnly = questionFilters.approvedOnly;
     }
 
     if (filterSortSelect && questionFilters.sort && filterSortSelect.value !== questionFilters.sort) {
@@ -2992,6 +3075,28 @@ async function loadQuestions(overrides = {}) {
       if (filterStatusSelect.value !== nextStatus) {
         filterStatusSelect.value = nextStatus;
       }
+    }
+    if (filterTypeToggle) {
+      const shouldCheck = questionFilters.type === 'multiple';
+      if (filterTypeToggle.checked !== shouldCheck) {
+        filterTypeToggle.checked = shouldCheck;
+      }
+    }
+    if (filterApprovedOnlyToggle) {
+      const shouldCheck = questionFilters.approvedOnly === true;
+      if (filterApprovedOnlyToggle.checked !== shouldCheck) {
+        filterApprovedOnlyToggle.checked = shouldCheck;
+      }
+    }
+    if (filterTypeHelper) {
+      filterTypeHelper.textContent = isJServiceProvider
+        ? 'سوالات JService پس از تبدیل به چهارگزینه‌ای قابل نمایش هستند.'
+        : 'با فعال کردن این گزینه تنها سوالات چهارگزینه‌ای نمایش داده می‌شوند.';
+    }
+    if (filterApprovedHelper) {
+      filterApprovedHelper.textContent = questionFilters.approvedOnly === false
+        ? 'سوالات تایید نشده نیز در نتایج نمایش داده می‌شوند.'
+        : 'در صورت فعال بودن، فقط سوالات تایید شده نمایش داده خواهند شد.';
     }
 
     if (tbody) {
@@ -3015,6 +3120,8 @@ async function loadQuestions(overrides = {}) {
     if (questionFilters.status) params.append('status', questionFilters.status);
     if (questionFilters.search) params.append('q', questionFilters.search);
     if (questionFilters.sort) params.append('sort', questionFilters.sort);
+    if (questionFilters.type) params.append('type', questionFilters.type);
+    if (questionFilters.approvedOnly === false) params.append('includeUnapproved', '1');
 
     const response = await api(`/questions?${params.toString()}`);
     const pendingTotal = Number(response?.meta?.pendingTotal);
@@ -3036,16 +3143,25 @@ async function loadQuestions(overrides = {}) {
     if (!tbody) return;
 
     if (!Array.isArray(response.data) || response.data.length === 0) {
-    const hasFilters = Boolean(
-      questionFilters.category
-      || questionFilters.difficulty
-      || questionFilters.provider
-      || questionFilters.status
-      || questionFilters.search
-    );
-      const emptyMessage = hasFilters
+      const hasFilters = Boolean(
+        questionFilters.category
+        || questionFilters.difficulty
+        || questionFilters.provider
+        || questionFilters.status
+        || questionFilters.search
+        || questionFilters.type
+        || questionFilters.approvedOnly === false
+      );
+      let emptyMessage = hasFilters
         ? 'هیچ سوالی با فیلترهای انتخاب شده یافت نشد.'
         : 'هنوز سوالی ثبت نشده است. از دکمه «افزودن سوال» یا ابزار دریافت سوالات خودکار استفاده کنید.';
+      if (!hasFilters && isJServiceProvider) {
+        emptyMessage = 'هیچ سوالی از JService در دسترس نیست. ممکن است سرنخ‌های دریافتی پس از تبدیل حذف شده باشند.';
+      } else if (isJServiceProvider && questionFilters.type === 'multiple' && questionFilters.approvedOnly !== false) {
+        emptyMessage = 'هیچ سوال چهارگزینه‌ای تایید شده‌ای پس از تبدیل از JService یافت نشد.';
+      } else if (isJServiceProvider && questionFilters.type === 'multiple' && questionFilters.approvedOnly === false) {
+        emptyMessage = 'حتی با نمایش سوالات تایید نشده، سوال چهارگزینه‌ای معتبری از JService یافت نشد.';
+      }
       tbody.innerHTML = `
         <tr class="empty-row">
           <td colspan="4">
@@ -3526,7 +3642,15 @@ if (filterProviderSelect) {
   filterProviderSelect.addEventListener('change', () => {
     if (!getToken()) return;
     const value = filterProviderSelect.value || '';
-    loadQuestions({ provider: value });
+    const normalized = value ? resolveProviderId(value) : '';
+    const overrides = { provider: value };
+    if (normalized !== 'jservice') {
+      lastJServiceFilters.type = questionFilters.type;
+      lastJServiceFilters.approvedOnly = questionFilters.approvedOnly;
+      overrides.type = undefined;
+      overrides.approvedOnly = undefined;
+    }
+    loadQuestions(overrides);
   });
 }
 
@@ -3534,6 +3658,22 @@ if (filterStatusSelect) {
   filterStatusSelect.addEventListener('change', () => {
     if (!getToken()) return;
     loadQuestions({ status: filterStatusSelect.value || '' });
+  });
+}
+
+if (filterTypeToggle) {
+  filterTypeToggle.addEventListener('change', () => {
+    if (!getToken()) return;
+    const nextType = filterTypeToggle.checked ? 'multiple' : null;
+    loadQuestions({ type: nextType });
+  });
+}
+
+if (filterApprovedOnlyToggle) {
+  filterApprovedOnlyToggle.addEventListener('change', () => {
+    if (!getToken()) return;
+    const nextValue = filterApprovedOnlyToggle.checked;
+    loadQuestions({ approvedOnly: nextValue });
   });
 }
 

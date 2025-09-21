@@ -1761,6 +1761,14 @@
               </select>
             </div>
             <div>
+              <label class="block text-sm mb-1">فیلتر نوع سوال</label>
+              <label class="toggle text-xs">
+                <input type="checkbox" id="filter-type-toggle">
+                <span class="toggle-label">فقط چهارگزینه‌ای</span>
+              </label>
+              <p class="text-[11px] text-white/50 mt-2" id="filter-type-helper">در صورت نیاز می‌توانید سوالات دیگر انواع را نیز نمایش دهید.</p>
+            </div>
+            <div>
               <label class="block text-sm mb-1">جستجو</label>
               <div class="relative">
                 <input id="filter-search" type="search" placeholder="جستجوی سوال..." class="form-input pr-12">
@@ -1785,6 +1793,14 @@
                 <option value="rejected">رد شده</option>
                 <option value="inactive">غیرفعال</option>
               </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">فیلتر تایید</label>
+              <label class="toggle text-xs">
+                <input type="checkbox" id="filter-approved-only">
+                <span class="toggle-label">فقط تایید شده</span>
+              </label>
+              <p class="text-[11px] text-white/50 mt-2" id="filter-approved-helper">غیرفعال کردن این گزینه، سوالات تایید نشده را نیز نمایش می‌دهد.</p>
             </div>
           </div>
         </div>
