@@ -3,6 +3,7 @@ const Category = require('../models/Category');
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'draft', 'archived'];
 const ALLOWED_SOURCES = ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'];
+const ALLOWED_PROVIDERS = ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'];
 
 function normalizeStatus(status, fallback = 'approved') {
   if (typeof status !== 'string') return fallback;
@@ -20,6 +21,13 @@ function normalizeSource(value, fallback = 'manual') {
   if (typeof value !== 'string') return fallback;
   const candidate = value.trim().toLowerCase();
   return ALLOWED_SOURCES.includes(candidate) ? candidate : fallback;
+}
+
+function normalizeProvider(value, fallback = '') {
+  if (typeof value !== 'string') return fallback;
+  const candidate = value.trim().toLowerCase();
+  if (!candidate) return fallback;
+  return ALLOWED_PROVIDERS.includes(candidate) ? candidate : fallback;
 }
 
 exports.create = async (req, res, next) => {
@@ -79,6 +87,7 @@ exports.create = async (req, res, next) => {
     const safeDifficulty = allowedDifficulties.includes(difficultyKey) ? difficultyKey : 'easy';
     const normalizedStatus = normalizeStatus(status, 'approved');
     const safeSource = normalizeSource(source, 'manual');
+    const safeProvider = normalizeProvider(req.body.provider, safeSource);
     let isActive = typeof active === 'boolean' ? active : true;
     if (normalizedStatus !== 'approved') {
       isActive = false;
@@ -99,6 +108,7 @@ exports.create = async (req, res, next) => {
       active: isActive,
       lang: detectedLang,
       source: safeSource,
+      provider: safeProvider,
       status: normalizedStatus,
       authorName: resolvedAuthor
     };
@@ -130,7 +140,18 @@ exports.create = async (req, res, next) => {
 
 exports.list = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, q = '', category, difficulty, sort = 'newest', source, status } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      q = '',
+      category,
+      difficulty,
+      sort = 'newest',
+      source,
+      status,
+      provider,
+      type
+    } = req.query;
     const where = {};
     if (q) where.text = { $regex: q, $options: 'i' };
     if (category) where.category = category;
@@ -138,6 +159,12 @@ exports.list = async (req, res, next) => {
     if (source) {
       const sourceCandidate = String(source).trim().toLowerCase();
       if (ALLOWED_SOURCES.includes(sourceCandidate)) where.source = sourceCandidate;
+    }
+    if (provider) {
+      const providerCandidate = String(provider).trim().toLowerCase();
+      if (ALLOWED_PROVIDERS.includes(providerCandidate)) {
+        where.provider = providerCandidate;
+      }
     }
     if (status) {
       const candidate = String(status).trim().toLowerCase();
@@ -147,6 +174,12 @@ exports.list = async (req, res, next) => {
         where.active = true;
       } else if (candidate === 'inactive') {
         where.active = false;
+      }
+    }
+    if (type) {
+      const typeCandidate = String(type).trim().toLowerCase();
+      if (typeCandidate) {
+        where.type = typeCandidate;
       }
     }
 
