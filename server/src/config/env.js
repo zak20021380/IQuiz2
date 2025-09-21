@@ -61,6 +61,16 @@ const port = parseNumber(process.env.PORT, DEFAULT_PORT, { min: 1 });
 const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 const importApprove = parseBoolean(process.env.IMPORT_APPROVE, true);
 
+function parseProviderList(value) {
+  if (!value) return [];
+  return String(value)
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+const importAutoApproveProviders = parseProviderList(process.env.TRIVIA_AUTO_APPROVE);
+
 const env = {
   nodeEnv,
   isProduction: nodeEnv === 'production',
@@ -79,7 +89,8 @@ const env = {
     jserviceBase,
   },
   importer: {
-    autoApprove: importApprove
+    autoApprove: importApprove,
+    autoApproveProviders: importAutoApproveProviders
   },
   cors: {
     allowedOrigins

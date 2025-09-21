@@ -44,6 +44,7 @@ const questionSchema = new mongoose.Schema(
     categoryName: { type: String, trim: true },
     active: { type: Boolean, default: true },
     provider: { type: String, trim: true, default: '' },
+    providerId: { type: String, trim: true },
     source: { type: String, enum: ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'], default: 'manual' },
     lang: { type: String, trim: true, default: 'en' },
     type: { type: String, trim: true, default: 'multiple' },
@@ -52,18 +53,21 @@ const questionSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected', 'draft', 'archived'],
       default: 'approved'
     },
+    isApproved: { type: Boolean, default: true },
     authorName: { type: String, trim: true, default: 'IQuiz Team' },
     submittedBy: { type: String, trim: true },
     submittedAt: { type: Date },
     reviewedAt: { type: Date },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewNotes: { type: String, trim: true },
-    checksum: { type: String, required: true, trim: true }
+    checksum: { type: String, required: true, trim: true },
+    meta: { type: mongoose.Schema.Types.Mixed, default: {} }
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
 questionSchema.index({ checksum: 1 }, { unique: true, sparse: true });
+questionSchema.index({ provider: 1, providerId: 1 }, { unique: true, sparse: true });
 
 questionSchema.pre('validate', function deriveChecksum(next) {
   if (!this.checksum && this.text && Array.isArray(this.choices) && this.choices.length > 0) {
