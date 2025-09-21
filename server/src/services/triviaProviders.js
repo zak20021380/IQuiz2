@@ -27,6 +27,18 @@ const TRIVIA_PROVIDERS = [
       difficulties: { selectable: true, multiple: true },
       breakdown: true
     }
+  },
+  {
+    id: 'jservice',
+    name: 'JService Trivia Archive',
+    shortName: 'JService',
+    description: 'آرشیوی از سوالات Jeopardy! با دسته‌بندی‌های متنوع و ساختار پرسش و پاسخ کلاسیک.',
+    capabilities: {
+      amount: { min: 1, max: 50, default: 15 },
+      categories: { selectable: false, remote: false },
+      difficulties: { selectable: false, multiple: false },
+      breakdown: true
+    }
   }
 ];
 

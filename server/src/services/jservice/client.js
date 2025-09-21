@@ -1,8 +1,10 @@
 'use strict';
 
+const env = require('../../config/env');
 const { fetchWithRetry } = require('../../lib/http');
 
-const API_ENDPOINT = 'http://jservice.io/api/random';
+const DEFAULT_ENDPOINT = 'https://jservice.io/api/random';
+const API_ENDPOINT = (env && env.trivia && env.trivia.jserviceUrl) || DEFAULT_ENDPOINT;
 const MAX_BATCH = 100;
 const RETRY_DELAYS = [250, 500, 1000];
 
@@ -104,6 +106,7 @@ function normalizeClue(raw) {
   if (!question || !answer) return null;
   const categoryIdRaw = raw.category && Number.parseInt(raw.category.id, 10);
   const categoryTitleRaw = raw.category && raw.category.title;
+  const valueRaw = Number.parseInt(raw.value, 10);
   const categoryTitle = normalizeText(categoryTitleRaw || '');
   return {
     id,
@@ -111,7 +114,8 @@ function normalizeClue(raw) {
     category: categoryTitle || 'General',
     question,
     answer,
-    airdate: normalizeAirdate(raw.airdate || null)
+    airdate: normalizeAirdate(raw.airdate || null),
+    value: Number.isFinite(valueRaw) ? valueRaw : null
   };
 }
 

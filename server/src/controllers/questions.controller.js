@@ -2,7 +2,7 @@ const Question = require('../models/Question');
 const Category = require('../models/Category');
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'draft', 'archived'];
-const ALLOWED_SOURCES = ['manual', 'opentdb', 'the-trivia-api', 'community'];
+const ALLOWED_SOURCES = ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'];
 
 function normalizeStatus(status, fallback = 'approved') {
   if (typeof status !== 'string') return fallback;
