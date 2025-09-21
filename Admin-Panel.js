@@ -41,6 +41,34 @@ const TRIVIA_PROVIDER_ICONS = {
   jservice: 'fa-layer-group'
 };
 
+const TRIVIA_PROVIDER_ID_ALIASES = {
+  opentdb: 'opentdb',
+  'open-trivia-db': 'opentdb',
+  'open_trivia_db': 'opentdb',
+  'open trivia db': 'opentdb',
+  'open trivia database': 'opentdb',
+  'the-trivia-api': 'the-trivia-api',
+  triviaapi: 'the-trivia-api',
+  'thetriviaapi': 'the-trivia-api',
+  'the trivia api': 'the-trivia-api',
+  'the-triviaapi': 'the-trivia-api',
+  'the trivia-api': 'the-trivia-api',
+  jservice: 'jservice',
+  'j-service': 'jservice',
+  'jeopardy': 'jservice'
+};
+
+function normalizeProviderId(value) {
+  if (!value) return '';
+  return String(value).trim().toLowerCase();
+}
+
+function resolveProviderId(value) {
+  const normalized = normalizeProviderId(value);
+  if (!normalized) return '';
+  return TRIVIA_PROVIDER_ID_ALIASES[normalized] || normalized;
+}
+
 const DEFAULT_TRIVIA_PROVIDERS = [
   {
     id: 'opentdb',
@@ -337,7 +365,8 @@ function sanitizeProviderList(list) {
 
   if (Array.isArray(list)) {
     list.forEach((provider) => {
-      const id = typeof provider?.id === 'string' ? provider.id.trim().toLowerCase() : '';
+      const rawId = provider?.id ?? provider?.provider ?? provider?.providerId;
+      const id = resolveProviderId(rawId);
       if (!id) return;
       const fallback = fallbackMap.get(id);
       const baseName = provider?.name || fallback?.name || id;
@@ -1403,7 +1432,8 @@ function getProvidersList() {
 }
 
 function findProviderById(id) {
-  const normalized = typeof id === 'string' ? id.trim().toLowerCase() : '';
+  const normalized = resolveProviderId(id);
+  if (!normalized) return null;
   return getProvidersList().find((provider) => provider.id === normalized) || null;
 }
 
@@ -1449,7 +1479,8 @@ function getProviderAmountConfig() {
 }
 
 function getProviderIcon(providerId) {
-  return TRIVIA_PROVIDER_ICONS[providerId] || 'fa-database';
+  const normalized = resolveProviderId(providerId);
+  return TRIVIA_PROVIDER_ICONS[normalized] || 'fa-database';
 }
 
 function formatProviderLabel(provider) {
@@ -1554,19 +1585,33 @@ function renderTriviaProviders() {
 
 function ensureActiveProvider() {
   const providers = getProvidersList();
-  if (!providers.some((provider) => provider.id === triviaControlState.provider)) {
-    triviaControlState.provider = providers[0]?.id || DEFAULT_TRIVIA_PROVIDERS[0].id;
+  if (providers.length === 0) {
+    triviaControlState.provider = DEFAULT_TRIVIA_PROVIDERS[0].id;
+    return;
   }
+
+  const normalized = resolveProviderId(triviaControlState.provider);
+  if (!normalized) {
+    triviaControlState.provider = providers[0].id;
+    return;
+  }
+
+  if (!providers.some((provider) => provider.id === normalized)) {
+    triviaControlState.provider = providers[0].id;
+    return;
+  }
+
+  triviaControlState.provider = normalized;
 }
 
 function setActiveTriviaProvider(providerId, options = {}) {
   const { autoLoadCategories = true } = options;
   const providers = getProvidersList();
-  const normalized = typeof providerId === 'string' ? providerId.trim().toLowerCase() : '';
+  const normalized = resolveProviderId(providerId);
   const provider = providers.find((item) => item.id === normalized) || providers[0];
   if (!provider) return;
 
-  const previousProvider = triviaControlState.provider;
+  const previousProvider = resolveProviderId(triviaControlState.provider) || providers[0]?.id || provider.id;
   triviaControlState.provider = provider.id;
 
   if (!providerSupportsCategorySelection()) {
@@ -1944,7 +1989,9 @@ async function loadTriviaCategories(force = false) {
   updateTriviaControlsAvailability();
 
   try {
-    const response = await api(`/trivia/providers/${provider?.id || 'opentdb'}/categories`);
+    const providerId = provider?.id ? resolveProviderId(provider.id) : DEFAULT_TRIVIA_PROVIDERS[0].id;
+    const safeProviderId = providerId || DEFAULT_TRIVIA_PROVIDERS[0].id;
+    const response = await api(`/trivia/providers/${safeProviderId}/categories`);
     const categories = Array.isArray(response?.data) ? response.data : [];
     triviaControlState.availableCategories = categories.map((item) => ({
       id: String(item.id),
@@ -3555,8 +3602,18 @@ if (triviaImportBtn) {
       const supportsDifficulties = providerSupportsDifficultySelection();
       const amount = clampTriviaAmount(triviaControlState.amount);
       triviaControlState.amount = amount;
+      const activeProvider = getActiveProvider();
+      const providerId = activeProvider?.id
+        ? resolveProviderId(activeProvider.id)
+        : resolveProviderId(triviaControlState.provider);
+      if (!providerId) {
+        showToast('منبع سوال انتخاب‌شده معتبر نیست', 'error');
+        setTriviaStatusBadge('error', 'خطا در انتخاب منبع');
+        return;
+      }
+      triviaControlState.provider = providerId;
       const payload = {
-        provider: triviaControlState.provider,
+        provider: providerId,
         amount,
       };
       if (supportsCategories) {
