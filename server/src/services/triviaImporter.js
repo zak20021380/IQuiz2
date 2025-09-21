@@ -330,10 +330,10 @@ function normalizeOpenTdbQuestion(raw) {
   }
 
   const choices = shuffled.map((answer) => answer.text);
-  const checksumSourceChoices = uniqueAnswers.map((answer) => answer.text);
-  const checksum = Question.generateChecksum(
+  const hashSourceChoices = uniqueAnswers.map((answer) => answer.text);
+  const hash = Question.generateChecksum(
     questionText,
-    checksumSourceChoices
+    hashSourceChoices
   );
 
   const categoryNameRaw = decodeHtml(raw.category || '').trim();
@@ -345,7 +345,8 @@ function normalizeOpenTdbQuestion(raw) {
     correctIndex,
     difficulty: normalizeDifficulty(raw.difficulty),
     categoryName,
-    checksum,
+    hash,
+    checksum: hash,
     type: normalizedType,
     lang: 'en',
     source: 'opentdb',
@@ -475,9 +476,13 @@ async function fetchOpenTdbQuestions(url) {
 function dedupeQuestions(questions) {
   const deduped = new Map();
   for (const question of Array.isArray(questions) ? questions : []) {
-    if (!question || !question.checksum) continue;
-    if (!deduped.has(question.checksum)) {
-      deduped.set(question.checksum, question);
+    if (!question) continue;
+    const key = sanitizeText(question.hash || question.checksum);
+    if (!key) continue;
+    if (!deduped.has(key)) {
+      question.hash = key;
+      question.checksum = key;
+      deduped.set(key, question);
     }
   }
   return Array.from(deduped.values());
@@ -506,32 +511,32 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
       continue;
     }
 
-    const checksum = sanitizeText(question.checksum);
-    if (!checksum) {
-      logger.warn('[TriviaImporter] Skipping imported question with missing checksum.');
+    const hash = sanitizeText(question.hash || question.checksum);
+    if (!hash) {
+      logger.warn('[TriviaImporter] Skipping imported question with missing hash.');
       continue;
     }
 
     const text = sanitizeText(question.text);
     if (!text) {
-      logger.warn(`[TriviaImporter] Skipping imported question ${checksum} due to empty text.`);
+      logger.warn(`[TriviaImporter] Skipping imported question ${hash} due to empty text.`);
       continue;
     }
 
     const rawChoices = Array.isArray(question.choices) ? question.choices : [];
     const sanitizedChoices = rawChoices.map((choice) => sanitizeText(choice));
     if (sanitizedChoices.length !== 4) {
-      logger.warn(`[TriviaImporter] Skipping imported question ${checksum} due to invalid choice count (${sanitizedChoices.length}).`);
+      logger.warn(`[TriviaImporter] Skipping imported question ${hash} due to invalid choice count (${sanitizedChoices.length}).`);
       continue;
     }
     if (sanitizedChoices.some((choice) => !choice)) {
-      logger.warn(`[TriviaImporter] Skipping imported question ${checksum} due to empty choice value.`);
+      logger.warn(`[TriviaImporter] Skipping imported question ${hash} due to empty choice value.`);
       continue;
     }
 
     const parsedCorrectIndex = Number(question.correctIndex);
     if (!Number.isInteger(parsedCorrectIndex) || parsedCorrectIndex < 0 || parsedCorrectIndex >= sanitizedChoices.length) {
-      logger.warn(`[TriviaImporter] Skipping imported question ${checksum} due to invalid correct index (${question.correctIndex}).`);
+      logger.warn(`[TriviaImporter] Skipping imported question ${hash} due to invalid correct index (${question.correctIndex}).`);
       continue;
     }
 
@@ -571,7 +576,8 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
         source: normalizedSource,
         lang: normalizedLang,
         type: normalizedType,
-        checksum,
+        hash,
+        checksum: hash,
         authorName
       },
       $set: {
@@ -595,7 +601,7 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
 
     operations.push({
       updateOne: {
-        filter: { checksum },
+        filter: { hash },
         update: updateDocument,
         upsert: true
       }
@@ -755,7 +761,7 @@ function normalizeTriviaApiQuestion(raw) {
     return null;
   }
 
-  const checksum = Question.generateChecksum(questionText, normalizedAnswers.answers);
+  const hash = Question.generateChecksum(questionText, normalizedAnswers.answers);
 
   return {
     text: questionText,
@@ -763,7 +769,8 @@ function normalizeTriviaApiQuestion(raw) {
     correctIndex,
     difficulty: normalizeDifficulty(raw.difficulty),
     categoryName: sanitizeText(raw.categoryName) || DEFAULT_TRIVIA_CATEGORY,
-    checksum,
+    hash,
+    checksum: hash,
     type: sanitizeText(raw.type) || 'multiple',
     lang: sanitizeText(raw.lang) || 'en',
     source: 'the-trivia-api',
@@ -1000,9 +1007,9 @@ function normalizeCluebaseQuestion(clue, pool, invalidMap) {
     return null;
   }
 
-  const checksum = Question.generateChecksum(questionText, baseAnswers);
-  if (!checksum) {
-    recordInvalidCluebase(clue, 'failed to generate checksum', invalidMap);
+  const hash = Question.generateChecksum(questionText, baseAnswers);
+  if (!hash) {
+    recordInvalidCluebase(clue, 'failed to generate hash', invalidMap);
     return null;
   }
 
@@ -1024,7 +1031,8 @@ function normalizeCluebaseQuestion(clue, pool, invalidMap) {
     correctIndex,
     difficulty: mapCluebaseDifficulty(clue.value),
     categoryName,
-    checksum,
+    hash,
+    checksum: hash,
     type: 'multiple',
     lang: 'en',
     source: 'cluebase',
