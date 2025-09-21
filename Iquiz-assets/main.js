@@ -2,6 +2,8 @@ import { $, $$ } from './src/utils/dom.js';
 import { clamp, faNum, faDecimal, formatDuration, formatRelativeTime } from './src/utils/format.js';
 import { configureFeedback, vibrate, toast, wait, SFX, shootConfetti } from './src/utils/feedback.js';
 import { RemoteConfig, patchPricingKeys } from './src/config/remote-config.js';
+import Net from './src/services/net.js';
+import Api from './src/services/api.js';
 
   // Anti-cheating: Detect devtools
   (function() {
@@ -638,44 +640,6 @@ const Server = {
     return { name, avatar, role, power, accuracy, avgScore, speed };
   }
   
-  // ===== Network (timeouts + JSON helpers) =====
-  const Net = {
-    async jget(url, timeoutMs=8000){
-      const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), timeoutMs);
-      try{
-        const res = await fetch(url, {cache:'no-store', signal:ctrl.signal});
-        const txt = await res.text(); if(!txt) return null;
-        try{ return JSON.parse(txt); }catch{ return null; }
-      }catch{ return null; } finally{ clearTimeout(t); }
-    },
-    async jpost(url, data, timeoutMs=12000){
-      const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), timeoutMs);
-      try{
-        const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), signal:ctrl.signal});
-        const txt = await res.text(); if(!txt) return null;
-        try{ return JSON.parse(txt); }catch{ return null; }
-      }catch{ return null; } finally{ clearTimeout(t); }
-    }
-  };
-
-  /* === Admin API Adapter === */
-  const API_BASE = '/api/public';
-
-  const Api = {
-    async config(){ return await Net.jget(`${API_BASE}/config`); },
-    async categories(){ return await Net.jget(`${API_BASE}/categories`); },
-    async questions({ categoryId, count, difficulty } = {}){
-      const qs = new URLSearchParams();
-      if (categoryId) qs.set('categoryId', categoryId);
-      if (count) qs.set('count', count);
-      if (difficulty) qs.set('difficulty', difficulty);
-      const query = qs.toString();
-      const url = query ? `${API_BASE}/questions?${query}` : `${API_BASE}/questions`;
-      return await Net.jget(url);
-    },
-    async provinces(){ return await Net.jget(`${API_BASE}/provinces`); }
-  };
-
   function deepApply(target, src){
     if (!src || typeof src !== 'object') return target;
     for (const k of Object.keys(src)){
