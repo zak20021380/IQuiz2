@@ -333,17 +333,12 @@ let userSearchDebounce;
 
 function sanitizeProviderList(list) {
   const fallbackMap = new Map(DEFAULT_TRIVIA_PROVIDERS.map((provider) => [provider.id, provider]));
-  if (!Array.isArray(list) || list.length === 0) {
-    return DEFAULT_TRIVIA_PROVIDERS.map((provider) => ({
-      ...provider,
-      capabilities: { ...(provider.capabilities || {}) }
-    }));
-  }
+  const normalizedMap = new Map();
 
-  return list
-    .map((provider) => {
+  if (Array.isArray(list)) {
+    list.forEach((provider) => {
       const id = typeof provider?.id === 'string' ? provider.id.trim().toLowerCase() : '';
-      if (!id) return null;
+      if (!id) return;
       const fallback = fallbackMap.get(id);
       const baseName = provider?.name || fallback?.name || id;
       const shortName = provider?.shortName || fallback?.shortName || baseName;
@@ -352,16 +347,62 @@ function sanitizeProviderList(list) {
         ...(fallback?.capabilities || {}),
         ...(provider?.capabilities || {})
       };
+      normalizedMap.set(id, { id, name: baseName, shortName, description, capabilities });
+    });
+  }
 
-      return {
-        id,
-        name: baseName,
-        shortName,
-        description,
-        capabilities
-      };
-    })
-    .filter(Boolean);
+  DEFAULT_TRIVIA_PROVIDERS.forEach((provider) => {
+    const existing = normalizedMap.get(provider.id);
+    if (existing) {
+      normalizedMap.set(provider.id, {
+        id: provider.id,
+        name: existing.name || provider.name,
+        shortName: existing.shortName || provider.shortName,
+        description: existing.description || provider.description,
+        capabilities: {
+          ...(provider.capabilities || {}),
+          ...(existing.capabilities || {})
+        }
+      });
+      return;
+    }
+
+    normalizedMap.set(provider.id, {
+      id: provider.id,
+      name: provider.name,
+      shortName: provider.shortName,
+      description: provider.description,
+      capabilities: { ...(provider.capabilities || {}) }
+    });
+  });
+
+  if (normalizedMap.size === 0) {
+    return DEFAULT_TRIVIA_PROVIDERS.map((provider) => ({
+      ...provider,
+      capabilities: { ...(provider.capabilities || {}) }
+    }));
+  }
+
+  const ordered = [];
+  DEFAULT_TRIVIA_PROVIDERS.forEach((provider) => {
+    const entry = normalizedMap.get(provider.id);
+    if (entry) {
+      ordered.push({
+        ...entry,
+        capabilities: { ...(entry.capabilities || {}) }
+      });
+      normalizedMap.delete(provider.id);
+    }
+  });
+
+  normalizedMap.forEach((provider) => {
+    ordered.push({
+      ...provider,
+      capabilities: { ...(provider.capabilities || {}) }
+    });
+  });
+
+  return ordered;
 }
 
 function sanitizeCategoryList(list) {
@@ -1495,10 +1536,14 @@ function renderTriviaProviders() {
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.providerId = provider.id;
-    button.className = `chip-toggle${provider.id === triviaControlState.provider ? ' active' : ''}`;
+    const providerLabel = formatProviderLabel(provider);
+    const isActive = provider.id === triviaControlState.provider;
+    button.className = `chip-toggle${isActive ? ' active' : ''}`;
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    button.setAttribute('aria-label', `انتخاب منبع سوال ${providerLabel}`);
     const iconClass = getProviderIcon(provider.id);
-    button.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${escapeHtml(formatProviderLabel(provider))}</span>`;
-    button.title = provider.description || formatProviderLabel(provider);
+    button.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${escapeHtml(providerLabel)}</span>`;
+    button.title = provider.description || providerLabel;
     button.addEventListener('click', () => {
       if (triviaControlState.importing) return;
       setActiveTriviaProvider(provider.id);
@@ -1993,6 +2038,12 @@ function updateTriviaSummary() {
   }
   if (!supportsDifficulties) {
     summaryNotes.push({ text: 'سطح دشواری این منبع به صورت خودکار مدیریت می‌شود.', className: 'text-xs text-sky-200' });
+  }
+  if (provider?.id === 'jservice') {
+    summaryNotes.push({
+      text: 'سوالات JService به شکل تصادفی از آرشیو برنامه Jeopardy! انتخاب می‌شوند و گزینه‌های نادرست به صورت هوشمند تکمیل می‌گردند.',
+      className: 'text-xs text-cyan-200'
+    });
   }
   const notesHtml = summaryNotes.length
     ? summaryNotes.map((note) => `<p class="${note.className}">${escapeHtml(note.text)}</p>`).join('')
