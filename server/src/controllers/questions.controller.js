@@ -1,5 +1,6 @@
 const Question = require('../models/Question');
 const Category = require('../models/Category');
+const { normalizeProviderId } = require('../services/triviaProviders');
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'draft', 'archived'];
 const ALLOWED_SOURCES = ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'];
@@ -24,10 +25,21 @@ function normalizeSource(value, fallback = 'manual') {
 }
 
 function normalizeProvider(value, fallback = '') {
-  if (typeof value !== 'string') return fallback;
-  const candidate = value.trim().toLowerCase();
-  if (!candidate) return fallback;
-  return ALLOWED_PROVIDERS.includes(candidate) ? candidate : fallback;
+  if (typeof value === 'string') {
+    const candidate = normalizeProviderId(value);
+    if (candidate && ALLOWED_PROVIDERS.includes(candidate)) {
+      return candidate;
+    }
+  }
+
+  if (typeof fallback === 'string') {
+    const fallbackCandidate = normalizeProviderId(fallback);
+    if (fallbackCandidate && ALLOWED_PROVIDERS.includes(fallbackCandidate)) {
+      return fallbackCandidate;
+    }
+  }
+
+  return '';
 }
 
 exports.create = async (req, res, next) => {
@@ -161,9 +173,47 @@ exports.list = async (req, res, next) => {
       if (ALLOWED_SOURCES.includes(sourceCandidate)) where.source = sourceCandidate;
     }
     if (provider) {
-      const providerCandidate = String(provider).trim().toLowerCase();
-      if (ALLOWED_PROVIDERS.includes(providerCandidate)) {
-        where.provider = providerCandidate;
+      const providerCandidate = normalizeProvider(provider, '');
+      if (providerCandidate) {
+        if (providerCandidate === 'jservice') {
+          const providerMissingConditions = {
+            $or: [
+              { provider: { $exists: false } },
+              { provider: null },
+              { provider: '' }
+            ]
+          };
+
+          const jserviceProviderConditions = [
+            { provider: providerCandidate },
+            {
+              $and: [
+                { source: providerCandidate },
+                providerMissingConditions
+              ]
+            },
+            {
+              $and: [
+                { 'sourceRef.provider': providerCandidate },
+                providerMissingConditions
+              ]
+            },
+            {
+              $and: [
+                { 'sourceRef.jserviceId': { $exists: true, $ne: null, $ne: '' } },
+                providerMissingConditions
+              ]
+            }
+          ];
+
+          if (Array.isArray(where.$or)) {
+            where.$or = where.$or.concat(jserviceProviderConditions);
+          } else {
+            where.$or = jserviceProviderConditions;
+          }
+        } else {
+          where.provider = providerCandidate;
+        }
       }
     }
     if (status) {
