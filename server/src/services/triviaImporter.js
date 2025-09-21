@@ -440,6 +440,8 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
       continue;
     }
 
+    const insertedAt = new Date();
+
     operations.push({
       updateOne: {
         filter: { checksum: question.checksum },
@@ -455,7 +457,9 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
             lang: question.lang,
             type: question.type,
             checksum: question.checksum,
-            active: true
+            active: true,
+            createdAt: insertedAt,
+            updatedAt: insertedAt
           }
         },
         upsert: true
@@ -730,6 +734,18 @@ function normalizeJServiceDifficulty(value) {
 }
 
 function normalizeJServiceCategory(value) {
+  if (!value) {
+    return DEFAULT_TRIVIA_CATEGORY;
+  }
+
+  if (typeof value === 'object') {
+    const title = sanitizeText(value.title);
+    if (title) return title;
+
+    const name = sanitizeText(value.name);
+    if (name) return name;
+  }
+
   const normalized = sanitizeText(value);
   return normalized || DEFAULT_TRIVIA_CATEGORY;
 }
