@@ -238,6 +238,14 @@ function decodeResponseBuffer(buffer, encoding) {
       }
     }
   } catch (error) {
+    // Some JService responses incorrectly advertise compression even though the
+    // payload is plain text. Attempting to decompress such responses throws a
+    // `Z_DATA_ERROR`. In that case we gracefully fall back to treating the
+    // buffer as an uncompressed UTF-8 string instead of failing the request.
+    if (error && (error.code === 'Z_DATA_ERROR' || error.code === 'ERR_Z_DATA_ERROR' || error.errno === -3)) {
+      return buffer.toString('utf8');
+    }
+
     const err = new Error('Failed to decode JService response');
     err.cause = error;
     throw err;
