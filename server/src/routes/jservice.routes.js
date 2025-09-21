@@ -2,7 +2,7 @@
 
 const router = require('express').Router();
 
-const JService = require('../services/jservice');
+const CluebaseService = require('../services/cluebase');
 
 function handleUpstreamError(error, next) {
   if (!error.statusCode) {
@@ -13,7 +13,7 @@ function handleUpstreamError(error, next) {
 
 router.get('/random', async (req, res, next) => {
   try {
-    const payload = await JService.random(req.query.count);
+    const payload = await CluebaseService.random(req.query.count);
     res.json(payload);
   } catch (error) {
     handleUpstreamError(error, next);
@@ -22,7 +22,7 @@ router.get('/random', async (req, res, next) => {
 
 router.get('/clues', async (req, res, next) => {
   try {
-    const payload = await JService.clues(req.query);
+    const payload = await CluebaseService.clues(req.query);
     res.json(payload);
   } catch (error) {
     handleUpstreamError(error, next);
@@ -31,7 +31,7 @@ router.get('/clues', async (req, res, next) => {
 
 router.get('/categories', async (req, res, next) => {
   try {
-    const payload = await JService.categories({
+    const payload = await CluebaseService.categories({
       count: req.query.count,
       offset: req.query.offset,
     });

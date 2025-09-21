@@ -4,7 +4,7 @@ const Question = require('../models/Question');
 
 const ALLOWED_STATUS = new Set(['active', 'pending', 'disabled']);
 const ALLOWED_COLORS = new Set(['blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'red', 'teal', 'indigo']);
-const ALLOWED_PROVIDERS = new Set(['manual', 'opentdb', 'the-trivia-api', 'jservice']);
+const ALLOWED_PROVIDERS = new Set(['manual', 'opentdb', 'the-trivia-api', 'cluebase', 'jservice']);
 
 const sanitizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 

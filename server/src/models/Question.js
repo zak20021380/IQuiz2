@@ -45,7 +45,7 @@ const questionSchema = new mongoose.Schema(
     active: { type: Boolean, default: true },
     provider: { type: String, trim: true, default: '' },
     providerId: { type: String, trim: true },
-    source: { type: String, enum: ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'], default: 'manual' },
+    source: { type: String, enum: ['manual', 'opentdb', 'the-trivia-api', 'cluebase', 'jservice', 'community'], default: 'manual' },
     lang: { type: String, trim: true, default: 'en' },
     type: { type: String, trim: true, default: 'multiple' },
     status: {

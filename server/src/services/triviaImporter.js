@@ -5,7 +5,15 @@ const Question = require('../models/Question');
 const Category = require('../models/Category');
 const { getTriviaProviderById, normalizeProviderId } = require('./triviaProviders');
 const { getFromTheTriviaAPI } = require('../providers/thetrivia');
-const { random: fetchJServiceRandomClues } = require('./jservice/client');
+const {
+  fetchRandomClues: fetchCluebaseRandomClues,
+  sanitizePlainText: sanitizeCluebasePlainText,
+  sanitizeAnswer: sanitizeCluebaseAnswer,
+  sanitizeCategory: sanitizeCluebaseCategory,
+  mapDifficulty: mapCluebaseDifficulty,
+  clampLimit: clampCluebaseLimit,
+  getBaseUrl: getCluebaseBaseUrl,
+} = require('./cluebase/client');
 
 const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const HTML_ENTITY_MAP = {
@@ -25,24 +33,14 @@ const HTML_ENTITY_MAP = {
 };
 
 const HTML_TAG_REGEX = /<[^>]*>/g;
-const JSERVICE_QUOTE_PAIRS = [
-  ['“', '”'],
-  ['‘', '’'],
-  ['«', '»'],
-  ['‹', '›'],
-  ['"', '"'],
-  ["'", "'"],
-  ['`', '`']
-];
-
 const DEFAULT_TRIVIA_CATEGORY = 'General Knowledge';
 const OPEN_TDB_MAX_AMOUNT = 200;
 const TRIVIA_API_MAX_LIMIT = 50;
-const JSERVICE_MAX_AMOUNT = 50;
-const JSERVICE_FETCH_LIMIT = 100;
-const JSERVICE_MAX_ATTEMPTS = 3;
+const CLUEBASE_DEFAULT_LIMIT = clampCluebaseLimit(env?.trivia?.cluebase?.limit || 50);
+const CLUEBASE_MAX_AMOUNT = CLUEBASE_DEFAULT_LIMIT;
+const CLUEBASE_MAX_ATTEMPTS = 4;
 
-const AUTO_IMPORT_SOURCES = ['opentdb', 'the-trivia-api', 'jservice'];
+const AUTO_IMPORT_SOURCES = ['opentdb', 'the-trivia-api', 'cluebase', 'jservice'];
 const AUTO_APPROVE_PROVIDER_SET = new Set(
   Array.isArray(env.importer?.autoApproveProviders)
     ? env.importer.autoApproveProviders
@@ -882,110 +880,46 @@ async function importFromTheTriviaApi(options = {}) {
   };
 }
 
-function sanitizeJServiceAmount(value) {
-  const amount = sanitizePositiveInteger(value, { min: 1, max: JSERVICE_MAX_AMOUNT });
-  return amount || 15;
+function sanitizeCluebaseAmount(value) {
+  const amount = sanitizePositiveInteger(value, { min: 1, max: CLUEBASE_MAX_AMOUNT });
+  return amount || Math.min(15, CLUEBASE_MAX_AMOUNT);
 }
 
-function sanitizeJServicePlainText(value) {
-  if (value === undefined || value === null) return '';
-  const decoded = decodeHtml(value);
-  const withoutTags = decoded.replace(HTML_TAG_REGEX, ' ');
-  return withoutTags.replace(/\s+/g, ' ').trim();
-}
-
-function stripTrailingParentheses(text) {
-  if (!text) return '';
-  let result = text;
-  let previous;
-  const pattern = /\s*\((?:[^)(]|\([^)(]*\))*\)\s*$/;
-  do {
-    previous = result;
-    result = result.replace(pattern, '').trim();
-  } while (result !== previous);
-  return result;
-}
-
-function unwrapJServiceQuotes(value) {
-  if (!value) return '';
-  let result = value.trim();
-  let changed = true;
-  while (changed && result.length >= 2) {
-    changed = false;
-    for (const [open, close] of JSERVICE_QUOTE_PAIRS) {
-      if (result.startsWith(open) && result.endsWith(close)) {
-        const inner = result.slice(open.length, result.length - close.length).trim();
-        result = inner;
-        changed = true;
-        break;
-      }
-    }
-  }
-  return result.trim();
-}
-
-function sanitizeJServiceQuestionText(value) {
-  return sanitizeJServicePlainText(value);
-}
-
-function sanitizeJServiceAnswer(value) {
-  let sanitized = sanitizeJServicePlainText(value);
-  sanitized = stripTrailingParentheses(sanitized);
-  sanitized = unwrapJServiceQuotes(sanitized);
-  sanitized = sanitized.replace(/^["'`]+/, '').replace(/["'`]+$/, '');
-  return sanitized.trim();
-}
-
-function normalizeJServiceDifficulty(value) {
-  const score = Number.parseInt(value, 10);
-  if (!Number.isFinite(score)) return 'medium';
-  if (score <= 200) return 'easy';
-  if (score <= 600) return 'medium';
-  return 'hard';
-}
-
-function normalizeJServiceCategory(value) {
-  if (!value) {
-    return DEFAULT_TRIVIA_CATEGORY;
-  }
-
-  if (typeof value === 'object') {
-    const title = sanitizeText(value.title);
-    if (title) return title;
-
-    const name = sanitizeText(value.name);
-    if (name) return name;
-  }
-
-  const normalized = sanitizeText(value);
+function normalizeCluebaseCategory(value) {
+  const normalized = sanitizeCluebaseCategory(value);
   return normalized || DEFAULT_TRIVIA_CATEGORY;
 }
 
-function getJServiceClueKey(clue) {
+function getCluebaseClueKey(clue) {
   if (!clue) return null;
   if (clue.id !== undefined && clue.id !== null) {
     return `id:${String(clue.id)}`;
   }
-  const questionText = sanitizeJServicePlainText(clue?.question);
+  const questionText = sanitizeCluebasePlainText(clue?.clue ?? clue?.question);
   if (questionText) {
     return `text:${questionText.toLowerCase()}`;
   }
   return null;
 }
 
-function recordInvalidJService(clue, reason, invalidMap) {
-  logJServiceSkip(clue, reason);
+function recordInvalidCluebase(clue, reason, invalidMap) {
   if (!invalidMap) return;
   const entry = {
     id: clue?.id != null ? String(clue.id) : null,
-    category: normalizeJServiceCategory(clue?.category),
-    reason
+    category: normalizeCluebaseCategory(clue?.category),
+    reason,
   };
-  const key = getJServiceClueKey(clue) || `unknown:${invalidMap.size + 1}`;
+  const key = getCluebaseClueKey(clue) || `unknown:${invalidMap.size + 1}`;
+  const existing = invalidMap.get(key);
+  if (!existing || existing.reason !== reason) {
+    const clueId = entry.id ? `#${entry.id}` : '#unknown';
+    const context = entry.category ? ` (${entry.category})` : '';
+    logger.warn(`[TriviaImporter] Skipping Cluebase clue ${clueId}${context}: ${reason}`);
+  }
   invalidMap.set(key, entry);
 }
 
-function buildJServiceIncorrectAnswers(clue, pool, correctAnswer) {
+function buildCluebaseIncorrectAnswers(clue, pool, correctAnswer) {
   const incorrect = [];
   const seen = new Set();
   const normalizedCorrect = sanitizeText(correctAnswer).toLowerCase();
@@ -993,8 +927,13 @@ function buildJServiceIncorrectAnswers(clue, pool, correctAnswer) {
     seen.add(normalizedCorrect);
   }
 
-  const addCandidate = (rawAnswer) => {
-    const candidateAnswer = sanitizeJServiceAnswer(rawAnswer);
+  const poolArray = Array.isArray(pool) ? pool : [];
+  const categoryKey = normalizeCluebaseCategory(clue?.category).toLowerCase();
+
+  const addCandidate = (candidate) => {
+    if (!candidate) return false;
+    const baseAnswer = typeof candidate === 'string' ? candidate : candidate.response;
+    const candidateAnswer = sanitizeCluebaseAnswer(baseAnswer);
     if (!candidateAnswer) return false;
     const normalizedCandidate = candidateAnswer.toLowerCase();
     if (!normalizedCandidate || seen.has(normalizedCandidate)) return false;
@@ -1003,14 +942,12 @@ function buildJServiceIncorrectAnswers(clue, pool, correctAnswer) {
     return incorrect.length >= 3;
   };
 
-  const poolArray = Array.isArray(pool) ? pool : [];
-  const categoryKey = normalizeJServiceCategory(clue?.category).toLowerCase();
   if (categoryKey) {
     for (const candidate of poolArray) {
       if (!candidate || candidate.id === clue?.id) continue;
-      const candidateCategory = normalizeJServiceCategory(candidate.category).toLowerCase();
+      const candidateCategory = normalizeCluebaseCategory(candidate.category).toLowerCase();
       if (!candidateCategory || candidateCategory !== categoryKey) continue;
-      if (addCandidate(candidate.answer)) {
+      if (addCandidate(candidate)) {
         break;
       }
     }
@@ -1020,7 +957,7 @@ function buildJServiceIncorrectAnswers(clue, pool, correctAnswer) {
     for (const candidate of poolArray) {
       if (incorrect.length >= 3) break;
       if (!candidate || candidate.id === clue?.id) continue;
-      if (addCandidate(candidate.answer)) {
+      if (addCandidate(candidate)) {
         break;
       }
     }
@@ -1030,130 +967,133 @@ function buildJServiceIncorrectAnswers(clue, pool, correctAnswer) {
   return incorrect.slice(0, 3);
 }
 
-function logJServiceSkip(clue, reason) {
-  const clueId = clue && clue.id !== undefined && clue.id !== null ? `#${clue.id}` : '#unknown';
-  const categoryTitle = sanitizeText(clue?.category?.title);
-  const context = categoryTitle ? ` (${categoryTitle})` : '';
-  logger.warn(`[TriviaImporter] Skipping JService clue ${clueId}${context}: ${reason}`);
-}
-
-function normalizeJServiceQuestion(clue, pool, invalidMap) {
+function normalizeCluebaseQuestion(clue, pool, invalidMap) {
   if (!clue) return null;
 
-  const providerId = String(clue?.id ?? '').trim();
+  const providerId = clue?.id != null ? String(clue.id).trim() : '';
   if (!providerId) {
-    recordInvalidJService(clue, 'missing clue identifier', invalidMap);
+    recordInvalidCluebase(clue, 'missing clue identifier', invalidMap);
     return null;
   }
 
-  const questionText = sanitizeJServiceQuestionText(clue.question);
-  const correctAnswer = sanitizeJServiceAnswer(clue.answer);
+  const questionText = sanitizeCluebasePlainText(clue.clue ?? clue.question);
+  const correctAnswer = sanitizeCluebaseAnswer(clue.response ?? clue.answer);
   if (!questionText || !correctAnswer) {
-    recordInvalidJService(clue, 'missing question or answer', invalidMap);
+    recordInvalidCluebase(clue, 'missing question or answer', invalidMap);
     return null;
   }
 
-  const incorrectAnswers = buildJServiceIncorrectAnswers(clue, pool, correctAnswer);
+  const incorrectAnswers = buildCluebaseIncorrectAnswers(clue, pool, correctAnswer);
   if (!incorrectAnswers) {
-    recordInvalidJService(clue, 'insufficient incorrect answers', invalidMap);
+    recordInvalidCluebase(clue, 'insufficient incorrect answers', invalidMap);
     return null;
   }
 
   const baseAnswers = [correctAnswer, ...incorrectAnswers];
   const choices = shuffle(baseAnswers);
   if (!Array.isArray(choices) || choices.length !== 4) {
-    recordInvalidJService(clue, `invalid choice count (${Array.isArray(choices) ? choices.length : 0})`, invalidMap);
+    recordInvalidCluebase(clue, `invalid choice count (${Array.isArray(choices) ? choices.length : 0})`, invalidMap);
     return null;
   }
+
   if (choices.some((choice) => !choice)) {
-    recordInvalidJService(clue, 'one or more empty choices detected', invalidMap);
+    recordInvalidCluebase(clue, 'one or more empty choices detected', invalidMap);
     return null;
   }
+
   const correctIndex = choices.findIndex((choice) => choice === correctAnswer);
   if (correctIndex < 0) {
-    recordInvalidJService(clue, 'correct answer missing from shuffled choices', invalidMap);
+    recordInvalidCluebase(clue, 'correct answer missing from shuffled choices', invalidMap);
     return null;
   }
 
   const checksum = Question.generateChecksum(questionText, baseAnswers);
   if (!checksum) {
-    recordInvalidJService(clue, 'failed to generate checksum', invalidMap);
+    recordInvalidCluebase(clue, 'failed to generate checksum', invalidMap);
     return null;
   }
 
   if (invalidMap) {
-    const key = getJServiceClueKey(clue);
+    const key = getCluebaseClueKey(clue);
     if (key) invalidMap.delete(key);
   }
 
-  const isApproved = shouldAutoApproveProvider('jservice');
-  const numericValue = Number.parseInt(clue?.value, 10);
+  const categoryName = normalizeCluebaseCategory(clue.category);
   const meta = {
-    jservice: {
-      id: clue?.id ?? null,
-      value: Number.isFinite(numericValue) ? numericValue : null,
-      airdate: clue?.airdate || null,
-      round: clue?.round || null,
-      categoryId: clue?.category_id ?? clue?.category?.id ?? null
-    }
+    round: clue.round || null,
+    gameId: clue.gameId || null,
+    value: Number.isFinite(clue.value) ? clue.value : null,
   };
 
   return {
     text: questionText,
     choices,
     correctIndex,
-    difficulty: normalizeJServiceDifficulty(clue.value),
-    categoryName: normalizeJServiceCategory(clue.category),
+    difficulty: mapCluebaseDifficulty(clue.value),
+    categoryName,
     checksum,
     type: 'multiple',
     lang: 'en',
-    source: 'jservice',
-    provider: 'jservice',
+    source: 'cluebase',
+    provider: 'cluebase',
     providerId,
-    isApproved,
-    status: isApproved ? 'approved' : 'pending',
-    active: isApproved,
-    meta
+    isApproved: true,
+    status: 'approved',
+    active: true,
+    meta,
   };
 }
 
-async function importFromJService(options = {}) {
-  const amount = sanitizeJServiceAmount(options.amount);
-  const pool = [];
+async function importFromCluebase(options = {}) {
+  const amount = sanitizeCluebaseAmount(options.amount);
+  const poolMap = new Map();
   const normalizedQuestions = [];
   const usedClueIds = new Set();
   const invalidMap = new Map();
   let totalFetchDurationMs = 0;
   let attempts = 0;
+  let lastFetchMeta = null;
 
-  while (normalizedQuestions.length < amount && attempts < JSERVICE_MAX_ATTEMPTS) {
-    const remaining = amount - normalizedQuestions.length;
-    const fetchCount = Math.min(
-      JSERVICE_FETCH_LIMIT,
-      Math.max(remaining * 4, amount * (attempts === 0 ? 2 : 3), 10)
-    );
+  while (normalizedQuestions.length < amount && attempts < CLUEBASE_MAX_ATTEMPTS) {
+    attempts += 1;
 
+    let batch;
     const fetchStart = Date.now();
-    const batch = await fetchJServiceRandomClues(fetchCount);
+    try {
+      batch = await fetchCluebaseRandomClues(CLUEBASE_DEFAULT_LIMIT);
+    } catch (error) {
+      logger.warn(`[TriviaImporter] Failed to fetch Cluebase clues on attempt ${attempts}: ${error.message}`);
+      continue;
+    }
     totalFetchDurationMs += Date.now() - fetchStart;
+    lastFetchMeta = batch;
 
-    if (!Array.isArray(batch) || batch.length === 0) {
-      attempts += 1;
+    const items = Array.isArray(batch?.items) ? batch.items : [];
+    if (!items.length) {
       continue;
     }
 
-    pool.push(...batch);
-
-    for (const clue of pool) {
-      if (normalizedQuestions.length >= amount) break;
-      if (!clue || usedClueIds.has(clue.id)) continue;
-      const question = normalizeJServiceQuestion(clue, pool, invalidMap);
-      if (!question) continue;
-      normalizedQuestions.push(question);
-      usedClueIds.add(clue.id);
+    for (const clue of items) {
+      if (!clue || clue.id == null) continue;
+      const providerId = String(clue.id);
+      if (!poolMap.has(providerId)) {
+        poolMap.set(providerId, clue);
+      }
     }
 
-    attempts += 1;
+    const pool = Array.from(poolMap.values());
+    for (const clue of pool) {
+      if (normalizedQuestions.length >= amount) break;
+      if (!clue || clue.id == null) continue;
+      const providerId = String(clue.id);
+      if (usedClueIds.has(providerId)) continue;
+
+      const question = normalizeCluebaseQuestion(clue, pool, invalidMap);
+      if (!question) continue;
+
+      normalizedQuestions.push(question);
+      usedClueIds.add(providerId);
+    }
   }
 
   const limitedQuestions = normalizedQuestions.slice(0, amount);
@@ -1168,23 +1108,32 @@ async function importFromJService(options = {}) {
     received: limitedQuestions.length,
     note: limitedQuestions.length < amount
       ? 'تعداد سوالات تولید شده کمتر از مقدار درخواستی بود.'
-      : undefined
+      : undefined,
   }];
 
   const { partial } = summarizeBreakdown(breakdown);
-  const counts = {
+  const reasonCounts = new Map();
+  invalidEntries.forEach((entry) => {
+    if (!entry?.reason) return;
+    reasonCounts.set(entry.reason, (reasonCounts.get(entry.reason) || 0) + 1);
+  });
+
+  const logPayload = {
+    url: lastFetchMeta?.url || `${getCluebaseBaseUrl()}/clues/random`,
+    status: lastFetchMeta?.status ?? null,
+    length: poolMap.size,
     inserted: storeResult.inserted,
     duplicates: storeResult.duplicates,
-    invalid: invalidEntries
+    invalid: invalidEntries.length,
+    reasons: Array.from(reasonCounts.entries()).map(([reason, count]) => ({ reason, count })),
   };
 
-  logger.info(`[TriviaImporter] JService inserted ${storeResult.inserted} questions (duplicates: ${storeResult.duplicates}, invalid: ${invalidEntries.length})`);
-  logger.info(`[TriviaImporter] JService import counts ${JSON.stringify({ inserted: counts.inserted, duplicates: counts.duplicates, invalid: invalidEntries.length })}`);
+  logger.info(`[TriviaImporter] Cluebase import ${JSON.stringify(logPayload)}`);
 
   return {
-    provider: 'jservice',
-    providerName: 'JService Trivia Archive',
-    providerShortName: 'JService',
+    provider: 'cluebase',
+    providerName: 'Cluebase',
+    providerShortName: 'Cluebase',
     count: storeResult.inserted,
     inserted: storeResult.inserted,
     duplicates: storeResult.duplicates,
@@ -1195,7 +1144,11 @@ async function importFromJService(options = {}) {
     fetchDurationMs: storeResult.fetchDurationMs,
     breakdown,
     partial,
-    counts
+    counts: {
+      inserted: storeResult.inserted,
+      duplicates: storeResult.duplicates,
+      invalid: invalidEntries,
+    },
   };
 }
 
@@ -1216,8 +1169,8 @@ async function importTrivia(options = {}) {
     return importFromTheTriviaApi(options);
   }
 
-  if (provider.id === 'jservice') {
-    return importFromJService(options);
+  if (provider.id === 'cluebase') {
+    return importFromCluebase(options);
   }
 
   const error = new Error('Trivia provider is not configured');
