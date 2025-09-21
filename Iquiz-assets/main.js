@@ -34,6 +34,15 @@ import {
   syncCommunityOptionStates,
   applyConfigToUI
 } from './src/features/admin/setup.js';
+import {
+  configureQuizEngine,
+  renderQuestionUI,
+  updateLifelineStates,
+  life5050,
+  lifeSkip,
+  lifePause
+} from './src/features/quiz/engine.js';
+import { startQuizFromAdmin } from './src/features/quiz/loader.js';
 
   // Anti-cheating: Detect devtools
   (function() {
@@ -116,7 +125,6 @@ function populateProvinceOptions(selectEl, placeholder){
   configureFeedback(() => State.settings);
 
 
-  const LIFELINE_COST = 3;
   const TIMER_CIRC = 2 * Math.PI * 64;
   const DUEL_ROUNDS = 2;
   const DUEL_QUESTIONS_PER_ROUND = 10;
@@ -667,80 +675,6 @@ function populateProvinceOptions(selectEl, placeholder){
     }
   }
 
-  function animateKeyChip(){
-    const chip = $('#lives')?.closest('.chip');
-    if(!chip) return;
-    chip.classList.remove('attention');
-    void chip.offsetWidth;
-    chip.classList.add('attention');
-    setTimeout(()=>chip.classList.remove('attention'), 650);
-  }
-
-  function updateLifelineStates(){
-    const hasKeys = State.lives >= LIFELINE_COST;
-    ['life-5050','life-skip','life-pause'].forEach(id=>{
-      const btn = $('#'+id);
-      if(!btn) return;
-      if(btn.disabled){
-        btn.dataset.insufficient = 'false';
-        const costEl = btn.querySelector('.lifeline-cost');
-        if(costEl) costEl.classList.remove('not-enough');
-        return;
-      }
-      btn.dataset.insufficient = hasKeys ? 'false' : 'true';
-      const costEl = btn.querySelector('.lifeline-cost');
-      if(costEl) costEl.classList.toggle('not-enough', !hasKeys);
-    });
-  }
-
-  function spendLifelineCost(){
-    if(State.lives < LIFELINE_COST){
-      toast(`برای استفاده از این قابلیت به ${faNum(LIFELINE_COST)} کلید نیاز داری`);
-      animateKeyChip();
-      return false;
-    }
-    State.lives -= LIFELINE_COST;
-    renderTopBars();
-    saveState();
-    animateKeyChip();
-    return true;
-  }
-
-  function markLifelineUsed(id){
-    const btn = typeof id === 'string' ? $('#'+id) : id;
-    if(!btn) return;
-    btn.disabled = true;
-    btn.dataset.used = 'true';
-    btn.dataset.insufficient = 'false';
-    const costEl = btn.querySelector('.lifeline-cost');
-    if(costEl){
-      costEl.classList.remove('not-enough');
-      costEl.classList.add('hidden');
-    }
-    const statusEl = btn.querySelector('.lifeline-status');
-    if(statusEl) statusEl.classList.remove('hidden');
-    updateLifelineStates();
-  }
-
-  function resetLifelinesUI(){
-    ['life-5050','life-skip','life-pause'].forEach(id=>{
-      const btn = $('#'+id);
-      if(!btn) return;
-      btn.disabled = false;
-      btn.dataset.used = 'false';
-      btn.dataset.insufficient = 'false';
-      const costEl = btn.querySelector('.lifeline-cost');
-      if(costEl){
-        costEl.classList.remove('hidden','not-enough');
-      }
-      const statusEl = btn.querySelector('.lifeline-status');
-      if(statusEl){
-        statusEl.classList.add('hidden');
-      }
-    });
-    updateLifelineStates();
-  }
-
   updateLifelineStates();
   
   const NAV_PAGES=['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support','question-lab'];
@@ -1285,118 +1219,13 @@ function openCreateGroup(){
     }
   }
   
-  function renderQuestionUI(q){
-    const catLabel = State.quiz.cat || q.cat || '—';
-    const diffLabel = State.quiz.diff || q.diff || '—';
-    $('#quiz-cat').innerHTML = `<i class="fas fa-folder ml-1"></i> ${catLabel}`;
-    $('#quiz-diff').innerHTML = `<i class="fas fa-signal ml-1"></i> ${diffLabel}`;
-    $('#qnum').textContent = faNum(State.quiz.idx+1);
-    $('#qtotal').textContent = faNum(State.quiz.list.length);
-    $('#question').textContent = q.q;
-    const authorWrapper = $('#question-author');
-    const authorNameEl = $('#question-author-name');
-    if (authorWrapper && authorNameEl) {
-      const sourceKey = (q.source || '').toString().toLowerCase();
-      let authorDisplay = (q.authorName || '').toString().trim();
-      if (!authorDisplay) {
-        authorDisplay = sourceKey === 'community' ? 'قهرمان ناشناس' : 'تیم محتوایی IQuiz';
-      }
-      authorNameEl.textContent = authorDisplay;
-      const authorLabelEl = authorWrapper.querySelector('[data-author-text]');
-      if (authorLabelEl) {
-        authorLabelEl.textContent = sourceKey === 'community'
-          ? 'پیشنهاد جامعه آیکوئیز'
-          : 'منتشر شده توسط تیم محتوا';
-      }
-      const authorIconEl = authorWrapper.querySelector('[data-author-icon]');
-      if (authorIconEl) {
-        authorIconEl.className = sourceKey === 'community'
-          ? 'fas fa-user-astronaut text-lg'
-          : 'fas fa-shield-heart text-lg';
-      }
-      const badgeEl = authorWrapper.querySelector('[data-author-badge]');
-      if (badgeEl) {
-        if (sourceKey === 'community') {
-          badgeEl.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.9), rgba(249,115,22,0.8))';
-          badgeEl.style.color = '#0f172a';
-        } else {
-          badgeEl.style.background = 'linear-gradient(135deg, rgba(94,234,212,0.85), rgba(59,130,246,0.78))';
-          badgeEl.style.color = '#0f172a';
-        }
-      }
-      authorWrapper.classList.remove('hidden');
+  document.getElementById('setup-start')?.addEventListener('click', async (event) => {
+    const started = await startQuizFromAdmin(event);
+    if (started) {
+      closeSheet();
+      navTo('quiz');
     }
-    const box = $('#choices'); box.innerHTML='';
-    q.c.forEach((txt,idx)=>{
-      const btn = document.createElement('button');
-      btn.className='choice'; btn.setAttribute('aria-label','گزینه '+faNum(idx+1));
-      btn.innerHTML = `<span class="chip">${faNum(idx+1)}</span><span>${txt}</span>`;
-      btn.addEventListener('click', ()=> selectAnswer(idx));
-      box.appendChild(btn);
-    });
-  }
-  
-  function beginQuizSession({ cat, diff, diffValue, questions, count, source }){
-    if(!Array.isArray(questions) || questions.length===0) return false;
-
-    used5050=false; usedSkip=false; usedTimeBoost=false;
-    resetLifelinesUI();
-
-    State.quiz.cat = cat || State.quiz.cat || '—';
-    if (diff != null) {
-      State.quiz.diff = diff || 'آسان';
-    } else if (!State.quiz.diff) {
-      State.quiz.diff = 'آسان';
-    }
-    if (diffValue != null) {
-      State.quiz.diffValue = diffValue;
-    } else if (State.quiz.diffValue == null && typeof State.quiz.diff === 'string') {
-      var diffLabelLower = State.quiz.diff.toLowerCase();
-      if (State.quiz.diff.indexOf('سخت') >= 0 || diffLabelLower === 'hard') {
-        State.quiz.diffValue = 'hard';
-      } else if (State.quiz.diff.indexOf('متوسط') >= 0 || diffLabelLower === 'medium' || diffLabelLower === 'normal') {
-        State.quiz.diffValue = 'medium';
-      } else {
-        State.quiz.diffValue = 'easy';
-      }
-    }
-    State.quiz.list = questions.map(q=>({
-      ...q,
-      cat: State.quiz.cat,
-      diff: State.quiz.diff,
-      diffValue: State.quiz.diffValue
-    }));
-    State.quiz.idx = 0;
-    State.quiz.sessionEarned = 0;
-    State.quiz.results = [];
-    State.quiz.inProgress = true;
-    State.quiz.answered = false;
-
-    renderTopBars();
-    renderQuestionUI(State.quiz.list[0]);
-
-    const diffLabel = State.quiz.diff;
-    resetTimer(diffLabel==='سخت'?20:diffLabel==='متوسط'?25:30);
-
-    if(State.duelOpponent){
-      $('#duel-opponent-name').textContent = State.duelOpponent.name;
-      $('#duel-banner').classList.remove('hidden');
-    } else {
-      $('#duel-banner').classList.add('hidden');
-    }
-
-    logEvent('quiz_start', {
-      category: State.quiz.cat,
-      difficulty: State.quiz.diff,
-      difficulty_value: State.quiz.diffValue,
-      questionCount: count || State.quiz.list.length,
-      source
-    });
-
-    return true;
-  }
-
-  document.getElementById('setup-start')?.addEventListener('click', startQuizFromAdmin);
+  });
   document.getElementById('setup-duel')?.addEventListener('click', ()=>{
     logEvent('open_duel_from_setup');
     closeSheet();
@@ -1406,192 +1235,6 @@ function openCreateGroup(){
       var setupCountEl = document.getElementById('setup-count');
       if (setupCountEl) setupCountEl.textContent = faNum(e.target.value);
     });
-
-async function startQuizFromAdmin(arg) {
-  if (typeof Event !== 'undefined' && arg instanceof Event) {
-    try { arg.preventDefault(); } catch (_) {}
-    arg = null;
-  }
-
-  const opts = (arg && typeof arg === 'object') ? arg : {};
-  const rangeEl = (typeof document !== 'undefined') ? document.getElementById('range-count') : null;
-  const rangeVal = rangeEl ? (rangeEl.value || rangeEl.getAttribute('value')) : null;
-  const count = (opts.count != null ? Number(opts.count) : Number(rangeVal || 5)) || 5;
-
-  const firstCategory = getActiveCategories()[0] || getFirstCategory();
-  const categoryId = (opts.categoryId != null ? opts.categoryId : (State.quiz?.catId != null ? State.quiz.catId : firstCategory?.id));
-
-  if (!categoryId) {
-    if (typeof toast === 'function') toast('دسته‌ای یافت نشد.');
-    return false;
-  }
-
-  const catObj = findCategoryById(categoryId) || null;
-  const diffPoolRaw = getCategoryDifficultyPool(catObj);
-  const diffPool = Array.isArray(diffPoolRaw) && diffPoolRaw.length ? diffPoolRaw : getEffectiveDiffs();
-
-  let selectedDiff = null;
-  const requestedDiff = opts.difficulty;
-  const stateDiffValue = State.quiz?.diffValue;
-  const stateDiffLabel = State.quiz?.diff;
-
-  const tryMatch = (predicate) => {
-    if (selectedDiff) return;
-    for (let idx = 0; idx < diffPool.length; idx++) {
-      const diffOpt = diffPool[idx];
-      if (diffOpt && predicate(diffOpt)) {
-        selectedDiff = diffOpt;
-        break;
-      }
-    }
-  };
-
-  if (requestedDiff != null) {
-    tryMatch(diffOpt => diffOpt.value === requestedDiff || diffOpt.label === requestedDiff);
-  }
-  if (!selectedDiff && stateDiffValue != null) {
-    tryMatch(diffOpt => diffOpt.value === stateDiffValue);
-  }
-  if (!selectedDiff && stateDiffLabel != null) {
-    tryMatch(diffOpt => diffOpt.label === stateDiffLabel);
-  }
-  if (!selectedDiff) {
-    tryMatch(diffOpt => {
-      const valLower = String(diffOpt.value || '').toLowerCase();
-      const labelLower = String(diffOpt.label || '').toLowerCase();
-      return valLower === 'medium' || valLower === 'normal' || labelLower.includes('متوسط') || labelLower.includes('medium') || labelLower.includes('normal');
-    });
-  }
-  if (!selectedDiff && diffPool.length) selectedDiff = diffPool[0];
-
-  const difficultyValue = selectedDiff ? selectedDiff.value : undefined;
-  const difficultyLabel = selectedDiff ? (selectedDiff.label || selectedDiff.value) : undefined;
-
-  if (selectedDiff) {
-    State.quiz.diffValue = difficultyValue;
-    State.quiz.diff = difficultyLabel || State.quiz.diff || '—';
-  }
-
-  const startBtn = (typeof document !== 'undefined') ? document.getElementById('setup-start') : null;
-  const prevDisabled = startBtn ? !!startBtn.disabled : null;
-  if (startBtn) startBtn.disabled = true;
-
-  try {
-    let list = [];
-    if (typeof Api !== 'undefined' && Api && typeof Api.questions === 'function') {
-      list = await Api.questions({ categoryId, count, difficulty: difficultyValue }) || [];
-    }
-
-    if (!Array.isArray(list) || list.length === 0) {
-      if (typeof toast === 'function') toast('برای این دسته هنوز سوالی ثبت نشده 😕');
-      return false;
-    }
-
-    const normalized = [];
-    for (let i = 0; i < list.length; i++) {
-      const q = list[i] || {};
-      const rawChoices = q.options || q.choices || [];
-      const choices = [];
-
-      if (Array.isArray(rawChoices)) {
-        for (let j = 0; j < rawChoices.length; j++) {
-          const opt = rawChoices[j];
-          let txt;
-          if (typeof opt === 'string') {
-            txt = opt;
-          } else {
-            txt = (opt && (opt.text || opt.title || opt.value)) || '';
-          }
-          txt = (txt == null ? '' : String(txt)).trim();
-          choices.push(txt);
-        }
-      }
-
-      let answerIdx;
-      if (typeof q.answerIndex === 'number') {
-        answerIdx = q.answerIndex;
-      } else if (Array.isArray(rawChoices)) {
-        let found = -1;
-        for (let k = 0; k < rawChoices.length; k++) {
-          const ro = rawChoices[k];
-          if (ro && typeof ro === 'object' && ro.correct === true) { found = k; break; }
-        }
-        answerIdx = found;
-      } else {
-        answerIdx = -1;
-      }
-
-      const qq = ((q.text || q.title || '') + '').trim();
-      let valid = qq && Array.isArray(choices) && choices.length >= 2;
-
-      if (valid) {
-        for (let e = 0; e < choices.length; e++) {
-          if (!choices[e]) { valid = false; break; }
-        }
-      }
-
-      let questionSource = '';
-      if (q && typeof q.source === 'string') questionSource = q.source;
-      else if (q && typeof q.provider === 'string') questionSource = q.provider;
-      questionSource = questionSource ? String(questionSource).toLowerCase() : 'manual';
-
-      let authorNameValue = '';
-      if (q && typeof q.authorName === 'string') authorNameValue = q.authorName.trim();
-      else if (q && typeof q.author === 'string') authorNameValue = q.author.trim();
-      else if (q && typeof q.createdByName === 'string') authorNameValue = q.createdByName.trim();
-      else if (q && typeof q.submittedByName === 'string') authorNameValue = q.submittedByName.trim();
-
-      if (valid && typeof answerIdx === 'number' && answerIdx >= 0 && answerIdx < choices.length) {
-        normalized.push({ q: qq, c: choices, a: answerIdx, authorName: authorNameValue, source: questionSource });
-      }
-    }
-
-    if (normalized.length === 0) {
-      if (typeof toast === 'function') toast('سوال معتبر برای این تنظیمات موجود نیست.');
-      return false;
-    }
-
-    const fallbackCat = firstCategory || null;
-    const catMeta = catObj || fallbackCat || {};
-    const stateQuizCat = State.quiz?.cat;
-    const catTitle = (opts.cat != null ? opts.cat : (catMeta.title || catMeta.name || stateQuizCat || '—'));
-
-    if (State.quiz) {
-      State.quiz.catId = categoryId;
-      State.quiz.cat = catTitle;
-    }
-
-    let started = false;
-    if (typeof beginQuizSession === 'function') {
-      started = beginQuizSession({
-        cat: catTitle,
-        diff: difficultyLabel,
-        diffValue: difficultyValue,
-        questions: normalized,
-        count: count,
-        source: (opts.source != null ? opts.source : 'setup')
-      });
-    }
-
-    if (started) {
-      if (typeof closeSheet === 'function') closeSheet();
-      if (typeof navTo === 'function') navTo('quiz');
-    }
-    return !!started;
-
-  } catch (err) {
-    if (typeof console !== 'undefined' && console && console.warn) {
-      console.warn('Failed to fetch questions', err);
-    }
-    if (typeof toast === 'function') toast('دریافت سوالات با خطا مواجه شد');
-    return false;
-
-  } finally {
-    if (startBtn) startBtn.disabled = (prevDisabled != null ? prevDisabled : false);
-  }
-}
-
-
 
   function lockChoices(){ $$('#choices .choice').forEach(el=> el.classList.add('pointer-events-none','opacity-70')); }
   
@@ -1659,7 +1302,16 @@ async function startQuizFromAdmin(arg) {
     renderQuestionUI(q);
     resetTimer(State.quiz.diff==='سخت'?20:State.quiz.diff==='متوسط'?25:30);
   }
-  
+
+  configureQuizEngine({
+    renderTopBars,
+    resetTimer,
+    selectAnswer,
+    nextQuestion,
+    addExtraTime,
+    logEvent
+  });
+
   async function endQuiz(){
     State.quiz.inProgress=false;
     const correctCount = State.quiz.results.filter(r=>r.ok).length;
@@ -1765,7 +1417,10 @@ async function startQuizFromAdmin(arg) {
     }
     if (!preferred && diffPool.length) preferred = diffPool[0];
 
-    await startQuizFromAdmin({ count:5, difficulty: preferred ? preferred.value : undefined, categoryId, source:'daily' });
+    const started = await startQuizFromAdmin({ count:5, difficulty: preferred ? preferred.value : undefined, categoryId, source:'daily' });
+    if (started) {
+      navTo('quiz');
+    }
   }
   
   // ===== Shop (legacy soft-currency), VIP button rerouted =====
@@ -2405,42 +2060,6 @@ async function startPurchaseCoins(pkgId){
     document.documentElement.setAttribute('data-theme', State.theme); saveState();
   });
   
-  // Lifelines
-  let used5050=false, usedSkip=false, usedTimeBoost=false;
-  function life5050(){
-    if(used5050) return toast('۵۰–۵۰ را قبلاً استفاده کردی 😅');
-    if(!spendLifelineCost()) return;
-    used5050=true;
-    markLifelineUsed('life-5050');
-    const correct = State.quiz.list[State.quiz.idx].a;
-    const idxs = [0,1,2,3].filter(i=>i!==correct).sort(()=>Math.random()-0.5).slice(0,2);
-    idxs.forEach(i=>{ const el=$$('#choices .choice')[i]; if(el){ el.style.opacity=.35; el.style.pointerEvents='none'; } });
-    toast('<i class="fas fa-percent ml-1"></i> دو گزینه حذف شد');
-    SFX.coin();
-  }
-  function lifeSkip(){
-    if(usedSkip) return toast('پرش فقط یک‌بار مجازه');
-    if(!spendLifelineCost()) return;
-    usedSkip=true;
-    markLifelineUsed('life-skip');
-    clearInterval(State.quiz.timer);
-    const cur = State.quiz.list[State.quiz.idx];
-    State.quiz.results.push({ q: cur.q, ok:false, correct: cur.c[cur.a], you:'— (پرش)' });
-    saveState();
-    toast('<i class="fas fa-forward ml-1"></i> به سؤال بعدی رفتی');
-    nextQuestion();
-  }
-  function lifePause(){
-    if(usedTimeBoost) return toast('فقط یک‌بار می‌توانی زمان اضافه کنی');
-    if(!spendLifelineCost()) return;
-    usedTimeBoost=true;
-    markLifelineUsed('life-pause');
-    addExtraTime(10);
-    saveState();
-    toast(`<i class="fas fa-stopwatch ml-1"></i> ${faNum(10)} ثانیه به زمانت اضافه شد`);
-    SFX.coin();
-  }
-  
   // ===== Setup Sheet =====
   function openSetupSheet(){
     buildSetupFromAdmin();
@@ -2879,6 +2498,8 @@ async function startPurchaseCoins(pkgId){
       toast('برای این دسته‌بندی سؤال کافی موجود نیست');
       return false;
     }
+
+    navTo('quiz');
 
     DuelSession.started = true;
     DuelSession.currentRoundIndex = roundIndex;
