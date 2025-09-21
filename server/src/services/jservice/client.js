@@ -5,10 +5,91 @@ const zlib = require('zlib');
 const env = require('../../config/env');
 const { fetchWithRetry } = require('../../lib/http');
 
-const DEFAULT_ENDPOINT = 'https://jservice.io/api/random';
-const API_ENDPOINT = (env && env.trivia && env.trivia.jserviceUrl) || DEFAULT_ENDPOINT;
+const DEFAULT_BASE_URL = 'http://jservice.io/api';
+const CONFIGURED_BASE = env && env.trivia && env.trivia.jserviceBase;
+const JSERVICE_BASE = (CONFIGURED_BASE || DEFAULT_BASE_URL).replace(/\/+$/, '');
 const MAX_BATCH = 100;
 const RETRY_DELAYS = [250, 500, 1000];
+
+function buildUrl(endpoint, params = {}) {
+  const normalizedPath = typeof endpoint === 'string' ? endpoint.trim().replace(/^\/+/, '') : '';
+  const base = `${JSERVICE_BASE}/`;
+  const url = new URL(normalizedPath || '', base);
+  const searchParams = new URLSearchParams();
+
+  if (params && typeof params === 'object') {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      if (Array.isArray(value)) {
+        value.forEach((entry) => {
+          if (entry === undefined || entry === null || entry === '') return;
+          searchParams.append(key, entry);
+        });
+      } else {
+        searchParams.append(key, value);
+      }
+    });
+  }
+
+  const queryString = searchParams.toString();
+  if (queryString) {
+    url.search = queryString;
+  }
+
+  return url.toString();
+}
+
+async function requestFromApi(endpoint, params = {}) {
+  const url = buildUrl(endpoint, params);
+  let response;
+  try {
+    response = await fetchWithRetry(url, {
+      headers: { Accept: 'application/json' },
+      retries: RETRY_DELAYS.length,
+      retryDelay: ({ attempt }) => RETRY_DELAYS[Math.min(attempt - 1, RETRY_DELAYS.length - 1)],
+      retryOn: (res) => res && (res.status >= 500 || res.status === 429 || res.status === 408),
+      timeout: 8000,
+    });
+  } catch (error) {
+    const err = new Error(`Failed to reach JService: ${error.message}`);
+    err.cause = error;
+    throw err;
+  }
+
+  if (!response.ok) {
+    const err = new Error(`JService responded with status ${response.status}`);
+    err.status = response.status;
+    throw err;
+  }
+
+  let rawBuffer;
+  try {
+    rawBuffer = await response.buffer();
+  } catch (error) {
+    const err = new Error('Failed to read JService response');
+    err.cause = error;
+    throw err;
+  }
+
+  const encoding = response.headers.get('content-encoding');
+  const bodyText = sanitizePayloadText(decodeResponseBuffer(rawBuffer, encoding));
+
+  if (!bodyText) {
+    return null;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(bodyText);
+  } catch (error) {
+    const err = new Error('Failed to parse JService response');
+    err.cause = error;
+    err.responseSnippet = bodyText.slice(0, 200);
+    throw err;
+  }
+
+  return payload;
+}
 
 const NAMED_ENTITIES = {
   amp: '&',
@@ -97,7 +178,7 @@ function normalizeAirdate(airdate) {
 
 /**
  * @param {object} raw
- * @returns {{id:number, categoryId:number|null, category:string, question:string, answer:string, airdate:string|null}|null}
+ * @returns {{id:number, category:{id:(number|null), title:string, clues_count?:number}, question:string, answer:string, airdate:string|null, value:(number|null)}|null}
  */
 function normalizeClue(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -108,12 +189,21 @@ function normalizeClue(raw) {
   if (!question || !answer) return null;
   const categoryIdRaw = raw.category && Number.parseInt(raw.category.id, 10);
   const categoryTitleRaw = raw.category && raw.category.title;
+  const categoryCluesCountRaw = raw.category && Number.parseInt(raw.category.clues_count, 10);
   const valueRaw = Number.parseInt(raw.value, 10);
   const categoryTitle = normalizeText(categoryTitleRaw || '');
+  const categoryId = Number.isFinite(categoryIdRaw) ? categoryIdRaw : null;
+  const cluesCount = Number.isFinite(categoryCluesCountRaw) ? categoryCluesCountRaw : null;
+  const category = {
+    id: categoryId,
+    title: categoryTitle || 'General',
+  };
+  if (Number.isFinite(cluesCount)) {
+    category.clues_count = cluesCount;
+  }
   return {
     id,
-    categoryId: Number.isFinite(categoryIdRaw) ? categoryIdRaw : null,
-    category: categoryTitle || 'General',
+    category,
     question,
     answer,
     airdate: normalizeAirdate(raw.airdate || null),
@@ -175,68 +265,53 @@ function sanitizePayloadText(text) {
   return trimmed;
 }
 
-async function fetchRandomClues(count) {
-  const size = Math.min(Math.max(Math.floor(count) || 1, 1), MAX_BATCH);
-  const url = `${API_ENDPOINT}?count=${size}`;
-  let response;
-  try {
-    response = await fetchWithRetry(url, {
-      headers: { Accept: 'application/json' },
-      retries: RETRY_DELAYS.length,
-      retryDelay: ({ attempt }) => RETRY_DELAYS[Math.min(attempt - 1, RETRY_DELAYS.length - 1)],
-      retryOn: (res) => res && (res.status >= 500 || res.status === 429 || res.status === 408),
-      timeout: 8000,
-    });
-  } catch (error) {
-    const err = new Error(`Failed to reach JService: ${error.message}`);
-    err.cause = error;
-    throw err;
-  }
-
-  if (!response.ok) {
-    const err = new Error(`JService responded with status ${response.status}`);
-    err.status = response.status;
-    throw err;
-  }
-
-  let rawBuffer;
-  try {
-    rawBuffer = await response.buffer();
-  } catch (error) {
-    const err = new Error('Failed to read JService response');
-    err.cause = error;
-    throw err;
-  }
-
-  const encoding = response.headers.get('content-encoding');
-  const bodyText = sanitizePayloadText(decodeResponseBuffer(rawBuffer, encoding));
-
-  if (!bodyText) {
-    return [];
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(bodyText);
-  } catch (error) {
-    const err = new Error('Failed to parse JService response');
-    err.cause = error;
-    err.responseSnippet = bodyText.slice(0, 200);
-    throw err;
-  }
-
+function normalizeClueList(payload) {
   const items = Array.isArray(payload) ? payload : [];
   const normalized = [];
   items.forEach((item) => {
     const clue = normalizeClue(item);
     if (clue) normalized.push(clue);
   });
-
   return normalized;
 }
 
+async function random(count) {
+  const parsed = Number.parseInt(count, 10);
+  const size = Math.min(Math.max(Number.isFinite(parsed) ? parsed : 1, 1), MAX_BATCH);
+  const payload = await requestFromApi('random', { count: size });
+  if (!payload) return [];
+  return normalizeClueList(payload);
+}
+
+async function clues(params = {}) {
+  const payload = await requestFromApi('clues', params);
+  if (!payload) return [];
+  return normalizeClueList(payload);
+}
+
+async function categories({ count, offset } = {}) {
+  const normalizedParams = {};
+  if (count !== undefined) {
+    const parsedCount = Number.parseInt(count, 10);
+    if (Number.isFinite(parsedCount)) {
+      normalizedParams.count = Math.min(Math.max(parsedCount, 1), MAX_BATCH);
+    }
+  }
+  if (offset !== undefined) {
+    const parsedOffset = Number.parseInt(offset, 10);
+    if (Number.isFinite(parsedOffset) && parsedOffset >= 0) {
+      normalizedParams.offset = parsedOffset;
+    }
+  }
+  const payload = await requestFromApi('categories', normalizedParams);
+  if (!payload) return [];
+  return Array.isArray(payload) ? payload : [];
+}
+
 module.exports = {
-  fetchRandomClues,
+  random,
+  clues,
+  categories,
   normalizeClue,
   decodeHtmlEntities,
   normalizeText,

@@ -18,7 +18,7 @@ const GENERIC_DISTRACTORS = [
 
 const PUNCTUATION_REGEX = /[^\p{L}\p{N}\s]/gu;
 
-/** @typedef {{id:number, category:string, question:string, answer:string, airdate:(string|null|undefined)}} JServiceClue */
+/** @typedef {{id:number, category:{id:(number|null), title:string, clues_count?:number}|string, question:string, answer:string, airdate:(string|null|undefined), value:(number|null|undefined)}} JServiceClue */
 /** @typedef {{id:number, category:string, question:string, options:string[], correctIndex:number}} MultipleChoiceQuestion */
 
 const clueStore = {
@@ -45,9 +45,20 @@ function sanitizeOption(value) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function getCategoryTitle(category) {
+  if (typeof category === 'string') {
+    return category.trim();
+  }
+  if (category && typeof category === 'object' && typeof category.title === 'string') {
+    return category.title.trim();
+  }
+  return '';
+}
+
 function getCategoryKey(category) {
-  if (typeof category !== 'string') return '';
-  return category.trim().toLowerCase();
+  const title = getCategoryTitle(category);
+  if (!title) return '';
+  return title.toLowerCase();
 }
 
 function addToStore(clue) {
@@ -198,9 +209,10 @@ function toMultipleChoice(clue) {
   const distractors = pickDistractors(clue, safeAnswer);
   const options = shuffle([...distractors, safeAnswer]);
   const correctIndex = options.findIndex((item) => item === safeAnswer);
+  const categoryTitle = getCategoryTitle(clue.category);
   return {
     id: clue.id,
-    category: clue.category,
+    category: categoryTitle || 'عمومی',
     question: question || 'سوال نامشخص',
     options,
     correctIndex: correctIndex === -1 ? options.length - 1 : correctIndex,

@@ -2,26 +2,42 @@
 
 const router = require('express').Router();
 
-const { getRandomClues, clampCount, getCacheSnapshot } = require('../services/jservice');
+const JService = require('../services/jservice');
+
+function handleUpstreamError(error, next) {
+  if (!error.statusCode) {
+    error.statusCode = 502;
+  }
+  next(error);
+}
 
 router.get('/random', async (req, res, next) => {
-  const count = clampCount(req.query.count);
   try {
-    const clues = await getRandomClues(count);
-    res.json({
-      ok: true,
-      data: clues,
-      meta: {
-        requested: count,
-        delivered: clues.length,
-        cacheSize: getCacheSnapshot().size,
-      },
-    });
+    const payload = await JService.random(req.query.count);
+    res.json(payload);
   } catch (error) {
-    if (!error.statusCode) {
-      error.statusCode = 502;
-    }
-    next(error);
+    handleUpstreamError(error, next);
+  }
+});
+
+router.get('/clues', async (req, res, next) => {
+  try {
+    const payload = await JService.clues(req.query);
+    res.json(payload);
+  } catch (error) {
+    handleUpstreamError(error, next);
+  }
+});
+
+router.get('/categories', async (req, res, next) => {
+  try {
+    const payload = await JService.categories({
+      count: req.query.count,
+      offset: req.query.offset,
+    });
+    res.json(payload);
+  } catch (error) {
+    handleUpstreamError(error, next);
   }
 });
 
