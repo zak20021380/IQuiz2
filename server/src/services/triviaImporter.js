@@ -5,6 +5,7 @@ const Question = require('../models/Question');
 const Category = require('../models/Category');
 const { getTriviaProviderById, normalizeProviderId } = require('./triviaProviders');
 const { getFromTheTriviaAPI } = require('../providers/thetrivia');
+const { fetchRandomClues: fetchJServiceRandomClues } = require('./jservice/client');
 
 const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const HTML_ENTITY_MAP = {
@@ -25,6 +26,23 @@ const HTML_ENTITY_MAP = {
 const DEFAULT_TRIVIA_CATEGORY = 'General Knowledge';
 const OPEN_TDB_MAX_AMOUNT = 200;
 const TRIVIA_API_MAX_LIMIT = 50;
+const JSERVICE_MAX_AMOUNT = 50;
+const JSERVICE_FETCH_LIMIT = 100;
+const JSERVICE_MAX_ATTEMPTS = 3;
+const JSERVICE_FALLBACK_DISTRACTORS = [
+  'Mount Everest',
+  'Photosynthesis',
+  'Alexander Hamilton',
+  'The Pacific Ocean',
+  'Isaac Newton',
+  'Saturn',
+  'The Amazon River',
+  'The Mona Lisa',
+  'Pythagoras',
+  'Silicon Valley',
+  'Mercury',
+  'Neil Armstrong'
+];
 
 function decodeHtml(value) {
   if (value === undefined || value === null) return '';
@@ -698,6 +716,193 @@ async function importFromTheTriviaApi(options = {}) {
   };
 }
 
+function sanitizeJServiceAmount(value) {
+  const amount = sanitizePositiveInteger(value, { min: 1, max: JSERVICE_MAX_AMOUNT });
+  return amount || 15;
+}
+
+function normalizeJServiceDifficulty(value) {
+  const score = Number.parseInt(value, 10);
+  if (!Number.isFinite(score)) return 'medium';
+  if (score <= 200) return 'easy';
+  if (score <= 600) return 'medium';
+  return 'hard';
+}
+
+function normalizeJServiceCategory(value) {
+  const normalized = sanitizeText(value);
+  return normalized || DEFAULT_TRIVIA_CATEGORY;
+}
+
+function gatherJServiceCandidates(currentClue, pool) {
+  const correctAnswer = sanitizeText(currentClue?.answer);
+  if (!correctAnswer) return [];
+  const targetLength = correctAnswer.length;
+  const categoryKey = normalizeJServiceCategory(currentClue?.category).toLowerCase();
+  const candidates = [];
+
+  (Array.isArray(pool) ? pool : []).forEach((candidate) => {
+    if (!candidate || candidate.id === currentClue.id) return;
+    const candidateAnswer = sanitizeText(candidate.answer);
+    if (!candidateAnswer) return;
+    const normalizedAnswer = candidateAnswer.toLowerCase();
+    const normalizedCategory = normalizeJServiceCategory(candidate.category).toLowerCase();
+    const sameCategory = categoryKey && normalizedCategory === categoryKey;
+    const weight = Math.abs(candidateAnswer.length - targetLength);
+    candidates.push({
+      value: candidateAnswer,
+      normalizedAnswer,
+      sameCategory,
+      weight
+    });
+  });
+
+  candidates.sort((a, b) => {
+    if (a.sameCategory !== b.sameCategory) {
+      return a.sameCategory ? -1 : 1;
+    }
+    return a.weight - b.weight;
+  });
+
+  return candidates;
+}
+
+function buildJServiceIncorrectAnswers(clue, pool) {
+  const correctAnswer = sanitizeText(clue?.answer);
+  if (!correctAnswer) return null;
+
+  const normalizedCorrect = correctAnswer.toLowerCase();
+  const seen = new Set([normalizedCorrect]);
+  const incorrect = [];
+
+  const prioritized = gatherJServiceCandidates(clue, pool);
+  prioritized.forEach((candidate) => {
+    if (incorrect.length >= 3) return;
+    if (seen.has(candidate.normalizedAnswer)) return;
+    seen.add(candidate.normalizedAnswer);
+    incorrect.push(candidate.value);
+  });
+
+  if (incorrect.length < 3) {
+    for (const fallback of JSERVICE_FALLBACK_DISTRACTORS) {
+      if (incorrect.length >= 3) break;
+      const sanitized = sanitizeText(fallback);
+      if (!sanitized) continue;
+      const normalized = sanitized.toLowerCase();
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      incorrect.push(sanitized);
+    }
+  }
+
+  if (incorrect.length < 3) return null;
+  return incorrect.slice(0, 3);
+}
+
+function normalizeJServiceQuestion(clue, pool) {
+  if (!clue) return null;
+
+  const questionText = sanitizeText(clue.question);
+  const correctAnswer = sanitizeText(clue.answer);
+  if (!questionText || !correctAnswer) {
+    return null;
+  }
+
+  const incorrectAnswers = buildJServiceIncorrectAnswers(clue, pool);
+  if (!incorrectAnswers) return null;
+
+  const baseAnswers = [correctAnswer, ...incorrectAnswers];
+  const choices = shuffle(baseAnswers);
+  const correctIndex = choices.findIndex((choice) => choice === correctAnswer);
+  if (correctIndex < 0) return null;
+
+  const checksum = Question.generateChecksum(questionText, baseAnswers);
+
+  return {
+    text: questionText,
+    choices,
+    correctIndex,
+    difficulty: normalizeJServiceDifficulty(clue.value),
+    categoryName: normalizeJServiceCategory(clue.category),
+    checksum,
+    type: 'multiple',
+    lang: 'en',
+    source: 'jservice'
+  };
+}
+
+async function importFromJService(options = {}) {
+  const amount = sanitizeJServiceAmount(options.amount);
+  const pool = [];
+  const normalizedQuestions = [];
+  const usedClueIds = new Set();
+  let totalFetchDurationMs = 0;
+  let attempts = 0;
+
+  while (normalizedQuestions.length < amount && attempts < JSERVICE_MAX_ATTEMPTS) {
+    const remaining = amount - normalizedQuestions.length;
+    const fetchCount = Math.min(
+      JSERVICE_FETCH_LIMIT,
+      Math.max(remaining * 4, amount * (attempts === 0 ? 2 : 3), 10)
+    );
+
+    const fetchStart = Date.now();
+    const batch = await fetchJServiceRandomClues(fetchCount);
+    totalFetchDurationMs += Date.now() - fetchStart;
+
+    if (!Array.isArray(batch) || batch.length === 0) {
+      attempts += 1;
+      continue;
+    }
+
+    pool.push(...batch);
+
+    for (const clue of pool) {
+      if (normalizedQuestions.length >= amount) break;
+      if (!clue || usedClueIds.has(clue.id)) continue;
+      const question = normalizeJServiceQuestion(clue, pool);
+      if (!question) continue;
+      normalizedQuestions.push(question);
+      usedClueIds.add(clue.id);
+    }
+
+    attempts += 1;
+  }
+
+  const limitedQuestions = normalizedQuestions.slice(0, amount);
+  const storeResult = await storeNormalizedQuestions(limitedQuestions, { fetchDurationMs: totalFetchDurationMs });
+
+  const breakdown = [{
+    providerCategoryId: null,
+    categoryName: 'انتخاب تصادفی',
+    providerDifficulty: 'mixed',
+    requested: amount,
+    received: limitedQuestions.length,
+    note: limitedQuestions.length < amount
+      ? 'تعداد سوالات تولید شده کمتر از مقدار درخواستی بود.'
+      : undefined
+  }];
+
+  const { partial } = summarizeBreakdown(breakdown);
+
+  logger.info(`[TriviaImporter] JService inserted ${storeResult.inserted} questions (duplicates: ${storeResult.duplicates})`);
+
+  return {
+    provider: 'jservice',
+    providerName: 'JService Trivia Archive',
+    providerShortName: 'JService',
+    count: storeResult.inserted,
+    inserted: storeResult.inserted,
+    duplicates: storeResult.duplicates,
+    totalRequested: amount,
+    totalReceived: limitedQuestions.length,
+    totalStored: storeResult.total,
+    fetchDurationMs: storeResult.fetchDurationMs,
+    breakdown,
+    partial
+  };
+}
+
 async function importTrivia(options = {}) {
   const providerId = normalizeProviderId(options.provider) || 'opentdb';
   const provider = getTriviaProviderById(providerId);
@@ -713,6 +918,10 @@ async function importTrivia(options = {}) {
 
   if (provider.id === 'the-trivia-api') {
     return importFromTheTriviaApi(options);
+  }
+
+  if (provider.id === 'jservice') {
+    return importFromJService(options);
   }
 
   const error = new Error('Trivia provider is not configured');

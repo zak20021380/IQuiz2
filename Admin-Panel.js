@@ -31,12 +31,14 @@ const DIFFICULTY_META = {
 const SOURCE_META = {
   manual: { label: 'ایجاد دستی', class: 'meta-chip source-manual', icon: 'fa-pen-nib' },
   opentdb: { label: 'OpenTDB', class: 'meta-chip source-opentdb', icon: 'fa-database' },
+  jservice: { label: 'JService', class: 'meta-chip source-jservice', icon: 'fa-layer-group' },
   community: { label: 'سازنده‌ها', class: 'meta-chip source-community', icon: 'fa-users-gear' }
 };
 
 const TRIVIA_PROVIDER_ICONS = {
   opentdb: 'fa-database',
-  'the-trivia-api': 'fa-globe'
+  'the-trivia-api': 'fa-globe',
+  jservice: 'fa-layer-group'
 };
 
 const DEFAULT_TRIVIA_PROVIDERS = [
@@ -60,6 +62,17 @@ const DEFAULT_TRIVIA_PROVIDERS = [
       amount: { min: 1, max: 50, default: 20 },
       categories: { selectable: false, remote: false },
       difficulties: { selectable: true, multiple: true }
+    }
+  },
+  {
+    id: 'jservice',
+    name: 'JService Trivia Archive',
+    shortName: 'JService',
+    description: 'آرشیوی از سوالات برنامه Jeopardy! با دسته‌بندی‌های متنوع و پاسخ‌های جذاب.',
+    capabilities: {
+      amount: { min: 1, max: 50, default: 15 },
+      categories: { selectable: false, remote: false },
+      difficulties: { selectable: false, multiple: false }
     }
   }
 ];

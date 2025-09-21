@@ -33,6 +33,7 @@ function mapForResponse(clue) {
     question: clue.question,
     answer: clue.answer,
     airdate: clue.airdate || null,
+    value: typeof clue.value === 'number' ? clue.value : null,
   };
 }
 
