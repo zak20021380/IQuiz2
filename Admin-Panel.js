@@ -3616,6 +3616,13 @@ if (triviaImportBtn) {
         provider: providerId,
         amount,
       };
+      const normalizedProvider = resolveProviderId(payload.provider);
+      if (!normalizedProvider) {
+        showToast('منبع سوال انتخاب‌شده معتبر نیست', 'error');
+        setTriviaStatusBadge('error', 'خطا در انتخاب منبع');
+        return;
+      }
+      payload.provider = normalizedProvider;
       if (supportsCategories) {
         payload.categories = Array.from(triviaControlState.selectedCategories);
       }
