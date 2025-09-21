@@ -5,8 +5,42 @@ const zlib = require('zlib');
 const env = require('../../config/env');
 const { fetchWithRetry } = require('../../lib/http');
 
-const DEFAULT_ENDPOINT = 'https://jservice.io/api/random';
-const API_ENDPOINT = (env && env.trivia && env.trivia.jserviceUrl) || DEFAULT_ENDPOINT;
+const DEFAULT_BASE = 'https://jservice.io/api';
+
+function deriveJServiceEndpoints(configured) {
+  const fallback = { base: DEFAULT_BASE, random: `${DEFAULT_BASE}/random` };
+  if (typeof configured !== 'string') return fallback;
+  const trimmed = configured.trim();
+  if (!trimmed) return fallback;
+
+  try {
+    const parsed = new URL(trimmed);
+    const path = (parsed.pathname || '').replace(/\/+$/, '');
+    let basePath = path;
+    if (basePath.toLowerCase().endsWith('/random')) {
+      basePath = basePath.slice(0, -7);
+    }
+    if (!basePath) {
+      basePath = '/api';
+    }
+    const base = `${parsed.origin}${basePath.replace(/\/+$/, '')}`;
+    const normalizedBase = base.replace(/\/+$/, '');
+    if (!normalizedBase) return fallback;
+    return { base: normalizedBase, random: `${normalizedBase}/random` };
+  } catch (err) {
+    const sanitized = trimmed.replace(/\/+$/, '');
+    if (/\/random$/i.test(sanitized)) {
+      const base = sanitized.replace(/\/random$/i, '').replace(/\/+$/, '');
+      const normalizedBase = base || DEFAULT_BASE;
+      return { base: normalizedBase, random: `${normalizedBase}/random` };
+    }
+    const normalizedBase = sanitized || DEFAULT_BASE;
+    return { base: normalizedBase, random: `${normalizedBase}/random` };
+  }
+}
+
+const configuredEndpoint = (env && env.trivia && env.trivia.jserviceUrl) || `${DEFAULT_BASE}/random`;
+const { base: API_BASE, random: RANDOM_ENDPOINT } = deriveJServiceEndpoints(configuredEndpoint);
 const MAX_BATCH = 100;
 const RETRY_DELAYS = [250, 500, 1000];
 
@@ -121,6 +155,19 @@ function normalizeClue(raw) {
   };
 }
 
+function normalizeCategory(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = Number.parseInt(raw.id, 10);
+  if (!Number.isFinite(id)) return null;
+  const title = normalizeText(raw.title || raw.category || '');
+  const cluesCountRaw = Number.parseInt(raw.clues_count, 10);
+  return {
+    id,
+    title: title || 'General',
+    cluesCount: Number.isFinite(cluesCountRaw) && cluesCountRaw >= 0 ? cluesCountRaw : null,
+  };
+}
+
 /**
  * @param {number} count
  * @returns {Promise<object[]>}
@@ -175,9 +222,7 @@ function sanitizePayloadText(text) {
   return trimmed;
 }
 
-async function fetchRandomClues(count) {
-  const size = Math.min(Math.max(Math.floor(count) || 1, 1), MAX_BATCH);
-  const url = `${API_ENDPOINT}?count=${size}`;
+async function requestJson(url) {
   let response;
   try {
     response = await fetchWithRetry(url, {
@@ -212,19 +257,24 @@ async function fetchRandomClues(count) {
   const bodyText = sanitizePayloadText(decodeResponseBuffer(rawBuffer, encoding));
 
   if (!bodyText) {
-    return [];
+    return null;
   }
 
-  let payload;
   try {
-    payload = JSON.parse(bodyText);
+    return JSON.parse(bodyText);
   } catch (error) {
     const err = new Error('Failed to parse JService response');
     err.cause = error;
     err.responseSnippet = bodyText.slice(0, 200);
     throw err;
   }
+}
 
+async function fetchRandomClues(count) {
+  const size = Math.min(Math.max(Math.floor(count) || 1, 1), MAX_BATCH);
+  const url = new URL(RANDOM_ENDPOINT);
+  url.searchParams.set('count', size);
+  const payload = await requestJson(url.toString());
   const items = Array.isArray(payload) ? payload : [];
   const normalized = [];
   items.forEach((item) => {
@@ -235,8 +285,67 @@ async function fetchRandomClues(count) {
   return normalized;
 }
 
+async function fetchCluesByCategory(categoryId, options = {}) {
+  const params = {
+    category: categoryId,
+  };
+  if (Number.isFinite(options.value) && options.value > 0) {
+    params.value = options.value;
+  }
+  if (Number.isFinite(options.offset) && options.offset > 0) {
+    params.offset = options.offset;
+  }
+  if (typeof options.minDate === 'string' && options.minDate) {
+    params.min_date = options.minDate;
+  }
+  if (typeof options.maxDate === 'string' && options.maxDate) {
+    params.max_date = options.maxDate;
+  }
+
+  const endpoint = `${API_BASE}/clues`;
+  const url = new URL(endpoint);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    url.searchParams.set(key, String(value));
+  });
+  const payload = await requestJson(url.toString());
+  const items = Array.isArray(payload) ? payload : [];
+  const normalized = [];
+  items.forEach((item) => {
+    const clue = normalizeClue(item);
+    if (clue) normalized.push(clue);
+  });
+  return normalized;
+}
+
+async function fetchCategories(options = {}) {
+  const params = {};
+  if (Number.isFinite(options.count) && options.count > 0) {
+    params.count = options.count;
+  }
+  if (Number.isFinite(options.offset) && options.offset > 0) {
+    params.offset = options.offset;
+  }
+  const endpoint = `${API_BASE}/categories`;
+  const url = new URL(endpoint);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    url.searchParams.set(key, String(value));
+  });
+  const payload = await requestJson(url.toString());
+  const items = Array.isArray(payload) ? payload : [];
+  const normalized = [];
+  items.forEach((item) => {
+    const category = normalizeCategory(item);
+    if (category) normalized.push(category);
+  });
+  return normalized;
+}
+
 module.exports = {
   fetchRandomClues,
+  fetchCluesByCategory,
+  fetchCategories,
   normalizeClue,
   decodeHtmlEntities,
   normalizeText,

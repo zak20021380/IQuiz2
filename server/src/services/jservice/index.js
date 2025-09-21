@@ -1,12 +1,14 @@
 'use strict';
 
 const JServiceCache = require('./cache');
-const { fetchRandomClues } = require('./client');
+const { fetchRandomClues, fetchCluesByCategory, fetchCategories } = require('./client');
 
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const CACHE_MAX = 200;
 const MAX_REQUEST = 20;
 const MAX_FETCH_ATTEMPTS = 4;
+const MAX_CATEGORY_COUNT = 100;
+const DEFAULT_CATEGORY_COUNT = 20;
 
 const cache = new JServiceCache({ maxSize: CACHE_MAX, ttl: CACHE_TTL });
 
@@ -19,6 +21,15 @@ function clampCount(value) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) return 5;
   return Math.min(Math.max(parsed, 1), MAX_REQUEST);
+}
+
+function hasClueFilters(options = {}) {
+  if (!options) return false;
+  if (Number.isFinite(options.value) && options.value > 0) return true;
+  if (Number.isFinite(options.offset) && options.offset > 0) return true;
+  if (typeof options.minDate === 'string' && options.minDate) return true;
+  if (typeof options.maxDate === 'string' && options.maxDate) return true;
+  return false;
 }
 
 /**
@@ -101,6 +112,73 @@ async function getRandomClues(count) {
   return result.map(mapForResponse);
 }
 
+async function getCluesByCategory(categoryId, options = {}) {
+  const limit = clampCount(typeof options.count !== 'undefined' ? options.count : undefined);
+
+  const fetchOptions = {
+    value: Number.isFinite(options.value) && options.value > 0 ? options.value : undefined,
+    offset: Number.isFinite(options.offset) && options.offset > 0 ? options.offset : undefined,
+    minDate: typeof options.minDate === 'string' && options.minDate ? options.minDate : undefined,
+    maxDate: typeof options.maxDate === 'string' && options.maxDate ? options.maxDate : undefined,
+  };
+
+  const useCachePriming = !hasClueFilters(fetchOptions);
+  const cached = useCachePriming ? cache.getByCategory({ categoryId }) : [];
+  let fetched = [];
+  try {
+    fetched = await fetchCluesByCategory(categoryId, fetchOptions);
+  } catch (error) {
+    if (!cached.length) {
+      throw error;
+    }
+    fetched = [];
+  }
+
+  const combined = [];
+  const seen = new Set();
+  const pushUnique = (clue) => {
+    if (!clue || seen.has(clue.id) || combined.length >= limit) return;
+    seen.add(clue.id);
+    combined.push(clue);
+  };
+
+  fetched.forEach((clue) => {
+    cache.set(clue);
+    pushUnique(clue);
+  });
+
+  if (useCachePriming && combined.length < limit) {
+    cached.forEach((clue) => {
+      pushUnique(clue);
+    });
+  }
+
+  return combined.map(mapForResponse);
+}
+
+function clampCategoryCount(value = DEFAULT_CATEGORY_COUNT) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_CATEGORY_COUNT;
+  return Math.min(Math.max(parsed, 1), MAX_CATEGORY_COUNT);
+}
+
+function clampCategoryOffset(value = 0) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return parsed;
+}
+
+async function getCategories(options = {}) {
+  const count = clampCategoryCount(options.count);
+  const offset = clampCategoryOffset(options.offset);
+  const categories = await fetchCategories({ count, offset });
+  return categories.map((category) => ({
+    id: category.id,
+    title: category.title,
+    cluesCount: category.cluesCount,
+  }));
+}
+
 function getCacheSnapshot() {
   return {
     size: cache.size(),
@@ -109,6 +187,10 @@ function getCacheSnapshot() {
 
 module.exports = {
   getRandomClues,
+  getCluesByCategory,
+  getCategories,
   getCacheSnapshot,
   clampCount,
+  clampCategoryCount,
+  clampCategoryOffset,
 };
