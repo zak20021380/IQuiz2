@@ -3,8 +3,8 @@ const Category = require('../models/Category');
 const { normalizeProviderId } = require('../services/triviaProviders');
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'draft', 'archived'];
-const ALLOWED_SOURCES = ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'];
-const ALLOWED_PROVIDERS = ['manual', 'opentdb', 'the-trivia-api', 'jservice', 'community'];
+const ALLOWED_SOURCES = ['manual', 'opentdb', 'the-trivia-api', 'cluebase', 'jservice', 'community'];
+const ALLOWED_PROVIDERS = ['manual', 'opentdb', 'the-trivia-api', 'cluebase', 'jservice', 'community'];
 const TRUTHY_QUERY_VALUES = new Set(['1', 'true', 'yes', 'y', 'on']);
 const FALSY_QUERY_VALUES = new Set(['0', 'false', 'no', 'n', 'off']);
 
@@ -188,14 +188,20 @@ exports.list = async (req, res, next) => {
       if (ALLOWED_SOURCES.includes(sourceCandidate)) where.source = sourceCandidate;
     }
     if (providerCandidate) {
-      const providerRegex = new RegExp(`^${providerCandidate}$`, 'i');
-      const providerConditions = [
-        { provider: providerRegex },
-        { source: providerRegex },
-        { 'sourceRef.provider': providerRegex }
-      ];
+      const aliases = [providerCandidate];
+      if (providerCandidate === 'cluebase') {
+        aliases.push('jservice');
+      }
 
-      if (providerCandidate === 'jservice') {
+      const providerConditions = [];
+      aliases.forEach((alias) => {
+        const aliasRegex = new RegExp(`^${alias}$`, 'i');
+        providerConditions.push({ provider: aliasRegex });
+        providerConditions.push({ source: aliasRegex });
+        providerConditions.push({ 'sourceRef.provider': aliasRegex });
+      });
+
+      if (aliases.includes('jservice')) {
         providerConditions.push({ 'meta.jservice.id': { $exists: true } });
         providerConditions.push({ 'sourceRef.jserviceId': { $exists: true, $ne: null, $ne: '' } });
       }
@@ -213,7 +219,7 @@ exports.list = async (req, res, next) => {
         where.active = false;
       }
     }
-    if (providerCandidate === 'jservice' && !includeUnapproved && !where.status) {
+    if (providerCandidate === 'cluebase' && !includeUnapproved && !where.status) {
       where.status = 'approved';
     }
     if (type) {

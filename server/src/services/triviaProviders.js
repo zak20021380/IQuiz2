@@ -29,10 +29,10 @@ const TRIVIA_PROVIDERS = [
     }
   },
   {
-    id: 'jservice',
-    name: 'JService Trivia Archive',
-    shortName: 'JService',
-    description: 'آرشیوی از سوالات Jeopardy! با دسته‌بندی‌های متنوع و ساختار پرسش و پاسخ کلاسیک.',
+    id: 'cluebase',
+    name: 'Cluebase',
+    shortName: 'Cluebase',
+    description: 'مجموعه‌ای به‌روز از سوالات Jeopardy! با پاسخ‌های ساخت‌یافته و دسته‌بندی‌های متنوع.',
     capabilities: {
       amount: { min: 1, max: 50, default: 15 },
       categories: { selectable: false, remote: false },
@@ -54,11 +54,15 @@ const PROVIDER_ID_ALIASES = Object.freeze({
   'the trivia api': 'the-trivia-api',
   'the-triviaapi': 'the-trivia-api',
   'the trivia-api': 'the-trivia-api',
-  jservice: 'jservice',
-  'j-service': 'jservice',
-  'j_service': 'jservice',
-  'j service': 'jservice',
-  jeopardy: 'jservice',
+  cluebase: 'cluebase',
+  'clue-base': 'cluebase',
+  'clue_base': 'cluebase',
+  'clue base': 'cluebase',
+  jservice: 'cluebase',
+  'j-service': 'cluebase',
+  'j_service': 'cluebase',
+  'j service': 'cluebase',
+  jeopardy: 'cluebase',
 });
 
 function normalizeProviderId(value) {
