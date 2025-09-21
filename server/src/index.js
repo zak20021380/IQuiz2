@@ -15,6 +15,7 @@ const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const errorHandler = require('./middleware/error');
 const triviaRoutes = require('./routes/trivia');
+const jserviceRoutes = require('./routes/jservice.routes');
 const { startTriviaPoller } = require('./poller/triviaPoller');
 const { ensureInitialCategories, syncProviderCategories } = require('./services/categorySeeder');
 
@@ -95,6 +96,7 @@ app.use('/api/achievements', require('./routes/achievements.routes'));
 app.use('/api/ads', require('./routes/ads.routes'));
 app.use('/api/public', require('./routes/public.routes'));
 app.use('/api/trivia', triviaRoutes);
+app.use('/api/jservice', jserviceRoutes);
 app.use('/api', require('./routes/trivia-triviaapi'));
 
 // error handler
