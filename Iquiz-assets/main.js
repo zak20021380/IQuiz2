@@ -4,6 +4,29 @@ import { configureFeedback, vibrate, toast, wait, SFX, shootConfetti } from './s
 import { RemoteConfig, patchPricingKeys } from './src/config/remote-config.js';
 import Net from './src/services/net.js';
 import Api from './src/services/api.js';
+import {
+  State,
+  STORAGE_KEY,
+  ensureGroupRosters,
+  isUserGroupAdmin,
+  getUserGroup,
+  isUserInGroup,
+  stringToSeed,
+  buildRosterEntry,
+  seededFloat
+} from './src/state/state.js';
+import { Server } from './src/state/server.js';
+import {
+  Admin,
+  DEFAULT_DIFFS,
+  getAdminCategories,
+  getActiveCategories,
+  getFirstCategory,
+  findCategoryById,
+  getEffectiveDiffs,
+  getCategoryDifficultyPool
+} from './src/state/admin.js';
+import { loadState, saveState } from './src/state/persistence.js';
 
   // Anti-cheating: Detect devtools
   (function() {
@@ -64,12 +87,6 @@ function populateProvinceOptions(selectEl, placeholder){
 
   
   const online = () => navigator.onLine;
-
-  const DEFAULT_DIFFS = [
-    { value: 'easy', label: 'آسان' },
-    { value: 'medium', label: 'متوسط' },
-    { value: 'hard', label: 'سخت' }
-  ];
 
   function normalizeDifficultyLabel(raw){
     if (raw == null) return null;
@@ -168,7 +185,6 @@ function populateProvinceOptions(selectEl, placeholder){
   }
 
   /* === Admin-sourced state === */
-  const Admin = { categories: [], diffs: [] };
 
   async function initFromAdmin(){
     const [cfg, catList, provinces] = await Promise.all([
@@ -221,10 +237,10 @@ function populateProvinceOptions(selectEl, placeholder){
     const diffWrap = document.getElementById('diff-wrap');
     if (!catWrap || !diffWrap) return;
 
-    const categories = Array.isArray(Admin.categories) ? Admin.categories : [];
-    const fallbackDiffs = (Array.isArray(Admin.diffs) && Admin.diffs.length) ? Admin.diffs : DEFAULT_DIFFS;
+    const categories = getAdminCategories();
+    const fallbackDiffs = getEffectiveDiffs();
 
-    const firstCat = categories.find(c=>c && c.id!=null) || categories[0] || null;
+    const firstCat = getActiveCategories()[0] || getFirstCategory();
     const catExists = categories.some(c=>c && c.id === State.quiz.catId);
     if(!catExists){
       State.quiz.catId = firstCat?.id || null;
@@ -236,10 +252,7 @@ function populateProvinceOptions(selectEl, placeholder){
       State.quiz.cat = '—';
     }
 
-    const diffForCat = (cat)=>{
-      if (cat && Array.isArray(cat.difficulties) && cat.difficulties.length) return cat.difficulties;
-      return fallbackDiffs;
-    };
+    const diffForCat = (cat)=> getCategoryDifficultyPool(cat) || fallbackDiffs;
 
     const selectDiffOption = (opt)=>{
       if (opt) {
@@ -327,7 +340,7 @@ function populateProvinceOptions(selectEl, placeholder){
     const difficultySelect = document.getElementById('community-difficulty');
     if (!categorySelect) return;
 
-    const categories = Array.isArray(Admin.categories) ? Admin.categories.filter(cat => cat && cat.id != null) : [];
+    const categories = getActiveCategories();
     const previousCategory = categorySelect.value;
     categorySelect.innerHTML = '';
 
@@ -362,7 +375,7 @@ function populateProvinceOptions(selectEl, placeholder){
     }
 
     if (difficultySelect) {
-      const diffs = Array.isArray(Admin.diffs) && Admin.diffs.length ? Admin.diffs : DEFAULT_DIFFS;
+      const diffs = getEffectiveDiffs();
       const previousDiff = difficultySelect.value;
       difficultySelect.innerHTML = diffs.map(diff => `<option value="${diff.value}">${diff.label}</option>`).join('');
       if (previousDiff && diffs.some(diff => diff.value === previousDiff)) {
@@ -458,188 +471,6 @@ function populateProvinceOptions(selectEl, placeholder){
   }
   
   // ===== Server State (Wallet + Subscription only from server) =====
-const Server = {
-  wallet: { coins: null, lastTxnId: null },
-  subscription: { active:false, status:'unknown', expiry:null, autoRenew:false, plan:null, tier:null },
-  user: { province:'تهران' }, // can be set by your auth bootstrap
-  limits: {
-    matches: { used: 0, lastReset: 0, lastRecovery: 0 },
-    duels: { used: 0, lastReset: 0, lastRecovery: 0 },
-    lives: { used: 0, lastReset: 0, lastRecovery: 0 },
-    groupBattles: { used: 0, lastReset: 0, lastRecovery: 0 },
-    energy: { used: 0, lastReset: 0, lastRecovery: 0 }
-  },
-  pass: {
-    freeXp: 0,
-    premiumXp: 0,
-    season: 1,
-    week: 1,
-    missions: {
-      daily: [],
-      weekly: []
-    }
-  }
-};
-
-  const ROSTER_ROLES = ['دانش عمومی','رهبر استراتژی','متخصص علوم','استاد ادبیات','تحلیل‌گر داده','هوش تاریخی','ریاضی‌دان','کارشناس فناوری','حل مسئله سریع','هوش مصنوعی'];
-  const ROSTER_FIRST_NAMES = ['آرمان','نیلوفر','شروین','فرناز','پارسا','یاسمن','کاوه','مینا','هومن','هستی','رامتین','سولماز','آرین','بهاره','پریسا','بردیا','کیانا','مانی','ترانه','هانیه'];
-  const ROSTER_LAST_NAMES = ['قاسمی','حسینی','موسوی','محمدی','کاظمی','نعمتی','شکیبا','زارع','فاضلی','رستگار','صادقی','نیک‌پور','شریفی','فرهادی','پاکزاد','نادری','گودرزی','مرادی','توکلی','شفیعی'];
-
-  const DEFAULT_GROUP_ROSTERS = {
-    g1: [
-      { name:'علی رضایی', avatar:'https://i.pravatar.cc/100?img=12', role:'رهبر تیم', power:94, avgScore:890, accuracy:92, speed:6.1 },
-      { name:'سارا اکبری', avatar:'https://i.pravatar.cc/100?img=32', role:'استاد ادبیات', power:91, avgScore:872, accuracy:90, speed:6.4 },
-      { name:'رضا کریمی', avatar:'https://i.pravatar.cc/100?img=45', role:'تحلیل‌گر تیزبین', power:89, avgScore:860, accuracy:89, speed:6.6 },
-      { name:'ندا فرهمند', avatar:'https://i.pravatar.cc/100?img=36', role:'متخصص تاریخ', power:87, avgScore:845, accuracy:88, speed:6.9 },
-      { name:'پیام سالاری', avatar:'https://i.pravatar.cc/100?img=24', role:'ریاضی برتر', power:85, avgScore:832, accuracy:87, speed:7.1 },
-      { name:'آرزو مرادی', avatar:'https://i.pravatar.cc/100?img=54', role:'هوش کلامی', power:83, avgScore:820, accuracy:85, speed:7.4 },
-      { name:'احسان کاوه', avatar:'https://i.pravatar.cc/100?img=13', role:'مغز تکنولوژی', power:82, avgScore:808, accuracy:84, speed:7.6 },
-      { name:'نگار میرزایی', avatar:'https://i.pravatar.cc/100?img=47', role:'دانش عمومی', power:80, avgScore:798, accuracy:83, speed:7.8 },
-      { name:'شهاب احمدپور', avatar:'https://i.pravatar.cc/100?img=58', role:'فیزیک‌دان جوان', power:78, avgScore:785, accuracy:81, speed:8.0 },
-      { name:'کیانا شریفی', avatar:'https://i.pravatar.cc/100?img=21', role:'تحلیل‌گر داده', power:76, avgScore:770, accuracy:80, speed:8.2 }
-    ],
-    g2: [
-      { name:'سارا محمدی', avatar:'https://i.pravatar.cc/100?img=29', role:'استراتژیست ارشد', power:92, avgScore:875, accuracy:91, speed:6.3 },
-      { name:'مهدی احمدی', avatar:'https://i.pravatar.cc/100?img=17', role:'تحلیل‌گر منطق', power:88, avgScore:852, accuracy:88, speed:6.7 },
-      { name:'الهام برزگر', avatar:'https://i.pravatar.cc/100?img=53', role:'متخصص علوم', power:86, avgScore:838, accuracy:87, speed:7.0 },
-      { name:'حسین فلاح', avatar:'https://i.pravatar.cc/100?img=25', role:'ریاضی‌دان تیم', power:84, avgScore:826, accuracy:85, speed:7.3 },
-      { name:'نگین شریعتی', avatar:'https://i.pravatar.cc/100?img=41', role:'هوش تاریخی', power:83, avgScore:815, accuracy:84, speed:7.5 },
-      { name:'پژمان نظری', avatar:'https://i.pravatar.cc/100?img=34', role:'کارشناس فناوری', power:81, avgScore:804, accuracy:83, speed:7.8 },
-      { name:'بهاره کاظمی', avatar:'https://i.pravatar.cc/100?img=59', role:'ادبیات پژوه', power:79, avgScore:792, accuracy:82, speed:8.0 },
-      { name:'شروین فرهادی', avatar:'https://i.pravatar.cc/100?img=23', role:'هوش مصنوعی', power:78, avgScore:780, accuracy:81, speed:8.2 },
-      { name:'مینا رستگار', avatar:'https://i.pravatar.cc/100?img=42', role:'دانش عمومی', power:76, avgScore:768, accuracy:80, speed:8.4 },
-      { name:'آرین ساعی', avatar:'https://i.pravatar.cc/100?img=14', role:'حل مسئله سریع', power:75, avgScore:756, accuracy:79, speed:8.6 }
-    ],
-    g3: [
-      { name:'رضا قاسمی', avatar:'https://i.pravatar.cc/100?img=19', role:'رهبر خلاق', power:90, avgScore:862, accuracy:89, speed:6.5 },
-      { name:'نازنین فراهانی', avatar:'https://i.pravatar.cc/100?img=38', role:'محقق علوم', power:87, avgScore:840, accuracy:87, speed:6.9 },
-      { name:'کیاوش نادری', avatar:'https://i.pravatar.cc/100?img=49', role:'استاد منطق', power:85, avgScore:828, accuracy:85, speed:7.2 },
-      { name:'الینا رضوی', avatar:'https://i.pravatar.cc/100?img=28', role:'تحلیل‌گر داده', power:83, avgScore:815, accuracy:84, speed:7.4 },
-      { name:'پارسا بهمنی', avatar:'https://i.pravatar.cc/100?img=33', role:'هوش ریاضی', power:82, avgScore:804, accuracy:83, speed:7.6 },
-      { name:'آیدا صفوی', avatar:'https://i.pravatar.cc/100?img=52', role:'تاریخ‌دان', power:80, avgScore:792, accuracy:82, speed:7.9 },
-      { name:'مانی فرهودی', avatar:'https://i.pravatar.cc/100?img=22', role:'متخصص سرعت', power:79, avgScore:780, accuracy:81, speed:8.0 },
-      { name:'سینا کیا', avatar:'https://i.pravatar.cc/100?img=27', role:'کارشناس فناوری', power:77, avgScore:770, accuracy:80, speed:8.2 },
-      { name:'هستی مرادی', avatar:'https://i.pravatar.cc/100?img=44', role:'دانش عمومی', power:75, avgScore:760, accuracy:79, speed:8.4 },
-      { name:'یاشا طاهری', avatar:'https://i.pravatar.cc/100?img=57', role:'حل مسئله منطقی', power:74, avgScore:748, accuracy:78, speed:8.6 }
-    ],
-    g4: [
-      { name:'مریم احمدی', avatar:'https://i.pravatar.cc/100?img=18', role:'رهبر تکنیکی', power:89, avgScore:850, accuracy:88, speed:6.8 },
-      { name:'رها فاضلی', avatar:'https://i.pravatar.cc/100?img=48', role:'هوش ادبی', power:86, avgScore:832, accuracy:86, speed:7.1 },
-      { name:'امیررضا حاتمی', avatar:'https://i.pravatar.cc/100?img=55', role:'ریاضی برتر', power:84, avgScore:820, accuracy:84, speed:7.3 },
-      { name:'مهسا نادری', avatar:'https://i.pravatar.cc/100?img=37', role:'تاریخ پژوه', power:82, avgScore:808, accuracy:83, speed:7.5 },
-      { name:'نیما رجبی', avatar:'https://i.pravatar.cc/100?img=26', role:'تحلیل‌گر سریع', power:81, avgScore:798, accuracy:82, speed:7.7 },
-      { name:'الهه رحیمی', avatar:'https://i.pravatar.cc/100?img=43', role:'دانش علوم', power:80, avgScore:788, accuracy:81, speed:7.9 },
-      { name:'سامیار پاکزاد', avatar:'https://i.pravatar.cc/100?img=46', role:'برنامه‌ریز تیمی', power:78, avgScore:776, accuracy:80, speed:8.1 },
-      { name:'یاسمن گودرزی', avatar:'https://i.pravatar.cc/100?img=31', role:'استراتژیست', power:77, avgScore:766, accuracy:79, speed:8.3 },
-      { name:'هومن جلالی', avatar:'https://i.pravatar.cc/100?img=51', role:'دانش عمومی', power:75, avgScore:756, accuracy:78, speed:8.5 },
-      { name:'بهار قائمی', avatar:'https://i.pravatar.cc/100?img=35', role:'مغز خلاق', power:74, avgScore:744, accuracy:77, speed:8.6 }
-    ],
-    g5: [
-      { name:'امیر حسینی', avatar:'https://i.pravatar.cc/100?img=20', role:'رهبر هوش مصنوعی', power:93, avgScore:880, accuracy:91, speed:6.2 },
-      { name:'هانیه ناصری', avatar:'https://i.pravatar.cc/100?img=39', role:'متخصص زیست', power:90, avgScore:868, accuracy:89, speed:6.5 },
-      { name:'کیارش زندی', avatar:'https://i.pravatar.cc/100?img=56', role:'تحلیل‌گر ریاضی', power:88, avgScore:856, accuracy:88, speed:6.8 },
-      { name:'محدثه توکلی', avatar:'https://i.pravatar.cc/100?img=30', role:'ادبیات پژوه', power:86, avgScore:842, accuracy:87, speed:7.0 },
-      { name:'رامین شکیبا', avatar:'https://i.pravatar.cc/100?img=40', role:'فیزیک‌دان', power:85, avgScore:830, accuracy:85, speed:7.2 },
-      { name:'کیانا نعمتی', avatar:'https://i.pravatar.cc/100?img=60', role:'متخصص تاریخ', power:83, avgScore:818, accuracy:84, speed:7.5 },
-      { name:'رامسین اویسی', avatar:'https://i.pravatar.cc/100?img=15', role:'کارشناس منطق', power:82, avgScore:806, accuracy:83, speed:7.7 },
-      { name:'پریسا آذر', avatar:'https://i.pravatar.cc/100?img=50', role:'دانش عمومی', power:80, avgScore:794, accuracy:82, speed:7.9 },
-      { name:'نوید برومند', avatar:'https://i.pravatar.cc/100?img=16', role:'تحلیل‌گر داده', power:78, avgScore:782, accuracy:81, speed:8.1 },
-      { name:'ترانه شفیعی', avatar:'https://i.pravatar.cc/100?img=61', role:'هوش ترکیبی', power:77, avgScore:770, accuracy:80, speed:8.3 }
-    ]
-  };
-
-  function cloneDefaultRoster(groupId){
-    return (DEFAULT_GROUP_ROSTERS[groupId] || []).map(player => ({ ...player }));
-  }
-
-  function stringToSeed(str){
-    if (!str) return 1;
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash * 31 + str.charCodeAt(i)) % 2147483647;
-    }
-    return hash || 1;
-  }
-
-  function seededRandom(seed){
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  }
-
-  function seededFloat(seed, min, max){
-    return min + (max - min) * seededRandom(seed);
-  }
-
-  function pickFrom(list, seed, offset = 0){
-    if (!Array.isArray(list) || list.length === 0) return '';
-    const idx = Math.abs(Math.floor(seed + offset)) % list.length;
-    return list[idx];
-  }
-
-  function createSyntheticNameForGroup(group, index){
-    const seed = stringToSeed(`${group?.id || ''}-${group?.name || ''}`);
-    const first = pickFrom(ROSTER_FIRST_NAMES, seed, index * 3);
-    const last = pickFrom(ROSTER_LAST_NAMES, seed, index * 7);
-    return `${first} ${last}`.trim();
-  }
-
-  function buildRosterEntry(name, index, baseSeed){
-    const seed = baseSeed + index * 17;
-    const role = pickFrom(ROSTER_ROLES, seed, index * 5) || 'دانش عمومی';
-    const power = Math.round(Math.max(68, Math.min(96, seededFloat(seed, 74, 94))));
-    const accuracy = Math.round(Math.max(60, Math.min(97, seededFloat(seed + 5, 72, 95))));
-    const avgScore = Math.round(Math.max(640, Math.min(940, seededFloat(seed + 9, 700, 920))));
-    const speed = Math.round(Math.max(5.2, Math.min(9.0, seededFloat(seed + 13, 5.6, 8.6))) * 10) / 10;
-    return {
-      name,
-      avatar: `https://i.pravatar.cc/100?u=${encodeURIComponent(name)}`,
-      role,
-      power,
-      accuracy,
-      avgScore,
-      speed
-    };
-  }
-
-  function generateRosterFromMembers(group, desiredCount = 10){
-    const roster = [];
-    const used = new Set();
-    const baseSeed = stringToSeed(`${group?.id || ''}-${group?.name || ''}`);
-    const baseMembers = Array.isArray(group?.memberList) ? group.memberList.filter(Boolean) : [];
-    baseMembers.forEach((memberName, idx) => {
-      if (used.has(memberName)) return;
-      const entry = buildRosterEntry(memberName, idx, baseSeed);
-      roster.push(entry);
-      used.add(memberName);
-    });
-    let idx = roster.length;
-    while (roster.length < desiredCount){
-      const synthetic = createSyntheticNameForGroup(group, idx);
-      if (used.has(synthetic)) { idx++; continue; }
-      const entry = buildRosterEntry(synthetic, idx, baseSeed);
-      roster.push(entry);
-      used.add(synthetic);
-      idx++;
-    }
-    return roster.slice(0, desiredCount);
-  }
-
-  function normalizeRosterMember(player, fallback, index, group){
-    const source = player && typeof player === 'object' ? player : {};
-    const baseSeed = stringToSeed(`${group?.id || ''}-${group?.name || ''}-${index}`);
-    const fallbackSource = (fallback && typeof fallback === 'object' && Object.keys(fallback).length)
-      ? fallback
-      : buildRosterEntry(createSyntheticNameForGroup(group, index), index, baseSeed);
-    const name = source.name || fallbackSource.name || createSyntheticNameForGroup(group, index);
-    const avatar = source.avatar || fallbackSource.avatar || `https://i.pravatar.cc/100?u=${encodeURIComponent(name)}`;
-    const role = source.role || fallbackSource.role || pickFrom(ROSTER_ROLES, baseSeed, index * 3) || 'دانش عمومی';
-    const power = Number.isFinite(source.power) ? Math.round(source.power) : Number.isFinite(fallbackSource.power) ? Math.round(fallbackSource.power) : Math.round(Math.max(68, Math.min(96, seededFloat(baseSeed, 74, 92))));
-    const accuracy = Number.isFinite(source.accuracy) ? Math.round(source.accuracy) : Number.isFinite(fallbackSource.accuracy) ? Math.round(fallbackSource.accuracy) : Math.round(Math.max(60, Math.min(97, seededFloat(baseSeed + 5, 72, 94))));
-    const avgScore = Number.isFinite(source.avgScore) ? Math.round(source.avgScore) : Number.isFinite(fallbackSource.avgScore) ? Math.round(fallbackSource.avgScore) : Math.round(Math.max(640, Math.min(920, seededFloat(baseSeed + 9, 690, 900))));
-    const speed = Number.isFinite(source.speed) ? Number(source.speed) : (Number.isFinite(fallbackSource.speed) ? Number(fallbackSource.speed) : Math.round(Math.max(5.4, Math.min(9, seededFloat(baseSeed + 13, 5.6, 8.7))) * 10) / 10);
-    return { name, avatar, role, power, accuracy, avgScore, speed };
-  }
-  
   function deepApply(target, src){
     if (!src || typeof src !== 'object') return target;
     for (const k of Object.keys(src)){
@@ -653,115 +484,9 @@ const Server = {
   }
 
   // ===== App State (legacy gameplay remains local) =====
-  const STORAGE_KEY='quiz_webapp_pro_state_v2_fa';
-  const State = {
-    user:{ id:'guest', name:'کاربر مهمان', avatar:'https://i.pravatar.cc/120?img=12', province:'', group:'' },
-    score:0, coins:120, lives:3, vip:false, // vip will be overridden by server
-    streak:0, lastClaim:0, boostUntil:0,
-    theme:'ocean',
-    duelOpponent:null,
-    duelWins:0,
-    duelLosses:0,
-    pendingDuels:[],
-    duelHistory:[],
-    achievements:{ firstWin:false, tenCorrect:false, streak3:false, vipBought:false },
-    settings:{ sound:true, haptics:true, blockDuels:false },
-    leaderboard:[
-      { id:'u1', name:'آرتین', score:18200, province:'تهران', group:'قهرمانان دانش' },
-      { id:'u2', name:'سمانه', score:16500, province:'اصفهان', group:'متفکران جوان' },
-      { id:'u3', name:'مانی', score:14950, province:'خراسان رضوی', group:'چالش‌برانگیزان' },
-      { id:'u4', name:'نیکا', score:13200, province:'فارس', group:'دانش‌آموزان نخبه' },
-    ],
-    provinces: [], // populated from data/provinces.json
-    groups: [
-      { id: 'g1', name: 'قهرمانان دانش', score: 22100, members: 23, admin: 'علی رضایی', created: '۱۴۰۲/۰۲/۱۵', memberList: ['علی رضایی','سارا اکبری','رضا کریمی','ندا فرهمند','پیام سالاری'], matches:[{opponent:'متفکران جوان', time:'۱۴۰۳/۰۵/۲۵ ۱۸:۰۰'}], requests: [], roster: cloneDefaultRoster('g1') },
-      { id: 'g2', name: 'متفکران جوان', score: 19800, members: 18, admin: 'سارا محمدی', created: '۱۴۰۲/۰۳/۲۰', memberList: ['سارا محمدی','مهدی احمدی','الهام برزگر','حسین فلاح'], matches:[{opponent:'پیشروان علم', time:'۱۴۰۳/۰۵/۳۰ ۱۹:۰۰'}], requests: [], roster: cloneDefaultRoster('g2') },
-      { id: 'g3', name: 'چالش‌برانگیزان', score: 20500, members: 21, admin: 'رضا قاسمی', created: '۱۴۰۲/۰۱/۱۰', memberList: ['رضا قاسمی','نازنین فراهانی','کیاوش نادری'], matches:[], requests: [], roster: cloneDefaultRoster('g3') },
-      { id: 'g4', name: 'دانش‌آموزان نخبه', score: 18700, members: 15, admin: 'مریم احمدی', created: '۱۴۰۲/۰۴/۰۵', memberList: ['مریم احمدی','رها فاضلی','امیررضا حاتمی'], matches:[], requests: [], roster: cloneDefaultRoster('g4') },
-      { id: 'g5', name: 'پیشروان علم', score: 21300, members: 27, admin: 'امیر حسینی', created: '۱۴۰۲/۰۲/۲۸', memberList: ['امیر حسینی','هانیه ناصری','کیارش زندی'], matches:[{opponent:'قهرمانان دانش', time:'۱۴۰۳/۰۶/۰۲ ۲۰:۰۰'}], requests: [], roster: cloneDefaultRoster('g5') },
-    ],
-    ads: { banner: [], native: [], interstitial: [], rewarded: [] },
-    quiz:{
-      inProgress:false, answered:false, correctIndex:-1,
-      duration:30, remain:30, timer:null,
-      list:[], idx:0, cat:'عمومی', diff:'آسان', diffValue:'easy',
-      sessionEarned:0, results:[]
-    },
-    notifications:[
-      { id:'n1', text:'جام هفتگی از ساعت ۲۰:۰۰ شروع می‌شود. آماده‌ای؟', time:'امروز' },
-      { id:'n2', text:'بستهٔ سوالات «ادبیات فارسی» اضافه شد!', time:'دیروز' },
-      { id:'n3', text:'با دعوت هر دوست ۵💰 هدیه بگیر! تنها بعد از اولین کوییز فعال می‌شود.', time:'۲ روز پیش' }
-    ],
-    groupBattle: { selectedHostId: '', selectedOpponentId: '', lastResult: null },
-    referral: {
-      code: 'QUIZ5F8A2B',
-      rewardPerFriend: 5,
-      referred: [
-        {
-          id: 'u1',
-          name: 'سارا اکبری',
-          avatar: 'https://i.pravatar.cc/120?img=47',
-          invitedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-          startedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
-          firstQuizAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000),
-          quizzesPlayed: 3,
-          status: 'completed'
-        },
-        {
-          id: 'u2',
-          name: 'رضا کریمی',
-          avatar: 'https://i.pravatar.cc/120?img=15',
-          invitedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-          startedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 6 * 60 * 60 * 1000),
-          quizzesPlayed: 0,
-          status: 'awaiting_quiz'
-        },
-        {
-          id: 'u3',
-          name: 'نیلوفر احمدی',
-          avatar: 'https://i.pravatar.cc/120?img=20',
-          invitedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-          status: 'awaiting_start'
-        }
-      ]
-    }
-  };
-
   configureFeedback(() => State.settings);
 
 
-  function ensureGroupRosters(){
-    if (!Array.isArray(State.groups)) State.groups = [];
-    State.groups.forEach(group => {
-      const defaultRoster = cloneDefaultRoster(group.id);
-      if (!Array.isArray(group.roster) || group.roster.length === 0) {
-        group.roster = defaultRoster.length ? defaultRoster.map(player => ({ ...player })) : generateRosterFromMembers(group);
-      } else {
-        group.roster = group.roster.map((player, idx) => normalizeRosterMember(player, defaultRoster[idx], idx, group));
-      }
-      group.members = Math.max(group.members || 0, group.roster.length);
-      if (!Array.isArray(group.memberList) || group.memberList.length === 0) {
-        group.memberList = group.roster.slice(0, Math.min(5, group.roster.length)).map(p => p.name);
-      }
-    });
-  }
-
-  ensureGroupRosters();
-
-
-  // Helper functions for group management
-function isUserGroupAdmin() {
-  return State.groups.some(g => g.admin === State.user.name);
-}
-
-function getUserGroup() {
-  return State.groups.find(g => g.memberList?.includes(State.user.name));
-}
-
-function isUserInGroup() {
-  return !!State.user.group || !!getUserGroup();
-}
-  
   const LIFELINE_COST = 3;
   const TIMER_CIRC = 2 * Math.PI * 64;
   const DUEL_ROUNDS = 2;
@@ -769,63 +494,6 @@ function isUserInGroup() {
   const DUEL_TIMEOUT_MS = 24 * 60 * 60 * 1000;
   let DuelSession = null;
   let PendingDuelFriend = null;
-  
-  function loadState(){
-    try{
-      const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
-      if(s) Object.assign(State,s);
-      if (!State.groupBattle || typeof State.groupBattle !== 'object') {
-        State.groupBattle = { selectedHostId: '', selectedOpponentId: '', lastResult: null };
-      } else {
-        State.groupBattle.selectedHostId = State.groupBattle.selectedHostId || '';
-        State.groupBattle.selectedOpponentId = State.groupBattle.selectedOpponentId || '';
-        if (!State.groupBattle.lastResult || typeof State.groupBattle.lastResult !== 'object') {
-          State.groupBattle.lastResult = null;
-        }
-      }
-      if (!State.quiz) State.quiz = {};
-      if (State.quiz.diffValue == null) {
-        const label = State.quiz.diff;
-        if (typeof label === 'string') {
-          const lower = label.toLowerCase();
-          if (label.indexOf('سخت') >= 0 || lower === 'hard') {
-            State.quiz.diffValue = 'hard';
-          } else if (label.indexOf('متوسط') >= 0 || lower === 'medium' || lower === 'normal') {
-            State.quiz.diffValue = 'medium';
-          } else {
-            State.quiz.diffValue = 'easy';
-          }
-        } else {
-          State.quiz.diffValue = 'easy';
-        }
-      }
-
-      // Load server state if available
-      const serverState = JSON.parse(localStorage.getItem('server_state') || '{}');
-      if (serverState.limits) Object.assign(Server.limits, serverState.limits);
-      if (!Server.limits.duels) {
-        Server.limits.duels = { used: 0, lastReset: 0, lastRecovery: 0 };
-      }
-      if (serverState.pass) Object.assign(Server.pass, serverState.pass);
-    }catch{}
-    if (!Array.isArray(State.pendingDuels)) {
-      State.pendingDuels = [];
-    } else {
-      State.pendingDuels = State.pendingDuels.filter(duel => duel && duel.id && Number.isFinite(duel.deadline));
-    }
-    if (!Array.isArray(State.duelHistory)) State.duelHistory = [];
-    State.duelHistory = State.duelHistory.slice(0, 20);
-    State.duelOpponent = null;
-    ensureGroupRosters();
-  }
-  
-  function saveState(){ 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(State)); 
-    localStorage.setItem('server_state', JSON.stringify({
-      limits: Server.limits,
-      pass: Server.pass
-    }));
-  }
   
   loadState();
   document.documentElement.setAttribute('data-theme', State.theme || 'ocean');
@@ -2111,108 +1779,78 @@ function openCreateGroup(){
     });
 
 async function startQuizFromAdmin(arg) {
-  // اگر از روی فرم صدا زده شده باشد
   if (typeof Event !== 'undefined' && arg instanceof Event) {
     try { arg.preventDefault(); } catch (_) {}
     arg = null;
   }
 
-  var opts = (arg && typeof arg === 'object') ? arg : {};
+  const opts = (arg && typeof arg === 'object') ? arg : {};
+  const rangeEl = (typeof document !== 'undefined') ? document.getElementById('range-count') : null;
+  const rangeVal = rangeEl ? (rangeEl.value || rangeEl.getAttribute('value')) : null;
+  const count = (opts.count != null ? Number(opts.count) : Number(rangeVal || 5)) || 5;
 
-  var rangeEl = (typeof document !== 'undefined') ? document.getElementById('range-count') : null;
-  var rangeVal = rangeEl ? (rangeEl.value || rangeEl.getAttribute('value')) : null;
-
-  // count
-  var count = (opts.count != null ? Number(opts.count) : Number(rangeVal || 5)) || 5;
-
-  // categoryId
-  var firstCatId = (typeof Admin !== 'undefined' && Admin && Admin.categories && Admin.categories.length > 0)
-    ? Admin.categories[0].id
-    : undefined;
-  var stateCatId = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.catId : undefined;
-  var categoryId = (opts.categoryId != null ? opts.categoryId : (stateCatId != null ? stateCatId : firstCatId));
+  const firstCategory = getActiveCategories()[0] || getFirstCategory();
+  const categoryId = (opts.categoryId != null ? opts.categoryId : (State.quiz?.catId != null ? State.quiz.catId : firstCategory?.id));
 
   if (!categoryId) {
     if (typeof toast === 'function') toast('دسته‌ای یافت نشد.');
     return false;
   }
 
-  var catObj = null;
-  if (typeof Admin !== 'undefined' && Admin && Array.isArray(Admin.categories)) {
-    for (var ci = 0; ci < Admin.categories.length; ci++) {
-      var candidate = Admin.categories[ci];
-      if (candidate && candidate.id === categoryId) { catObj = candidate; break; }
-    }
-  }
+  const catObj = findCategoryById(categoryId) || null;
+  const diffPoolRaw = getCategoryDifficultyPool(catObj);
+  const diffPool = Array.isArray(diffPoolRaw) && diffPoolRaw.length ? diffPoolRaw : getEffectiveDiffs();
 
-  var diffPool;
-  if (catObj && Array.isArray(catObj.difficulties) && catObj.difficulties.length) {
-    diffPool = catObj.difficulties;
-  } else if (typeof Admin !== 'undefined' && Admin && Array.isArray(Admin.diffs) && Admin.diffs.length) {
-    diffPool = Admin.diffs;
-  } else {
-    diffPool = DEFAULT_DIFFS;
-  }
+  let selectedDiff = null;
+  const requestedDiff = opts.difficulty;
+  const stateDiffValue = State.quiz?.diffValue;
+  const stateDiffLabel = State.quiz?.diff;
 
-  var selectedDiff = null;
-  var requestedDiff = opts.difficulty;
-  var stateDiffValue = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.diffValue : undefined;
-  var stateDiffLabel = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.diff : undefined;
-
-  if (requestedDiff != null) {
-    for (var rd = 0; rd < diffPool.length; rd++) {
-      var diffOpt = diffPool[rd];
-      if (diffOpt && (diffOpt.value === requestedDiff || diffOpt.label === requestedDiff)) { selectedDiff = diffOpt; break; }
-    }
-  }
-
-  if (!selectedDiff && stateDiffValue != null) {
-    for (var sdv = 0; sdv < diffPool.length; sdv++) {
-      var diffOpt2 = diffPool[sdv];
-      if (diffOpt2 && diffOpt2.value === stateDiffValue) { selectedDiff = diffOpt2; break; }
-    }
-  }
-
-  if (!selectedDiff && stateDiffLabel != null) {
-    for (var sdl = 0; sdl < diffPool.length; sdl++) {
-      var diffOpt3 = diffPool[sdl];
-      if (diffOpt3 && diffOpt3.label === stateDiffLabel) { selectedDiff = diffOpt3; break; }
-    }
-  }
-
-  if (!selectedDiff) {
-    for (var mid = 0; mid < diffPool.length; mid++) {
-      var diffOpt4 = diffPool[mid];
-      if (!diffOpt4) continue;
-      var valLower = (diffOpt4.value || '').toString().toLowerCase();
-      var labelLower = (diffOpt4.label || '').toString().toLowerCase();
-      if (valLower === 'medium' || valLower === 'normal' || labelLower.indexOf('متوسط') >= 0 || labelLower.indexOf('medium') >= 0 || labelLower.indexOf('normal') >= 0) {
-        selectedDiff = diffOpt4;
+  const tryMatch = (predicate) => {
+    if (selectedDiff) return;
+    for (let idx = 0; idx < diffPool.length; idx++) {
+      const diffOpt = diffPool[idx];
+      if (diffOpt && predicate(diffOpt)) {
+        selectedDiff = diffOpt;
         break;
       }
     }
+  };
+
+  if (requestedDiff != null) {
+    tryMatch(diffOpt => diffOpt.value === requestedDiff || diffOpt.label === requestedDiff);
   }
-
+  if (!selectedDiff && stateDiffValue != null) {
+    tryMatch(diffOpt => diffOpt.value === stateDiffValue);
+  }
+  if (!selectedDiff && stateDiffLabel != null) {
+    tryMatch(diffOpt => diffOpt.label === stateDiffLabel);
+  }
+  if (!selectedDiff) {
+    tryMatch(diffOpt => {
+      const valLower = String(diffOpt.value || '').toLowerCase();
+      const labelLower = String(diffOpt.label || '').toLowerCase();
+      return valLower === 'medium' || valLower === 'normal' || labelLower.includes('متوسط') || labelLower.includes('medium') || labelLower.includes('normal');
+    });
+  }
   if (!selectedDiff && diffPool.length) selectedDiff = diffPool[0];
-  if (!selectedDiff && typeof Admin !== 'undefined' && Admin && Array.isArray(Admin.diffs) && Admin.diffs.length) selectedDiff = Admin.diffs[0];
-  if (!selectedDiff && DEFAULT_DIFFS.length) selectedDiff = DEFAULT_DIFFS[0];
 
-  var difficultyValue = selectedDiff ? selectedDiff.value : undefined;
-  var difficultyLabel = selectedDiff ? (selectedDiff.label || selectedDiff.value) : undefined;
+  const difficultyValue = selectedDiff ? selectedDiff.value : undefined;
+  const difficultyLabel = selectedDiff ? (selectedDiff.label || selectedDiff.value) : undefined;
 
-  if (typeof State !== 'undefined' && State && State.quiz && selectedDiff) {
+  if (selectedDiff) {
     State.quiz.diffValue = difficultyValue;
     State.quiz.diff = difficultyLabel || State.quiz.diff || '—';
   }
 
-  var startBtn = (typeof document !== 'undefined') ? document.getElementById('setup-start') : null;
-  var prevDisabled = startBtn ? !!startBtn.disabled : null;
+  const startBtn = (typeof document !== 'undefined') ? document.getElementById('setup-start') : null;
+  const prevDisabled = startBtn ? !!startBtn.disabled : null;
   if (startBtn) startBtn.disabled = true;
 
   try {
-    var list = [];
+    let list = [];
     if (typeof Api !== 'undefined' && Api && typeof Api.questions === 'function') {
-      list = await Api.questions({ categoryId: categoryId, count: count, difficulty: difficultyValue }) || [];
+      list = await Api.questions({ categoryId, count, difficulty: difficultyValue }) || [];
     }
 
     if (!Array.isArray(list) || list.length === 0) {
@@ -2220,16 +1858,16 @@ async function startQuizFromAdmin(arg) {
       return false;
     }
 
-    var normalized = [];
-    for (var i = 0; i < list.length; i++) {
-      var q = list[i] || {};
-      var rawChoices = q.options || q.choices || [];
-      var choices = [];
+    const normalized = [];
+    for (let i = 0; i < list.length; i++) {
+      const q = list[i] || {};
+      const rawChoices = q.options || q.choices || [];
+      const choices = [];
 
       if (Array.isArray(rawChoices)) {
-        for (var j = 0; j < rawChoices.length; j++) {
-          var opt = rawChoices[j];
-          var txt;
+        for (let j = 0; j < rawChoices.length; j++) {
+          const opt = rawChoices[j];
+          let txt;
           if (typeof opt === 'string') {
             txt = opt;
           } else {
@@ -2240,14 +1878,13 @@ async function startQuizFromAdmin(arg) {
         }
       }
 
-      var answerIdx;
+      let answerIdx;
       if (typeof q.answerIndex === 'number') {
         answerIdx = q.answerIndex;
       } else if (Array.isArray(rawChoices)) {
-        // دستی پیدا می‌کنیم (به‌جای findIndex)
-        var found = -1;
-        for (var k = 0; k < rawChoices.length; k++) {
-          var ro = rawChoices[k];
+        let found = -1;
+        for (let k = 0; k < rawChoices.length; k++) {
+          const ro = rawChoices[k];
           if (ro && typeof ro === 'object' && ro.correct === true) { found = k; break; }
         }
         answerIdx = found;
@@ -2255,22 +1892,21 @@ async function startQuizFromAdmin(arg) {
         answerIdx = -1;
       }
 
-      var qq = ((q.text || q.title || '') + '').trim();
-      var valid = qq && Array.isArray(choices) && choices.length >= 2;
+      const qq = ((q.text || q.title || '') + '').trim();
+      let valid = qq && Array.isArray(choices) && choices.length >= 2;
 
-      // every(Boolean) بدون فلش‌تابع
       if (valid) {
-        for (var e = 0; e < choices.length; e++) {
+        for (let e = 0; e < choices.length; e++) {
           if (!choices[e]) { valid = false; break; }
         }
       }
 
-      var questionSource = '';
+      let questionSource = '';
       if (q && typeof q.source === 'string') questionSource = q.source;
       else if (q && typeof q.provider === 'string') questionSource = q.provider;
       questionSource = questionSource ? String(questionSource).toLowerCase() : 'manual';
 
-      var authorNameValue = '';
+      let authorNameValue = '';
       if (q && typeof q.authorName === 'string') authorNameValue = q.authorName.trim();
       else if (q && typeof q.author === 'string') authorNameValue = q.author.trim();
       else if (q && typeof q.createdByName === 'string') authorNameValue = q.createdByName.trim();
@@ -2286,18 +1922,17 @@ async function startQuizFromAdmin(arg) {
       return false;
     }
 
-    var fallbackCat = (typeof Admin !== 'undefined' && Admin && Array.isArray(Admin.categories) && Admin.categories.length > 0)
-      ? Admin.categories[0]
-      : null;
-    var catMeta = catObj || fallbackCat || {};
-    var stateQuizCat = (typeof State !== 'undefined' && State && State.quiz) ? State.quiz.cat : undefined;
-    var catTitle = (opts.cat != null ? opts.cat : (catMeta.title || catMeta.name || stateQuizCat || '—'));
+    const fallbackCat = firstCategory || null;
+    const catMeta = catObj || fallbackCat || {};
+    const stateQuizCat = State.quiz?.cat;
+    const catTitle = (opts.cat != null ? opts.cat : (catMeta.title || catMeta.name || stateQuizCat || '—'));
 
-    if (typeof State !== 'undefined' && State && State.quiz) {
+    if (State.quiz) {
       State.quiz.catId = categoryId;
+      State.quiz.cat = catTitle;
     }
 
-    var started = false;
+    let started = false;
     if (typeof beginQuizSession === 'function') {
       started = beginQuizSession({
         cat: catTitle,
@@ -2326,6 +1961,7 @@ async function startQuizFromAdmin(arg) {
     if (startBtn) startBtn.disabled = (prevDisabled != null ? prevDisabled : false);
   }
 }
+
 
 
   function lockChoices(){ $$('#choices .choice').forEach(el=> el.classList.add('pointer-events-none','opacity-70')); }
@@ -2463,27 +2099,15 @@ async function startQuizFromAdmin(arg) {
   
   async function startDaily(){
     State.lives = Math.max(State.lives, 1);
-    var categoryId = State.quiz.catId;
-    if (categoryId == null && Array.isArray(Admin.categories) && Admin.categories.length > 0) {
-      categoryId = Admin.categories[0].id;
+    let categoryId = State.quiz.catId;
+    if (categoryId == null) {
+      const firstCategory = getActiveCategories()[0] || getFirstCategory();
+      categoryId = firstCategory?.id;
     }
 
-    var catObj = null;
-    if (Array.isArray(Admin.categories)) {
-      for (var ci = 0; ci < Admin.categories.length; ci++) {
-        var catItem = Admin.categories[ci];
-        if (catItem && catItem.id === categoryId) { catObj = catItem; break; }
-      }
-    }
-
-    var diffPool;
-    if (catObj && Array.isArray(catObj.difficulties) && catObj.difficulties.length) {
-      diffPool = catObj.difficulties;
-    } else if (Array.isArray(Admin.diffs) && Admin.diffs.length) {
-      diffPool = Admin.diffs;
-    } else {
-      diffPool = DEFAULT_DIFFS;
-    }
+    const catObj = findCategoryById(categoryId);
+    const diffPoolRaw = getCategoryDifficultyPool(catObj);
+    const diffPool = Array.isArray(diffPoolRaw) && diffPoolRaw.length ? diffPoolRaw : getEffectiveDiffs();
 
     var preferred = null;
     if (State.quiz.diffValue != null) {
@@ -2511,8 +2135,6 @@ async function startQuizFromAdmin(arg) {
       }
     }
     if (!preferred && diffPool.length) preferred = diffPool[0];
-    if (!preferred && Array.isArray(Admin.diffs) && Admin.diffs.length) preferred = Admin.diffs[0];
-    if (!preferred && DEFAULT_DIFFS.length) preferred = DEFAULT_DIFFS[0];
 
     await startQuizFromAdmin({ count:5, difficulty: preferred ? preferred.value : undefined, categoryId, source:'daily' });
   }
@@ -3480,8 +3102,7 @@ async function startPurchaseCoins(pkgId){
   ];
 
   function getDuelCategories(){
-    if (!Array.isArray(Admin.categories)) return [];
-    return Admin.categories.filter(cat => cat && cat.id != null);
+    return getActiveCategories();
   }
 
   function pickOpponentCategory(roundIndex){
@@ -3604,9 +3225,12 @@ async function startPurchaseCoins(pkgId){
         difficultyValue = diffMatch.value;
         difficultyLabel = diffMatch.label || diffMatch.value;
       }
-    } else if (!difficultyValue && Array.isArray(Admin.diffs) && Admin.diffs.length){
-      difficultyValue = Admin.diffs[0].value;
-      difficultyLabel = Admin.diffs[0].label || Admin.diffs[0].value;
+    } else if (!difficultyValue){
+      const fallbackDiffs = getEffectiveDiffs();
+      if (fallbackDiffs.length){
+        difficultyValue = fallbackDiffs[0].value;
+        difficultyLabel = fallbackDiffs[0].label || fallbackDiffs[0].value;
+      }
     }
     DuelSession.difficulty = { value: difficultyValue, label: difficultyLabel };
 
@@ -3984,14 +3608,8 @@ async function startPurchaseCoins(pkgId){
     if (categoryId == null && categories.length) categoryId = categories[0].id;
     let catObj = categories.find(cat => cat.id === categoryId) || categories[0] || null;
 
-    let diffPool;
-    if (catObj && Array.isArray(catObj.difficulties) && catObj.difficulties.length) {
-      diffPool = catObj.difficulties;
-    } else if (Array.isArray(Admin.diffs) && Admin.diffs.length) {
-      diffPool = Admin.diffs;
-    } else {
-      diffPool = DEFAULT_DIFFS;
-    }
+    const diffPoolRaw = getCategoryDifficultyPool(catObj);
+    const diffPool = Array.isArray(diffPoolRaw) && diffPoolRaw.length ? diffPoolRaw : getEffectiveDiffs();
 
     let preferred = null;
     if (State.quiz.diffValue != null) {
@@ -4019,8 +3637,6 @@ async function startPurchaseCoins(pkgId){
       }
     }
     if (!preferred && diffPool.length) preferred = diffPool[0];
-    if (!preferred && Array.isArray(Admin.diffs) && Admin.diffs.length) preferred = Admin.diffs[0];
-    if (!preferred && DEFAULT_DIFFS.length) preferred = DEFAULT_DIFFS[0];
 
     const difficultyInfo = preferred ? { value: preferred.value, label: preferred.label || preferred.value } : null;
 
