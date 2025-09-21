@@ -568,37 +568,30 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
         difficulty,
         category: categoryDoc._id,
         categoryName: categoryDoc.name,
-        provider: providerForUpdate,
         source: normalizedSource,
         lang: normalizedLang,
         type: normalizedType,
         checksum,
-        active,
+        authorName
+      },
+      $set: {
         status: normalizedStatus,
-        authorName,
-        isApproved
+        isApproved,
+        active
       }
     };
 
     if (providerForUpdate) {
-      updateDocument.$set = { provider: providerForUpdate };
-    } else {
-      updateDocument.$set = {};
+      updateDocument.$set.provider = providerForUpdate;
     }
 
     if (providerId) {
-      updateDocument.$setOnInsert.providerId = providerId;
       updateDocument.$set.providerId = providerId;
     }
 
     if (meta) {
-      updateDocument.$setOnInsert.meta = meta;
       updateDocument.$set.meta = meta;
     }
-
-    updateDocument.$set.status = normalizedStatus;
-    updateDocument.$set.isApproved = isApproved;
-    updateDocument.$set.active = active;
 
     operations.push({
       updateOne: {

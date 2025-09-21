@@ -27,18 +27,6 @@ const TRIVIA_PROVIDERS = [
       difficulties: { selectable: true, multiple: true },
       breakdown: true
     }
-  },
-  {
-    id: 'cluebase',
-    name: 'Cluebase',
-    shortName: 'Cluebase',
-    description: 'مجموعه‌ای به‌روز از سوالات Jeopardy! با پاسخ‌های ساخت‌یافته و دسته‌بندی‌های متنوع.',
-    capabilities: {
-      amount: { min: 1, max: 50, default: 15 },
-      categories: { selectable: false, remote: false },
-      difficulties: { selectable: false, multiple: false },
-      breakdown: true
-    }
   }
 ];
 
@@ -53,16 +41,7 @@ const PROVIDER_ID_ALIASES = Object.freeze({
   thetriviaapi: 'the-trivia-api',
   'the trivia api': 'the-trivia-api',
   'the-triviaapi': 'the-trivia-api',
-  'the trivia-api': 'the-trivia-api',
-  cluebase: 'cluebase',
-  'clue-base': 'cluebase',
-  'clue_base': 'cluebase',
-  'clue base': 'cluebase',
-  jservice: 'cluebase',
-  'j-service': 'cluebase',
-  'j_service': 'cluebase',
-  'j service': 'cluebase',
-  jeopardy: 'cluebase',
+  'the trivia-api': 'the-trivia-api'
 });
 
 function normalizeProviderId(value) {

@@ -55,14 +55,7 @@ const TRIVIA_PROVIDER_ID_ALIASES = {
   'thetriviaapi': 'the-trivia-api',
   'the trivia api': 'the-trivia-api',
   'the-triviaapi': 'the-trivia-api',
-  'the trivia-api': 'the-trivia-api',
-  cluebase: 'cluebase',
-  'clue-base': 'cluebase',
-  'clue_base': 'cluebase',
-  'clue base': 'cluebase',
-  jservice: 'cluebase',
-  'j-service': 'cluebase',
-  'jeopardy': 'cluebase'
+  'the trivia-api': 'the-trivia-api'
 };
 
 function normalizeProviderId(value) {
@@ -97,17 +90,6 @@ const DEFAULT_TRIVIA_PROVIDERS = [
       amount: { min: 1, max: 50, default: 20 },
       categories: { selectable: false, remote: false },
       difficulties: { selectable: true, multiple: true }
-    }
-  },
-  {
-    id: 'cluebase',
-    name: 'Cluebase (Jeopardy)',
-    shortName: 'Cluebase',
-    description: 'پایگاه بروزرسانی‌شده‌ی سرنخ‌های Jeopardy! با ساختار مناسب برای چهارگزینه‌ای کردن پرسش‌ها.',
-    capabilities: {
-      amount: { min: 1, max: 50, default: 15 },
-      categories: { selectable: false, remote: false },
-      difficulties: { selectable: false, multiple: false }
     }
   }
 ];
@@ -301,11 +283,6 @@ const questionFilters = {
   approvedOnly: undefined
 };
 
-const lastCluebaseFilters = {
-  type: undefined,
-  approvedOnly: undefined
-};
-
 function initializeProviderFilterOptions() {
   if (!filterProviderSelect) return;
 
@@ -324,8 +301,6 @@ function initializeProviderFilterOptions() {
     { value: '', label: 'همه منابع' },
     { value: 'opentdb', label: getProviderLabel('opentdb', 'OpenTDB') },
     { value: 'the-trivia-api', label: getProviderLabel('the-trivia-api', 'The Trivia API') },
-    { value: 'cluebase', label: getProviderLabel('cluebase', 'Cluebase (Jeopardy)') },
-    { value: 'jservice', label: 'JService (آفلاین – استفاده از Cluebase)' },
     { value: 'manual', label: SOURCE_META.manual?.label || 'ایجاد دستی' },
     { value: 'community', label: SOURCE_META.community?.label || 'سازنده‌ها' }
   ];
@@ -430,6 +405,7 @@ function sanitizeProviderList(list) {
       const id = resolveProviderId(rawId);
       if (!id) return;
       const fallback = fallbackMap.get(id);
+      if (!fallback) return;
       const baseName = provider?.name || fallback?.name || id;
       const shortName = provider?.shortName || fallback?.shortName || baseName;
       const description = provider?.description || fallback?.description || '';
@@ -1554,10 +1530,7 @@ function updateProviderInfoDisplay(provider = getActiveProvider()) {
   const label = formatProviderLabel(provider);
   const description = provider?.description ? escapeHtml(provider.description) : '---';
   const baseContent = `<span class="font-semibold text-white">${escapeHtml(label)}</span> – ${description}`;
-  const showAliasNotice = triviaControlState.providerRaw === 'jservice';
-  triviaProviderInfoEl.innerHTML = showAliasNotice
-    ? `${baseContent}<span class="block mt-1 text-xs text-amber-300">offline → using Cluebase alias</span>`
-    : baseContent;
+  triviaProviderInfoEl.innerHTML = baseContent;
 }
 
 function updateCategoryCardContent(provider = getActiveProvider()) {
@@ -2187,12 +2160,6 @@ function updateTriviaSummary() {
   }
   if (!supportsDifficulties) {
     summaryNotes.push({ text: 'سطح دشواری این منبع به صورت خودکار مدیریت می‌شود.', className: 'text-xs text-sky-200' });
-  }
-  if (resolveProviderId(provider?.id) === 'cluebase') {
-    summaryNotes.push({
-      text: 'سوالات Cluebase از آرشیو Jeopardy! انتخاب و به صورت چهارگزینه‌ای با حواس‌پرت‌کن‌های هم‌دسته تکمیل می‌شوند.',
-      className: 'text-xs text-cyan-200'
-    });
   }
   const notesHtml = summaryNotes.length
     ? summaryNotes.map((note) => `<p class="${note.className}">${escapeHtml(note.text)}</p>`).join('')
@@ -3057,25 +3024,8 @@ async function loadQuestions(overrides = {}) {
       }
     }
 
-    const activeProvider = questionFilters.provider || '';
-    const normalizedActiveProvider = resolveProviderId(activeProvider);
-    const isCluebaseProvider = normalizedActiveProvider === 'cluebase';
-    if (isCluebaseProvider && typeof questionFilters.type === 'undefined') {
-      questionFilters.type = typeof lastCluebaseFilters.type !== 'undefined'
-        ? lastCluebaseFilters.type
-        : 'multiple';
-    }
-    if (isCluebaseProvider && typeof questionFilters.approvedOnly === 'undefined') {
-      questionFilters.approvedOnly = typeof lastCluebaseFilters.approvedOnly !== 'undefined'
-        ? lastCluebaseFilters.approvedOnly
-        : true;
-    }
     if (questionFilters.status && questionFilters.status !== 'approved') {
       questionFilters.approvedOnly = false;
-    }
-    if (isCluebaseProvider) {
-      lastCluebaseFilters.type = questionFilters.type;
-      lastCluebaseFilters.approvedOnly = questionFilters.approvedOnly;
     }
 
     if (filterSortSelect && questionFilters.sort && filterSortSelect.value !== questionFilters.sort) {
@@ -3106,9 +3056,7 @@ async function loadQuestions(overrides = {}) {
       }
     }
     if (filterTypeHelper) {
-      filterTypeHelper.textContent = isCluebaseProvider
-        ? 'سوالات Cluebase پس از تبدیل به چهارگزینه‌ای قابل نمایش هستند.'
-        : 'با فعال کردن این گزینه تنها سوالات چهارگزینه‌ای نمایش داده می‌شوند.';
+      filterTypeHelper.textContent = 'با فعال کردن این گزینه تنها سوالات چهارگزینه‌ای نمایش داده می‌شوند.';
     }
     if (filterApprovedHelper) {
       filterApprovedHelper.textContent = questionFilters.approvedOnly === false
@@ -3172,13 +3120,6 @@ async function loadQuestions(overrides = {}) {
       let emptyMessage = hasFilters
         ? 'هیچ سوالی با فیلترهای انتخاب شده یافت نشد.'
         : 'هنوز سوالی ثبت نشده است. از دکمه «افزودن سوال» یا ابزار دریافت سوالات خودکار استفاده کنید.';
-      if (!hasFilters && isCluebaseProvider) {
-        emptyMessage = 'هیچ سوالی از Cluebase در دسترس نیست. ممکن است سرنخ‌های دریافتی پس از تبدیل حذف شده باشند.';
-      } else if (isCluebaseProvider && questionFilters.type === 'multiple' && questionFilters.approvedOnly !== false) {
-        emptyMessage = 'هیچ سوال چهارگزینه‌ای تایید شده‌ای پس از تبدیل از Cluebase یافت نشد.';
-      } else if (isCluebaseProvider && questionFilters.type === 'multiple' && questionFilters.approvedOnly === false) {
-        emptyMessage = 'حتی با نمایش سوالات تایید نشده، سوال چهارگزینه‌ای معتبری از Cluebase یافت نشد.';
-      }
       tbody.innerHTML = `
         <tr class="empty-row">
           <td colspan="4">
@@ -3659,15 +3600,7 @@ if (filterProviderSelect) {
   filterProviderSelect.addEventListener('change', () => {
     if (!getToken()) return;
     const value = filterProviderSelect.value || '';
-    const normalized = value ? resolveProviderId(value) : '';
-    const overrides = { provider: value };
-    if (normalized !== 'cluebase') {
-      lastCluebaseFilters.type = questionFilters.type;
-      lastCluebaseFilters.approvedOnly = questionFilters.approvedOnly;
-      overrides.type = undefined;
-      overrides.approvedOnly = undefined;
-    }
-    loadQuestions(overrides);
+    loadQuestions({ provider: value });
   });
 }
 
