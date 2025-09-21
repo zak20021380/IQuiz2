@@ -44,6 +44,39 @@ const JSERVICE_FALLBACK_DISTRACTORS = [
   'Neil Armstrong'
 ];
 
+const AUTO_IMPORT_SOURCES = ['opentdb', 'the-trivia-api', 'jservice'];
+
+let ensureAutoImportStatusPromise;
+
+async function ensureAutoImportStatuses() {
+  if (!ensureAutoImportStatusPromise) {
+    ensureAutoImportStatusPromise = (async () => {
+      try {
+        const result = await Question.updateMany(
+          {
+            source: { $in: AUTO_IMPORT_SOURCES },
+            $or: [
+              { status: { $exists: false } },
+              { status: null },
+              { status: '' }
+            ]
+          },
+          { $set: { status: 'approved' } }
+        );
+
+        const modified = result?.modifiedCount || result?.nModified || 0;
+        if (modified > 0) {
+          logger.info(`[TriviaImporter] Backfilled approved status for ${modified} auto-imported questions.`);
+        }
+      } catch (err) {
+        logger.error(`[TriviaImporter] Failed to backfill approved status on auto-imported questions: ${err.message}`);
+      }
+    })();
+  }
+
+  return ensureAutoImportStatusPromise;
+}
+
 function decodeHtml(value) {
   if (value === undefined || value === null) return '';
   const str = String(value);
@@ -420,6 +453,8 @@ function dedupeQuestions(questions) {
 }
 
 async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {}) {
+  await ensureAutoImportStatuses();
+
   const deduped = dedupeQuestions(questions);
   if (deduped.length === 0) {
     return {
@@ -458,6 +493,8 @@ async function storeNormalizedQuestions(questions, { fetchDurationMs = 0 } = {})
             type: question.type,
             checksum: question.checksum,
             active: true,
+            status: 'approved',
+            authorName: question.authorName || 'IQuiz Team',
             createdAt: insertedAt,
             updatedAt: insertedAt
           }
