@@ -42,9 +42,29 @@ const TRIVIA_PROVIDERS = [
   }
 ];
 
+const PROVIDER_ID_ALIASES = Object.freeze({
+  opentdb: 'opentdb',
+  'open-trivia-db': 'opentdb',
+  'open_trivia_db': 'opentdb',
+  'open trivia db': 'opentdb',
+  'open trivia database': 'opentdb',
+  'the-trivia-api': 'the-trivia-api',
+  triviaapi: 'the-trivia-api',
+  thetriviaapi: 'the-trivia-api',
+  'the trivia api': 'the-trivia-api',
+  'the-triviaapi': 'the-trivia-api',
+  'the trivia-api': 'the-trivia-api',
+  jservice: 'jservice',
+  'j-service': 'jservice',
+  'j_service': 'jservice',
+  'j service': 'jservice',
+  jeopardy: 'jservice',
+});
+
 function normalizeProviderId(value) {
   if (!value) return '';
-  return String(value).trim().toLowerCase();
+  const normalized = String(value).trim().toLowerCase();
+  return PROVIDER_ID_ALIASES[normalized] || normalized;
 }
 
 function listTriviaProviders() {
