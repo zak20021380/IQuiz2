@@ -1,7 +1,9 @@
 'use strict';
 
 const JServiceCache = require('./cache');
-const { fetchRandomClues } = require('./client');
+const client = require('./client');
+
+const { random: fetchRandomClues, clues: fetchClues, categories: fetchCategories, normalizeText } = client;
 
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const CACHE_MAX = 200;
@@ -22,14 +24,41 @@ function clampCount(value) {
 }
 
 /**
+ * Normalize category metadata for API responses.
+ * @param {{id?:number|string, title?:string, clues_count?:number|string}|null} category
+ * @returns {{id:(number|null), title:string, clues_count?:number}}
+ */
+function mapCategory(category) {
+  if (!category || typeof category !== 'object') {
+    return { id: null, title: 'General' };
+  }
+
+  const parsedId = Number.parseInt(category.id, 10);
+  const parsedCount = Number.parseInt(category.clues_count, 10);
+  const normalizedTitle = normalizeText(category.title || '');
+
+  const result = {
+    id: Number.isFinite(parsedId) ? parsedId : null,
+    title: normalizedTitle || (typeof category.title === 'string' && category.title.trim() ? category.title.trim() : 'General'),
+  };
+
+  if (Number.isFinite(parsedCount)) {
+    result.clues_count = parsedCount;
+  }
+
+  return result;
+}
+
+/**
  * Normalize clue for API response.
- * @param {{id:number, category:string, question:string, answer:string, airdate:string|null}} clue
- * @returns {{id:number, category:string, question:string, answer:string, airdate:string|null}}
+ * @param {{id:number, category:{id:(number|null), title:string, clues_count?:number}, question:string, answer:string, airdate:string|null, value:(number|null)}} clue
+ * @returns {{id:number, category:{id:(number|null), title:string, clues_count?:number}, question:string, answer:string, airdate:string|null, value:(number|null)}}
  */
 function mapForResponse(clue) {
+  const category = mapCategory(clue && typeof clue === 'object' ? clue.category : null);
   return {
     id: clue.id,
-    category: clue.category,
+    category,
     question: clue.question,
     answer: clue.answer,
     airdate: clue.airdate || null,
@@ -107,7 +136,48 @@ function getCacheSnapshot() {
   };
 }
 
+async function random(count) {
+  const requested = clampCount(count);
+  const data = await getRandomClues(requested);
+  return {
+    ok: true,
+    data,
+    meta: {
+      requested,
+      delivered: data.length,
+      cacheSize: getCacheSnapshot().size,
+    },
+  };
+}
+
+async function clues(params = {}) {
+  const items = await fetchClues(params);
+  const data = Array.isArray(items) ? items.map(mapForResponse) : [];
+  return {
+    ok: true,
+    data,
+    meta: {
+      count: data.length,
+    },
+  };
+}
+
+async function categories(params = {}) {
+  const items = await fetchCategories(params);
+  const data = Array.isArray(items) ? items.map(mapCategory) : [];
+  return {
+    ok: true,
+    data,
+    meta: {
+      count: data.length,
+    },
+  };
+}
+
 module.exports = {
+  random,
+  clues,
+  categories,
   getRandomClues,
   getCacheSnapshot,
   clampCount,

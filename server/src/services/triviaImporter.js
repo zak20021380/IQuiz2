@@ -5,7 +5,7 @@ const Question = require('../models/Question');
 const Category = require('../models/Category');
 const { getTriviaProviderById, normalizeProviderId } = require('./triviaProviders');
 const { getFromTheTriviaAPI } = require('../providers/thetrivia');
-const { fetchRandomClues: fetchJServiceRandomClues } = require('./jservice/client');
+const { random: fetchJServiceRandomClues } = require('./jservice/client');
 
 const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const HTML_ENTITY_MAP = {
