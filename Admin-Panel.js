@@ -2114,11 +2114,17 @@ function setToken(t) { localStorage.setItem('iq_admin_token', t); }
 function logout() { localStorage.removeItem('iq_admin_token'); location.reload(); }
 
 async function api(path, options = {}) {
-  const headers = options.headers || {};
+  const headers = options.headers ? { ...options.headers } : {};
   const token = getToken();
   if (token) headers['Authorization'] = 'Bearer ' + token;
   headers['Content-Type'] = 'application/json';
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  const fetchOptions = { ...options, headers };
+  if (!fetchOptions.cache) {
+    fetchOptions.cache = 'no-store';
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, fetchOptions);
   if (!res.ok) {
     const err = await res.json().catch(()=>({message:'Request failed'}));
     throw new Error(err.message || 'Request failed');
