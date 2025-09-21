@@ -5,8 +5,77 @@ const zlib = require('zlib');
 const env = require('../../config/env');
 const { fetchWithRetry } = require('../../lib/http');
 
-const DEFAULT_ENDPOINT = 'https://jservice.io/api/random';
-const API_ENDPOINT = (env && env.trivia && env.trivia.jserviceUrl) || DEFAULT_ENDPOINT;
+const DEFAULT_BASE = 'http://jservice.io/api';
+
+function sanitizeBase(base) {
+  if (typeof base !== 'string') {
+    return '';
+  }
+  const trimmed = base.trim();
+  if (!trimmed) {
+    return '';
+  }
+  return trimmed.replace(/\/+$/, '');
+}
+
+function deriveBaseFromUrl(url) {
+  if (typeof url !== 'string') {
+    return '';
+  }
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const sanitized = trimmed.replace(/\/+$/, '');
+  try {
+    const parsed = new URL(sanitized);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      segments.pop();
+      parsed.pathname = segments.length ? `/${segments.join('/')}` : '/';
+    }
+    parsed.search = '';
+    parsed.hash = '';
+    return sanitizeBase(parsed.toString());
+  } catch (error) {
+    const withoutQuery = sanitized.split(/[?#]/)[0];
+    const fallbackNormalized = sanitizeBase(withoutQuery);
+    const schemeIndex = fallbackNormalized.indexOf('://');
+    const minimumSliceIndex = schemeIndex >= 0 ? schemeIndex + 3 : 0;
+    const lastSlashIndex = fallbackNormalized.lastIndexOf('/');
+    if (lastSlashIndex > minimumSliceIndex) {
+      return fallbackNormalized.slice(0, lastSlashIndex);
+    }
+  }
+
+  return '';
+}
+
+const triviaEnv = (env && env.trivia) || {};
+let resolvedBase = sanitizeBase(triviaEnv.jserviceBase) || DEFAULT_BASE;
+const baseIsDefault = resolvedBase === DEFAULT_BASE;
+const defaultRandomEndpoint = `${resolvedBase}/random`;
+const legacyRandom = typeof triviaEnv.jserviceUrl === 'string' ? triviaEnv.jserviceUrl.trim() : '';
+const sanitizedLegacyRandom = sanitizeBase(legacyRandom);
+const sanitizedDefaultRandomEndpoint = sanitizeBase(defaultRandomEndpoint);
+let randomEndpoint = defaultRandomEndpoint;
+
+if (sanitizedLegacyRandom && sanitizedLegacyRandom !== sanitizedDefaultRandomEndpoint) {
+  randomEndpoint = legacyRandom;
+  if (baseIsDefault) {
+    const derivedBase = deriveBaseFromUrl(legacyRandom);
+    if (derivedBase) {
+      resolvedBase = derivedBase;
+    }
+  }
+}
+
+const API_ENDPOINTS = {
+  random: randomEndpoint,
+  clues: `${resolvedBase}/clues`,
+  categories: `${resolvedBase}/categories`,
+};
 const MAX_BATCH = 100;
 const RETRY_DELAYS = [250, 500, 1000];
 
@@ -177,7 +246,7 @@ function sanitizePayloadText(text) {
 
 async function fetchRandomClues(count) {
   const size = Math.min(Math.max(Math.floor(count) || 1, 1), MAX_BATCH);
-  const url = `${API_ENDPOINT}?count=${size}`;
+  const url = `${API_ENDPOINTS.random}?count=${size}`;
   let response;
   try {
     response = await fetchWithRetry(url, {
