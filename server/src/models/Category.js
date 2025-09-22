@@ -2,6 +2,17 @@ const mongoose = require('mongoose');
 
 const ALLOWED_COLORS = new Set(['blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'red', 'teal', 'indigo']);
 
+function slugify(value) {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9\u0600-\u06FF-]+/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || 'category';
+}
+
 function sanitizeColor(value) {
   if (!value) return 'blue';
   const normalized = String(value).trim().toLowerCase();
@@ -19,6 +30,7 @@ function sanitizeAliases(values) {
 const categorySchema = new mongoose.Schema(
   {
     name:        { type: String, required: true, unique: true, trim: true },
+    slug:        { type: String, required: true, unique: true, trim: true },
     displayName: { type: String, trim: true, default: '' },
     description: { type: String, default: '' },
     icon:        { type: String, default: 'fa-globe' },
@@ -40,6 +52,31 @@ const categorySchema = new mongoose.Schema(
 );
 
 categorySchema.index({ provider: 1, providerCategoryId: 1 }, { unique: true, sparse: true });
+categorySchema.index({ slug: 1 }, { unique: true });
+
+categorySchema.pre('validate', async function ensureSlug(next) {
+  try {
+    const sourceValue = this.slug || this.displayName || this.name;
+    let base = slugify(sourceValue);
+    if (!base) base = `category-${Date.now()}`;
+
+    if (!this.slug || this.isModified('slug') || this.isModified('name') || this.isModified('displayName')) {
+      let candidate = base;
+      let suffix = 2;
+      // eslint-disable-next-line no-await-in-loop
+      while (await this.constructor.exists({ slug: candidate, _id: { $ne: this._id } })) {
+        candidate = `${base}-${suffix}`;
+        suffix += 1;
+      }
+      this.slug = candidate;
+    }
+  } catch (error) {
+    next(error);
+    return;
+  }
+
+  next();
+});
 
 categorySchema.pre('save', function deriveDisplayName(next) {
   if (!this.displayName) {

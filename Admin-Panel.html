@@ -199,6 +199,264 @@
       box-shadow: 0 16px 40px -24px rgba(30,64,175,0.65);
       transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
+    .form-static{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0.65rem 1rem;
+      border-radius: 0.75rem;
+      background: rgba(15,23,42,0.68);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #f8fafc;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .ai-generator{
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      border-radius: 1.5rem;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(15,23,42,0.82);
+      box-shadow: 0 24px 60px -30px rgba(15,23,42,0.8);
+      position: relative;
+    }
+    .ai-generator[data-theme="light"]{
+      background: rgba(255,255,255,0.92);
+      border-color: rgba(15,23,42,0.12);
+      color: #0f172a;
+      box-shadow: 0 18px 50px -28px rgba(148,163,184,0.6);
+    }
+    .ai-generator-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
+    }
+    .ai-generator-title{
+      font-size:1.5rem;
+      font-weight:700;
+      margin:0;
+    }
+    .ai-generator-subtitle{
+      margin:0.35rem 0 0;
+      font-size:0.92rem;
+      color:rgba(248,250,252,0.75);
+    }
+    .ai-generator[data-theme="light"] .ai-generator-subtitle{
+      color:rgba(15,23,42,0.6);
+    }
+    .ai-theme-toggle{
+      border:none;
+      background:rgba(248,250,252,0.12);
+      color:#f8fafc;
+      width:40px;
+      height:40px;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition:background 0.2s ease, transform 0.2s ease;
+    }
+    .ai-theme-toggle:focus{
+      outline:2px solid rgba(148,163,184,0.45);
+      outline-offset:2px;
+    }
+    .ai-theme-toggle:hover{
+      background:rgba(248,250,252,0.2);
+      transform:scale(1.05);
+    }
+    .ai-generator[data-theme="light"] .ai-theme-toggle{
+      background:rgba(15,23,42,0.08);
+      color:#0f172a;
+    }
+    .ai-form{
+      display:grid;
+      grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
+      gap:1.25rem 1rem;
+    }
+    .ai-field{
+      display:flex;
+      flex-direction:column;
+      gap:0.5rem;
+    }
+    .ai-field-wide{
+      grid-column: 1 / -1;
+    }
+    .ai-label{
+      font-weight:600;
+      font-size:0.95rem;
+    }
+    .ai-input{
+      background:rgba(15,23,42,0.65);
+      border:1px solid rgba(255,255,255,0.12);
+      color:#f8fafc;
+      border-radius:0.75rem;
+      padding:0.65rem 0.85rem;
+      font-size:0.95rem;
+      transition:border 0.2s ease, box-shadow 0.2s ease;
+    }
+    .ai-input:focus{
+      outline:none;
+      border-color:rgba(96,165,250,0.8);
+      box-shadow:0 0 0 3px rgba(59,130,246,0.25);
+    }
+    .ai-generator[data-theme="light"] .ai-input{
+      background:rgba(255,255,255,0.92);
+      border-color:rgba(15,23,42,0.1);
+      color:#0f172a;
+    }
+    .ai-range-wrapper{
+      display:flex;
+      align-items:center;
+      gap:0.75rem;
+    }
+    .ai-range{
+      flex:1;
+      accent-color:#38bdf8;
+    }
+    .ai-input-inline{
+      width:84px;
+      text-align:center;
+    }
+    .ai-helper{
+      font-size:0.8rem;
+      color:rgba(248,250,252,0.6);
+    }
+    .ai-generator[data-theme="light"] .ai-helper{
+      color:rgba(15,23,42,0.5);
+    }
+    .ai-difficulty-options{
+      display:flex;
+      gap:0.75rem;
+      flex-wrap:wrap;
+    }
+    .ai-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:0.5rem;
+      padding:0.55rem 0.9rem;
+      border-radius:999px;
+      background:rgba(59,130,246,0.15);
+      color:#f8fafc;
+      font-weight:600;
+      cursor:pointer;
+      border:1px solid transparent;
+      transition:background 0.2s ease, border 0.2s ease;
+    }
+    .ai-chip input{
+      appearance:none;
+      width:0;
+      height:0;
+      margin:0;
+    }
+    .ai-chip:hover,
+    .ai-chip input:checked + span,
+    .ai-chip input:checked ~ span{
+      border-color:rgba(59,130,246,0.5);
+      background:rgba(59,130,246,0.25);
+    }
+    .ai-generator[data-theme="light"] .ai-chip{
+      background:rgba(59,130,246,0.1);
+      color:#0f172a;
+    }
+    .ai-actions{
+      display:flex;
+      flex-direction:column;
+      gap:0.75rem;
+    }
+    @media (min-width:768px){
+      .ai-actions{ flex-direction:row; }
+    }
+    .ai-status{
+      font-size:0.85rem;
+      color:rgba(248,250,252,0.7);
+      min-height:1.2rem;
+    }
+    .ai-status[data-tone="success"]{ color:#4ade80; }
+    .ai-status[data-tone="warning"]{ color:#facc15; }
+    .ai-status[data-tone="error"]{ color:#f87171; }
+    .ai-generator[data-theme="light"] .ai-status{
+      color:rgba(15,23,42,0.6);
+    }
+    .ai-generator[data-theme="light"] .ai-status[data-tone="success"]{ color:#15803d; }
+    .ai-generator[data-theme="light"] .ai-status[data-tone="warning"]{ color:#b45309; }
+    .ai-generator[data-theme="light"] .ai-status[data-tone="error"]{ color:#dc2626; }
+    .ai-preview{
+      border-radius:1rem;
+      border:1px solid rgba(255,255,255,0.12);
+      padding:1rem;
+      background:rgba(15,23,42,0.35);
+    }
+    .ai-generator[data-theme="light"] .ai-preview{
+      background:rgba(255,255,255,0.85);
+      border-color:rgba(15,23,42,0.1);
+    }
+    .ai-preview-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:0.75rem;
+    }
+    .ai-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:0.35rem;
+      padding:0.25rem 0.75rem;
+      border-radius:999px;
+      background:rgba(59,130,246,0.2);
+      color:#bfdbfe;
+      font-size:0.75rem;
+      font-weight:600;
+    }
+    .ai-preview-table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+    }
+    .ai-preview-table th,
+    .ai-preview-table td{
+      padding:0.65rem 0.75rem;
+      text-align:right;
+      font-size:0.9rem;
+      vertical-align:top;
+    }
+    .ai-preview-table th{
+      background:rgba(59,130,246,0.12);
+      color:#dbeafe;
+      font-weight:700;
+    }
+    .ai-preview-table tr:nth-child(even){
+      background:rgba(148,163,184,0.12);
+    }
+    .ai-generator[data-theme="light"] .ai-preview-table th{
+      background:rgba(59,130,246,0.1);
+      color:#0f172a;
+    }
+    .ai-generator[data-theme="light"] .ai-preview-table tr:nth-child(even){
+      background:rgba(226,232,240,0.7);
+    }
+    .ai-preview-empty{
+      text-align:center;
+      color:rgba(248,250,252,0.7);
+      font-size:0.9rem;
+    }
+    .ai-generator[data-theme="light"] .ai-preview-empty{
+      color:rgba(15,23,42,0.6);
+    }
+    .sr-only{
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
+    }
     .shop-metric-card:hover {
       transform: translateY(-4px);
       box-shadow: 0 22px 50px -22px rgba(59,130,246,0.6);
@@ -698,16 +956,10 @@
       background: linear-gradient(135deg, rgba(96,165,250,0.16), rgba(129,140,248,0.12));
       color: #bfdbfe;
     }
-    .meta-chip.source-opentdb {
-      border-color: rgba(236, 72, 153, 0.4);
-      background: linear-gradient(135deg, rgba(236,72,153,0.16), rgba(129,140,248,0.14));
-      color: #fbcfe8;
-    }
-    .meta-chip.source-jservice,
-    .meta-chip.source-cluebase {
-      border-color: rgba(129, 140, 248, 0.4);
-      background: linear-gradient(135deg, rgba(99,102,241,0.16), rgba(129,140,248,0.14));
-      color: #c7d2fe;
+    .meta-chip.source-ai {
+      border-color: rgba(129, 140, 248, 0.45);
+      background: linear-gradient(135deg, rgba(139,92,246,0.18), rgba(14,165,233,0.18));
+      color: #ddd6fe;
     }
     .meta-chip.source-community {
       border-color: rgba(56, 189, 248, 0.35);
@@ -1751,14 +2003,8 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm mb-1">منبع</label>
-              <select id="filter-provider" class="form-select">
-                <option value="">همه منابع</option>
-                <option value="opentdb">OpenTDB</option>
-                <option value="the-trivia-api">The Trivia API</option>
-                <option value="manual">ایجاد دستی</option>
-                <option value="community">سازنده‌ها</option>
-              </select>
+              <label class="block text-sm mb-1" for="ai-source-chip">منبع</label>
+              <div id="ai-source-chip" class="form-static" role="status" aria-live="polite">سوالات هوش مصنوعی</div>
             </div>
             <div>
               <label class="block text-sm mb-1">فیلتر نوع سوال</label>
@@ -1805,104 +2051,101 @@
           </div>
         </div>
 
-        <!-- Trivia Import Controls -->
-        <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
-          <div class="glass rounded-2xl p-6 xl:col-span-3 space-y-6">
-            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div>
-                <h2 class="text-xl font-semibold">کنترل حرفه‌ای دریافت سوالات از API</h2>
-                <p class="text-sm text-white/70 mt-1">انتخاب دقیق دسته‌بندی، سطح دشواری و تعداد سوالات پیش از درون‌ریزی به بانک سوالات.</p>
-              </div>
-              <button id="trivia-refresh-categories" class="btn btn-tertiary w-full md:w-auto px-4 py-2 text-sm">
-                <i class="fa-solid fa-rotate ml-2"></i>
-                بروزرسانی لیست دسته‌ها
-              </button>
+        <!-- AI Question Generator -->
+        <section class="glass ai-generator" id="ai-generator-panel" data-theme="dark">
+          <div class="ai-generator-header">
+            <div>
+              <h2 class="ai-generator-title">تولید با ChatGPT</h2>
+              <p class="ai-generator-subtitle">سوالات چهارجوابی فارسی را با چند کلیک تولید کنید.</p>
             </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div id="trivia-provider-card" class="glass-dark rounded-2xl p-4 border border-white/5 lg:col-span-2 space-y-4">
-                <div>
-                  <label class="block text-sm font-semibold text-white/80">انتخاب منبع سوالات</label>
-                  <p id="trivia-provider-info" class="text-xs text-white/60 mt-1">
-                    پیش‌فرض: OpenTDB – برای تغییر منبع سوالات، یکی از گزینه‌های زیر را انتخاب کنید.
-                  </p>
-                </div>
-                <div id="trivia-provider-options" class="flex flex-wrap gap-2"></div>
-              </div>
-
-              <div class="glass-dark rounded-2xl p-4 border border-white/5">
-                <label for="trivia-amount-range" class="block text-sm font-semibold text-white/80">تعداد کل سوالات درخواستی</label>
-                <p id="trivia-amount-helper" class="text-xs text-white/60 mt-1">محدوده پیشنهادی بین ۵ تا ۵۰ سوال در هر درخواست است. در صورت انتخاب دسته‌های متعدد تعداد به صورت هوشمند تقسیم می‌شود.</p>
-                <div class="flex items-center gap-4 mt-4">
-                  <input id="trivia-amount-range" type="range" min="5" max="50" value="20" class="flex-1 accent-sky-400" />
-                  <div class="flex items-center gap-2">
-                    <input id="trivia-amount-input" type="number" min="1" max="200" value="20" class="form-input w-20 text-center" />
-                    <span class="text-sm text-white/60">سوال</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="glass-dark rounded-2xl p-4 border border-white/5">
-                <label class="block text-sm font-semibold text-white/80">سطوح دشواری مورد نظر</label>
-                <p class="text-xs text-white/60 mt-1">با انتخاب چند سطح، سوالات به صورت ترکیبی دریافت خواهند شد.</p>
-                <div id="trivia-difficulty-options" class="flex flex-wrap gap-2 mt-4">
-                  <button type="button" class="chip-toggle active" data-difficulty="easy">
-                    <i class="fa-solid fa-feather"></i>
-                    <span>آسون</span>
-                  </button>
-                  <button type="button" class="chip-toggle active" data-difficulty="medium">
-                    <i class="fa-solid fa-wave-square"></i>
-                    <span>متوسط</span>
-                  </button>
-                  <button type="button" class="chip-toggle" data-difficulty="hard">
-                    <i class="fa-solid fa-fire"></i>
-                    <span>سخت</span>
-                  </button>
-                </div>
-              </div>
+            <button type="button" id="ai-theme-toggle" class="ai-theme-toggle" aria-pressed="false">
+              <i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i>
+              <span class="sr-only">تغییر حالت روشن/تاریک</span>
+            </button>
+            <span id="ai-theme-announcer" class="sr-only" aria-live="polite"></span>
+          </div>
+          <form id="ai-generator-form" class="ai-form" novalidate>
+            <div class="ai-field">
+              <label for="ai-count" class="ai-label">تعداد سوال</label>
+              <input type="number" id="ai-count" name="count" class="ai-input" min="1" max="100" value="10" required>
+              <p class="ai-helper">حداکثر ۱۰۰ سوال در هر نوبت</p>
             </div>
-
-            <div id="trivia-category-card" class="glass-dark rounded-2xl p-5 border border-white/5">
-              <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                  <label id="trivia-category-title" class="block text-sm font-semibold text-white/80">انتخاب دسته‌بندی‌های OpenTDB</label>
-                  <p id="trivia-category-description" class="text-xs text-white/60 mt-1">حداکثر دسته‌های مورد نیاز خود را انتخاب کنید؛ در صورت عدم انتخاب، سوالات عمومی دریافت می‌شود.</p>
-                </div>
-              </div>
-              <div class="relative mt-4">
-                <span class="absolute inset-y-0 left-4 flex items-center text-white/60 pointer-events-none">
-                  <i class="fa-solid fa-search"></i>
-                </span>
-                <input id="trivia-category-search" type="search" class="form-input pr-12" placeholder="جستجوی دسته‌بندی OpenTDB...">
-              </div>
-              <div id="trivia-category-list" class="category-scroll max-h-72 overflow-y-auto mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1 text-sm text-white/70">
-                <div class="glass-dark rounded-2xl border border-dashed border-white/10 p-4 text-center">
-                  <p>برای نمایش دسته‌بندی‌ها، روی «بروزرسانی لیست دسته‌ها» کلیک کنید.</p>
-                </div>
-              </div>
+            <div class="ai-field">
+              <label for="ai-category" class="ai-label">دسته‌بندی</label>
+              <select id="ai-category" name="categorySlug" class="ai-input" required aria-describedby="ai-category-helper">
+                <option value="" disabled selected>یک دسته‌بندی را انتخاب کنید</option>
+              </select>
+              <p class="ai-helper" id="ai-category-helper">دسته‌بندی‌ها به صورت خودکار از سامانه بارگذاری می‌شوند.</p>
             </div>
-
-            <div class="pt-4 border-t border-white/10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div id="trivia-selection-summary" class="text-sm text-white/70 leading-relaxed">
-                هنوز تنظیماتی انتخاب نشده است. ابتدا وارد شوید و گزینه‌های دلخواه را فعال کنید.
+            <fieldset class="ai-field ai-difficulty" aria-describedby="ai-difficulty-helper">
+              <legend class="ai-label">سطح دشواری</legend>
+              <div class="ai-difficulty-options" role="radiogroup">
+                <label class="ai-chip">
+                  <input type="radio" name="ai-difficulty" value="easy" checked>
+                  <span>آسان</span>
+                </label>
+                <label class="ai-chip">
+                  <input type="radio" name="ai-difficulty" value="medium">
+                  <span>متوسط</span>
+                </label>
+                <label class="ai-chip">
+                  <input type="radio" name="ai-difficulty" value="hard">
+                  <span>سخت</span>
+                </label>
               </div>
-              <button id="trivia-import-btn" class="btn btn-primary w-full lg:w-auto">
-                <i class="fa-solid fa-cloud-arrow-down ml-2"></i>
-                دریافت سوالات انتخابی
-              </button>
+              <p class="ai-helper" id="ai-difficulty-helper">سطح دشواری برای تمام سوالات اعمال می‌شود.</p>
+            </fieldset>
+            <div class="ai-field ai-field-wide">
+              <label for="ai-topic-hints" class="ai-label">سرنخ‌های موضوعی (اختیاری)</label>
+              <textarea id="ai-topic-hints" name="topicHints" rows="3" class="ai-input" placeholder="مثلاً: تاریخ معاصر ایران، دستاوردهای علمی ایرانیان، مسابقات فوتبال لیگ برتر"></textarea>
+            </div>
+            <div class="ai-field">
+              <label for="ai-temperature" class="ai-label">خلاقیت (Temperature)</label>
+              <div class="ai-range-wrapper">
+                <input type="range" id="ai-temperature" name="temperature" class="ai-range" min="0" max="1" step="0.01" value="0.35" aria-describedby="ai-temperature-helper">
+                <input type="number" id="ai-temperature-number" class="ai-input ai-input-inline" min="0" max="1" step="0.01" value="0.35" aria-label="مقدار خلاقیت عددی">
+              </div>
+              <p class="ai-helper" id="ai-temperature-helper">مقادیر پایین‌تر نتیجه دقیق‌تری تولید می‌کنند.</p>
+            </div>
+            <div class="ai-field">
+              <label for="ai-seed" class="ai-label">Seed (اختیاری)</label>
+              <input type="number" id="ai-seed" name="seed" class="ai-input" min="0" step="1" placeholder="برای تولید نتایج تکرارپذیر عدد وارد کنید">
+            </div>
+          </form>
+          <div class="ai-actions">
+            <button type="button" id="ai-preview-btn" class="btn btn-secondary w-full md:w-auto">
+              <i class="fa-solid fa-eye ml-2" aria-hidden="true"></i>
+              پیش‌نمایش ۱۰ سوال
+            </button>
+            <button type="button" id="ai-generate-btn" class="btn btn-primary w-full md:w-auto">
+              <i class="fa-solid fa-sparkles ml-2" aria-hidden="true"></i>
+              تولید و ذخیره
+            </button>
+          </div>
+          <div id="ai-status" class="ai-status" role="status" aria-live="polite"></div>
+          <div id="ai-preview" class="ai-preview hidden" aria-live="polite">
+            <div class="ai-preview-header">
+              <h3>پیش‌نمایش سوالات</h3>
+              <span id="ai-preview-count" class="ai-badge"></span>
+            </div>
+            <div class="ai-preview-table-wrapper" tabindex="0">
+              <table class="ai-preview-table">
+                <thead>
+                  <tr>
+                    <th scope="col">سوال</th>
+                    <th scope="col">گزینه‌ها</th>
+                    <th scope="col">پاسخ صحیح</th>
+                  </tr>
+                </thead>
+                <tbody id="ai-preview-tbody">
+                  <tr>
+                    <td colspan="3" class="ai-preview-empty">برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-
-          <div class="glass rounded-2xl p-6 xl:col-span-2 space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold">گزارش آخرین دریافت</h3>
-              <span class="text-xs px-3 py-1 rounded-full bg-white/10 text-white/70" id="trivia-import-status">غیرفعال</span>
-            </div>
-            <div id="trivia-import-result" class="space-y-3 text-sm text-white/70">
-              <p>هنوز درخواستی ثبت نشده است. پس از اجرای درون‌ریزی، جزئیات هر دسته و سطح دشواری در اینجا نمایش داده می‌شود.</p>
-            </div>
-          </div>
-        </div>
+        </section>
 
         <!-- Questions Table -->
         <div class="glass rounded-2xl overflow-hidden">

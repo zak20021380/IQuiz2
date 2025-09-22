@@ -1,10 +1,8 @@
 const Question = require('../models/Question');
 const Category = require('../models/Category');
-const { normalizeProviderId } = require('../services/triviaProviders');
-
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'draft', 'archived'];
-const ALLOWED_SOURCES = ['manual', 'opentdb', 'the-trivia-api', 'cluebase', 'jservice', 'community'];
-const ALLOWED_PROVIDERS = ['manual', 'opentdb', 'the-trivia-api', 'cluebase', 'jservice', 'community'];
+const ALLOWED_SOURCES = ['manual', 'ai-gen', 'community'];
+const ALLOWED_PROVIDERS = ['manual', 'ai-gen', 'community'];
 const TRUTHY_QUERY_VALUES = new Set(['1', 'true', 'yes', 'y', 'on']);
 const FALSY_QUERY_VALUES = new Set(['0', 'false', 'no', 'n', 'off']);
 
@@ -12,6 +10,27 @@ function normalizeStatus(status, fallback = 'approved') {
   if (typeof status !== 'string') return fallback;
   const candidate = status.trim().toLowerCase();
   return ALLOWED_STATUSES.includes(candidate) ? candidate : fallback;
+}
+
+function deriveCategorySlug(category) {
+  if (!category) return '';
+  if (typeof category.slug === 'string' && category.slug.trim()) {
+    return category.slug.trim();
+  }
+
+  const source = typeof category.displayName === 'string'
+    ? category.displayName
+    : typeof category.name === 'string'
+      ? category.name
+      : '';
+
+  return String(source)
+    .toLowerCase()
+    .trim()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9\u0600-\u06FF-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 function normalizeAuthorName(value, fallback = 'IQuiz Team') {
@@ -27,18 +46,14 @@ function normalizeSource(value, fallback = 'manual') {
 }
 
 function normalizeProvider(value, fallback = '') {
-  if (typeof value === 'string') {
-    const candidate = normalizeProviderId(value);
-    if (candidate && ALLOWED_PROVIDERS.includes(candidate)) {
-      return candidate;
-    }
+  const candidate = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (candidate && ALLOWED_PROVIDERS.includes(candidate)) {
+    return candidate;
   }
 
-  if (typeof fallback === 'string') {
-    const fallbackCandidate = normalizeProviderId(fallback);
-    if (fallbackCandidate && ALLOWED_PROVIDERS.includes(fallbackCandidate)) {
-      return fallbackCandidate;
-    }
+  const fallbackCandidate = typeof fallback === 'string' ? fallback.trim().toLowerCase() : '';
+  if (fallbackCandidate && ALLOWED_PROVIDERS.includes(fallbackCandidate)) {
+    return fallbackCandidate;
   }
 
   return '';
@@ -219,8 +234,8 @@ exports.list = async (req, res, next) => {
         where.active = false;
       }
     }
-    if (providerCandidate === 'cluebase' && !includeUnapproved && !where.status) {
-      where.status = 'approved';
+    if (!providerCandidate) {
+      where.provider = 'ai-gen';
     }
     if (type) {
       const typeCandidate = String(type).trim().toLowerCase();
@@ -313,6 +328,7 @@ exports.update = async (req, res, next) => {
       }
       updates.category = category._id;
       updates.categoryName = category.name;
+      updates.categorySlug = deriveCategorySlug(category);
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'authorName')) {
@@ -429,6 +445,7 @@ exports.submitPublic = async (req, res, next) => {
       difficulty: safeDifficulty,
       category: category._id,
       categoryName: category.name,
+      categorySlug: deriveCategorySlug(category),
       active: false,
       lang: 'fa',
       source: 'community',

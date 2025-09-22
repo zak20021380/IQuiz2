@@ -4,9 +4,26 @@ const Question = require('../models/Question');
 
 const ALLOWED_STATUS = new Set(['active', 'pending', 'disabled']);
 const ALLOWED_COLORS = new Set(['blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'red', 'teal', 'indigo']);
-const ALLOWED_PROVIDERS = new Set(['manual', 'opentdb', 'the-trivia-api', 'cluebase', 'jservice']);
+const ALLOWED_PROVIDERS = new Set(['manual', 'ai-gen', 'community']);
 
 const sanitizeString = (value) => (typeof value === 'string' ? value.trim() : '');
+
+function sanitizeSlug(value, fallback = '') {
+  const normalized = sanitizeString(value)
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9\u0600-\u06FF-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (normalized) return normalized;
+  const fallbackNormalized = sanitizeString(fallback)
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9\u0600-\u06FF-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return fallbackNormalized || 'category';
+}
 
 function sanitizeStatus(value, fallback = 'active') {
   const normalized = sanitizeString(value).toLowerCase();
@@ -49,9 +66,11 @@ exports.create = async (req, res, next) => {
       ? null
       : (sanitizeString(req.body.providerCategoryId) || null);
     const aliases = sanitizeAliases(req.body.aliases, [name, displayName]);
+    const slug = sanitizeSlug(req.body.slug, displayName || name);
 
     const category = await Category.create({
       name,
+      slug,
       displayName,
       description,
       icon,
@@ -153,6 +172,11 @@ exports.update = async (req, res, next) => {
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'description')) {
       category.description = sanitizeString(req.body.description);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'slug')) {
+      const slug = sanitizeSlug(req.body.slug, category.displayName || category.name);
+      category.slug = slug;
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'icon')) {

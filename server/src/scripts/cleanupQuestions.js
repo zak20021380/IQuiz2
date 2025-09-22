@@ -8,125 +8,117 @@ const logger = require('../config/logger');
 const Question = require('../models/Question');
 const Category = require('../models/Category');
 
-const PROVIDERS_TO_REMOVE = ['opentdb', 'thetrivia', 'the-trivia', 'trivia', 'jservice', 'cluebase', 'unknown'];
+const PROVIDERS_TO_PURGE = new Set(['opentdb', 'thetrivia', 'the-trivia', 'trivia']);
+const CATEGORY_PROVIDERS_TO_PURGE = new Set(['opentdb', 'thetrivia', 'the-trivia', 'trivia']);
+const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
+
+function canonicalize(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
 
 function deriveCorrectAnswer(choices, correctIndex) {
   if (!Array.isArray(choices) || choices.length === 0) {
     return '';
   }
-
   const index = Number(correctIndex);
   if (!Number.isInteger(index) || index < 0 || index >= choices.length) {
     return '';
   }
-
-  const raw = choices[index];
-  return typeof raw === 'string' ? raw.trim() : String(raw ?? '').trim();
+  return canonicalize(choices[index]);
 }
 
 function buildProviderRemovalFilter() {
   return {
-    $or: [
-      {
-        $expr: {
-          $in: [
-            {
-              $toLower: {
-                $trim: { input: { $ifNull: ['$provider', ''] } }
-              }
-            },
-            PROVIDERS_TO_REMOVE
-          ]
-        }
-      },
-      { provider: { $exists: false } },
-      { provider: null },
-      {
-        $expr: {
-          $eq: [
-            {
-              $trim: { input: { $ifNull: ['$provider', ''] } }
-            },
-            ''
-          ]
-        }
-      }
-    ]
+    provider: {
+      $in: Array.from(PROVIDERS_TO_PURGE)
+    }
   };
 }
 
-function buildMissingIntegrityFilter() {
-  return {
-    $or: [
-      { hash: { $exists: false } },
-      { hash: null },
-      {
-        $expr: {
-          $eq: [
-            {
-              $trim: { input: { $ifNull: ['$hash', ''] } }
-            },
-            ''
-          ]
-        }
-      },
-      { correctAnswer: { $exists: false } },
-      {
-        $expr: {
-          $eq: [
-            {
-              $trim: { input: { $ifNull: ['$correctAnswer', ''] } }
-            },
-            ''
-          ]
-        }
-      }
-    ]
-  };
-}
-
-async function deleteLegacyQuestions() {
+async function purgeLegacyQuestions() {
   const filter = buildProviderRemovalFilter();
   const result = await Question.deleteMany(filter);
-  return result?.deletedCount ?? result?.n ?? 0;
+  return result?.deletedCount ?? 0;
 }
 
-async function backfillQuestionIntegrity() {
-  const cursor = Question.find(buildMissingIntegrityFilter())
-    .select({ text: 1, choices: 1, correctIndex: 1, correctIdx: 1, hash: 1, checksum: 1, correctAnswer: 1, provider: 1 })
-    .cursor();
+async function purgeLegacyCategories() {
+  const filter = {
+    provider: { $in: Array.from(CATEGORY_PROVIDERS_TO_PURGE) }
+  };
+  const result = await Category.deleteMany(filter);
+  return result?.deletedCount ?? 0;
+}
 
-  const bulkOps = [];
+async function backfillCategorySlugs() {
+  const updates = [];
+  const cursor = Category.find({}).cursor();
+  for await (const doc of cursor) {
+    const source = doc.slug || doc.displayName || doc.name;
+    const slug = canonicalize(source).replace(/\s+/g, '-').replace(/[^a-z0-9\u0600-\u06FF-]/g, '').replace(/-+/g, '-');
+    const finalSlug = slug || `category-${doc._id}`;
+    if (doc.slug !== finalSlug) {
+      updates.push({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { $set: { slug: finalSlug } }
+        }
+      });
+    }
+  }
+
+  if (updates.length) {
+    const result = await Category.bulkWrite(updates, { ordered: false });
+    return result?.modifiedCount ?? result?.nModified ?? 0;
+  }
+  return 0;
+}
+
+async function recomputeIntegrity() {
+  const cursor = Question.find({}).cursor();
+  const operations = [];
+  let processed = 0;
   let updated = 0;
-  let examined = 0;
 
   for await (const doc of cursor) {
-    examined += 1;
-    const updates = {};
+    processed += 1;
+    const choices = Array.isArray(doc.choices) ? doc.choices : doc.options || [];
+    const correctAnswer = deriveCorrectAnswer(choices, doc.correctIndex ?? doc.correctIdx);
+    const categorySlug = typeof doc.categorySlug === 'string' && doc.categorySlug.trim()
+      ? doc.categorySlug.trim()
+      : '';
 
-    const normalizedHash = typeof doc.hash === 'string' ? doc.hash.trim() : '';
-    let targetHash = normalizedHash;
-    if (!targetHash) {
-      try {
-        targetHash = Question.generateHash(doc.text, doc.choices);
-      } catch (error) {
-        logger.warn(`[cleanupQuestions] Failed to generate hash for question ${doc?._id}: ${error.message}`);
+    const updates = {};
+    if (correctAnswer && doc.correctAnswer !== correctAnswer) {
+      updates.correctAnswer = correctAnswer;
+    }
+
+    if (!ALLOWED_DIFFICULTIES.has(doc.difficulty)) {
+      updates.difficulty = 'medium';
+    }
+
+    if (!categorySlug && doc.category) {
+      const category = await Category.findById(doc.category, { slug: 1 }).lean();
+      if (category?.slug) {
+        updates.categorySlug = category.slug;
       }
     }
 
-    if (targetHash && targetHash !== normalizedHash) {
-      updates.hash = targetHash;
-      updates.checksum = targetHash;
+    if (!correctAnswer || !doc.text) {
+      continue;
     }
 
-    const answer = deriveCorrectAnswer(doc.choices, doc.correctIndex ?? doc.correctIdx);
-    const normalizedAnswer = typeof doc.correctAnswer === 'string' ? doc.correctAnswer.trim() : '';
-    if (answer !== normalizedAnswer) {
-      updates.correctAnswer = answer;
+    const hash = Question.generateHash(doc.text, correctAnswer);
+    if (hash && doc.hash !== hash) {
+      updates.hash = hash;
+      updates.checksum = hash;
     }
 
     if (Object.keys(updates).length > 0) {
-      bulkOps.push({
+      operations.push({
         updateOne: {
           filter: { _id: doc._id },
           update: { $set: updates }
@@ -134,26 +126,26 @@ async function backfillQuestionIntegrity() {
       });
     }
 
-    if (bulkOps.length >= 500) {
-      const result = await Question.bulkWrite(bulkOps);
-      updated += result?.modifiedCount ?? result?.nModified ?? 0;
-      bulkOps.length = 0;
+    if (operations.length >= 500) {
+      const bulkResult = await Question.bulkWrite(operations, { ordered: false });
+      updated += bulkResult?.modifiedCount ?? bulkResult?.nModified ?? 0;
+      operations.length = 0;
     }
   }
 
-  if (bulkOps.length > 0) {
-    const result = await Question.bulkWrite(bulkOps);
-    updated += result?.modifiedCount ?? result?.nModified ?? 0;
+  if (operations.length > 0) {
+    const bulkResult = await Question.bulkWrite(operations, { ordered: false });
+    updated += bulkResult?.modifiedCount ?? bulkResult?.nModified ?? 0;
   }
 
-  return { updated, examined };
+  return { processed, updated };
 }
 
-async function dropAndRecreateIndexes() {
+async function rebuildIndexes() {
   try {
     await Question.collection.dropIndexes();
   } catch (error) {
-    if (error?.codeName !== 'IndexNotFound' && error?.code !== 27 && error?.code !== 28 && error?.code !== 26) {
+    if (!['IndexNotFound', 'NamespaceNotFound'].includes(error?.codeName) && ![26, 27, 28].includes(error?.code)) {
       throw error;
     }
   }
@@ -164,130 +156,68 @@ async function dropAndRecreateIndexes() {
   );
 
   await Question.collection.createIndex(
-    { categoryName: 1, difficulty: 1, correctAnswer: 1, createdAt: -1 },
-    { name: 'idx_category_difficulty_correctAnswer_createdAt' }
+    { categorySlug: 1, difficulty: 1, createdAt: -1 },
+    { name: 'idx_categorySlug_difficulty_createdAt' }
   );
 }
 
-async function resetCategoryQuestionStats() {
-  try {
-    const result = await Category.updateMany(
-      {},
-      {
-        $set: {
-          questionCount: 0,
-          activeQuestionCount: 0,
-          inactiveQuestionCount: 0,
-          totalQuestions: 0,
-          activeQuestions: 0,
-          inactiveQuestions: 0
-        }
-      }
-    );
-
-    return result?.modifiedCount ?? result?.nModified ?? 0;
-  } catch (error) {
-    logger.warn(`[cleanupQuestions] Failed to reset category stats: ${error.message}`);
-    return 0;
-  }
-}
-
-async function resetStatsCollection(connection) {
-  try {
-    const collections = await connection.db.listCollections({ name: 'stats' }).toArray();
-    if (!Array.isArray(collections) || collections.length === 0) {
-      return 0;
-    }
-
-    const statsCollection = connection.db.collection('stats');
-    const result = await statsCollection.updateMany(
-      {},
-      {
-        $set: {
-          totalQuestions: 0,
-          'questions.total': 0,
-          'questions.today': 0,
-          'questions.yesterday': 0,
-          'questions.count': 0,
-          'questionStats.total': 0,
-          'questionStats.today': 0,
-          'questionStats.yesterday': 0,
-          'stats.questions.total': 0,
-          'stats.questions.today': 0,
-          'stats.questions.yesterday': 0
-        }
-      }
-    );
-
-    return result?.modifiedCount ?? result?.nModified ?? 0;
-  } catch (error) {
-    logger.warn(`[cleanupQuestions] Failed to reset stats collection: ${error.message}`);
-    return 0;
-  }
-}
-
-async function logSummary() {
-  const total = await Question.countDocuments();
-  const providers = await Question.aggregate([
+async function refreshCategoryStats() {
+  const stats = await Question.aggregate([
     {
       $group: {
-        _id: {
-          $toLower: {
-            $trim: { input: { $ifNull: ['$provider', 'unknown'] } }
-          }
-        },
-        count: { $sum: 1 }
+        _id: '$category',
+        total: { $sum: 1 },
+        active: { $sum: { $cond: ['$active', 1, 0] } }
       }
-    },
-    { $sort: { count: -1 } }
+    }
   ]);
 
-  if (providers.length > 0) {
-    logger.info('[cleanupQuestions] Remaining questions grouped by provider:', providers);
+  const updates = stats.map((stat) => ({
+    updateOne: {
+      filter: { _id: stat._id },
+      update: {
+        $set: {
+          questionCount: stat.total,
+          activeQuestionCount: stat.active,
+          inactiveQuestionCount: Math.max(stat.total - stat.active, 0)
+        }
+      }
+    }
+  }));
+
+  if (updates.length) {
+    await Category.bulkWrite(updates, { ordered: false });
+  }
+}
+
+async function main() {
+  await mongoose.connect(env.mongo.uri, { maxPoolSize: env.mongo.maxPoolSize });
+
+  logger.info('Started cleanup script');
+  const [removedQuestions, removedCategories] = await Promise.all([
+    purgeLegacyQuestions(),
+    purgeLegacyCategories()
+  ]);
+  logger.info(`Removed ${removedQuestions} legacy questions`);
+  logger.info(`Removed ${removedCategories} legacy categories`);
+
+  const slugUpdates = await backfillCategorySlugs();
+  if (slugUpdates) {
+    logger.info(`Updated ${slugUpdates} category slugs`);
   }
 
-  return total;
+  const integrity = await recomputeIntegrity();
+  logger.info(`Processed ${integrity.processed} questions, updated ${integrity.updated}`);
+
+  await rebuildIndexes();
+  await refreshCategoryStats();
+
+  await mongoose.disconnect();
+  logger.info('Cleanup script completed');
 }
 
-async function run() {
-  const mongoUri = env.mongo?.uri || process.env.MONGO_URI || 'mongodb://localhost:27017/iquiz';
-  const maxPoolSize = env.mongo?.maxPoolSize || 10;
-
-  await mongoose.connect(mongoUri, {
-    maxPoolSize,
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000
-  });
-
-  logger.info('[cleanupQuestions] Connected to MongoDB');
-
-  const deleted = await deleteLegacyQuestions();
-  const { updated: integrityUpdates } = await backfillQuestionIntegrity();
-  await dropAndRecreateIndexes();
-  const categoryResets = await resetCategoryQuestionStats();
-  const statsResets = await resetStatsCollection(mongoose.connection);
-  const remaining = await logSummary();
-
-  console.log('Cleanup complete', { deleted, remaining });
-  logger.info('[cleanupQuestions] Cleanup summary', {
-    deleted,
-    remaining,
-    integrityUpdates,
-    categoryResets,
-    statsResets
-  });
-}
-
-run()
-  .catch((error) => {
-    logger.error(`[cleanupQuestions] Failed: ${error.message}`);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    try {
-      await mongoose.disconnect();
-      logger.info('[cleanupQuestions] MongoDB connection closed');
-    } catch (error) {
-      logger.warn(`[cleanupQuestions] Failed to close MongoDB connection cleanly: ${error.message}`);
-    }
-  });
+main().catch((error) => {
+  logger.error(`Cleanup script failed: ${error.message}`);
+  mongoose.disconnect().catch(() => {});
+  process.exit(1);
+});
