@@ -1540,6 +1540,7 @@ function resetTimer(seconds){
   State.quiz.remain   = effective;
 
   updateTimerVisual?.();
+  startQuizTimerCountdown();
 }
 
 function startQuizTimerCountdown(){
@@ -1570,16 +1571,6 @@ function startQuizTimerCountdown(){
     }
   }, 1000);
 }
-
-
-  function resetTimer(seconds){
-    const ring = $('#timer-ring');
-    if(ring) ring.setAttribute('stroke-dasharray', String(TIMER_CIRC));
-    State.quiz.duration = seconds;
-    State.quiz.remain = seconds;
-    updateTimerVisual();
-    startQuizTimerCountdown();
-  }
 
   function addExtraTime(extra){
     if(!Number.isFinite(extra) || extra <= 0) return;
