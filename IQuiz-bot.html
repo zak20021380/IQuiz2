@@ -1498,8 +1498,10 @@
         <div class="text-xl font-extrabold">شروع کوییز</div>
         <button id="setup-close" class="px-3 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20"><i class="fas fa-times"></i></button>
       </div>
-      <div class="grid grid-cols-3 gap-2 mb-4" id="cat-wrap"></div>
-      <div class="grid grid-cols-3 gap-2 mb-4" id="diff-wrap"></div>
+      <div class="mb-4 space-y-3">
+        <p class="text-xs text-white/70 leading-5">موضوع مسابقه را انتخاب کن؛ هر زمان بخواهی می‌توانی آن را تغییر دهی.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2" id="cat-wrap" role="listbox" aria-label="دسته‌های مسابقه"></div>
+      </div>
       <div class="flex items-center justify-between text-sm mb-3 opacity-90">
         <div>تعداد سؤال: <span id="setup-count">۵</span></div>
         <input id="range-count" type="range" min="3" max="12" value="5" class="w-48" aria-label="تعداد سوال">
