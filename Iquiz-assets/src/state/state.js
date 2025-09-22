@@ -67,6 +67,14 @@ const DEFAULT_GROUP_ROSTERS = {
   ]
 };
 
+const DEFAULT_GROUP_RECORDS = {
+  g1: { wins: 58, losses: 14 },
+  g2: { wins: 46, losses: 21 },
+  g3: { wins: 50, losses: 18 },
+  g4: { wins: 33, losses: 27 },
+  g5: { wins: 55, losses: 16 },
+};
+
 function cloneDefaultRoster(groupId){
   return (DEFAULT_GROUP_ROSTERS[groupId] || []).map(player => ({ ...player }));
 }
@@ -179,11 +187,11 @@ const State = {
   ],
   provinces: [],
   groups: [
-    { id: 'g1', name: 'قهرمانان دانش', score: 22100, members: 23, admin: 'علی رضایی', created: '۱۴۰۲/۰۲/۱۵', memberList: ['علی رضایی','سارا اکبری','رضا کریمی','ندا فرهمند','پیام سالاری'], matches:[{opponent:'متفکران جوان', time:'۱۴۰۳/۰۵/۲۵ ۱۸:۰۰'}], requests: [], roster: cloneDefaultRoster('g1') },
-    { id: 'g2', name: 'متفکران جوان', score: 19800, members: 18, admin: 'سارا محمدی', created: '۱۴۰۲/۰۳/۲۰', memberList: ['سارا محمدی','مهدی احمدی','الهام برزگر','حسین فلاح'], matches:[{opponent:'پیشروان علم', time:'۱۴۰۳/۰۵/۳۰ ۱۹:۰۰'}], requests: [], roster: cloneDefaultRoster('g2') },
-    { id: 'g3', name: 'چالش‌برانگیزان', score: 20500, members: 21, admin: 'رضا قاسمی', created: '۱۴۰۲/۰۱/۱۰', memberList: ['رضا قاسمی','نازنین فراهانی','کیاوش نادری'], matches:[], requests: [], roster: cloneDefaultRoster('g3') },
-    { id: 'g4', name: 'دانش‌آموزان نخبه', score: 18700, members: 15, admin: 'مریم احمدی', created: '۱۴۰۲/۰۴/۰۵', memberList: ['مریم احمدی','رها فاضلی','امیررضا حاتمی'], matches:[], requests: [], roster: cloneDefaultRoster('g4') },
-    { id: 'g5', name: 'پیشروان علم', score: 21300, members: 27, admin: 'امیر حسینی', created: '۱۴۰۲/۰۲/۲۸', memberList: ['امیر حسینی','هانیه ناصری','کیارش زندی'], matches:[{opponent:'قهرمانان دانش', time:'۱۴۰۳/۰۶/۰۲ ۲۰:۰۰'}], requests: [], roster: cloneDefaultRoster('g5') },
+    { id: 'g1', name: 'قهرمانان دانش', score: 22100, members: 23, admin: 'علی رضایی', created: '۱۴۰۲/۰۲/۱۵', wins: 58, losses: 14, memberList: ['علی رضایی','سارا اکبری','رضا کریمی','ندا فرهمند','پیام سالاری'], matches:[{opponent:'متفکران جوان', time:'۱۴۰۳/۰۵/۲۵ ۱۸:۰۰'}], requests: [], roster: cloneDefaultRoster('g1') },
+    { id: 'g2', name: 'متفکران جوان', score: 19800, members: 18, admin: 'سارا محمدی', created: '۱۴۰۲/۰۳/۲۰', wins: 46, losses: 21, memberList: ['سارا محمدی','مهدی احمدی','الهام برزگر','حسین فلاح'], matches:[{opponent:'پیشروان علم', time:'۱۴۰۳/۰۵/۳۰ ۱۹:۰۰'}], requests: [], roster: cloneDefaultRoster('g2') },
+    { id: 'g3', name: 'چالش‌برانگیزان', score: 20500, members: 21, admin: 'رضا قاسمی', created: '۱۴۰۲/۰۱/۱۰', wins: 50, losses: 18, memberList: ['رضا قاسمی','نازنین فراهانی','کیاوش نادری'], matches:[], requests: [], roster: cloneDefaultRoster('g3') },
+    { id: 'g4', name: 'دانش‌آموزان نخبه', score: 18700, members: 15, admin: 'مریم احمدی', created: '۱۴۰۲/۰۴/۰۵', wins: 33, losses: 27, memberList: ['مریم احمدی','رها فاضلی','امیررضا حاتمی'], matches:[], requests: [], roster: cloneDefaultRoster('g4') },
+    { id: 'g5', name: 'پیشروان علم', score: 21300, members: 27, admin: 'امیر حسینی', created: '۱۴۰۲/۰۲/۲۸', wins: 55, losses: 16, memberList: ['امیر حسینی','هانیه ناصری','کیارش زندی'], matches:[{opponent:'قهرمانان دانش', time:'۱۴۰۳/۰۶/۰۲ ۲۰:۰۰'}], requests: [], roster: cloneDefaultRoster('g5') },
   ],
   ads: { banner: [], native: [], interstitial: [], rewarded: [] },
   quiz:{
@@ -245,6 +253,15 @@ function ensureGroupRosters(){
     if (!Array.isArray(group.memberList) || group.memberList.length === 0) {
       group.memberList = group.roster.slice(0, Math.min(5, group.roster.length)).map(p => p.name);
     }
+    const defaultRecord = DEFAULT_GROUP_RECORDS[group.id];
+    if (!Number.isFinite(group.wins) || group.wins < 0) {
+      group.wins = defaultRecord?.wins ?? Math.max(0, Math.round((group.score || 0) / 650));
+    }
+    if (!Number.isFinite(group.losses) || group.losses < 0) {
+      group.losses = defaultRecord?.losses ?? Math.max(0, Math.round((group.wins || 0) * 0.35));
+    }
+    group.wins = Math.max(0, Math.round(group.wins));
+    group.losses = Math.max(0, Math.round(group.losses));
   });
 }
 
