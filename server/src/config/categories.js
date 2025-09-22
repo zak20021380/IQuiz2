@@ -1,111 +1,75 @@
 const CATEGORIES = [
   {
-    slug: 'general-knowledge',
-    name: 'General Knowledge',
-    displayName: 'دانش عمومی',
-    description: 'پرسش‌هایی متنوع از دانستنی‌های عمومی و زندگی روزمره.',
-    icon: 'fa-earth-americas',
+    slug: 'general',
+    name: 'General',
+    displayName: 'عمومی',
+    description: 'سوالاتی متنوع از دانستنی‌های روزمره و موضوعات عمومی.',
+    icon: 'fa-earth-asia',
     color: 'blue',
-    aliases: ['General', 'Trivia', 'دانش عمومی']
+    aliases: ['عمومی', 'دانش عمومی', 'General']
   },
   {
-    slug: 'history',
-    name: 'History',
-    displayName: 'تاریخ',
-    description: 'رویدادها و شخصیت‌های اثرگذار تاریخ ایران و جهان.',
-    icon: 'fa-landmark',
+    slug: 'history-civilization',
+    name: 'History & Civilization',
+    displayName: 'تاریخ و تمدن',
+    description: 'رویدادها، امپراتوری‌ها و میراث فرهنگی ملت‌ها.',
+    icon: 'fa-landmark-dome',
     color: 'orange',
-    aliases: ['Past', 'Historical', 'تاریخ']
+    aliases: ['تاریخ', 'تمدن', 'History']
   },
   {
-    slug: 'science-nature',
-    name: 'Science & Nature',
-    displayName: 'علوم و طبیعت',
-    description: 'زیست‌شناسی، فیزیک، شیمی و شگفتی‌های طبیعت.',
-    icon: 'fa-flask',
-    color: 'green',
-    aliases: ['Science', 'Nature', 'علم']
+    slug: 'geography-nature',
+    name: 'Geography & Nature',
+    displayName: 'جغرافیا و طبیعت',
+    description: 'سرزمین‌ها، اقلیم‌ها و شگفتی‌های طبیعی جهان.',
+    icon: 'fa-mountain-sun',
+    color: 'teal',
+    aliases: ['جغرافیا', 'طبیعت', 'Geography']
   },
   {
-    slug: 'technology',
-    name: 'Technology',
-    displayName: 'فناوری و تکنولوژی',
-    description: 'دستاوردهای دیجیتال، کامپیوتر و نوآوری‌های نوین.',
-    icon: 'fa-microchip',
+    slug: 'science-technology',
+    name: 'Science & Technology',
+    displayName: 'علوم و فناوری',
+    description: 'کشفیات علمی، نوآوری‌های فنی و پیشرفت‌های روز.',
+    icon: 'fa-atom',
     color: 'indigo',
-    aliases: ['Tech', 'IT', 'فناوری']
+    aliases: ['علم', 'فناوری', 'Science']
   },
   {
-    slug: 'art-literature',
-    name: 'Art & Literature',
-    displayName: 'هنر و ادبیات',
-    description: 'کتاب‌ها، نویسندگان، هنرهای تجسمی و نمایش.',
-    icon: 'fa-palette',
+    slug: 'literature-language',
+    name: 'Literature & Language',
+    displayName: 'ادبیات و زبان',
+    description: 'نویسندگان، آثار ادبی و دنیای زبان‌ها و واژگان.',
+    icon: 'fa-feather-pointed',
     color: 'purple',
-    aliases: ['Art', 'Literature', 'ادبیات']
+    aliases: ['ادبیات', 'زبان', 'Literature']
+  },
+  {
+    slug: 'movies-series',
+    name: 'Movies & Series',
+    displayName: 'فیلم و سریال',
+    description: 'سینما، تلویزیون و داستان‌های ماندگار پرده نقره‌ای.',
+    icon: 'fa-clapperboard',
+    color: 'yellow',
+    aliases: ['فیلم', 'سریال', 'Movies']
   },
   {
     slug: 'sports',
     name: 'Sports',
     displayName: 'ورزش',
-    description: 'رشته‌ها، قهرمانان و رویدادهای ورزشی.',
+    description: 'رشته‌ها، قهرمانان و رویدادهای مهم ورزشی.',
     icon: 'fa-medal',
     color: 'red',
-    aliases: ['Sport', 'ورزش']
+    aliases: ['ورزش', 'Sport', 'Sports']
   },
   {
-    slug: 'geography',
-    name: 'Geography',
-    displayName: 'جغرافیا',
-    description: 'کشورها، شهرها و ویژگی‌های جغرافیایی و فرهنگی.',
-    icon: 'fa-globe',
-    color: 'teal',
-    aliases: ['World', 'Maps', 'جغرافیا']
-  },
-  {
-    slug: 'mythology',
-    name: 'Mythology',
-    displayName: 'اسطوره‌شناسی',
-    description: 'اسطوره‌ها، حماسه‌ها و داستان‌های ماندگار.',
-    icon: 'fa-hat-wizard',
+    slug: 'entertainment',
+    name: 'Entertainment',
+    displayName: 'سرگرمی',
+    description: 'بازی‌ها، پازل‌ها و موضوعات سرگرم‌کننده برای اوقات فراغت.',
+    icon: 'fa-gamepad',
     color: 'pink',
-    aliases: ['Myths', 'Legend', 'افسانه']
-  },
-  {
-    slug: 'movies-tv',
-    name: 'Movies & TV',
-    displayName: 'سینما و تلویزیون',
-    description: 'فیلم‌ها، سریال‌ها، کارگردانان و بازیگران.',
-    icon: 'fa-clapperboard',
-    color: 'yellow',
-    aliases: ['Film', 'TV', 'سینما']
-  },
-  {
-    slug: 'music',
-    name: 'Music',
-    displayName: 'موسیقی',
-    description: 'سبک‌ها، هنرمندان و سازهای موسیقی.',
-    icon: 'fa-music',
-    color: 'purple',
-    aliases: ['Songs', 'آهنگ', 'نغمه']
-  },
-  {
-    slug: 'business-economy',
-    name: 'Business & Economy',
-    displayName: 'کسب‌وکار و اقتصاد',
-    description: 'مفاهیم اقتصادی، شرکت‌ها و کارآفرینی.',
-    icon: 'fa-chart-line',
-    color: 'yellow',
-    aliases: ['Economy', 'Finance', 'اقتصاد']
-  },
-  {
-    slug: 'language-literacy',
-    name: 'Language & Literacy',
-    displayName: 'زبان و ادبیات',
-    description: 'دستور زبان، واژگان و ریشه‌شناسی واژه‌ها.',
-    icon: 'fa-language',
-    color: 'teal',
-    aliases: ['Language', 'Vocabulary', 'زبان']
+    aliases: ['سرگرمی', 'تفریح', 'Entertainment']
   }
 ];
 
