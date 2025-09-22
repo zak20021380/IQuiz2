@@ -204,9 +204,6 @@ exports.list = async (req, res, next) => {
     }
     if (providerCandidate) {
       const aliases = [providerCandidate];
-      if (providerCandidate === 'cluebase') {
-        aliases.push('jservice');
-      }
 
       const providerConditions = [];
       aliases.forEach((alias) => {
