@@ -5,19 +5,19 @@ function normalizeChoice(value) {
   return String(value ?? '').trim();
 }
 
-function normalizeQuestionText(value) {
-  return String(value ?? '').trim();
+function canonicalize(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 }
 
-function generateChecksum(text, choices) {
-  const normalizedText = normalizeQuestionText(text);
-  const normalizedChoices = Array.isArray(choices)
-    ? choices.map(normalizeChoice).filter(Boolean)
-    : [];
-
-  const canonicalChoices = [...normalizedChoices].sort((a, b) => a.localeCompare(b));
-  const payload = JSON.stringify({ text: normalizedText, choices: canonicalChoices });
-  return crypto.createHash('sha256').update(payload).digest('hex');
+function generateChecksum(text, correctAnswer) {
+  const canonicalText = canonicalize(text);
+  const canonicalAnswer = canonicalize(correctAnswer);
+  const payload = `${canonicalText}|${canonicalAnswer}`;
+  return crypto.createHash('sha1').update(payload).digest('hex');
 }
 
 function deriveCorrectAnswer(choices, correctIndex) {
@@ -30,7 +30,7 @@ function deriveCorrectAnswer(choices, correctIndex) {
     return '';
   }
 
-  return normalizeChoice(choices[index]);
+  return canonicalize(choices[index]);
 }
 
 const questionSchema = new mongoose.Schema(
@@ -56,11 +56,12 @@ const questionSchema = new mongoose.Schema(
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'easy' },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     categoryName: { type: String, trim: true },
+    categorySlug: { type: String, trim: true },
     active: { type: Boolean, default: true },
     provider: { type: String, trim: true, default: '' },
     providerId: { type: String, trim: true },
-    source: { type: String, enum: ['manual', 'opentdb', 'the-trivia-api', 'cluebase', 'jservice', 'community'], default: 'manual' },
-    lang: { type: String, trim: true, default: 'en' },
+    source: { type: String, enum: ['manual', 'ai-gen', 'community'], default: 'manual' },
+    lang: { type: String, trim: true, default: 'fa' },
     type: { type: String, trim: true, default: 'multiple' },
     status: {
       type: String,
@@ -82,24 +83,21 @@ const questionSchema = new mongoose.Schema(
 );
 
 questionSchema.index({ provider: 1, hash: 1 }, { unique: true, sparse: true, name: 'uniq_provider_hash' });
-questionSchema.index(
-  { categoryName: 1, difficulty: 1, correctAnswer: 1, createdAt: -1 },
-  { name: 'idx_category_difficulty_correctAnswer_createdAt' }
-);
+questionSchema.index({ categoryName: 1, difficulty: 1, correctAnswer: 1, createdAt: -1 }, { name: 'idx_category_difficulty_correctAnswer_createdAt' });
+questionSchema.index({ categorySlug: 1, difficulty: 1, createdAt: -1 }, { name: 'idx_categorySlug_difficulty_createdAt' });
 
 questionSchema.pre('validate', function deriveHashesAndAnswers(next) {
   try {
-    const hasChoices = Array.isArray(this.choices) && this.choices.length > 0;
-    if (this.text && hasChoices) {
-      const computed = this.constructor.generateChecksum(this.text, this.choices);
+    const answer = deriveCorrectAnswer(this.choices, this.correctIndex);
+    this.correctAnswer = answer;
+
+    if (this.text && answer) {
+      const computed = this.constructor.generateChecksum(this.text, answer);
       if (computed) {
         this.hash = computed;
         this.checksum = computed;
       }
     }
-
-    const answer = deriveCorrectAnswer(this.choices, this.correctIndex);
-    this.correctAnswer = answer;
 
     if (!this.hash) {
       this.invalidate('hash', 'hash is required');

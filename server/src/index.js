@@ -14,9 +14,8 @@ const env = require('./config/env');
 const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const errorHandler = require('./middleware/error');
-const triviaRoutes = require('./routes/trivia');
 const jserviceRoutes = require('./routes/jservice.routes');
-const { startTriviaPoller } = require('./poller/triviaPoller');
+const aiRoutes = require('./routes/ai.routes');
 const { ensureInitialCategories, syncProviderCategories } = require('./services/categorySeeder');
 
 // init
@@ -95,16 +94,14 @@ app.use('/api/users', require('./routes/users.routes'));
 app.use('/api/achievements', require('./routes/achievements.routes'));
 app.use('/api/ads', require('./routes/ads.routes'));
 app.use('/api/public', require('./routes/public.routes'));
-app.use('/api/trivia', triviaRoutes);
 app.use('/api/jservice', jserviceRoutes);
-app.use('/api', require('./routes/trivia-triviaapi'));
+app.use('/api/ai', aiRoutes);
 
 // error handler
 app.use(errorHandler);
 
 // ───────────────── Start
 let server;
-let triviaPollerInstance;
 
 const startApp = async () => {
   await connectDB();
@@ -114,10 +111,6 @@ const startApp = async () => {
     await syncProviderCategories();
   } catch (err) {
     logger.warn(`Failed to sync provider categories: ${err.message}`);
-  }
-
-  if (env.trivia.enablePoller) {
-    triviaPollerInstance = startTriviaPoller();
   }
 
   server = app.listen(env.port, () => logger.info(`🚀 API running on http://localhost:${env.port}`));
@@ -130,10 +123,6 @@ startApp().catch(err => {
 
 const shutdown = () => {
   logger.info('Shutting down...');
-
-  if (triviaPollerInstance) {
-    triviaPollerInstance.stop();
-  }
 
   if (server) {
     server.close(() => {
