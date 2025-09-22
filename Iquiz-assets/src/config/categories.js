@@ -134,20 +134,32 @@ function normalizeKey(value) {
   return String(value).trim().toLowerCase();
 }
 
+function getCategoryIdentityKeys(category) {
+  if (!category || typeof category !== 'object') return [];
+
+  const keys = [];
+  const push = (prefix, value) => {
+    const normalized = normalizeKey(value);
+    if (!normalized) return;
+    const key = `${prefix}:${normalized}`;
+    if (!keys.includes(key)) keys.push(key);
+  };
+
+  push('slug', category.slug);
+  push('provider', category.providerCategoryId);
+  push('english', category.englishName);
+  push('name', category.name);
+  push('display', category.displayName);
+  push('title', category.title);
+  push('id', category.id);
+
+  return keys;
+}
+
 function deriveCategoryKey(category) {
   if (!category || typeof category !== 'object') return '';
-  const candidates = [
-    category.id,
-    category.slug,
-    category.providerCategoryId,
-    category.name,
-    category.displayName,
-    category.title
-  ];
-  for (const candidate of candidates) {
-    const normalized = normalizeKey(candidate);
-    if (normalized) return normalized;
-  }
+  const [primary] = getCategoryIdentityKeys(category);
+  if (primary) return primary;
   if (Number.isFinite(Number(category.order))) {
     return `order:${Number(category.order)}`;
   }
@@ -235,9 +247,16 @@ function enforceStaticCategoryList(list = []) {
     .map(enforceStaticCategory)
     .filter(Boolean)
     .forEach((category) => {
-      const key = deriveCategoryKey(category) || `idx:${normalized.length}`;
-      if (seen.has(key)) return;
-      seen.add(key);
+      const keys = getCategoryIdentityKeys(category);
+      const hasDuplicate = keys.some((key) => seen.has(key));
+      if (hasDuplicate) return;
+
+      if (keys.length === 0) {
+        const fallbackKey = `idx:${normalized.length}`;
+        seen.add(fallbackKey);
+      } else {
+        keys.forEach((key) => seen.add(key));
+      }
       normalized.push(category);
     });
 
@@ -255,5 +274,6 @@ export {
   STATIC_CATEGORY_DEFINITIONS,
   resolveStaticCategoryDefinition,
   enforceStaticCategory,
-  enforceStaticCategoryList
+  enforceStaticCategoryList,
+  getCategoryIdentityKeys
 };
