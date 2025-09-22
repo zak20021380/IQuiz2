@@ -39,6 +39,11 @@ function sanitizeTopicHints(value) {
   return value.trim().slice(0, 400);
 }
 
+function sanitizePrompt(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, 600);
+}
+
 function sanitizeString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -129,7 +134,7 @@ function extractResponsePayload(data) {
   return null;
 }
 
-async function callModel({ count, category, difficulty, topicHints, temperature, seed }) {
+async function callModel({ count, category, difficulty, topicHints, temperature, seed, customPrompt }) {
   const apiKey = env.ai?.openai?.apiKey;
   if (!apiKey) {
     const error = new Error('پیکربندی کلید OpenAI یافت نشد.');
@@ -140,6 +145,23 @@ async function callModel({ count, category, difficulty, topicHints, temperature,
   const baseUrl = env.ai?.openai?.baseUrl || 'https://api.openai.com/v1';
   const model = env.ai?.openai?.model || 'gpt-4o-mini';
   const temperatureValue = sanitizeTemperature(temperature, env.ai?.defaultTemperature ?? 0.35);
+  const instructions = [
+    'Write clear and concise quiz questions in Persian with natural phrasing.',
+    'Choices must be short (under 40 characters) and mutually exclusive.',
+    'Provide exactly four answer options and mark the index of the correct choice.',
+    'Avoid repeating the question text in the choices and avoid answers like "همه موارد".',
+    'Each question must be unique within this batch and should not duplicate common public trivia verbatim.',
+    'Prefer Iran-centric knowledge when relevant to the requested category.'
+  ];
+
+  if (customPrompt) {
+    instructions.push(customPrompt);
+  }
+
+  if (topicHints) {
+    instructions.push(`Use these topic hints as inspiration: ${topicHints}`);
+  }
+
   const payload = {
     model,
     temperature: temperatureValue,
@@ -161,13 +183,8 @@ async function callModel({ count, category, difficulty, topicHints, temperature,
             displayName: category.displayName
           },
           topicHints,
-          instructions: [
-            'Write clear and concise quiz questions in Persian with natural phrasing.',
-            'Choices must be short (under 40 characters) and mutually exclusive.',
-            'Provide exactly four answer options and mark the index of the correct choice.',
-            'Avoid repeating the question text in the choices and avoid answers like "همه موارد".',
-            'Prefer Iran-centric knowledge when relevant to the requested category.'
-          ]
+          instructions,
+          customPrompt: customPrompt || undefined
         }, null, 2)
       }
     ]
@@ -343,6 +360,7 @@ function buildQuestionDocs(items, context) {
       ai: {
         explanation: item.explanation || undefined,
         topicHints: context.topicHints || undefined,
+        prompt: context.prompt || undefined,
         seed: context.seed ?? undefined,
         temperature: context.temperature,
       }
@@ -377,6 +395,7 @@ async function generateQuestions(options = {}) {
     categorySlug: categorySlugRaw,
     difficulty: difficultyRaw,
     topicHints: topicHintsRaw,
+    prompt: promptRaw,
     temperature,
     seed,
     previewOnly = false,
@@ -387,6 +406,7 @@ async function generateQuestions(options = {}) {
   const normalizedDifficulty = sanitizeString(difficultyRaw).toLowerCase();
   const difficulty = ALLOWED_DIFFICULTIES.has(normalizedDifficulty) ? normalizedDifficulty : 'medium';
   const topicHints = sanitizeTopicHints(topicHintsRaw);
+  const customPrompt = sanitizePrompt(promptRaw);
   const appliedCount = previewOnly ? Math.min(count, PREVIEW_LIMIT) : count;
   const normalizedSlug = sanitizeString(categorySlugRaw).toLowerCase();
 
@@ -413,6 +433,7 @@ async function generateQuestions(options = {}) {
       category,
       difficulty,
       topicHints,
+      customPrompt,
       temperature: temperatureValue,
       seed: seedValue
     });
@@ -433,6 +454,7 @@ async function generateQuestions(options = {}) {
     categoryName: category.displayName || category.name,
     categorySlug: category.slug,
     topicHints,
+    prompt: customPrompt,
     seed: seedValue,
     temperature: temperatureValue,
     requestedBy

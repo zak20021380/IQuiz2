@@ -18,6 +18,7 @@ exports.generate = async (req, res, next) => {
       categorySlug: body.categorySlug,
       difficulty: body.difficulty,
       topicHints: body.topicHints,
+      prompt: body.prompt,
       temperature: body.temperature,
       seed: body.seed,
       previewOnly,

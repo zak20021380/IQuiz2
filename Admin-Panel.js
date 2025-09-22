@@ -221,6 +221,7 @@ const aiCategorySelect = $('#ai-category');
 const aiCountInput = $('#ai-count');
 const aiDifficultyRadios = $$('input[name="ai-difficulty"]');
 const aiTopicHintsInput = $('#ai-topic-hints');
+const aiPromptInput = $('#ai-custom-prompt');
 const aiTemperatureRange = $('#ai-temperature');
 const aiTemperatureNumber = $('#ai-temperature-number');
 const aiSeedInput = $('#ai-seed');
@@ -230,6 +231,20 @@ const aiStatusEl = $('#ai-status');
 const aiPreviewWrapper = $('#ai-preview');
 const aiPreviewCountEl = $('#ai-preview-count');
 const aiPreviewTbody = $('#ai-preview-tbody');
+const aiPreviewDuplicatesTbody = $('#ai-duplicates-tbody');
+const aiPreviewInvalidTbody = $('#ai-invalid-tbody');
+const aiPreviewModeButtons = $$('#ai-preview [data-preview-mode]');
+const aiPreviewPanels = {
+  unique: $('#ai-preview-pane-unique'),
+  duplicates: $('#ai-preview-pane-duplicates'),
+  invalid: $('#ai-preview-pane-invalid')
+};
+const aiSummaryUniqueEl = $('#ai-summary-unique');
+const aiSummaryDuplicatesEl = $('#ai-summary-duplicates');
+const aiSummaryInvalidEl = $('#ai-summary-invalid');
+const aiSummaryUniqueText = $('#ai-summary-unique-text');
+const aiSummaryDuplicatesText = $('#ai-summary-duplicates-text');
+const aiSummaryInvalidText = $('#ai-summary-invalid-text');
 const aiThemeToggle = $('#ai-theme-toggle');
 const aiThemeAnnouncer = $('#ai-theme-announcer');
 const aiSourceChip = $('#ai-source-chip');
@@ -238,9 +253,12 @@ const aiGenerateBtnDefault = aiGenerateBtn ? aiGenerateBtn.innerHTML : '';
 
 const aiGeneratorState = {
   preview: [],
+  duplicates: [],
+  invalid: [],
   loading: false,
   generating: false,
-  theme: 'dark'
+  theme: 'dark',
+  previewMode: 'unique'
 };
 
 let filterSearchDebounce;
@@ -421,6 +439,22 @@ function setAiLoadingState({ preview = false, generate = false } = {}) {
       ? '<span class="loader-inline"></span> در حال ذخیره...'
       : aiGenerateBtnDefault;
   }
+
+  aiPreviewModeButtons.forEach((btn) => {
+    if (!btn) return;
+    if (previewBusy || generateBusy) {
+      btn.dataset.busy = 'true';
+      btn.disabled = true;
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+    } else {
+      delete btn.dataset.busy;
+    }
+  });
+
+  if (!previewBusy && !generateBusy) {
+    updateAiPreviewModeUI();
+  }
 }
 
 function normalizeAiPreviewItem(item) {
@@ -434,34 +468,76 @@ function normalizeAiPreviewItem(item) {
   if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
     correctIndex = 0;
   }
-  return { text, choices, correctIndex };
+  const explanation = typeof item?.explanation === 'string' ? item.explanation.trim() : '';
+  return { text, choices, correctIndex, explanation };
 }
 
-function renderAiPreview(items) {
-  if (!aiPreviewTbody) return;
-  const list = Array.isArray(items) ? items.slice(0, 10).map(normalizeAiPreviewItem) : [];
-  aiGeneratorState.preview = list;
+function normalizeDuplicatePreviewItem(item) {
+  const text = typeof item?.text === 'string' ? item.text.trim() : '';
+  const reason = typeof item?.reason === 'string' ? item.reason.trim() : '';
+  return { text, reason };
+}
 
-  if (!list.length) {
+function normalizeInvalidPreviewItem(item) {
+  const text = typeof item?.text === 'string' ? item.text.trim() : '';
+  const reason = typeof item?.reason === 'string' ? item.reason.trim() : '';
+  return { text, reason };
+}
+
+function renderAiPreview() {
+  if (!aiPreviewTbody) return;
+
+  const uniqueList = Array.isArray(aiGeneratorState.preview) ? aiGeneratorState.preview : [];
+  const duplicatesList = Array.isArray(aiGeneratorState.duplicates) ? aiGeneratorState.duplicates : [];
+  const invalidList = Array.isArray(aiGeneratorState.invalid) ? aiGeneratorState.invalid : [];
+  const hasAny = uniqueList.length || duplicatesList.length || invalidList.length;
+
+  renderAiUniqueTable(uniqueList);
+  renderAiDuplicateTable(duplicatesList);
+  renderAiInvalidTable(invalidList);
+  updateAiPreviewSummary(uniqueList, duplicatesList, invalidList);
+
+  if (!hasAny) {
     if (aiPreviewWrapper) {
       aiPreviewWrapper.classList.add('hidden');
+      aiPreviewWrapper.setAttribute('aria-hidden', 'true');
     }
     if (aiPreviewCountEl) {
-      aiPreviewCountEl.textContent = '';
+      aiPreviewCountEl.textContent = 'برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.';
     }
+    aiPreviewModeButtons.forEach((btn) => {
+      if (!btn) return;
+      btn.disabled = true;
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+    });
+    Object.values(aiPreviewPanels).forEach((panel) => {
+      if (!panel) return;
+      panel.classList.add('hidden');
+      panel.setAttribute('aria-hidden', 'true');
+    });
+    aiGeneratorState.previewMode = 'unique';
+    return;
+  }
+
+  if (aiPreviewWrapper) {
+    aiPreviewWrapper.classList.remove('hidden');
+    aiPreviewWrapper.setAttribute('aria-hidden', 'false');
+  }
+
+  ensureAiPreviewMode();
+  updateAiPreviewModeUI();
+}
+
+function renderAiUniqueTable(list) {
+  if (!aiPreviewTbody) return;
+  if (!Array.isArray(list) || !list.length) {
     aiPreviewTbody.innerHTML = `
       <tr>
         <td colspan="3" class="ai-preview-empty">برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.</td>
       </tr>
     `;
     return;
-  }
-
-  if (aiPreviewWrapper) {
-    aiPreviewWrapper.classList.remove('hidden');
-  }
-  if (aiPreviewCountEl) {
-    aiPreviewCountEl.textContent = `نمایش ${formatNumberFa(list.length)} سوال نمونه`;
   }
 
   aiPreviewTbody.innerHTML = list.map((item, index) => {
@@ -474,14 +550,151 @@ function renderAiPreview(items) {
     }).join('');
     const correctChoice = item.choices[item.correctIndex] || '';
     const correctHtml = escapeHtml(correctChoice || '---');
+    const explanationHtml = item.explanation
+      ? `<div class="ai-preview-explanation"><i class="fa-solid fa-circle-info text-xs opacity-70 ml-1" aria-hidden="true"></i>${escapeHtml(item.explanation)}</div>`
+      : '';
     return `
       <tr>
-        <td>${questionText}</td>
+        <td>${questionText}${explanationHtml}</td>
         <td><ul class="space-y-1 list-none">${optionsHtml}</ul></td>
         <td>${correctHtml}</td>
       </tr>
     `;
   }).join('');
+}
+
+function renderAiDuplicateTable(list) {
+  if (!aiPreviewDuplicatesTbody) return;
+  if (!Array.isArray(list) || !list.length) {
+    aiPreviewDuplicatesTbody.innerHTML = `
+      <tr>
+        <td colspan="2" class="ai-preview-empty">هنوز سوال تکراری شناسایی نشده است.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  aiPreviewDuplicatesTbody.innerHTML = list.map((item, index) => {
+    const questionLabel = item.text || `سوال شماره ${formatNumberFa(index + 1)}`;
+    const reason = item.reason || '---';
+    return `
+      <tr>
+        <td>${escapeHtml(questionLabel)}</td>
+        <td>${escapeHtml(reason)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderAiInvalidTable(list) {
+  if (!aiPreviewInvalidTbody) return;
+  if (!Array.isArray(list) || !list.length) {
+    aiPreviewInvalidTbody.innerHTML = `
+      <tr>
+        <td colspan="2" class="ai-preview-empty">هیچ مورد نامعتبری گزارش نشده است.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  aiPreviewInvalidTbody.innerHTML = list.map((item, index) => {
+    const questionLabel = item.text || `سوال شماره ${formatNumberFa(index + 1)}`;
+    const reason = item.reason || '---';
+    return `
+      <tr>
+        <td>${escapeHtml(questionLabel)}</td>
+        <td>${escapeHtml(reason)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateAiPreviewSummary(uniqueList, duplicatesList, invalidList) {
+  const items = [
+    { el: aiSummaryUniqueEl, textEl: aiSummaryUniqueText, label: 'سوالات جدید', count: uniqueList.length },
+    { el: aiSummaryDuplicatesEl, textEl: aiSummaryDuplicatesText, label: 'تکراری', count: duplicatesList.length },
+    { el: aiSummaryInvalidEl, textEl: aiSummaryInvalidText, label: 'نامعتبر', count: invalidList.length }
+  ];
+
+  items.forEach(({ el, textEl, label, count }) => {
+    if (!el || !textEl) return;
+    textEl.textContent = `${label}: ${formatNumberFa(count)}`;
+    el.dataset.muted = count ? 'false' : 'true';
+    el.setAttribute('title', `${label}: ${formatNumberFa(count)}`);
+  });
+}
+
+function ensureAiPreviewMode() {
+  const counts = {
+    unique: Array.isArray(aiGeneratorState.preview) ? aiGeneratorState.preview.length : 0,
+    duplicates: Array.isArray(aiGeneratorState.duplicates) ? aiGeneratorState.duplicates.length : 0,
+    invalid: Array.isArray(aiGeneratorState.invalid) ? aiGeneratorState.invalid.length : 0
+  };
+  const availableModes = ['unique', 'duplicates', 'invalid'].filter((mode) => counts[mode] > 0);
+  if (!availableModes.length) {
+    aiGeneratorState.previewMode = 'unique';
+    return;
+  }
+  if (!availableModes.includes(aiGeneratorState.previewMode)) {
+    [aiGeneratorState.previewMode] = availableModes;
+  }
+}
+
+function updateAiPreviewModeUI() {
+  const counts = {
+    unique: Array.isArray(aiGeneratorState.preview) ? aiGeneratorState.preview.length : 0,
+    duplicates: Array.isArray(aiGeneratorState.duplicates) ? aiGeneratorState.duplicates.length : 0,
+    invalid: Array.isArray(aiGeneratorState.invalid) ? aiGeneratorState.invalid.length : 0
+  };
+
+  aiPreviewModeButtons.forEach((btn) => {
+    if (!btn) return;
+    const mode = btn.dataset.previewMode;
+    const count = counts[mode] || 0;
+    const isActive = mode === aiGeneratorState.previewMode && count > 0 && btn.dataset.busy !== 'true';
+    btn.disabled = count === 0 || btn.dataset.busy === 'true';
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+
+  Object.entries(aiPreviewPanels).forEach(([mode, panel]) => {
+    if (!panel) return;
+    const shouldShow = mode === aiGeneratorState.previewMode && counts[mode] > 0;
+    if (shouldShow) {
+      panel.classList.remove('hidden');
+      panel.setAttribute('aria-hidden', 'false');
+    } else {
+      panel.classList.add('hidden');
+      panel.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  if (aiPreviewCountEl) {
+    const mode = aiGeneratorState.previewMode;
+    const count = counts[mode] || 0;
+    let label;
+    if (!counts.unique && !counts.duplicates && !counts.invalid) {
+      label = 'برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.';
+    } else if (!count) {
+      if (mode === 'unique') label = 'هیچ سوال تازه‌ای در این نوبت یافت نشد.';
+      else if (mode === 'duplicates') label = 'سوالی به عنوان تکراری شناسایی نشد.';
+      else label = 'مورد نامعتبر ثبت نشد.';
+    } else if (mode === 'unique') {
+      label = `نمایش ${formatNumberFa(count)} سوال جدید تایید شده`;
+    } else if (mode === 'duplicates') {
+      label = `${formatNumberFa(count)} سوال تکراری شناسایی شد`;
+    } else {
+      label = `${formatNumberFa(count)} مورد نامعتبر گزارش شد`;
+    }
+    aiPreviewCountEl.textContent = label;
+  }
+}
+
+function setAiPreviewMode(mode) {
+  const normalized = typeof mode === 'string' ? mode.trim().toLowerCase() : '';
+  aiGeneratorState.previewMode = normalized || 'unique';
+  ensureAiPreviewMode();
+  updateAiPreviewModeUI();
 }
 
 function getAiFormValues() {
@@ -499,6 +712,7 @@ function getAiFormValues() {
 
   const difficulty = getAiDifficultyValue();
   const topicHints = aiTopicHintsInput ? aiTopicHintsInput.value.trim() : '';
+  const prompt = aiPromptInput ? aiPromptInput.value.trim() : '';
   const temperature = syncAiTemperatureInputs('number');
   const seedRaw = aiSeedInput ? aiSeedInput.value.trim() : '';
   let seed;
@@ -514,6 +728,7 @@ function getAiFormValues() {
     categorySlug,
     difficulty,
     topicHints,
+    prompt,
     temperature,
     seed
   };
@@ -543,6 +758,7 @@ async function runAiGeneration(previewOnly = false) {
     categorySlug: payload.categorySlug,
     difficulty: payload.difficulty,
     topicHints: payload.topicHints || undefined,
+    prompt: payload.prompt || undefined,
     temperature: payload.temperature,
     seed: payload.seed,
     previewOnly
@@ -568,18 +784,28 @@ async function runAiGeneration(previewOnly = false) {
       throw new Error(errorMessage);
     }
 
-    const previewItems = Array.isArray(response.preview) ? response.preview : [];
-    const invalidItems = Array.isArray(response.invalid) ? response.invalid : [];
-    const duplicateItems = Array.isArray(response.duplicates) ? response.duplicates : [];
-    const invalidCountRaw = invalidItems.length
-      ? invalidItems.length
-      : (Number.isFinite(Number(response.invalid)) ? Number(response.invalid) : 0);
-    const duplicateCountRaw = duplicateItems.length
-      ? duplicateItems.length
-      : (Number.isFinite(Number(response.duplicates)) ? Number(response.duplicates) : 0);
-    const invalidCount = Math.max(0, Math.round(invalidCountRaw));
-    const duplicateCount = Math.max(0, Math.round(duplicateCountRaw));
-    renderAiPreview(previewItems);
+    const previewItemsRaw = Array.isArray(response.preview) ? response.preview : [];
+    const invalidItemsRaw = Array.isArray(response.invalid) ? response.invalid : [];
+    const duplicateItemsRaw = Array.isArray(response.duplicates) ? response.duplicates : [];
+
+    const previewItems = previewItemsRaw.map(normalizeAiPreviewItem);
+    const invalidItems = invalidItemsRaw.map(normalizeInvalidPreviewItem);
+    const duplicateItems = duplicateItemsRaw.map(normalizeDuplicatePreviewItem);
+
+    aiGeneratorState.preview = previewItems;
+    aiGeneratorState.invalid = invalidItems;
+    aiGeneratorState.duplicates = duplicateItems;
+    aiGeneratorState.previewMode = 'unique';
+    renderAiPreview();
+
+    const invalidCountFallback = Number.isFinite(Number(response.invalid))
+      ? Math.max(0, Math.round(Number(response.invalid)))
+      : 0;
+    const duplicateCountFallback = Number.isFinite(Number(response.duplicates))
+      ? Math.max(0, Math.round(Number(response.duplicates)))
+      : 0;
+    const invalidCount = invalidItems.length || invalidCountFallback;
+    const duplicateCount = duplicateItems.length || duplicateCountFallback;
 
     if (previewOnly) {
       const tone = (invalidCount || duplicateCount) ? 'warning' : 'success';
@@ -617,6 +843,7 @@ async function runAiGeneration(previewOnly = false) {
     showToast(message, 'error');
   } finally {
     setAiLoadingState({ preview: false, generate: false });
+    renderAiPreview();
     updateTriviaControlsAvailability();
     updateTriviaSummary();
   }
@@ -634,6 +861,7 @@ function updateTriviaControlsAvailability() {
     aiCountInput,
     aiCategorySelect,
     aiTopicHintsInput,
+    aiPromptInput,
     aiTemperatureRange,
     aiTemperatureNumber,
     aiSeedInput
@@ -728,6 +956,18 @@ function initializeAiGenerator() {
     });
   }
 
+  if (aiTopicHintsInput) {
+    aiTopicHintsInput.addEventListener('input', () => {
+      updateTriviaSummary();
+    });
+  }
+
+  if (aiPromptInput) {
+    aiPromptInput.addEventListener('input', () => {
+      updateTriviaSummary();
+    });
+  }
+
   if (aiTemperatureRange) {
     aiTemperatureRange.addEventListener('input', () => {
       syncAiTemperatureInputs('range');
@@ -752,6 +992,14 @@ function initializeAiGenerator() {
     });
   }
 
+  aiPreviewModeButtons.forEach((btn) => {
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (btn.disabled || btn.dataset.busy === 'true') return;
+      setAiPreviewMode(btn.dataset.previewMode);
+    });
+  });
+
   if (aiThemeToggle && aiPanel) {
     aiThemeToggle.addEventListener('click', () => {
       const current = aiPanel.dataset.theme === 'light' ? 'light' : 'dark';
@@ -775,6 +1023,7 @@ function initializeAiGenerator() {
   syncAiTemperatureInputs('number');
   updateTriviaControlsAvailability();
   updateTriviaSummary();
+  renderAiPreview();
 }
 
 function sanitizeCategoryList(list) {
