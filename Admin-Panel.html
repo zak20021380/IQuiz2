@@ -533,6 +533,312 @@
     .ai-generator[data-theme="light"] .ai-preview-explanation{
       color:rgba(71,85,105,0.85);
     }
+    .btn-danger{
+      background:linear-gradient(135deg,#f87171,#ef4444);
+      color:#fff;
+      box-shadow:0 4px 18px rgba(248,113,113,0.35);
+    }
+    .btn-danger:hover{
+      box-shadow:0 18px 40px -18px rgba(248,113,113,0.7);
+    }
+    .btn-danger:focus{
+      box-shadow:0 0 0 2px rgba(248,113,113,0.35),0 0 0 6px rgba(15,23,42,0.6);
+    }
+    .meta-chip.duplicate{
+      background:rgba(248,113,113,0.18);
+      border:1px solid rgba(248,113,113,0.35);
+      color:#fecaca;
+    }
+    .meta-chip.duplicate i{
+      color:inherit;
+    }
+    .table .question-row-duplicate td{
+      background:rgba(248,113,113,0.05);
+    }
+    .table .question-row-duplicate:hover td{
+      background:rgba(248,113,113,0.08);
+    }
+    #questions-view-tabs{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
+      padding:0.75rem 0;
+    }
+    #questions-view-tabs .view-hint{
+      font-size:0.8rem;
+      color:rgba(148,163,184,0.85);
+    }
+    .duplicates-toolbar{
+      padding:1.5rem;
+      border-bottom:1px solid rgba(255,255,255,0.08);
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
+    }
+    .duplicates-info-title{
+      font-size:1.1rem;
+      font-weight:700;
+      margin-bottom:0.25rem;
+    }
+    .duplicates-info-subtitle{
+      font-size:0.85rem;
+      color:rgba(148,163,184,0.85);
+      margin:0;
+    }
+    .duplicates-info-subtitle span{
+      font-weight:700;
+      color:#facc15;
+    }
+    #duplicates-groups-container{
+      padding:1.5rem;
+      display:flex;
+      flex-direction:column;
+      gap:1.25rem;
+    }
+    .duplicate-group-card{
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:1.25rem;
+      padding:1.25rem;
+      background:rgba(15,23,42,0.65);
+      box-shadow:0 18px 48px -28px rgba(15,23,42,0.7);
+      display:flex;
+      flex-direction:column;
+      gap:1rem;
+    }
+    .duplicate-group-header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:1rem;
+      flex-wrap:wrap;
+    }
+    .duplicate-group-title{
+      font-size:1rem;
+      font-weight:700;
+      margin:0;
+    }
+    .duplicate-group-subtitle{
+      font-size:0.85rem;
+      color:rgba(148,163,184,0.8);
+      margin:0.25rem 0 0;
+    }
+    .duplicate-count-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:2.5rem;
+      height:2.5rem;
+      border-radius:999px;
+      background:rgba(248,113,113,0.18);
+      color:#fecaca;
+      font-weight:700;
+      padding:0 1rem;
+      border:1px solid rgba(248,113,113,0.35);
+    }
+    .duplicate-items{
+      list-style:none;
+      margin:0;
+      padding:0;
+      display:flex;
+      flex-direction:column;
+      gap:0.85rem;
+    }
+    .duplicate-item{
+      display:flex;
+      align-items:flex-start;
+      gap:0.85rem;
+      padding:0.85rem;
+      border-radius:0.9rem;
+      border:1px solid rgba(148,163,184,0.18);
+      background:rgba(15,23,42,0.55);
+      transition:border 0.2s ease, background 0.2s ease;
+    }
+    .duplicate-item:hover{
+      border-color:rgba(148,163,184,0.35);
+      background:rgba(15,23,42,0.68);
+    }
+    .duplicate-item input[type="checkbox"]{
+      margin-top:0.3rem;
+      accent-color:#f87171;
+    }
+    .duplicate-item-question{
+      font-weight:600;
+      font-size:0.95rem;
+      color:#f8fafc;
+    }
+    .duplicate-item-meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:0.4rem;
+      margin-top:0.35rem;
+    }
+    .duplicate-item-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:0.35rem;
+      padding:0.3rem 0.6rem;
+      border-radius:999px;
+      background:rgba(148,163,184,0.12);
+      color:rgba(226,232,240,0.85);
+      font-size:0.7rem;
+      font-weight:600;
+    }
+    #duplicates-empty-state{
+      padding:2rem;
+      text-align:center;
+      color:rgba(148,163,184,0.85);
+      display:flex;
+      flex-direction:column;
+      gap:0.75rem;
+      align-items:center;
+      justify-content:center;
+    }
+    #duplicates-empty-state i{
+      font-size:2rem;
+      color:rgba(148,163,184,0.6);
+    }
+    .ai-modal-card{
+      width:min(100%,900px);
+      border-radius:1.75rem;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      background:rgba(15,23,42,0.95);
+      border:1px solid rgba(255,255,255,0.12);
+      box-shadow:0 40px 90px -45px rgba(15,23,42,0.85);
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+    }
+    .ai-modal-header{
+      padding:1.75rem;
+      border-bottom:1px solid rgba(255,255,255,0.08);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:1.25rem;
+    }
+    .ai-modal-body{
+      padding:1.75rem;
+      display:flex;
+      flex-direction:column;
+      gap:1.5rem;
+    }
+    .ai-modal-grid{
+      display:grid;
+      gap:1rem 1.25rem;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    }
+    .ai-modal-field{
+      display:flex;
+      flex-direction:column;
+      gap:0.5rem;
+    }
+    .ai-modal-actions{
+      display:flex;
+      flex-direction:column;
+      gap:0.75rem;
+    }
+    @media (min-width:768px){
+      .ai-modal-actions{
+        flex-direction:row;
+      }
+    }
+    .ai-modal-status{
+      font-size:0.85rem;
+      min-height:1.2rem;
+      color:rgba(148,163,184,0.85);
+    }
+    .ai-modal-status.tone-success{ color:#4ade80; }
+    .ai-modal-status.tone-warning{ color:#facc15; }
+    .ai-modal-status.tone-error{ color:#f87171; }
+    .ai-modal-status.tone-info{ color:#60a5fa; }
+    .ai-modal-status.tone-muted{ color:rgba(148,163,184,0.7); }
+    .ai-modal-panels{
+      display:grid;
+      gap:1.25rem;
+    }
+    @media (min-width:1024px){
+      .ai-modal-panels{
+        grid-template-columns:1.6fr 1fr;
+      }
+    }
+    .ai-modal-section{
+      border:1px solid rgba(148,163,184,0.18);
+      border-radius:1.25rem;
+      padding:1.25rem;
+      background:rgba(15,23,42,0.6);
+      display:flex;
+      flex-direction:column;
+      gap:1rem;
+    }
+    .ai-modal-section-title{
+      font-size:1rem;
+      font-weight:700;
+      display:flex;
+      align-items:center;
+      gap:0.5rem;
+      margin:0;
+    }
+    .ai-modal-preview-table{
+      width:100%;
+      border-collapse:collapse;
+    }
+    .ai-modal-preview-table th,
+    .ai-modal-preview-table td{
+      padding:0.65rem 0.75rem;
+      text-align:right;
+      border-bottom:1px solid rgba(148,163,184,0.18);
+      vertical-align:top;
+      font-size:0.85rem;
+    }
+    .ai-modal-preview-table th{
+      background:rgba(59,130,246,0.12);
+      color:#bfdbfe;
+      font-weight:700;
+    }
+    .ai-modal-preview-table tr:last-child td{
+      border-bottom:none;
+    }
+    .ai-modal-preview-empty,
+    .ai-modal-empty{
+      text-align:center;
+      font-size:0.85rem;
+      color:rgba(148,163,184,0.85);
+    }
+    .ai-modal-list{
+      list-style:none;
+      margin:0;
+      padding:0;
+      display:flex;
+      flex-direction:column;
+      gap:0.85rem;
+    }
+    .ai-duplicate-item{
+      padding:0.75rem 0.85rem;
+      border-radius:0.85rem;
+      border:1px solid rgba(148,163,184,0.18);
+      background:rgba(15,23,42,0.55);
+      display:flex;
+      flex-direction:column;
+      gap:0.35rem;
+    }
+    .ai-modal-footer{
+      padding:1.5rem;
+      border-top:1px solid rgba(255,255,255,0.08);
+      display:flex;
+      justify-content:flex-end;
+      gap:0.75rem;
+    }
+    .ai-modal-footer .btn{
+      width:auto;
+    }
+    .ai-modal-section.hidden{
+      display:none;
+    }
     .sr-only{
       position:absolute;
       width:1px;
@@ -1953,11 +2259,16 @@
 
       <!-- QUESTIONS MANAGEMENT -->
       <section id="page-questions" class="hidden space-y-6">
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-6">
           <h1 class="text-2xl font-bold">مدیریت سوالات</h1>
-          <button id="btn-add-question" class="btn btn-primary w-auto px-5">
-            <i class="fa-solid fa-plus ml-2"></i> افزودن سوال
-          </button>
+          <div class="flex items-center gap-3">
+            <button id="btn-ai-generate" class="btn btn-secondary w-auto px-5">
+              <i class="fa-solid fa-robot ml-2"></i> تولید سوال با AI
+            </button>
+            <button id="btn-add-question" class="btn btn-primary w-auto px-5">
+              <i class="fa-solid fa-plus ml-2"></i> افزودن سوال
+            </button>
+          </div>
         </div>
 
         <div class="glass rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-br from-sky-500/15 via-violet-500/10 to-emerald-500/15 border border-white/10">
@@ -2038,6 +2349,13 @@
                 <option value="approved">تایید شده</option>
                 <option value="rejected">رد شده</option>
                 <option value="inactive">غیرفعال</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-1">نمایش تکراری‌ها</label>
+              <select id="filter-duplicates" class="form-select">
+                <option value="all">همه سوالات</option>
+                <option value="duplicates">فقط موارد تکراری</option>
               </select>
             </div>
             <div>
@@ -2219,8 +2537,24 @@
           </div>
         </section>
 
+        <div id="questions-view-tabs" class="flex items-center justify-between flex-wrap gap-3">
+          <div class="flex items-center gap-2">
+            <button type="button" class="chip-toggle active" data-questions-view="list">
+              <i class="fa-solid fa-table-list ml-2"></i>
+              جدول سوالات
+            </button>
+            <button type="button" class="chip-toggle" data-questions-view="duplicates">
+              <i class="fa-solid fa-clone ml-2"></i>
+              تکراری‌ها
+            </button>
+          </div>
+          <p class="view-hint text-xs text-white/60">
+            تب «تکراری‌ها» گروه‌های مشابه را نمایش می‌دهد و امکان حذف دسته‌جمعی را فراهم می‌کند.
+          </p>
+        </div>
+
         <!-- Questions Table -->
-        <div class="glass rounded-2xl overflow-hidden">
+        <div id="questions-table-card" class="glass rounded-2xl overflow-hidden">
           <div class="table-container">
             <table class="table table-questions">
               <thead>
@@ -2256,6 +2590,27 @@
               <button><i class="fa-solid fa-chevron-left"></i></button>
             </div>
           </div>
+        </div>
+
+        <div id="duplicates-view-card" class="glass rounded-2xl hidden">
+          <div class="duplicates-toolbar">
+            <div>
+              <h2 class="duplicates-info-title">گروه‌های سوال تکراری</h2>
+              <p class="duplicates-info-subtitle">
+                <span id="duplicates-total">۰</span> گروه با متن مشابه در بانک سوالات یافت شد.
+              </p>
+            </div>
+            <button id="duplicates-bulk-delete" class="btn btn-danger w-auto hidden" type="button" disabled>
+              <i class="fa-solid fa-trash ml-2"></i>
+              حذف موارد انتخاب‌شده
+              <span class="text-xs font-bold ml-1">(<span id="duplicates-selected-count">۰</span>)</span>
+            </button>
+          </div>
+          <div id="duplicates-empty-state" class="hidden">
+            <i class="fa-solid fa-clone"></i>
+            <p>هیچ گروه تکراری فعالی وجود ندارد. با تولید سوالات جدید، این بخش به‌روزرسانی می‌شود.</p>
+          </div>
+          <div id="duplicates-groups-container"></div>
         </div>
       </section>
 
@@ -3697,6 +4052,110 @@
   </div>
 
   <!-- Modals -->
+  <div id="ai-generate-modal" class="modal">
+    <div class="ai-modal-card modal-content w-full mx-4">
+      <div class="ai-modal-header">
+        <div>
+          <h3 class="text-xl font-extrabold">تولید سوال با هوش مصنوعی</h3>
+          <p class="text-sm text-white/70 mt-1">موضوع را وارد کنید تا مجموعه‌ای از سوالات چهارگزینه‌ای آماده شود.</p>
+        </div>
+        <button type="button" class="close-modal w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="ai-modal-body">
+        <form id="ai-generate-form" class="space-y-4" autocomplete="off" novalidate>
+          <div class="ai-modal-grid">
+            <div class="ai-modal-field">
+              <label for="ai-modal-topic" class="text-sm font-semibold">موضوع اصلی</label>
+              <input type="text" id="ai-modal-topic" class="form-input" placeholder="مثلاً: دستاوردهای علمی ایران" maxlength="160" required>
+              <p class="text-xs text-white/60">این موضوع به عنوان دسته‌بندی در متن سوال ثبت می‌شود.</p>
+            </div>
+            <div class="ai-modal-field">
+              <label for="ai-modal-count" class="text-sm font-semibold">تعداد سوال</label>
+              <input type="number" id="ai-modal-count" class="form-input" min="1" max="50" value="5" required>
+              <p class="text-xs text-white/60">حداکثر ۵۰ سوال در هر بار تولید می‌شود.</p>
+            </div>
+            <div class="ai-modal-field">
+              <label for="ai-modal-difficulty" class="text-sm font-semibold">سطح دشواری</label>
+              <select id="ai-modal-difficulty" class="form-select">
+                <option value="easy">آسون</option>
+                <option value="medium" selected>متوسط</option>
+                <option value="hard">سخت</option>
+              </select>
+            </div>
+            <div class="ai-modal-field">
+              <label for="ai-modal-lang" class="text-sm font-semibold">زبان</label>
+              <select id="ai-modal-lang" class="form-select">
+                <option value="fa" selected>فارسی</option>
+                <option value="en">English</option>
+                <option value="ar">العربیة</option>
+              </select>
+              <p class="text-xs text-white/60">زبان نگارش سوالات و گزینه‌ها.</p>
+            </div>
+          </div>
+        </form>
+        <div class="ai-modal-actions">
+          <button type="button" id="ai-modal-preview-btn" class="btn btn-secondary w-full md:w-auto">
+            <i class="fa-solid fa-eye ml-2"></i>
+            پیش‌نمایش سوالات
+          </button>
+          <button type="button" id="ai-modal-insert-btn" class="btn btn-primary w-full md:w-auto">
+            <i class="fa-solid fa-database ml-2"></i>
+            ذخیره در بانک سوالات
+          </button>
+        </div>
+        <div id="ai-modal-status" class="ai-modal-status tone-muted" role="status" aria-live="polite"></div>
+        <div class="ai-modal-panels">
+          <section class="ai-modal-section">
+            <h4 class="ai-modal-section-title">
+              <i class="fa-solid fa-list-check text-sky-300"></i>
+              پیش‌نمایش سوالات تولیدی
+            </h4>
+            <div class="overflow-x-auto rounded-xl border border-white/10">
+              <table class="ai-modal-preview-table">
+                <thead>
+                  <tr>
+                    <th scope="col">متن سوال</th>
+                    <th scope="col">گزینه‌ها</th>
+                    <th scope="col">پاسخ صحیح</th>
+                  </tr>
+                </thead>
+                <tbody id="ai-modal-preview-body"></tbody>
+              </table>
+            </div>
+            <div id="ai-modal-preview-empty" class="ai-modal-preview-empty">
+              هنوز پیش‌نمایشی ایجاد نشده است. ابتدا موضوع و تعداد سوال را مشخص کنید.
+            </div>
+          </section>
+          <div class="space-y-4">
+            <section class="ai-modal-section">
+              <h4 class="ai-modal-section-title">
+                <i class="fa-solid fa-clone text-amber-300"></i>
+                موارد تکراری</h4>
+              <div id="ai-modal-duplicates-empty" class="ai-modal-empty">
+                در این نوبت مورد تکراری شناسایی نشده است.
+              </div>
+              <ul id="ai-modal-duplicates" class="ai-modal-list"></ul>
+              <p class="text-xs text-white/60 leading-6">سوالات تکراری ذخیره نمی‌شوند و می‌توانید متنشان را بازنگری کنید.</p>
+            </section>
+            <section id="ai-modal-invalid-section" class="ai-modal-section hidden">
+              <h4 class="ai-modal-section-title">
+                <i class="fa-solid fa-triangle-exclamation text-rose-300"></i>
+                موارد نامعتبر</h4>
+              <ul id="ai-modal-invalid" class="ai-modal-list"></ul>
+            </section>
+          </div>
+        </div>
+      </div>
+      <div class="ai-modal-footer safe">
+        <button type="button" class="btn btn-secondary close-modal px-5">
+          <i class="fa-solid fa-arrow-right ml-2"></i>
+          بستن
+        </button>
+      </div>
+    </div>
+  </div>
   <div id="question-stats-modal" class="modal">
     <div class="glass rounded-3xl max-w-lg w-full mx-4 modal-content overflow-hidden shadow-2xl">
       <div class="p-6 pb-4 border-b border-white/10 flex items-center justify-between">

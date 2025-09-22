@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 
+const { createQuestionUid } = require('../utils/hash');
+
 function normalizeChoice(value) {
   return String(value ?? '').trim();
 }
@@ -35,7 +37,7 @@ function deriveCorrectAnswer(choices, correctIndex) {
 
 const questionSchema = new mongoose.Schema(
   {
-    text: { type: String, required: true, trim: true },
+    text: { type: String, required: true, trim: true, alias: 'question' },
     choices: {
       type: [String],
       required: true,
@@ -54,13 +56,13 @@ const questionSchema = new mongoose.Schema(
     },
     correctAnswer: { type: String, trim: true, default: '' },
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'easy' },
-    category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
+    category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
     categoryName: { type: String, trim: true },
     categorySlug: { type: String, trim: true },
     active: { type: Boolean, default: true },
     provider: { type: String, trim: true, default: '' },
     providerId: { type: String, trim: true },
-    source: { type: String, enum: ['manual', 'ai-gen', 'community'], default: 'manual' },
+    source: { type: String, enum: ['manual', 'ai-gen', 'community', 'AI'], default: 'manual' },
     lang: { type: String, trim: true, default: 'fa' },
     type: { type: String, trim: true, default: 'multiple' },
     status: {
@@ -75,6 +77,7 @@ const questionSchema = new mongoose.Schema(
     reviewedAt: { type: Date },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewNotes: { type: String, trim: true },
+    uid: { type: String, trim: true, index: true, unique: true, sparse: true },
     hash: { type: String, required: true, trim: true },
     checksum: { type: String, trim: true, default: '' },
     meta: { type: mongoose.Schema.Types.Mixed, default: {} }
@@ -85,6 +88,7 @@ const questionSchema = new mongoose.Schema(
 questionSchema.index({ provider: 1, hash: 1 }, { unique: true, sparse: true, name: 'uniq_provider_hash' });
 questionSchema.index({ categoryName: 1, difficulty: 1, correctAnswer: 1, createdAt: -1 }, { name: 'idx_category_difficulty_correctAnswer_createdAt' });
 questionSchema.index({ categorySlug: 1, difficulty: 1, createdAt: -1 }, { name: 'idx_categorySlug_difficulty_createdAt' });
+questionSchema.index({ uid: 1 }, { unique: true, sparse: true, name: 'uniq_uid' });
 
 questionSchema.pre('validate', function deriveHashesAndAnswers(next) {
   try {
@@ -99,6 +103,12 @@ questionSchema.pre('validate', function deriveHashesAndAnswers(next) {
       }
     }
 
+    const questionText = this.text || this.question || '';
+    const uid = createQuestionUid(questionText);
+    if (uid) {
+      this.uid = uid;
+    }
+
     if (!this.hash) {
       this.invalidate('hash', 'hash is required');
     }
@@ -109,6 +119,14 @@ questionSchema.pre('validate', function deriveHashesAndAnswers(next) {
 
   next();
 });
+
+questionSchema.virtual('answerIndex')
+  .get(function getAnswerIndex() {
+    return this.correctIndex;
+  })
+  .set(function setAnswerIndex(value) {
+    this.correctIndex = value;
+  });
 
 questionSchema.statics.generateChecksum = generateChecksum;
 questionSchema.statics.generateHash = generateChecksum;
