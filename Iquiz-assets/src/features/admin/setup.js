@@ -1,5 +1,6 @@
 import Api from '../../services/api.js';
 import { RemoteConfig, patchPricingKeys } from '../../config/remote-config.js';
+import { enforceStaticCategoryList, STATIC_CATEGORY_DEFINITIONS } from '../../config/categories.js';
 import {
   Admin,
   DEFAULT_DIFFS,
@@ -138,12 +139,17 @@ export async function initFromAdmin() {
   }
 
   const rawCategories = Array.isArray(catList) ? catList.filter((c) => c?.isActive !== false) : [];
-  Admin.categories = rawCategories.map((cat) => {
+  const normalizedCategories = enforceStaticCategoryList(rawCategories);
+  const sourceCategories = normalizedCategories.length
+    ? normalizedCategories
+    : enforceStaticCategoryList(STATIC_CATEGORY_DEFINITIONS);
+
+  Admin.categories = sourceCategories.map((cat) => {
     const parsed = extractDifficultyList(cat?.difficulties ?? cat?.difficulty);
     const diffs = Array.isArray(parsed) && parsed.length
       ? parsed.map((d) => ({ value: d.value, label: d.label }))
       : DEFAULT_DIFFS.map((d) => ({ value: d.value, label: d.label }));
-    return { ...cat, difficulties: diffs };
+    return { ...cat, difficulties: diffs, isActive: cat?.isActive !== false };
   });
 
   const diffMap = new Map();

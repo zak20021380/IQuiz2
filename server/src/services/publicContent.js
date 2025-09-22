@@ -1,4 +1,4 @@
-const { CATEGORIES } = require('../config/categories');
+const { CATEGORIES, resolveCategory } = require('../config/categories');
 
 const DEFAULT_DIFFICULTIES = [
   { value: 'easy', label: 'آسان' },
@@ -22,13 +22,24 @@ const FALLBACK_CATEGORY_DATA = Array.from(CATEGORIES)
     if (a.order !== b.order) return a.order - b.order;
     return (a.displayName || a.name || '').localeCompare(b.displayName || b.name || '', 'fa');
   })
-  .map((category) => ({
-    id: category.slug,
-    title: category.displayName || category.name,
-    description: category.description || '',
-    icon: category.icon || 'fa-layer-group',
-    color: CATEGORY_COLOR_HEX[category.color] || CATEGORY_COLOR_HEX.blue
-  }));
+  .map((category) => {
+    const colorKey = category.color || 'blue';
+    return {
+      id: category.slug,
+      slug: category.slug,
+      title: category.displayName || category.name,
+      displayName: category.displayName || category.name,
+      name: category.name || category.displayName || 'Category',
+      description: category.description || '',
+      icon: category.icon || 'fa-layer-group',
+      colorKey,
+      color: CATEGORY_COLOR_HEX[colorKey] || CATEGORY_COLOR_HEX.blue,
+      provider: category.provider || 'ai-gen',
+      providerCategoryId: category.providerCategoryId || category.slug,
+      order: category.order,
+      aliases: Array.isArray(category.aliases) ? category.aliases : []
+    };
+  });
 
 const FALLBACK_PROVINCES = [
   'آذربایجان شرقی',
@@ -454,11 +465,17 @@ function buildFallbackCategoryMap() {
 function getFallbackCategories() {
   return FALLBACK_CATEGORY_DATA.map(cat => ({
     id: cat.id,
+    slug: cat.slug,
     title: cat.title,
-    name: cat.title,
+    name: cat.name,
+    displayName: cat.displayName,
     description: cat.description || '',
     icon: cat.icon || 'fa-layer-group',
     color: cat.color || '#60a5fa',
+    colorKey: cat.colorKey,
+    provider: cat.provider,
+    providerCategoryId: cat.providerCategoryId,
+    order: cat.order,
     isActive: true,
     difficulties: cloneDifficulties()
   }));
@@ -469,13 +486,29 @@ function mapCategoryDocument(doc) {
   const id = doc._id ? String(doc._id) : doc.id;
   if (!id) return null;
   const status = doc.status || 'active';
+  const canonical = resolveCategory({
+    slug: doc.slug,
+    id: doc.providerCategoryId || doc.slug,
+    name: doc.name,
+    displayName: doc.displayName,
+    title: doc.title,
+    aliases: doc.aliases
+  });
+  if (!canonical) return null;
+  const colorKey = canonical.color || 'blue';
   return {
     id,
-    title: doc.title || doc.name || 'دسته‌بندی',
-    name: doc.name || doc.title || 'دسته‌بندی',
-    description: doc.description || '',
-    icon: doc.icon || 'fa-layer-group',
-    color: doc.color || '#60a5fa',
+    slug: canonical.slug,
+    title: canonical.displayName || canonical.name,
+    name: canonical.name,
+    displayName: canonical.displayName || canonical.name,
+    description: doc.description || canonical.description || '',
+    icon: canonical.icon || 'fa-layer-group',
+    color: CATEGORY_COLOR_HEX[colorKey] || CATEGORY_COLOR_HEX.blue,
+    colorKey,
+    provider: canonical.provider || 'ai-gen',
+    providerCategoryId: canonical.providerCategoryId || canonical.slug,
+    order: canonical.order,
     isActive: status !== 'disabled',
     difficulties: cloneDifficulties()
   };

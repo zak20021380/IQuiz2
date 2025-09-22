@@ -66,6 +66,218 @@ const CATEGORY_STATUS_SUFFIX = {
   disabled: ' (غیرفعال)'
 };
 
+const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
+  {
+    order: 1,
+    slug: 'general',
+    name: 'General Knowledge',
+    displayName: 'عمومی',
+    description: 'سوالاتی متنوع از دانستنی‌های روزمره و موضوعات عمومی.',
+    icon: 'fa-earth-asia',
+    color: 'blue',
+    provider: 'ai-gen',
+    providerCategoryId: 'general',
+    aliases: ['عمومی', 'دانش عمومی', 'General', 'General Knowledge']
+  },
+  {
+    order: 2,
+    slug: 'history-civilization',
+    name: 'History & Civilization',
+    displayName: 'تاریخ و تمدن',
+    description: 'رویدادها، امپراتوری‌ها و میراث فرهنگی ملت‌ها.',
+    icon: 'fa-landmark-dome',
+    color: 'orange',
+    provider: 'ai-gen',
+    providerCategoryId: 'history-civilization',
+    aliases: ['تاریخ', 'تمدن', 'History', 'History & Civilization']
+  },
+  {
+    order: 3,
+    slug: 'geography-nature',
+    name: 'Geography & Nature',
+    displayName: 'جغرافیا و طبیعت',
+    description: 'سرزمین‌ها، اقلیم‌ها و شگفتی‌های طبیعی جهان.',
+    icon: 'fa-mountain-sun',
+    color: 'teal',
+    provider: 'ai-gen',
+    providerCategoryId: 'geography-nature',
+    aliases: ['جغرافیا', 'طبیعت', 'Geography', 'Geography & Nature']
+  },
+  {
+    order: 4,
+    slug: 'science-technology',
+    name: 'Science & Technology',
+    displayName: 'علوم و فناوری',
+    description: 'کشفیات علمی، نوآوری‌های فنی و پیشرفت‌های روز.',
+    icon: 'fa-atom',
+    color: 'indigo',
+    provider: 'ai-gen',
+    providerCategoryId: 'science-technology',
+    aliases: ['علم', 'فناوری', 'Science', 'Science & Technology']
+  },
+  {
+    order: 5,
+    slug: 'literature-language',
+    name: 'Literature & Language',
+    displayName: 'ادبیات و زبان',
+    description: 'نویسندگان، آثار ادبی و دنیای زبان‌ها و واژگان.',
+    icon: 'fa-feather-pointed',
+    color: 'purple',
+    provider: 'ai-gen',
+    providerCategoryId: 'literature-language',
+    aliases: ['ادبیات', 'زبان', 'Literature', 'Literature & Language']
+  },
+  {
+    order: 6,
+    slug: 'movies-series',
+    name: 'Movies & Series',
+    displayName: 'فیلم و سریال',
+    description: 'سینما، تلویزیون و داستان‌های ماندگار پرده نقره‌ای.',
+    icon: 'fa-clapperboard',
+    color: 'yellow',
+    provider: 'ai-gen',
+    providerCategoryId: 'movies-series',
+    aliases: ['فیلم', 'سریال', 'Movies', 'Movies & Series']
+  },
+  {
+    order: 7,
+    slug: 'sports',
+    name: 'Sports',
+    displayName: 'ورزش',
+    description: 'رشته‌ها، قهرمانان و رویدادهای مهم ورزشی.',
+    icon: 'fa-medal',
+    color: 'red',
+    provider: 'ai-gen',
+    providerCategoryId: 'sports',
+    aliases: ['ورزش', 'Sport', 'Sports']
+  },
+  {
+    order: 8,
+    slug: 'entertainment',
+    name: 'Entertainment',
+    displayName: 'سرگرمی',
+    description: 'بازی‌ها، پازل‌ها و موضوعات سرگرم‌کننده برای اوقات فراغت.',
+    icon: 'fa-gamepad',
+    color: 'pink',
+    provider: 'ai-gen',
+    providerCategoryId: 'entertainment',
+    aliases: ['سرگرمی', 'تفریح', 'Entertainment']
+  }
+]);
+
+const STATIC_CATEGORY_NAMES = Object.freeze(
+  STATIC_CATEGORY_DEFINITIONS
+    .map((category) => {
+      if (!category) return '';
+      const label = category.displayName || category.name || '';
+      return typeof label === 'string' ? label.trim() : '';
+    })
+    .filter((label) => label.length > 0)
+);
+
+const STATIC_CATEGORY_LIST_LABEL = STATIC_CATEGORY_NAMES.join('، ');
+
+const STATIC_CATEGORY_ALIAS_LOOKUP = (() => {
+  const map = new Map();
+  const normalize = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+
+  STATIC_CATEGORY_DEFINITIONS.forEach((category) => {
+    const aliasSet = new Set([
+      category.slug,
+      category.name,
+      category.displayName,
+      category.providerCategoryId,
+      ...(Array.isArray(category.aliases) ? category.aliases : [])
+    ]);
+
+    aliasSet.forEach((alias) => {
+      const key = normalize(alias);
+      if (!key) return;
+      if (!map.has(key)) map.set(key, category);
+    });
+  });
+
+  return map;
+})();
+
+function normalizeStaticCategoryKey(value) {
+  if (!value) return '';
+  return String(value).trim().toLowerCase();
+}
+
+function resolveStaticCategoryDefinition(candidate) {
+  if (!candidate) return null;
+
+  if (typeof candidate === 'string') {
+    const key = normalizeStaticCategoryKey(candidate);
+    if (!key) return null;
+    return STATIC_CATEGORY_ALIAS_LOOKUP.get(key) || null;
+  }
+
+  if (typeof candidate === 'object') {
+    const candidates = [];
+    if (Object.prototype.hasOwnProperty.call(candidate, 'slug')) candidates.push(candidate.slug);
+    if (Object.prototype.hasOwnProperty.call(candidate, 'providerCategoryId')) candidates.push(candidate.providerCategoryId);
+    if (Object.prototype.hasOwnProperty.call(candidate, 'id')) candidates.push(candidate.id);
+    if (Object.prototype.hasOwnProperty.call(candidate, 'name')) candidates.push(candidate.name);
+    if (Object.prototype.hasOwnProperty.call(candidate, 'displayName')) candidates.push(candidate.displayName);
+    if (Object.prototype.hasOwnProperty.call(candidate, 'title')) candidates.push(candidate.title);
+    if (Array.isArray(candidate.aliases)) candidates.push(...candidate.aliases);
+
+    for (const entry of candidates) {
+      const match = resolveStaticCategoryDefinition(entry);
+      if (match) return match;
+    }
+  }
+
+  return null;
+}
+
+function mergeCategoryWithStaticDefinition(category) {
+  if (!category) return null;
+  const canonical = resolveStaticCategoryDefinition(category);
+  if (!canonical) return null;
+
+  const aliasSet = new Set();
+  if (Array.isArray(category.aliases)) {
+    category.aliases.forEach((alias) => {
+      const normalized = typeof alias === 'string' ? alias.trim() : '';
+      if (normalized) aliasSet.add(normalized);
+    });
+  }
+  if (Array.isArray(canonical.aliases)) {
+    canonical.aliases.forEach((alias) => {
+      const normalized = typeof alias === 'string' ? alias.trim() : '';
+      if (normalized) aliasSet.add(normalized);
+    });
+  }
+  aliasSet.add(canonical.name);
+  aliasSet.add(canonical.displayName);
+
+  const description = category.description && String(category.description).trim()
+    ? String(category.description).trim()
+    : (canonical.description || '');
+
+  return {
+    ...category,
+    name: canonical.name,
+    displayName: canonical.displayName,
+    title: canonical.displayName,
+    slug: canonical.slug,
+    provider: canonical.provider || category.provider || 'ai-gen',
+    providerCategoryId: canonical.providerCategoryId || canonical.slug,
+    icon: canonical.icon,
+    color: canonical.color,
+    description,
+    order: canonical.order,
+    aliases: Array.from(aliasSet)
+  };
+}
+
+const CATEGORY_MANAGEMENT_LOCKED = true;
+const CATEGORY_LOCKED_MESSAGE = `دسته‌بندی‌های پیش‌فرض (${STATIC_CATEGORY_LIST_LABEL}) قابل افزودن یا حذف نیستند.`;
+const CATEGORY_LOCKED_DESCRIPTION = `دسته‌بندی‌های پیش‌فرض شامل ${STATIC_CATEGORY_LIST_LABEL} هستند و به صورت خودکار مدیریت می‌شوند. در صورت نیاز به بروزرسانی با تیم فنی هماهنگ کنید.`;
+
 const questionsCache = new Map();
 
 const questionDetailModal = $('#question-detail-modal');
@@ -173,6 +385,7 @@ const categoriesEmptyEl = $('#categories-empty-state');
 const categoriesEmptyActionBtn = categoriesEmptyEl ? categoriesEmptyEl.querySelector('[data-action="open-create-category"]') : null;
 const categoriesEmptyTitleEl = categoriesEmptyEl ? categoriesEmptyEl.querySelector('[data-categories-empty-title]') : null;
 const categoriesEmptyDescriptionEl = categoriesEmptyEl ? categoriesEmptyEl.querySelector('[data-categories-empty-description]') : null;
+const addCategoryBtn = $('#btn-add-category');
 const categoryModal = $('#add-category-modal');
 const categoryModalTitleEl = categoryModal ? categoryModal.querySelector('[data-category-modal-title]') : null;
 const categoryNameInput = categoryModal ? categoryModal.querySelector('[data-category-field="name"]') : null;
@@ -188,6 +401,62 @@ const CATEGORY_MODAL_LABELS = {
 };
 const categoryIconDefaultValue = categoryIconSelect ? categoryIconSelect.value : 'fa-globe';
 const categoryColorDefaultValue = categoryColorSelect ? categoryColorSelect.value : 'blue';
+
+function updateCategoryCreationControls(isAuthenticated) {
+  const effectiveAuth = typeof isAuthenticated === 'boolean' ? isAuthenticated : Boolean(getToken && getToken());
+  const creationDisabled = CATEGORY_MANAGEMENT_LOCKED || !effectiveAuth;
+
+  if (addCategoryBtn) {
+    addCategoryBtn.disabled = creationDisabled;
+    addCategoryBtn.classList.toggle('opacity-60', creationDisabled);
+    addCategoryBtn.classList.toggle('cursor-not-allowed', creationDisabled);
+    if (creationDisabled) {
+      addCategoryBtn.title = CATEGORY_LOCKED_MESSAGE;
+    } else {
+      addCategoryBtn.removeAttribute('title');
+    }
+  }
+
+  if (categoriesEmptyActionBtn) {
+    categoriesEmptyActionBtn.disabled = creationDisabled;
+    categoriesEmptyActionBtn.classList.toggle('opacity-50', creationDisabled);
+    categoriesEmptyActionBtn.classList.toggle('cursor-not-allowed', creationDisabled);
+    if (creationDisabled) {
+      categoriesEmptyActionBtn.title = CATEGORY_LOCKED_MESSAGE;
+    } else {
+      categoriesEmptyActionBtn.removeAttribute('title');
+    }
+  }
+}
+
+function notifyCategoryManagementLocked(type = 'info') {
+  if (!CATEGORY_MANAGEMENT_LOCKED) return false;
+  showToast(CATEGORY_LOCKED_MESSAGE, type);
+  return true;
+}
+
+updateCategoryCreationControls();
+
+function setCategoryFormLockState(isLocked) {
+  if (categoryNameInput) {
+    categoryNameInput.readOnly = isLocked;
+    categoryNameInput.setAttribute('aria-readonly', isLocked ? 'true' : 'false');
+    categoryNameInput.classList.toggle('cursor-not-allowed', isLocked);
+    categoryNameInput.classList.toggle('opacity-60', isLocked);
+  }
+  if (categoryIconSelect) {
+    categoryIconSelect.disabled = isLocked;
+    categoryIconSelect.classList.toggle('opacity-60', isLocked);
+    categoryIconSelect.classList.toggle('cursor-not-allowed', isLocked);
+  }
+  if (categoryColorSelect) {
+    categoryColorSelect.disabled = isLocked;
+    categoryColorSelect.classList.toggle('opacity-60', isLocked);
+    categoryColorSelect.classList.toggle('cursor-not-allowed', isLocked);
+  }
+}
+
+setCategoryFormLockState(CATEGORY_MANAGEMENT_LOCKED);
 
 const adsGridEl = $('#ads-grid');
 const adsEmptyStateEl = $('#ads-empty-state');
@@ -1116,9 +1385,12 @@ function sanitizeCategoryList(list) {
         order
       };
     })
+    .map(mergeCategoryWithStaticDefinition)
     .filter(Boolean)
     .sort((a, b) => {
-      if (a.order !== b.order) return a.order - b.order;
+      const orderA = Number.isFinite(Number(a.order)) ? Number(a.order) : 0;
+      const orderB = Number.isFinite(Number(b.order)) ? Number(b.order) : 0;
+      if (orderA !== orderB) return orderA - orderB;
       const aLabel = a.displayName || a.name || '';
       const bLabel = b.displayName || b.name || '';
       return aLabel.localeCompare(bLabel, 'fa');
@@ -1256,6 +1528,11 @@ function createCategoryCard(category) {
   const description = category?.description ? String(category.description).trim() : '';
   const safeDescription = description || 'برای این دسته‌بندی توضیحی ثبت نشده است.';
   const providerChip = renderCategoryProviderChip(category?.provider);
+  const deleteDisabled = CATEGORY_MANAGEMENT_LOCKED;
+  const deleteDisabledClass = deleteDisabled ? ' opacity-40 cursor-not-allowed' : '';
+  const deleteDisabledAttr = deleteDisabled
+    ? `disabled title="${escapeHtml(CATEGORY_LOCKED_MESSAGE)}" data-locked="true"`
+    : '';
 
   const card = document.createElement('div');
   card.className = 'glass rounded-2xl p-6 card-hover flex flex-col';
@@ -1299,7 +1576,7 @@ function createCategoryCard(category) {
       <button type="button" class="flex-1 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-300" data-action="edit-category" data-category-id="${category?._id || ''}">
         <i class="fa-solid fa-edit ml-2"></i> ویرایش
       </button>
-      <button type="button" class="flex-1 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 transition-all duration-300" data-action="delete-category" data-category-id="${category?._id || ''}">
+      <button type="button" class="flex-1 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 transition-all duration-300${deleteDisabledClass}" ${deleteDisabledAttr} data-action="delete-category" data-category-id="${category?._id || ''}">
         <i class="fa-solid fa-trash ml-2"></i> حذف
       </button>
     </div>
@@ -1339,6 +1616,7 @@ function renderCategoryManagement() {
 
   const hasCategories = Array.isArray(cachedCategories) && cachedCategories.length > 0;
   const isAuthenticated = Boolean(getToken());
+  updateCategoryCreationControls(isAuthenticated);
 
   if (categoriesLoading) {
     if (!hasCategories) {
@@ -1346,11 +1624,6 @@ function renderCategoryManagement() {
       categoriesGridEl.classList.add('hidden');
     }
     if (categoriesEmptyEl) categoriesEmptyEl.classList.add('hidden');
-    if (categoriesEmptyActionBtn) {
-      categoriesEmptyActionBtn.disabled = !isAuthenticated;
-      categoriesEmptyActionBtn.classList.toggle('opacity-50', !isAuthenticated);
-      categoriesEmptyActionBtn.classList.toggle('cursor-not-allowed', !isAuthenticated);
-    }
     return;
   }
 
@@ -1365,25 +1638,20 @@ function renderCategoryManagement() {
           : 'برای مشاهده دسته‌بندی‌ها وارد شوید';
       }
       if (categoriesEmptyDescriptionEl) {
-        categoriesEmptyDescriptionEl.textContent = isAuthenticated
-          ? 'برای شروع، نخستین دسته‌بندی واقعی خود را بسازید تا بانک سوالات ساختارمند شود.'
-          : 'برای مشاهده و مدیریت دسته‌بندی‌ها باید وارد حساب مدیریتی شوید.';
+        if (CATEGORY_MANAGEMENT_LOCKED) {
+          categoriesEmptyDescriptionEl.textContent = CATEGORY_LOCKED_DESCRIPTION;
+        } else {
+          categoriesEmptyDescriptionEl.textContent = isAuthenticated
+            ? 'برای شروع، نخستین دسته‌بندی واقعی خود را بسازید تا بانک سوالات ساختارمند شود.'
+            : 'برای مشاهده و مدیریت دسته‌بندی‌ها باید وارد حساب مدیریتی شوید.';
+        }
       }
-    }
-    if (categoriesEmptyActionBtn) {
-      categoriesEmptyActionBtn.disabled = !isAuthenticated;
-      categoriesEmptyActionBtn.classList.toggle('opacity-50', !isAuthenticated);
-      categoriesEmptyActionBtn.classList.toggle('cursor-not-allowed', !isAuthenticated);
     }
     return;
   }
 
   categoriesGridEl.classList.remove('hidden');
   if (categoriesEmptyEl) categoriesEmptyEl.classList.add('hidden');
-  if (categoriesEmptyActionBtn) {
-    categoriesEmptyActionBtn.disabled = false;
-    categoriesEmptyActionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-  }
 
   const fragment = document.createDocumentFragment();
   cachedCategories.forEach((category) => {
@@ -1406,6 +1674,7 @@ function resetCategoryModal() {
   if (categoryDescriptionInput) categoryDescriptionInput.value = '';
   setSelectValue(categoryIconSelect, categoryIconDefaultValue || '', categoryIconDefaultValue || '');
   setSelectValue(categoryColorSelect, categoryColorDefaultValue || '', categoryColorDefaultValue || '');
+  setCategoryFormLockState(CATEGORY_MANAGEMENT_LOCKED);
   if (saveCategoryBtn) {
     saveCategoryBtn.disabled = false;
     saveCategoryBtn.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
@@ -1415,6 +1684,11 @@ function resetCategoryModal() {
 
 function openCategoryModal(mode = 'create', category = null) {
   if (!categoryModal) return;
+  if (CATEGORY_MANAGEMENT_LOCKED && mode !== 'edit') {
+    notifyCategoryManagementLocked();
+    return;
+  }
+  setCategoryFormLockState(CATEGORY_MANAGEMENT_LOCKED);
   if (mode === 'edit' && category) {
     categoryModal.dataset.mode = 'edit';
     categoryModal.dataset.id = category._id ? String(category._id) : '';
@@ -2277,11 +2551,27 @@ $('#btn-add-question').addEventListener('click', async () => {
   openModal('#add-question-modal');
   setTimeout(() => { addQuestionTextInput?.focus(); }, 50);
 });
-$('#btn-add-category').addEventListener('click', () => openCategoryModal('create'));
+if (addCategoryBtn) {
+  addCategoryBtn.addEventListener('click', () => {
+    if (CATEGORY_MANAGEMENT_LOCKED) {
+      notifyCategoryManagementLocked();
+      return;
+    }
+    openCategoryModal('create');
+  });
+}
 if (categoriesEmptyActionBtn) {
   categoriesEmptyActionBtn.addEventListener('click', () => {
     if (categoriesEmptyActionBtn.disabled) {
-      showToast('برای مدیریت دسته‌بندی‌ها ابتدا وارد شوید', 'warning');
+      if (!getToken()) {
+        showToast('برای مدیریت دسته‌بندی‌ها ابتدا وارد شوید', 'warning');
+      } else if (CATEGORY_MANAGEMENT_LOCKED) {
+        notifyCategoryManagementLocked();
+      }
+      return;
+    }
+    if (CATEGORY_MANAGEMENT_LOCKED) {
+      notifyCategoryManagementLocked();
       return;
     }
     openCategoryModal('create');
@@ -2308,6 +2598,10 @@ if (categoriesGridEl) {
     const deleteButton = target.closest('[data-action="delete-category"]');
     if (deleteButton) {
       event.preventDefault();
+      if (CATEGORY_MANAGEMENT_LOCKED) {
+        notifyCategoryManagementLocked();
+        return;
+      }
       if (!getToken()) {
         showToast('برای حذف دسته‌بندی ابتدا وارد شوید', 'warning');
         return;
@@ -4082,6 +4376,10 @@ if (saveCategoryBtn) {
     const provider = categoryModal.dataset.provider || '';
     const originalName = categoryModal.dataset.originalName || '';
     const providerCategoryId = categoryModal.dataset.providerCategoryId || '';
+    if (CATEGORY_MANAGEMENT_LOCKED && mode !== 'edit') {
+      notifyCategoryManagementLocked();
+      return;
+    }
     let aliasSnapshot = [];
     try {
       aliasSnapshot = JSON.parse(categoryModal.dataset.aliases || '[]');

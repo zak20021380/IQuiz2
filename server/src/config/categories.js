@@ -126,4 +126,72 @@ const CATEGORY_LOOKUP_BY_SLUG = Object.freeze(
   }, {})
 );
 
-module.exports = { CATEGORIES, CATEGORY_LOOKUP_BY_SLUG };
+const CATEGORY_LOOKUP_BY_ALIAS = Object.freeze(
+  CATEGORIES.reduce((acc, category) => {
+    const aliasSet = new Set([
+      category.slug,
+      category.name,
+      category.displayName,
+      category.providerCategoryId,
+      ...(Array.isArray(category.aliases) ? category.aliases : [])
+    ]);
+
+    aliasSet.forEach((alias) => {
+      if (!alias) return;
+      const normalized = String(alias).trim().toLowerCase();
+      if (!normalized) return;
+      if (!acc[normalized]) acc[normalized] = category;
+    });
+
+    return acc;
+  }, {})
+);
+
+function normalizeCategoryKey(value) {
+  if (!value) return '';
+  return String(value).trim().toLowerCase();
+}
+
+function resolveCategory(input) {
+  if (!input) return null;
+
+  if (typeof input === 'string') {
+    const key = normalizeCategoryKey(input);
+    if (!key) return null;
+    return CATEGORY_LOOKUP_BY_ALIAS[key] || null;
+  }
+
+  if (typeof input === 'object') {
+    const candidates = [];
+    if (Object.prototype.hasOwnProperty.call(input, 'slug')) {
+      candidates.push(input.slug);
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'providerCategoryId')) {
+      candidates.push(input.providerCategoryId);
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'id')) {
+      candidates.push(input.id);
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'name')) {
+      candidates.push(input.name);
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'displayName')) {
+      candidates.push(input.displayName);
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'title')) {
+      candidates.push(input.title);
+    }
+    if (Array.isArray(input.aliases)) {
+      candidates.push(...input.aliases);
+    }
+
+    for (const candidate of candidates) {
+      const match = resolveCategory(candidate);
+      if (match) return match;
+    }
+  }
+
+  return null;
+}
+
+module.exports = { CATEGORIES, CATEGORY_LOOKUP_BY_SLUG, CATEGORY_LOOKUP_BY_ALIAS, resolveCategory };
