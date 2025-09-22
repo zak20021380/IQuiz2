@@ -597,18 +597,42 @@
 <section id="page-shop" class="hidden space-y-5">
   <div class="glass rounded-3xl overflow-hidden">
     <!-- نوار بالای فروشگاه -->
-    <div class="bg-white/10 border-b border-white/15 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+    <div id="shop-balance-bar" class="bg-white/10 border-b border-white/15 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-shop-section="balances">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="chip"><i class="fas fa-coins ml-1"></i> سکه بازی: <b id="shop-gcoins">۰</b></span>
         <span class="chip"><i class="fas fa-wallet ml-1"></i> کیف پول: <b id="shop-wallet">—</b></span>
       </div>
-      <button id="btn-open-wallet" class="btn btn-primary w-full sm:w-auto px-4 py-2 text-sm"><i class="fas fa-plus-circle ml-1"></i> شارژ کیف پول</button>
+      <button id="btn-open-wallet" class="btn btn-primary w-full sm:w-auto px-4 py-2 text-sm" data-shop-quick-topup><i class="fas fa-plus-circle ml-1"></i> شارژ کیف پول</button>
     </div>
 
     <!-- محتوا -->
     <div class="p-5 space-y-6">
+      <div id="shop-low-balance-warning" class="hidden bg-rose-500/20 border border-rose-400/40 text-rose-50 text-sm rounded-xl p-3 flex items-center gap-2" role="alert">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span data-low-balance-message>موجودی سکه شما کم است. برای شرکت در مسابقه‌ها کیف پول را شارژ کنید.</span>
+      </div>
+
+      <div id="shop-hero-block" class="glass-dark rounded-2xl p-5 hero-theme-sky" data-shop-section="hero">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div class="space-y-2">
+            <div class="text-2xl font-extrabold" data-shop-hero-title>به فروشگاه ایکویز خوش آمدید</div>
+            <div class="text-sm opacity-80" data-shop-hero-subtitle>هر روز پیشنهادهای تازه و کلیدهای بیشتر دریافت کنید.</div>
+            <div class="text-xs opacity-75" data-shop-hero-note>۲۰٪ تخفیف ویژه تا پایان امروز</div>
+            <div class="flex flex-wrap gap-2 text-[11px]" data-shop-hero-tags>
+              <span class="chip bg-white/15 border border-white/25">شارژ سریع</span>
+            </div>
+          </div>
+          <div class="w-full sm:w-auto flex flex-col gap-2 items-stretch">
+            <a id="shop-hero-cta" class="btn btn-primary w-full sm:w-auto px-4 text-sm flex items-center justify-center gap-2" href="#wallet">
+              <i class="fas fa-arrow-left ml-1"></i>
+              <span data-shop-hero-cta-text>مشاهده پیشنهادها</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
       <!-- بسته‌های کلید -->
-      <div>
+      <div data-shop-section="keys">
         <div class="flex items-center justify-between mb-3">
           <h4 class="text-lg font-extrabold flex items-center gap-2">
             <i class="fas fa-key text-pink-300"></i><span>کلیدها</span>
@@ -616,10 +640,10 @@
           <span class="chip"><i class="fas fa-key ml-1"></i> شما: <b id="keys-count">۰</b></span>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div id="shop-keys-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <!-- k1 -->
           <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k1" title="خرید ۱ کلید">
-            <div class="text-xs opacity-80">بسته کوچک</div>
+            <div class="text-xs opacity-80" data-package-label>بسته کوچک</div>
             <div class="font-extrabold text-lg"><span data-amount>۱</span> کلید</div>
             <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۳۰</span> سکه</div>
           </button>
@@ -627,14 +651,14 @@
           <!-- k3 -->
           <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k3" title="خرید ۳ کلید">
             <div class="ribbon">به‌صرفه</div>
-            <div class="text-xs opacity-80">بسته اقتصادی</div>
+            <div class="text-xs opacity-80" data-package-label>بسته اقتصادی</div>
             <div class="font-extrabold text-lg"><span data-amount>۳</span> کلید</div>
             <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۸۰</span> سکه</div>
           </button>
 
           <!-- k10 -->
           <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k10" title="خرید ۱۰ کلید">
-            <div class="text-xs opacity-80">بسته بزرگ</div>
+            <div class="text-xs opacity-80" data-package-label>بسته بزرگ</div>
             <div class="font-extrabold text-lg"><span data-amount>۱۰</span> کلید</div>
             <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۲۵۰</span> سکه</div>
           </button>
@@ -644,7 +668,7 @@
       </div>
 
       <!-- VIP -->
-      <div class="glass-dark rounded-2xl p-5 card-hover">
+      <div class="glass-dark rounded-2xl p-5 card-hover" data-shop-section="vip-intro">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-center sm:text-right">
           <div class="flex items-center gap-4">
             <div class="w-14 h-14 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
@@ -660,7 +684,7 @@
       </div>
 
       <!-- Coins (Wallet) -->
-      <div class="glass-dark rounded-2xl p-5 card-hover">
+      <div class="glass-dark rounded-2xl p-5 card-hover" data-shop-section="wallet">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-center sm:text-right">
           <div class="flex items-center gap-4">
             <div class="w-14 h-14 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 flex items-center justify-center">
@@ -673,6 +697,13 @@
           </div>
           <button id="btn-open-wallet-2" class="btn btn-primary w-full sm:w-auto px-4 text-sm"><i class="fas fa-coins ml-1"></i> خرید سکه</button>
         </div>
+      </div>
+
+      <div id="shop-support-cta" class="hidden glass-dark rounded-2xl p-4 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex items-center gap-2"><i class="fas fa-headset text-sky-300"></i><span data-support-message>برای سوالات بیشتر با پشتیبانی در تماس باشید.</span></div>
+        <a id="shop-support-link" class="btn btn-secondary w-full sm:w-auto px-4 text-sm" href="#" target="_blank" rel="noopener">
+          <i class="fas fa-message ml-1"></i> ارتباط با پشتیبانی
+        </a>
       </div>
     </div>
   </div>
@@ -697,6 +728,10 @@
         <div id="wallet-offline" class="hidden bg-rose-500/20 border border-rose-400/40 text-rose-50 text-sm rounded-xl p-3 mb-3">
           <i class="fas fa-wifi-slash ml-1"></i> آفلاین هستی؛ خرید غیرفعال است.
         </div>
+        <div id="wallet-promo-banner" class="hidden bg-white/10 border border-white/20 rounded-xl p-3 mb-3 text-sm flex items-center gap-2">
+          <i class="fas fa-bullhorn text-amber-300"></i>
+          <span data-wallet-promo-text>برای مدت محدود ۱۰٪ تخفیف روی تمامی بسته‌ها اعمال شده است.</span>
+        </div>
         <div id="pkg-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
         <div class="text-xs opacity-80 mt-3">پس از ایجاد تراکنش، نتیجه از سرور تأیید شده و رسید نمایش داده می‌شود. لطفاً چند ثانیه صبر کن.</div>
       </div>
@@ -717,40 +752,40 @@
         </div>
         <div class="mt-3 grid grid-cols-1 gap-3">
           <!-- VIP Lite -->
-          <div class="glass-dark rounded-2xl p-4">
+          <div class="glass-dark rounded-2xl p-4" data-vip-plan="lite">
             <div class="flex justify-between items-center mb-2">
               <div class="font-bold text-lg flex items-center gap-2">
                 <i class="fas fa-crown text-amber-300"></i>
-                <span>وی‌آی‌پی لایت</span>
+                <span data-vip-plan-name>وی‌آی‌پی لایت</span>
               </div>
-              <div class="font-bold">۹۹,۰۰۰ تومان / ماه</div>
+              <div class="font-bold" data-vip-plan-price>۹۹,۰۰۰ تومان / ماه</div>
             </div>
-            <ul class="text-sm opacity-90 space-y-1 list-disc pr-5 mb-3">
+            <ul class="text-sm opacity-90 space-y-1 list-disc pr-5 mb-3" data-vip-plan-benefits>
               <li>حذف تبلیغات بنری</li>
               <li>دو برابر محدودیت روزانه مسابقه/کلید</li>
             </ul>
-            <button id="buy-vip-lite" class="btn btn-secondary w-full" aria-label="خرید اشتراک VIP لایت">خرید اشتراک</button>
+            <button id="buy-vip-lite" class="btn btn-secondary w-full" aria-label="خرید اشتراک VIP لایت" data-vip-plan-button="lite">خرید اشتراک</button>
           </div>
-          
+
           <!-- VIP Pro -->
-          <div class="glass-dark rounded-2xl p-4 border-2 border-amber-400/30">
+          <div class="glass-dark rounded-2xl p-4 border-2 border-amber-400/30" data-vip-plan="pro">
             <div class="flex justify-between items-center mb-2">
               <div class="font-bold text-lg flex items-center gap-2">
                 <i class="fas fa-crown text-yellow-300"></i>
-                <span>وی‌آی‌پی پرو</span>
+                <span data-vip-plan-name>وی‌آی‌پی پرو</span>
               </div>
-              <div class="font-bold">۱۹۹,۰۰۰ تومان / ماه</div>
+              <div class="font-bold" data-vip-plan-price>۱۹۹,۰۰۰ تومان / ماه</div>
             </div>
-            <ul class="text-sm opacity-90 space-y-1 list-disc pr-5 mb-3">
+            <ul class="text-sm opacity-90 space-y-1 list-disc pr-5 mb-3" data-vip-plan-benefits>
               <li>حذف تمام تبلیغات (بنری، همسان، میانی، ویدیویی)</li>
               <li>دو برابر محدودیت روزانه مسابقه/کلید</li>
               <li>دو برابر امتیاز در رویدادها</li>
               <li>قاب آواتار ویژه استان</li>
               <li>محدودیت بسیار بالا برای مسابقه/کلید</li>
             </ul>
-            <button id="buy-vip-pro" class="btn btn-primary w-full" aria-label="خرید اشتراک VIP پرو">خرید اشتراک</button>
+            <button id="buy-vip-pro" class="btn btn-primary w-full" aria-label="خرید اشتراک VIP پرو" data-vip-plan-button="pro">خرید اشتراک</button>
           </div>
-          
+
           <div id="vip-meta" class="text-sm opacity-90"></div>
         </div>
       </div>
@@ -1567,7 +1602,7 @@
         <div>
           <div class="invite-modal-title">دعوت دوستان و دریافت پاداش</div>
           <p class="invite-modal-sub">
-            با دعوت دوستانت به <strong>Quiz WebApp Pro</strong> بعد از اولین کوییز آن‌ها
+            با دعوت دوستانت به <strong data-app-name>Quiz WebApp Pro</strong> بعد از اولین کوییز آن‌ها
             <span class="invite-highlight"><span id="invite-reward">۵</span> سکه</span> هدیه می‌گیری.
           </p>
         </div>
@@ -1607,7 +1642,7 @@
           </div>
         </div>
         <div class="text-xs opacity-80 leading-6 text-center">
-          با اشتراک‌گذاری منصفانه و رعایت قوانین Quiz WebApp Pro کمک کن تا همه تجربه‌ای عادلانه داشته باشند.
+          با اشتراک‌گذاری منصفانه و رعایت قوانین <span data-app-name>Quiz WebApp Pro</span> کمک کن تا همه تجربه‌ای عادلانه داشته باشند.
         </div>
       </div>
     </div>

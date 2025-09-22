@@ -1,6 +1,6 @@
 import Api from '../../services/api.js';
 import { toast } from '../../utils/feedback.js';
-import { State } from '../../state/state.js';
+import { State, DEFAULT_MAX_QUESTIONS } from '../../state/state.js';
 import {
   getActiveCategories,
   getFirstCategory,
@@ -132,7 +132,18 @@ export async function startQuizFromAdmin(arg) {
   const opts = arg && typeof arg === 'object' ? arg : {};
   const rangeEl = typeof document !== 'undefined' ? document.getElementById('range-count') : null;
   const rangeVal = rangeEl ? rangeEl.value || rangeEl.getAttribute('value') : null;
-  const count = (opts.count != null ? Number(opts.count) : Number(rangeVal || 5)) || 5;
+  const requestedRaw = (opts.count != null ? Number(opts.count) : Number(rangeVal || 5)) || 5;
+  const minCount = 3;
+  const maxAllowed = Math.max(minCount, Number(State.quiz?.maxQuestions) || DEFAULT_MAX_QUESTIONS);
+  const count = Math.max(minCount, Math.min(maxAllowed, requestedRaw));
+  if (rangeEl) {
+    rangeEl.value = String(count);
+    try {
+      rangeEl.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (_) {
+      /* ignore */
+    }
+  }
 
   const firstCategory = getActiveCategories()[0] || getFirstCategory();
   const categoryId =

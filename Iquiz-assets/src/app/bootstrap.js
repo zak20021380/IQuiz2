@@ -2,11 +2,14 @@ import { $, $$ } from '../utils/dom.js';
 import { clamp, faNum, faDecimal, formatDuration, formatRelativeTime } from '../utils/format.js';
 import { configureFeedback, vibrate, toast, wait, SFX, shootConfetti } from '../utils/feedback.js';
 import { RemoteConfig } from '../config/remote-config.js';
+import { getAdminSettings, subscribeToAdminSettings } from '../config/admin-settings.js';
 import Net from '../services/net.js';
 import Api from '../services/api.js';
 import {
   State,
   STORAGE_KEY,
+  DEFAULT_QUESTION_TIME,
+  DEFAULT_MAX_QUESTIONS,
   ensureGroupRosters,
   isUserGroupAdmin,
   getUserGroup,
@@ -55,7 +58,90 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     setInterval(checkDevTools, 2000);
   })();
   // ===== Helpers =====
+  const ADMIN_DEFAULTS = getAdminSettings();
+  let adminSettings = ADMIN_DEFAULTS;
+  let generalSettings = adminSettings?.general || {};
+  let rewardSettings = adminSettings?.rewards || {};
+  const DIFFICULTY_TIME_MULTIPLIERS = { easy: 1, medium: 0.85, hard: 0.7 };
+  const HERO_THEMES = ['sky', 'emerald', 'purple', 'amber'];
+  const FALLBACK_APP_NAME = 'Quiz WebApp Pro';
+  const APP_TITLE_SUFFIX = ' — نسخه فارسی';
+
   const enNum = n => Number(n).toLocaleString('en-US');
+
+  function getBaseQuestionDuration(){
+    return Math.max(5, Number(generalSettings?.questionTime) || DEFAULT_QUESTION_TIME);
+  }
+
+  function getMaxQuestionLimit(){
+    return Math.max(3, Number(generalSettings?.maxQuestions) || DEFAULT_MAX_QUESTIONS);
+  }
+
+  function getDurationForDifficulty(diffValue){
+    const base = getBaseQuestionDuration();
+    const key = (diffValue || '').toString().toLowerCase();
+    let multiplier = DIFFICULTY_TIME_MULTIPLIERS.easy;
+    if (key.includes('hard') || key.includes('سخت')) {
+      multiplier = DIFFICULTY_TIME_MULTIPLIERS.hard;
+    } else if (key.includes('medium') || key.includes('normal') || key.includes('متوسط')) {
+      multiplier = DIFFICULTY_TIME_MULTIPLIERS.medium;
+    }
+    return Math.max(5, Math.round(base * multiplier));
+  }
+
+  function updateAdminSnapshot(next){
+    if (!next || typeof next !== 'object') return;
+    adminSettings = next;
+    generalSettings = next.general || generalSettings;
+    rewardSettings = next.rewards || rewardSettings;
+  }
+
+  function getAppName(){
+    const raw = generalSettings?.appName;
+    if (raw == null) return FALLBACK_APP_NAME;
+    const str = String(raw).trim();
+    return str.length ? str : FALLBACK_APP_NAME;
+  }
+
+  function updateAppNameDisplays(){
+    const appName = getAppName();
+    if (typeof document !== 'undefined'){ 
+      document.title = `${appName}${APP_TITLE_SUFFIX}`;
+      $$('[data-app-name]').forEach((el) => {
+        if (el) el.textContent = appName;
+      });
+    }
+    return appName;
+  }
+
+  function applyGeneralSettingsToUI(){
+    updateAppNameDisplays();
+    const baseDuration = getBaseQuestionDuration();
+    const maxQuestions = getMaxQuestionLimit();
+    if (typeof document !== 'undefined' && generalSettings?.language){
+      document.documentElement.setAttribute('lang', generalSettings.language);
+    }
+    State.quiz.baseDuration = baseDuration;
+    if (!State.quiz.inProgress){
+      State.quiz.duration = baseDuration;
+      State.quiz.remain = baseDuration;
+      updateTimerVisual();
+    }
+    State.quiz.maxQuestions = maxQuestions;
+
+    const range = document.getElementById('range-count');
+    if (range){
+      const min = Number(range.min) || 3;
+      range.max = String(maxQuestions);
+      const currentRaw = Number(range.value || range.getAttribute('value') || maxQuestions);
+      const clampedValue = clamp(currentRaw, min, maxQuestions);
+      range.value = String(clampedValue);
+      range.setAttribute('value', String(clampedValue));
+      range.disabled = maxQuestions <= min;
+      const setupCountEl = document.getElementById('setup-count');
+      if (setupCountEl) setupCountEl.textContent = faNum(clampedValue);
+    }
+  }
 function populateProvinceOptions(selectEl, placeholder){
     if(!selectEl) return;
 
@@ -130,6 +216,8 @@ function populateProvinceOptions(selectEl, placeholder){
   let PendingDuelFriend = null;
   
   loadState();
+  applyGeneralSettingsToUI();
+  applyShopSettingsToUI();
   document.documentElement.setAttribute('data-theme', State.theme || 'ocean');
 
   const qs = new URLSearchParams(location.search);
@@ -687,8 +775,9 @@ function populateProvinceOptions(selectEl, placeholder){
     $$('nav [data-tab]').forEach(b=>{ b.classList.toggle('bg-white/10', b.dataset.tab===page); b.classList.toggle('active', b.dataset.tab===page); });
     if(page==='dashboard') { renderDashboard(); AdManager.renderNative('#ad-native-dashboard'); }
     if(page==='leaderboard'){ renderLeaderboard(); AdManager.renderNative('#ad-native-lb'); }
-    if(page==='wallet'){ buildPackages(); }
-    if(page==='vip'){ updateVipUI(); }
+    if(page==='shop'){ renderShop(); }
+    if(page==='wallet'){ renderWallet(); }
+    if(page==='vip'){ renderVipPlans(); updateVipUI(); }
     if(page==='referral'){ renderReferral(); }
     if(page==='question-lab'){ buildCommunityQuestionForm(); prefillCommunityAuthor(); syncCommunityOptionStates(); }
   }
@@ -1171,8 +1260,15 @@ function openCreateGroup(){
   function resetTimer(seconds){
     const ring = $('#timer-ring');
     if(ring) ring.setAttribute('stroke-dasharray', String(TIMER_CIRC));
-    State.quiz.duration = seconds;
-    State.quiz.remain = seconds;
+    const effective = Number.isFinite(seconds) && seconds > 0
+      ? seconds
+      : getDurationForDifficulty(State.quiz.diffValue || State.quiz.diff || 'easy');
+    const baseDuration = getBaseQuestionDuration();
+    if (!State.quiz.inProgress || State.quiz.baseDuration !== baseDuration) {
+      State.quiz.baseDuration = baseDuration;
+    }
+    State.quiz.duration = effective;
+    State.quiz.remain = effective;
     updateTimerVisual();
     if(State.quiz.timer) clearInterval(State.quiz.timer);
     State.quiz.timer = setInterval(()=>{
@@ -1239,16 +1335,23 @@ function openCreateGroup(){
     const q = State.quiz.list[State.quiz.idx] || {};
     const correct = q.a;
     const ok = (idx===correct);
-    const base = ok ? 100 : 0;
-    const timeBonus = ok ? Math.floor((State.quiz.remain/State.quiz.duration)*50) : 0;
+    const rewards = rewardSettings || {};
+    const basePoints = ok ? Math.max(0, Number(rewards.pointsCorrect) || 0) : 0;
+    const baseCoins = ok ? Math.max(0, Number(rewards.coinsCorrect) || 0) : 0;
+    const timeBonus = ok ? Math.round(basePoints * 0.5 * (State.quiz.remain / Math.max(1, State.quiz.duration))) : 0;
     const boostActive = Date.now() < State.boostUntil;
-    const vipBonus = Server.subscription.active ? 20 : 0; // VIP from server
-    const earned = Math.floor((base + timeBonus + vipBonus) * (boostActive?2:1));
+    const vipBonus = ok && Server.subscription.active ? Math.round(basePoints * 0.2) : 0; // VIP from server
+    const earned = ok ? Math.floor((basePoints + timeBonus + vipBonus) * (boostActive ? 2 : 1)) : 0;
     let shouldEnd = false;
 
     if(ok){
-      State.score += earned; State.coins += 5; State.quiz.sessionEarned += earned; SFX.correct(); vibrate(30);
+      State.score += earned;
+      State.coins += baseCoins;
+      State.quiz.sessionEarned += earned;
+      State.quiz.correctStreak = (State.quiz.correctStreak || 0) + 1;
+      SFX.correct(); vibrate(30);
     } else {
+      State.quiz.correctStreak = 0;
       State.lives -= 1;
       // Use a life from the limit
       useGameResource('lives');
@@ -1297,7 +1400,7 @@ function openCreateGroup(){
     }
     const q = State.quiz.list[State.quiz.idx];
     renderQuestionUI(q);
-    resetTimer(State.quiz.diff==='سخت'?20:State.quiz.diff==='متوسط'?25:30);
+    resetTimer();
   }
 
   configureQuizEngine({
@@ -1368,10 +1471,19 @@ function openCreateGroup(){
     const yesterday = nowDay - 1;
     if(State.lastClaim === yesterday) State.streak += 1; else State.streak = 1;
     State.lastClaim = nowDay;
-    const reward = 5 * State.streak;
-    State.coins += reward; State.score += reward*10;
+    const streakRewards = rewardSettings || {};
+    const coinUnit = Math.max(0, Number(streakRewards.coinsStreak) || 0);
+    const pointUnit = Math.max(0, Number(streakRewards.pointsStreak) || 0);
+    const coinsReward = coinUnit * State.streak;
+    const pointsReward = pointUnit * State.streak;
+    State.coins += coinsReward;
+    State.score += pointsReward;
     saveState(); renderDashboard(); renderHeader();
-    toast(`<i class="fas fa-gift ml-2"></i>پاداش امروز: ${faNum(reward)}💰 🎉`);
+    const rewardParts = [];
+    if (coinsReward > 0) rewardParts.push(`${faNum(coinsReward)} سکه`);
+    if (pointsReward > 0) rewardParts.push(`${faNum(pointsReward)} امتیاز`);
+    const rewardLabel = rewardParts.length ? rewardParts.join(' و ') : 'بدون پاداش';
+    toast(`<i class="fas fa-gift ml-2"></i>پاداش امروز: ${rewardLabel} 🎉`);
     if(State.streak>=3 && !State.achievements.streak3){ State.achievements.streak3=true; toast('<i class="fas fa-fire ml-2"></i>نشان «استریک ۳ روزه»!'); }
   }
   
@@ -1422,38 +1534,364 @@ function openCreateGroup(){
   
   // ===== Shop (legacy soft-currency), VIP button rerouted =====
 
-// ===== Shop (Keys) =====
-function renderShop(){
-  // موجودی‌ها
-  if ($('#shop-gcoins'))  $('#shop-gcoins').textContent  = faNum(State.coins);
-  if ($('#shop-wallet'))  $('#shop-wallet').textContent  = (Server.wallet.coins==null?'—':faNum(Server.wallet.coins));
-  if ($('#keys-count'))   $('#keys-count').textContent   = faNum(State.keys || 0);
+  function getShopConfig(){
+    return RemoteConfig.shop || adminSettings?.shop || {};
+  }
 
-  // بسته‌ها را از RemoteConfig بخوان و دکمه‌ها را آپدیت کن
-  const packs = RemoteConfig.pricing.keys || [];
-  packs.forEach(p => {
-    const el = document.querySelector(`[data-buy-key="${p.id}"]`);
-    if(!el) return;
-    el.querySelector('[data-amount]').textContent = faNum(p.amount);
-    el.querySelector('[data-price]').textContent  = faNum(p.priceGame);
-    const cant = State.coins < p.priceGame;
-    el.disabled = cant;
-    el.title = cant ? 'سکهٔ بازی کافی نیست' : `خرید ${faNum(p.amount)} کلید`;
-  });
+  function hasActiveVipPlans(){
+    const vip = RemoteConfig?.pricing?.vip || {};
+    return Object.values(vip).some((plan) => plan && plan.active !== false);
+  }
 
-  // نشان «به‌صرفه‌ترین» را روی بهترین نسبت قیمت/تعداد بگذار
-  const best = packs.reduce((a,b)=> (a.priceGame/a.amount <= b.priceGame/b.amount) ? a : b, packs[0]);
-  document.querySelectorAll('.product-card .ribbon.auto').forEach(n=>n.remove());
-  if (best) {
-    const bestBtn = document.querySelector(`[data-buy-key="${best.id}"]`);
-    if (bestBtn && !bestBtn.querySelector('.ribbon')) {
-      const badge = document.createElement('div');
-      badge.className = 'ribbon auto';
-      badge.textContent = 'به‌صرفه‌ترین';
-      bestBtn.appendChild(badge);
+  function getActiveVipPlans(){
+    const vip = RemoteConfig?.pricing?.vip || {};
+    return Object.keys(vip).map((tier) => ({ tier, ...(vip[tier] || {}) })).filter((plan) => plan && plan.active !== false);
+  }
+
+  function normalizeVipPrice(plan){
+    if (!plan) return Number.POSITIVE_INFINITY;
+    const toman = Number(plan.priceToman || plan.price || 0);
+    if (toman > 0) return toman;
+    const cents = Number(plan.priceCents || 0);
+    if (cents > 0 && RemoteConfig?.pricing?.usdToToman){
+      return Math.round((cents / 100) * RemoteConfig.pricing.usdToToman);
+    }
+    return Number.POSITIVE_INFINITY;
+  }
+
+  function formatVipPrice(plan){
+    if (!plan) return '—';
+    const period = plan.period ? ` / ${plan.period}` : '';
+    const toman = Number(plan.priceToman || plan.price || 0);
+    if (toman > 0){
+      return `${faNum(Math.round(toman))} تومان${period}`;
+    }
+    const cents = Number(plan.priceCents || 0);
+    if (cents > 0 && RemoteConfig?.pricing?.usdToToman){
+      const estimated = Math.round((cents / 100) * RemoteConfig.pricing.usdToToman);
+      return `${faNum(estimated)} تومان${period}`;
+    }
+    if (cents > 0){
+      const dollars = cents / 100;
+      return `${faDecimal(dollars)} دلار${period}`;
+    }
+    return period ? period.replace(/^\s*\/\s*/, '') || 'رایگان' : 'رایگان';
+  }
+
+  function getCheapestVipPlan(){
+    const plans = getActiveVipPlans();
+    if (!plans.length) return null;
+    return plans.slice().sort((a, b) => normalizeVipPrice(a) - normalizeVipPrice(b))[0];
+  }
+
+  function renderShopSectionsVisibility(){
+    const shop = getShopConfig();
+    const enabled = shop.enabled !== false;
+    const sections = shop.sections || {};
+    const vipAvailable = hasActiveVipPlans();
+    $$('[data-shop-section]').forEach((el) => {
+      const key = el.dataset.shopSection;
+      if (!key) return;
+      let show = enabled;
+      if (key === 'balances') {
+        show = enabled && (shop.hero?.showBalances !== false);
+      } else if (key === 'hero') {
+        show = enabled && sections.hero !== false;
+      } else if (key === 'keys') {
+        show = enabled && sections.keys !== false;
+      } else if (key === 'wallet') {
+        show = enabled && sections.wallet !== false;
+      } else if (key === 'vip-intro') {
+        show = enabled && sections.vip !== false && vipAvailable;
+      }
+      el.classList.toggle('hidden', !show);
+    });
+    $$('[data-shop-quick-topup]').forEach((btn) => {
+      btn.classList.toggle('hidden', shop.enabled === false || shop.quickTopup === false);
+    });
+  }
+
+  function renderShopHero(){
+    const heroEl = $('#shop-hero-block');
+    if (!heroEl) return;
+    const shop = getShopConfig();
+    const enabled = shop.enabled !== false;
+    const sections = shop.sections || {};
+    const hero = shop.hero || {};
+    const shouldShow = enabled && sections.hero !== false;
+    heroEl.classList.toggle('hidden', !shouldShow);
+    if (!shouldShow) return;
+    const titleEl = heroEl.querySelector('[data-shop-hero-title]');
+    if (titleEl) titleEl.textContent = hero.title || 'به فروشگاه خوش آمدید';
+    const subtitleEl = heroEl.querySelector('[data-shop-hero-subtitle]');
+    if (subtitleEl) subtitleEl.textContent = hero.subtitle || '';
+    const noteEl = heroEl.querySelector('[data-shop-hero-note]');
+    if (noteEl) {
+      if (hero.note) {
+        noteEl.textContent = hero.note;
+        noteEl.classList.remove('hidden');
+      } else {
+        noteEl.classList.add('hidden');
+      }
+    }
+    const ctaEl = $('#shop-hero-cta');
+    if (ctaEl) {
+      const textEl = ctaEl.querySelector('[data-shop-hero-cta-text]');
+      if (textEl) textEl.textContent = hero.ctaText || 'مشاهده پیشنهادها';
+      const link = hero.ctaLink || '#wallet';
+      ctaEl.setAttribute('href', link || '#');
+      if (link && /^https?:/i.test(link)) {
+        ctaEl.setAttribute('target', '_blank');
+        ctaEl.setAttribute('rel', 'noopener');
+      } else {
+        ctaEl.removeAttribute('target');
+        ctaEl.removeAttribute('rel');
+      }
+    }
+    const tagsEl = heroEl.querySelector('[data-shop-hero-tags]');
+    if (tagsEl) {
+      tagsEl.innerHTML = '';
+      const tags = [];
+      if (shop.quickTopup) tags.push('شارژ سریع فعال');
+      if (shop.quickPurchase) tags.push('خرید آنی بدون تایید دوباره');
+      if (shop.dynamicPricing) tags.push('قیمت‌گذاری پویا');
+      if (shop.currency) tags.push(`ارز: ${shop.currency === 'coin' ? 'سکه بازی' : shop.currency}`);
+      if (hero.showTags === false || !tags.length) {
+        tagsEl.classList.add('hidden');
+      } else {
+        tagsEl.classList.remove('hidden');
+        tags.forEach((text) => {
+          const chip = document.createElement('span');
+          chip.className = 'chip bg-white/15 border border-white/25';
+          chip.textContent = text;
+          tagsEl.appendChild(chip);
+        });
+      }
+    }
+    HERO_THEMES.forEach((theme) => heroEl.classList.remove(`hero-theme-${theme}`));
+    const theme = hero.theme && HERO_THEMES.includes(hero.theme) ? hero.theme : 'sky';
+    heroEl.classList.add(`hero-theme-${theme}`);
+  }
+
+  function renderShopSupport(){
+    const supportEl = $('#shop-support-cta');
+    if (!supportEl) return;
+    const support = getShopConfig().messaging || {};
+    const enabled = getShopConfig().enabled !== false;
+    const hasSupport = !!(support.supportLink || support.supportCta);
+    supportEl.classList.toggle('hidden', !(enabled && hasSupport));
+    if (!(enabled && hasSupport)) return;
+    const msgEl = supportEl.querySelector('[data-support-message]');
+    if (msgEl) msgEl.textContent = support.supportCta || 'برای سوالات بیشتر با پشتیبانی در تماس باشید.';
+    const linkEl = $('#shop-support-link');
+    if (linkEl) {
+      const href = support.supportLink || '#';
+      linkEl.href = href;
+      if (href && /^https?:/i.test(href)) {
+        linkEl.setAttribute('target', '_blank');
+        linkEl.setAttribute('rel', 'noopener');
+      } else {
+        linkEl.removeAttribute('target');
+        linkEl.removeAttribute('rel');
+      }
     }
   }
-}
+
+  function renderShopVipIntro(){
+    const btn = $('#btn-open-vip');
+    if (!btn) return;
+    const shop = getShopConfig();
+    const enabled = shop.enabled !== false && shop.sections?.vip !== false;
+    const plans = getActiveVipPlans();
+    const hasPlans = enabled && plans.length > 0;
+    btn.disabled = !hasPlans;
+    btn.setAttribute('aria-disabled', hasPlans ? 'false' : 'true');
+    if (!hasPlans){
+      btn.innerHTML = '<i class="fas fa-crown ml-1"></i> به زودی';
+      return;
+    }
+    const cheapest = getCheapestVipPlan();
+    const priceLabel = cheapest ? formatVipPrice(cheapest) : '';
+    if (priceLabel && priceLabel !== 'رایگان'){
+      btn.innerHTML = `<i class="fas fa-crown ml-1"></i> شروع از ${priceLabel}`;
+    } else {
+      btn.innerHTML = '<i class="fas fa-crown ml-1"></i> مشاهده پلن‌ها';
+    }
+  }
+
+  function renderShopBalances(){
+    if ($('#shop-gcoins'))  $('#shop-gcoins').textContent  = faNum(State.coins);
+    if ($('#shop-wallet'))  $('#shop-wallet').textContent  = (Server.wallet.coins==null?'—':faNum(Server.wallet.coins));
+    if ($('#keys-count'))   $('#keys-count').textContent   = faNum(State.keys || 0);
+  }
+
+  function renderShopLowBalanceMessage(){
+    const warningEl = $('#shop-low-balance-warning');
+    if (!warningEl) return;
+    const shop = getShopConfig();
+    const enabled = shop.enabled !== false;
+    const threshold = Number(shop.lowBalanceThreshold) || 0;
+    const shouldShow = enabled && threshold > 0 && State.coins < threshold;
+    const msgEl = warningEl.querySelector('[data-low-balance-message]');
+    if (!enabled) {
+      if (msgEl) msgEl.textContent = 'فروشگاه موقتاً در دسترس نیست.';
+      warningEl.classList.remove('hidden');
+      return;
+    }
+    if (msgEl) {
+      const fallback = `موجودی کمتر از ${faNum(threshold)} سکه است. برای خرید دوباره شارژ کن.`;
+      msgEl.textContent = shop.messaging?.lowBalance || fallback;
+    }
+    warningEl.classList.toggle('hidden', !shouldShow);
+  }
+
+  function renderKeyPackages(){
+    const grid = $('#shop-keys-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const shop = getShopConfig();
+    const enabled = shop.enabled !== false && (shop.sections?.keys !== false);
+    const packs = enabled ? (RemoteConfig?.pricing?.keys || []) : [];
+    if (!enabled){
+      const info = document.createElement('div');
+      info.className = 'glass-dark rounded-2xl p-4 text-center opacity-80 col-span-full';
+      info.textContent = 'بخش کلیدها غیرفعال شده است.';
+      grid.appendChild(info);
+      return;
+    }
+    if (!packs.length){
+      const empty = document.createElement('div');
+      empty.className = 'glass-dark rounded-2xl p-4 text-center opacity-80 col-span-full';
+      empty.textContent = 'در حال حاضر بسته‌ای فعال نیست';
+      grid.appendChild(empty);
+      return;
+    }
+    let bestId = null;
+    if (shop.promotions?.autoHighlight !== false){
+      let bestRatio = -Infinity;
+      packs.forEach((pkg) => {
+        const ratio = pkg.priceGame > 0 ? (pkg.amount / pkg.priceGame) : 0;
+        if (ratio > bestRatio) { bestRatio = ratio; bestId = pkg.id; }
+      });
+    }
+    packs.forEach((pkg) => {
+      const btn = document.createElement('button');
+      btn.className = 'product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between relative';
+      btn.dataset.buyKey = pkg.id;
+      const cant = State.coins < pkg.priceGame;
+      btn.disabled = cant;
+      btn.title = cant ? 'سکهٔ بازی کافی نیست' : `خرید ${faNum(pkg.amount)} کلید`;
+      if (pkg.badge) {
+        const badge = document.createElement('div');
+        badge.className = 'ribbon';
+        badge.textContent = pkg.badge;
+        btn.appendChild(badge);
+      } else if (bestId && pkg.id === bestId) {
+        const badge = document.createElement('div');
+        badge.className = 'ribbon auto';
+        badge.textContent = 'به‌صرفه‌ترین';
+        btn.appendChild(badge);
+      }
+      const label = document.createElement('div');
+      label.className = 'text-xs opacity-80';
+      label.dataset.packageLabel = '';
+      label.textContent = pkg.displayName || pkg.label || `بسته ${faNum(pkg.amount)} کلید`;
+      btn.appendChild(label);
+      const amountWrap = document.createElement('div');
+      amountWrap.className = 'font-extrabold text-lg';
+      const amountSpan = document.createElement('span');
+      amountSpan.dataset.amount = '';
+      amountSpan.textContent = faNum(pkg.amount);
+      amountWrap.appendChild(amountSpan);
+      amountWrap.appendChild(document.createTextNode(' کلید'));
+      btn.appendChild(amountWrap);
+      const priceWrap = document.createElement('div');
+      priceWrap.className = 'text-xs opacity-90 flex items-center gap-1';
+      priceWrap.innerHTML = `<i class="fas fa-coins text-yellow-300"></i> <span data-price>${faNum(pkg.priceGame)}</span> سکه`;
+      btn.appendChild(priceWrap);
+      if (pkg.description) {
+        const desc = document.createElement('div');
+        desc.className = 'text-[11px] opacity-70 mt-2 leading-snug';
+        desc.textContent = pkg.description;
+        btn.appendChild(desc);
+      }
+      grid.appendChild(btn);
+    });
+  }
+
+  function renderVipPlans(){
+    const cards = $$('[data-vip-plan]');
+    if (!cards.length) {
+      renderShopVipIntro();
+      return;
+    }
+    const plansConfig = RemoteConfig?.pricing?.vip || {};
+    let anyActive = false;
+    cards.forEach((card) => {
+      const tier = card.dataset.vipPlan;
+      const plan = plansConfig?.[tier];
+      const active = !!(plan && plan.active !== false);
+      card.classList.toggle('hidden', !active);
+      const btn = card.querySelector('[data-vip-plan-button]');
+      if (btn) btn.disabled = !active;
+      if (!active) return;
+      anyActive = true;
+      const displayName = plan.displayName || (tier === 'pro' ? 'وی‌آی‌پی پرو' : tier === 'lite' ? 'وی‌آی‌پی لایت' : `پلن ${tier}`);
+      const nameEl = card.querySelector('[data-vip-plan-name]');
+      if (nameEl) nameEl.textContent = displayName;
+      const priceEl = card.querySelector('[data-vip-plan-price]');
+      if (priceEl) priceEl.textContent = formatVipPrice(plan);
+      const benefitsEl = card.querySelector('[data-vip-plan-benefits]');
+      if (benefitsEl) {
+        const benefits = Array.isArray(plan.benefits) ? plan.benefits.filter(Boolean) : [];
+        benefitsEl.innerHTML = '';
+        if (benefits.length) {
+          benefits.forEach((benefit) => {
+            const li = document.createElement('li');
+            li.textContent = benefit;
+            benefitsEl.appendChild(li);
+          });
+        } else {
+          const li = document.createElement('li');
+          li.textContent = 'جزئیات مزایا به زودی اعلام می‌شود.';
+          benefitsEl.appendChild(li);
+        }
+      }
+      if (btn) {
+        const label = plan.buttonText || 'خرید اشتراک';
+        btn.textContent = label;
+        btn.setAttribute('aria-label', `${label} ${displayName}`);
+      }
+    });
+    if (!anyActive){
+      const meta = $('#vip-meta');
+      if (meta) meta.innerHTML = '<div class="text-sm opacity-80">پلن فعالی در دسترس نیست.</div>';
+    }
+    renderShopVipIntro();
+  }
+
+  // ===== Shop (Keys) =====
+  function renderShop(){
+    renderShopSectionsVisibility();
+    renderShopHero();
+    renderShopSupport();
+    renderShopVipIntro();
+    renderShopBalances();
+    renderShopLowBalanceMessage();
+    renderKeyPackages();
+  }
+
+  function applyShopSettingsToUI(){
+    renderShop();
+    renderVipPlans();
+    renderWallet();
+  }
+
+  subscribeToAdminSettings((next) => {
+    updateAdminSnapshot(next);
+    applyGeneralSettingsToUI();
+    applyShopSettingsToUI();
+  });
 
 
 function buyKeys(packId){
@@ -1475,7 +1913,12 @@ function buyKeys(packId){
   renderShop();         // آپدیت خود فروشگاه
 
   SFX.coin();
-  toast(`<i class="fas fa-check-circle ml-2"></i> ${faNum(pack.amount)} کلید خریداری شد`);
+  const shop = getShopConfig();
+  const template = shop.messaging?.success || '';
+  const successMsg = template
+    ? template.replace(/\{amount\}/g, faNum(pack.amount)).replace(/\{price\}/g, faNum(pack.priceGame))
+    : `${faNum(pack.amount)} کلید خریداری شد`;
+  toast(`<i class="fas fa-check-circle ml-2"></i> ${successMsg}`);
   logEvent('purchase_item', { item:'keys', pack: pack.id, amount: pack.amount, price: pack.priceGame });
 }
 
@@ -1504,74 +1947,151 @@ document.addEventListener('click', (e) => {
   }
   
   // ===== Wallet (server) =====
-function buildPackages(){
-  const grid = $('#pkg-grid');
-  grid.innerHTML = '';
-
-  // نرخ تبدیل پشتیبان برای وقتی priceToman نباشه
-  const usdToToman = RemoteConfig?.pricing?.usdToToman || 70_000;
-
-  // آماده‌سازی پکیج‌ها با محاسبه‌ی قیمت تومانی و ارزش هر پکیج
-  const packs = (RemoteConfig?.pricing?.coins || []).map(p => {
-    const bonus = Number(p.bonus || 0);
-    const priceToman = (typeof p.priceToman === 'number' && p.priceToman > 0)
-      ? p.priceToman
-      : Math.round(((p.priceCents || 0) / 100) * usdToToman);
-
-    const received = p.amount + Math.floor(p.amount * bonus / 100); // مقدار دریافتی
-    const valueScore = priceToman > 0 ? (received / priceToman) : 0; // سکه به ازای هر تومان
-
-    return { ...p, bonus, priceToman, received, valueScore };
-  });
-
-  if (!packs.length){
-    grid.innerHTML = `<div class="glass-dark rounded-2xl p-4 text-center opacity-80">
-      در حال حاضر بسته‌ای موجود نیست
-    </div>`;
-    return;
+  function renderWalletPromo(){
+    const banner = $('#wallet-promo-banner');
+    if (!banner) return;
+    const shop = getShopConfig();
+    const enabled = shop.enabled !== false && shop.sections?.wallet !== false;
+    const promotions = shop.promotions || {};
+    const parseDate = (value) => {
+      if (!value) return null;
+      const parsed = new Date(value);
+      const time = parsed.getTime();
+      return Number.isFinite(time) ? time : null;
+    };
+    const now = Date.now();
+    const start = parseDate(promotions.startDate);
+    const end = parseDate(promotions.endDate);
+    const withinWindow = (!start || now >= start) && (!end || now <= end);
+    let message = promotions.bannerMessage || '';
+    if (!message && promotions.defaultDiscount > 0){
+      message = `برای مدت محدود ${faNum(promotions.defaultDiscount)}٪ تخفیف روی بسته‌ها فعال است.`;
+    }
+    const shouldShow = enabled && withinWindow && !!message;
+    banner.classList.toggle('hidden', !shouldShow);
+    if (shouldShow){
+      const textEl = banner.querySelector('[data-wallet-promo-text]');
+      if (textEl) textEl.textContent = message;
+    }
   }
 
-  // پیدا کردن به‌صرفه‌ترین بسته
-  const best = packs.reduce((a,b) => (a.valueScore >= b.valueScore ? a : b), packs[0]);
+  function buildPackages(){
+    const grid = $('#pkg-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
 
-  // رندر کارت‌ها
-  packs.forEach(pkg => {
-    const card = document.createElement('div');
-    card.className = 'glass-dark rounded-2xl p-4 card-hover flex flex-col justify-between relative h-full';
+    const shop = getShopConfig();
+    const enabled = shop.enabled !== false && shop.sections?.wallet !== false;
+    if (!enabled){
+      grid.innerHTML = `<div class="glass-dark rounded-2xl p-4 text-center opacity-80">خرید سکه در حال حاضر فعال نیست.</div>`;
+      $('#wallet-offline')?.classList.add('hidden');
+      return;
+    }
 
-    const bonusBadge = pkg.bonus
-      ? `<span class="chip bg-white/20"><i class="fas fa-gift ml-1"></i> ${faNum(pkg.bonus)}%</span>`
-      : '';
+    const usdToToman = RemoteConfig?.pricing?.usdToToman || 70_000;
+    const raw = Array.isArray(RemoteConfig?.pricing?.coins) ? RemoteConfig.pricing.coins : [];
+    const packs = raw
+      .map((pkg, index) => {
+        const amount = Number(pkg.amount) || 0;
+        const bonus = Number(pkg.bonus || 0);
+        const basePrice = Number(pkg.priceToman || pkg.price || 0);
+        const priceCents = Number(pkg.priceCents || 0);
+        const priceToman = basePrice > 0 ? basePrice : (priceCents > 0 ? Math.round((priceCents / 100) * usdToToman) : 0);
+        const totalCoins = Math.round(amount + (amount * bonus / 100));
+        const priority = Number(pkg.priority ?? (index + 1));
+        return {
+          ...pkg,
+          amount,
+          bonus,
+          priceToman,
+          totalCoins,
+          priority,
+        };
+      })
+      .filter((pkg) => pkg.amount > 0 && pkg.priceToman > 0)
+      .sort((a, b) => (a.priority ?? a.amount) - (b.priority ?? b.amount));
 
-    const bestRibbon = (pkg.id === best.id)
-      ? `<div class="ribbon">به‌صرفه‌ترین</div>`
-      : '';
+    if (!packs.length){
+      grid.innerHTML = `<div class="glass-dark rounded-2xl p-4 text-center opacity-80">در حال حاضر بسته‌ای موجود نیست</div>`;
+      $('#wallet-offline')?.classList.toggle('hidden', online());
+      return;
+    }
 
-    card.innerHTML = `
-      ${bestRibbon}
-      <div class="flex items-center justify-between">
-        <div class="text-lg font-bold">${faNum(pkg.amount)} سکه</div>
-        ${bonusBadge}
-      </div>
-      <div class="text-sm opacity-80 mt-1">${faNum(pkg.received)} دریافتی</div>
+    let highlightId = null;
+    if (shop.promotions?.autoHighlight !== false){
+      let bestScore = -Infinity;
+      packs.forEach((pkg) => {
+        const score = pkg.priceToman > 0 ? (pkg.totalCoins / pkg.priceToman) : 0;
+        if (score > bestScore){
+          bestScore = score;
+          highlightId = pkg.id;
+        }
+      });
+    }
 
-      <button class="btn btn-primary mt-3 buy-pkg"
-              data-id="${pkg.id}"
-              aria-label="خرید بسته ${faNum(pkg.amount)} سکه">
-        پرداخت ${faNum(pkg.priceToman)} <span class="text-xs">تومان</span>
-      </button>
-    `;
+    const allowQuickPurchase = shop.quickPurchase !== false;
 
-    grid.appendChild(card);
-  });
+    packs.forEach((pkg) => {
+      const card = document.createElement('div');
+      card.className = 'glass-dark rounded-2xl p-4 card-hover flex flex-col justify-between relative h-full';
+      const ribbon = pkg.badge
+        ? `<div class="ribbon">${pkg.badge}</div>`
+        : (highlightId && pkg.id === highlightId ? '<div class="ribbon auto">به‌صرفه‌ترین</div>' : '');
+      const bonusLine = pkg.bonus
+        ? `<div class="text-xs text-emerald-300 mt-1"><i class="fas fa-gift ml-1"></i> ${faNum(pkg.bonus)}٪ هدیه</div>`
+        : '';
+      const paymentChip = pkg.paymentMethod
+        ? `<span class="chip bg-white/10 border border-white/20">${pkg.paymentMethod}</span>`
+        : '';
+      const description = pkg.description
+        ? `<div class="text-xs opacity-70 mt-2 leading-6">${pkg.description}</div>`
+        : '';
+      card.innerHTML = `
+        ${ribbon}
+        <div class="space-y-2">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-sm opacity-80">${pkg.displayName || `بسته ${faNum(pkg.amount)} سکه`}</div>
+              <div class="text-2xl font-extrabold mt-1">${faNum(pkg.amount)} سکه</div>
+              ${bonusLine}
+            </div>
+            <div class="text-xs opacity-75 text-left space-y-1">
+              <div>دریافتی کل:</div>
+              <div class="font-bold text-base">${faNum(pkg.totalCoins)}</div>
+              ${paymentChip ? `<div>${paymentChip}</div>` : ''}
+            </div>
+          </div>
+          <div class="text-xs opacity-70 flex items-center gap-1">
+            <i class="fas fa-receipt"></i>
+            <span>قیمت: ${faNum(pkg.priceToman)} تومان</span>
+          </div>
+          ${description}
+        </div>
+        <button class="btn btn-primary mt-3 buy-pkg" data-id="${pkg.id}" data-price="${pkg.priceToman}">
+          <i class="fas fa-credit-card ml-1"></i> خرید ${faNum(pkg.priceToman)} تومان
+        </button>
+      `;
+      const btn = card.querySelector('button');
+      if (btn){
+        if (!allowQuickPurchase){
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fas fa-headset ml-1"></i> ارتباط با پشتیبانی';
+          btn.setAttribute('aria-label', 'ارتباط با پشتیبانی');
+        } else {
+          btn.setAttribute('aria-label', `خرید بسته ${faNum(pkg.amount)} سکه`);
+        }
+      }
+      grid.appendChild(card);
+    });
 
-  // وضعیت کیف پول و آفلاین
-  $('#wallet-balance').textContent = (Server.wallet.coins == null ? '—' : faNum(Server.wallet.coins));
-  $('#wallet-offline').classList.toggle('hidden', online());
-}
+    $('#wallet-balance').textContent = (Server.wallet.coins == null ? '—' : faNum(Server.wallet.coins));
+    $('#wallet-offline').classList.toggle('hidden', online());
+  }
 
-
-
+  function renderWallet(){
+    renderWalletPromo();
+    buildPackages();
+  }
 
 // Enhanced Payment Modal Functions
 let currentPackageData = null;
@@ -1686,7 +2206,10 @@ async function handlePaymentConfirm(packageId, priceToman, needsPayment) {
     renderVipStatusPill();
     const meta = $('#vip-meta');
     const s = Server.subscription;
-    if(s.active){
+    const plansAvailable = hasActiveVipPlans();
+    if (!plansAvailable){
+      meta.innerHTML = '<div class="text-sm opacity-80">پلن فعالی در دسترس نیست.</div>';
+    } else if(s.active){
       meta.innerHTML = `<div class="chip"><i class="fas fa-rotate ml-1"></i> تمدید خودکار: ${s.autoRenew?'بله':'خیر'}</div>`;
     } else {
       meta.innerHTML = `<div class="text-sm opacity-80">برای حذف تبلیغات و مزایا، یکی از پلن‌ها را انتخاب کن.</div>`;
@@ -2082,7 +2605,8 @@ async function startPurchaseCoins(pkgId){
   // ===== Share =====
   function shareResult(){
     const ok = State.quiz.results.filter(r=>r.ok).length, total=State.quiz.results.length;
-    const text = `من در Quiz WebApp Pro ${faNum(ok)}/${faNum(total)} پاسخ درست دادم و ${faNum(State.quiz.sessionEarned)} امتیاز گرفتم!`;
+    const appName = getAppName();
+    const text = `من در ${appName} ${faNum(ok)}/${faNum(total)} پاسخ درست دادم و ${faNum(State.quiz.sessionEarned)} امتیاز گرفتم!`;
     const url = `https://t.me/share/url?url=${encodeURIComponent('https://t.me/your_bot')}&text=${encodeURIComponent(text)}`;
     try{ 
       if (navigator.share) {
@@ -4261,12 +4785,13 @@ function leaveGroup(groupId) {
     const code = State.referral?.code || '';
     const link = `https://t.me/your_bot?start=ref_${State.user.id}`;
     const rewardLabel = faNum(reward);
-    const text = `با کد دعوت من در Quiz WebApp Pro ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم! کد: ${code}`;
+    const appName = getAppName();
+    const text = `با کد دعوت من در ${appName} ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم! کد: ${code}`;
 
     try {
       if (navigator.share) {
         navigator.share({
-          title: 'دعوت به Quiz WebApp Pro',
+          title: `دعوت به ${appName}`,
           text: text,
           url: link
         });

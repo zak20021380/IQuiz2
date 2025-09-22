@@ -256,13 +256,12 @@ export function beginQuizSession({ cat, diff, diffValue, questions, count, sourc
   State.quiz.results = [];
   State.quiz.inProgress = true;
   State.quiz.answered = false;
+  State.quiz.correctStreak = 0;
 
   callDependency('renderTopBars');
   renderQuestionUI(State.quiz.list[0]);
 
-  const diffLabel = State.quiz.diff;
-  const duration = diffLabel === 'سخت' ? 20 : diffLabel === 'متوسط' ? 25 : 30;
-  callDependency('resetTimer', duration);
+  callDependency('resetTimer');
 
   if (State.duelOpponent) {
     $('#duel-opponent-name').textContent = State.duelOpponent.name;
