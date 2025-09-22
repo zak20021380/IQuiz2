@@ -446,6 +446,15 @@
       .duel-add-card .btn{ width:100%; }
     }
 
+    @media(max-width:360px){
+      .match-types{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .match-type-card{ padding:1.2rem; }
+    }
+
+    @media(max-width:320px){
+      .match-types{ grid-template-columns:1fr; }
+    }
+
     @media(min-width:641px) and (max-width:1024px){
       .match-types{ grid-template-columns:repeat(2,1fr); }
     }
