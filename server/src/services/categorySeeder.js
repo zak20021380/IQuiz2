@@ -7,12 +7,17 @@ function sanitizeString(value) {
 }
 
 function buildCategoryDoc(seed) {
-  const name = sanitizeString(seed.displayName || seed.name || seed.slug || 'دسته‌بندی');
-  const displayName = name || 'دسته‌بندی';
+  const name = sanitizeString(seed.name || seed.slug || seed.displayName || 'دسته‌بندی');
+  const displayName = sanitizeString(seed.displayName) || name || 'دسته‌بندی';
   const description = sanitizeString(seed.description);
   const icon = sanitizeString(seed.icon) || 'fa-layer-group';
   const color = sanitizeString(seed.color) || 'blue';
   const provider = sanitizeString(seed.provider) || 'ai-gen';
+  const slug = sanitizeString(seed.slug || seed.id || name).toLowerCase();
+  const providerCategoryIdCandidate = sanitizeString(
+    seed.providerCategoryId || seed.id || seed.slug || ''
+  );
+  const providerCategoryId = providerCategoryIdCandidate || slug;
   const aliases = Array.isArray(seed.aliases)
     ? Array.from(new Set(seed.aliases.map((alias) => sanitizeString(alias)).filter(Boolean)))
     : [];
@@ -27,9 +32,9 @@ function buildCategoryDoc(seed) {
     color,
     status: 'active',
     provider,
-    providerCategoryId: null,
+    providerCategoryId,
     aliases: Array.from(new Set(aliases)),
-    slug: sanitizeString(seed.slug || seed.id || name).toLowerCase()
+    slug
   };
 }
 
