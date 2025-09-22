@@ -55,9 +55,17 @@ async function seedStaticCategories() {
     allowedSlugs.add(doc.slug);
 
     try {
+      const query = {
+        $or: [{ slug: doc.slug }, { name: doc.name }]
+      };
+
+      if (doc.providerCategoryId) {
+        query.$or.push({ provider: doc.provider, providerCategoryId: doc.providerCategoryId });
+      }
+
       // eslint-disable-next-line no-await-in-loop
       const result = await Category.updateOne(
-        { slug: doc.slug },
+        query,
         {
           $set: {
             name: doc.name,
