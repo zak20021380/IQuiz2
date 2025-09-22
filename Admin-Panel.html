@@ -2997,7 +2997,7 @@
       <section id="page-settings" class="hidden space-y-6">
         <div class="flex items-center justify-between mb-6">
           <h1 class="text-2xl font-bold">تنظیمات</h1>
-          <button class="btn btn-primary w-auto px-5">
+          <button id="settings-save-button" class="btn btn-primary w-auto px-5">
             <i class="fa-solid fa-save ml-2"></i> ذخیره تغییرات
           </button>
         </div>
@@ -3009,22 +3009,22 @@
             <div class="space-y-4">
               <div>
                 <label class="block text-sm mb-1">نام برنامه</label>
-                <input type="text" value="Quiz WebApp Pro" class="form-input">
+                <input id="settings-app-name" type="text" value="Quiz WebApp Pro" class="form-input">
               </div>
               <div>
                 <label class="block text-sm mb-1">زبان پیش‌فرض</label>
-                <select class="form-select">
+                <select id="settings-language" class="form-select">
                   <option value="fa" selected>فارسی</option>
                   <option value="en">English</option>
                 </select>
               </div>
               <div>
                 <label class="block text-sm mb-1">زمان پیش‌فرض برای سوالات (ثانیه)</label>
-                <input type="number" value="30" class="form-input">
+                <input id="settings-question-time" type="number" value="30" min="5" class="form-input">
               </div>
               <div>
                 <label class="block text-sm mb-1">حداکثر سوالات в هر مسابقه</label>
-                <input type="number" value="10" class="form-input">
+                <input id="settings-max-questions" type="number" value="10" min="3" class="form-input">
               </div>
             </div>
           </div>
@@ -3035,19 +3035,19 @@
             <div class="space-y-4">
               <div>
                 <label class="block text-sm mb-1">امتیاز برای پاسخ صحیح</label>
-                <input type="number" value="100" class="form-input">
+                <input id="settings-points-correct" type="number" value="100" min="0" class="form-input">
               </div>
               <div>
                 <label class="block text-sm mb-1">سکه برای پاسخ صحیح</label>
-                <input type="number" value="5" class="form-input">
+                <input id="settings-coins-correct" type="number" value="5" min="0" class="form-input">
               </div>
               <div>
                 <label class="block text-sm mb-1">امتیاز پاداش استریک روزانه</label>
-                <input type="number" value="50" class="form-input">
+                <input id="settings-points-streak" type="number" value="50" min="0" class="form-input">
               </div>
               <div>
                 <label class="block text-sm mb-1">سکه پاداش استریک روزانه</label>
-                <input type="number" value="10" class="form-input">
+                <input id="settings-coins-streak" type="number" value="10" min="0" class="form-input">
               </div>
             </div>
           </div>
@@ -3317,50 +3317,50 @@
                           </tr>
                         </thead>
                         <tbody class="align-top text-xs">
-                          <tr data-shop-package data-package-id="k1">
+                          <tr data-shop-package="keys" data-package-id="k1">
                             <td class="text-center">
                               <label class="toggle text-[10px] justify-center">
-                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-toggle-label-target="#package-k1-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-package-field="active" data-toggle-label-target="#package-k1-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                                 <span class="toggle-label" data-toggle-text>فعال</span>
                               </label>
                             </td>
-                            <td><input type="text" class="form-input text-xs" value="بسته کوچک (۱ کلید)" data-bind-target="#package-k1-name"></td>
-                            <td><input type="text" class="form-input text-xs uppercase" value="k1"></td>
-                            <td><input type="number" class="form-input text-xs" value="1" min="1"></td>
-                            <td><input type="number" class="form-input text-xs" value="30" min="1"></td>
-                            <td><input type="number" class="form-input text-xs" value="1" min="1"></td>
-                            <td><input type="text" class="form-input text-xs" value="شروع سریع"></td>
-                            <td><input type="text" class="form-input text-xs" value="مناسب برای شروع تجربه ایکویز."></td>
+                            <td><input type="text" class="form-input text-xs" value="بسته کوچک (۱ کلید)" data-package-field="displayName" data-bind-target="#package-k1-name"></td>
+                            <td><input type="text" class="form-input text-xs uppercase" value="k1" data-package-field="id"></td>
+                            <td><input type="number" class="form-input text-xs" value="1" min="1" data-package-field="amount"></td>
+                            <td><input type="number" class="form-input text-xs" value="30" min="1" data-package-field="price"></td>
+                            <td><input type="number" class="form-input text-xs" value="1" min="1" data-package-field="priority"></td>
+                            <td><input type="text" class="form-input text-xs" value="شروع سریع" data-package-field="badge"></td>
+                            <td><input type="text" class="form-input text-xs" value="مناسب برای شروع تجربه ایکویز." data-package-field="description"></td>
                           </tr>
-                          <tr data-shop-package data-package-id="k3">
+                          <tr data-shop-package="keys" data-package-id="k3">
                             <td class="text-center">
                               <label class="toggle text-[10px] justify-center">
-                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-toggle-label-target="#package-k3-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-package-field="active" data-toggle-label-target="#package-k3-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                                 <span class="toggle-label" data-toggle-text>فعال</span>
                               </label>
                             </td>
-                            <td><input type="text" class="form-input text-xs" value="بسته اقتصادی (۳ کلید)" data-bind-target="#package-k3-name"></td>
-                            <td><input type="text" class="form-input text-xs uppercase" value="k3"></td>
-                            <td><input type="number" class="form-input text-xs" value="3" min="1"></td>
-                            <td><input type="number" class="form-input text-xs" value="80" min="1"></td>
-                            <td><input type="number" class="form-input text-xs" value="2" min="1"></td>
-                            <td><input type="text" class="form-input text-xs" value="پیشنهاد ویژه"></td>
-                            <td><input type="text" class="form-input text-xs" value="بهترین نسبت قیمت به کلید."></td>
+                            <td><input type="text" class="form-input text-xs" value="بسته اقتصادی (۳ کلید)" data-package-field="displayName" data-bind-target="#package-k3-name"></td>
+                            <td><input type="text" class="form-input text-xs uppercase" value="k3" data-package-field="id"></td>
+                            <td><input type="number" class="form-input text-xs" value="3" min="1" data-package-field="amount"></td>
+                            <td><input type="number" class="form-input text-xs" value="80" min="1" data-package-field="price"></td>
+                            <td><input type="number" class="form-input text-xs" value="2" min="1" data-package-field="priority"></td>
+                            <td><input type="text" class="form-input text-xs" value="پیشنهاد ویژه" data-package-field="badge"></td>
+                            <td><input type="text" class="form-input text-xs" value="بهترین نسبت قیمت به کلید." data-package-field="description"></td>
                           </tr>
-                          <tr data-shop-package data-package-id="k10">
+                          <tr data-shop-package="keys" data-package-id="k10">
                             <td class="text-center">
                               <label class="toggle text-[10px] justify-center">
-                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-toggle-label-target="#package-k10-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-package-field="active" data-toggle-label-target="#package-k10-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                                 <span class="toggle-label" data-toggle-text>فعال</span>
                               </label>
                             </td>
-                            <td><input type="text" class="form-input text-xs" value="بسته حرفه‌ای (۱۰ کلید)" data-bind-target="#package-k10-name"></td>
-                            <td><input type="text" class="form-input text-xs uppercase" value="k10"></td>
-                            <td><input type="number" class="form-input text-xs" value="10" min="1"></td>
-                            <td><input type="number" class="form-input text-xs" value="250" min="1"></td>
-                            <td><input type="number" class="form-input text-xs" value="3" min="1"></td>
-                            <td><input type="text" class="form-input text-xs" value="برای رکورددارها"></td>
-                            <td><input type="text" class="form-input text-xs" value="مناسب برای بازیکنان حرفه‌ای."></td>
+                            <td><input type="text" class="form-input text-xs" value="بسته حرفه‌ای (۱۰ کلید)" data-package-field="displayName" data-bind-target="#package-k10-name"></td>
+                            <td><input type="text" class="form-input text-xs uppercase" value="k10" data-package-field="id"></td>
+                            <td><input type="number" class="form-input text-xs" value="10" min="1" data-package-field="amount"></td>
+                            <td><input type="number" class="form-input text-xs" value="250" min="1" data-package-field="price"></td>
+                            <td><input type="number" class="form-input text-xs" value="3" min="1" data-package-field="priority"></td>
+                            <td><input type="text" class="form-input text-xs" value="برای رکورددارها" data-package-field="badge"></td>
+                            <td><input type="text" class="form-input text-xs" value="مناسب برای بازیکنان حرفه‌ای." data-package-field="description"></td>
                           </tr>
                         </tbody>
                       </table>
@@ -3405,63 +3405,63 @@
                           </tr>
                         </thead>
                         <tbody class="align-top text-xs">
-                          <tr data-shop-package data-package-id="w100">
+                          <tr data-shop-package="wallet" data-package-id="w100">
                             <td class="text-center">
                               <label class="toggle text-[10px] justify-center">
-                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-toggle-label-target="#package-w100-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-package-field="active" data-toggle-label-target="#package-w100-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                                 <span class="toggle-label" data-toggle-text>فعال</span>
                               </label>
                             </td>
-                            <td><input type="text" class="form-input text-xs" value="شارژ سریع ۱۰۰ سکه" data-bind-target="#package-w100-name"></td>
-                            <td><input type="text" class="form-input text-xs uppercase" value="w100"></td>
-                            <td><input type="number" class="form-input text-xs" value="100" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="49000" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="5" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="1" min="0"></td>
+                            <td><input type="text" class="form-input text-xs" value="شارژ سریع ۱۰۰ سکه" data-package-field="displayName" data-bind-target="#package-w100-name"></td>
+                            <td><input type="text" class="form-input text-xs uppercase" value="w100" data-package-field="id"></td>
+                            <td><input type="number" class="form-input text-xs" value="100" min="0" data-package-field="amount"></td>
+                            <td><input type="number" class="form-input text-xs" value="49000" min="0" data-package-field="price"></td>
+                            <td><input type="number" class="form-input text-xs" value="5" min="0" data-package-field="bonus"></td>
+                            <td><input type="number" class="form-input text-xs" value="1" min="0" data-package-field="priority"></td>
                             <td>
-                              <select class="form-input text-xs">
+                              <select class="form-input text-xs" data-package-field="paymentMethod">
                                 <option>درگاه مستقیم</option>
                                 <option>درگاه بات تلگرام</option>
                                 <option>کارت به کارت</option>
                               </select>
                             </td>
                           </tr>
-                          <tr data-shop-package data-package-id="w500">
+                          <tr data-shop-package="wallet" data-package-id="w500">
                             <td class="text-center">
                               <label class="toggle text-[10px] justify-center">
-                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-toggle-label-target="#package-w500-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-package-field="active" data-toggle-label-target="#package-w500-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                                 <span class="toggle-label" data-toggle-text>فعال</span>
                               </label>
                             </td>
-                            <td><input type="text" class="form-input text-xs" value="شارژ حرفه‌ای ۵۰۰ سکه" data-bind-target="#package-w500-name"></td>
-                            <td><input type="text" class="form-input text-xs uppercase" value="w500"></td>
-                            <td><input type="number" class="form-input text-xs" value="500" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="229000" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="12" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="2" min="0"></td>
+                            <td><input type="text" class="form-input text-xs" value="شارژ حرفه‌ای ۵۰۰ سکه" data-package-field="displayName" data-bind-target="#package-w500-name"></td>
+                            <td><input type="text" class="form-input text-xs uppercase" value="w500" data-package-field="id"></td>
+                            <td><input type="number" class="form-input text-xs" value="500" min="0" data-package-field="amount"></td>
+                            <td><input type="number" class="form-input text-xs" value="229000" min="0" data-package-field="price"></td>
+                            <td><input type="number" class="form-input text-xs" value="12" min="0" data-package-field="bonus"></td>
+                            <td><input type="number" class="form-input text-xs" value="2" min="0" data-package-field="priority"></td>
                             <td>
-                              <select class="form-input text-xs">
+                              <select class="form-input text-xs" data-package-field="paymentMethod">
                                 <option>درگاه مستقیم</option>
                                 <option>درگاه بات تلگرام</option>
                                 <option>کارت به کارت</option>
                               </select>
                             </td>
                           </tr>
-                          <tr data-shop-package data-package-id="w1200">
+                          <tr data-shop-package="wallet" data-package-id="w1200">
                             <td class="text-center">
                               <label class="toggle text-[10px] justify-center">
-                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-toggle-label-target="#package-w1200-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                                <input type="checkbox" class="shop-package-toggle" data-shop-package-active data-package-field="active" data-toggle-label-target="#package-w1200-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                                 <span class="toggle-label" data-toggle-text>فعال</span>
                               </label>
                             </td>
-                            <td><input type="text" class="form-input text-xs" value="سوپر شارژ ۱۲۰۰ سکه" data-bind-target="#package-w1200-name"></td>
-                            <td><input type="text" class="form-input text-xs uppercase" value="w1200"></td>
-                            <td><input type="number" class="form-input text-xs" value="1200" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="459000" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="20" min="0"></td>
-                            <td><input type="number" class="form-input text-xs" value="3" min="0"></td>
+                            <td><input type="text" class="form-input text-xs" value="سوپر شارژ ۱۲۰۰ سکه" data-package-field="displayName" data-bind-target="#package-w1200-name"></td>
+                            <td><input type="text" class="form-input text-xs uppercase" value="w1200" data-package-field="id"></td>
+                            <td><input type="number" class="form-input text-xs" value="1200" min="0" data-package-field="amount"></td>
+                            <td><input type="number" class="form-input text-xs" value="459000" min="0" data-package-field="price"></td>
+                            <td><input type="number" class="form-input text-xs" value="20" min="0" data-package-field="bonus"></td>
+                            <td><input type="number" class="form-input text-xs" value="3" min="0" data-package-field="priority"></td>
                             <td>
-                              <select class="form-input text-xs">
+                              <select class="form-input text-xs" data-package-field="paymentMethod">
                                 <option>درگاه مستقیم</option>
                                 <option>درگاه بات تلگرام</option>
                                 <option>کارت به کارت</option>
@@ -3492,14 +3492,14 @@
                     </div>
                   </div>
                   <div id="shop-vip-plans" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="rounded-2xl border border-white/12 bg-white/5 p-4 space-y-4" data-shop-vip-plan>
+                    <div class="rounded-2xl border border-white/12 bg-white/5 p-4 space-y-4" data-shop-vip-plan data-plan-id="vip_lite" data-plan-tier="lite">
                       <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-2">
                           <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-300/40 text-xs font-bold text-amber-100">VIP Lite</span>
-                          <span class="text-sm text-white/80">نمایش: <span class="font-semibold text-white">وی‌آی‌پی لایت</span></span>
+                          <span class="text-sm text-white/80">نمایش: <span class="font-semibold text-white" data-vip-field="displayName">وی‌آی‌پی لایت</span></span>
                         </div>
                         <label class="toggle text-xs">
-                          <input type="checkbox" data-shop-vip-active data-toggle-label-target="#vip-lite-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                          <input type="checkbox" data-shop-vip-active data-package-field="active" data-toggle-label-target="#vip-lite-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                           <span class="toggle-label" data-toggle-text>فعال</span>
                         </label>
                       </div>
@@ -3507,11 +3507,11 @@
                       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div>
                           <label class="block mb-1 text-white/70">قیمت ماهانه (تومان)</label>
-                          <input type="number" class="form-input text-xs" value="99000" min="0">
+                          <input type="number" class="form-input text-xs" value="99000" min="0" data-vip-field="price">
                         </div>
                         <div>
                           <label class="block mb-1 text-white/70">دوره پرداخت</label>
-                          <select class="form-input text-xs">
+                          <select class="form-input text-xs" data-vip-field="period">
                             <option>ماهانه</option>
                             <option>سه‌ماهه</option>
                             <option>سالانه</option>
@@ -3519,23 +3519,23 @@
                         </div>
                         <div>
                           <label class="block mb-1 text-white/70">متن دکمه</label>
-                          <input type="text" class="form-input text-xs" value="خرید اشتراک">
+                          <input type="text" class="form-input text-xs" value="خرید اشتراک" data-vip-field="buttonText">
                         </div>
                       </div>
                       <div>
                         <label class="block text-xs mb-1 text-white/70">مزایا (هر خط یک مورد)</label>
-                        <textarea class="form-input text-xs" rows="3">حذف تبلیغات بنری
+                        <textarea class="form-input text-xs" rows="3" data-vip-field="benefits">حذف تبلیغات بنری
 دو برابر محدودیت روزانه کلید</textarea>
                       </div>
                     </div>
-                    <div class="rounded-2xl border border-amber-300/40 bg-white/5 p-4 space-y-4" data-shop-vip-plan>
+                    <div class="rounded-2xl border border-amber-300/40 bg-white/5 p-4 space-y-4" data-shop-vip-plan data-plan-id="vip_pro" data-plan-tier="pro">
                       <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-2">
                           <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-yellow-400/30 border border-yellow-200/40 text-xs font-bold text-yellow-100">VIP Pro</span>
-                          <span class="text-sm text-white/80">نمایش: <span class="font-semibold text-white">وی‌آی‌پی پرو</span></span>
+                          <span class="text-sm text-white/80">نمایش: <span class="font-semibold text-white" data-vip-field="displayName">وی‌آی‌پی پرو</span></span>
                         </div>
                         <label class="toggle text-xs">
-                          <input type="checkbox" data-shop-vip-active data-toggle-label-target="#vip-pro-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                          <input type="checkbox" data-shop-vip-active data-package-field="active" data-toggle-label-target="#vip-pro-status" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                           <span class="toggle-label" data-toggle-text>فعال</span>
                         </label>
                       </div>
@@ -3543,11 +3543,11 @@
                       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div>
                           <label class="block mb-1 text-white/70">قیمت ماهانه (تومان)</label>
-                          <input type="number" class="form-input text-xs" value="199000" min="0">
+                          <input type="number" class="form-input text-xs" value="199000" min="0" data-vip-field="price">
                         </div>
                         <div>
                           <label class="block mb-1 text-white/70">دوره پرداخت</label>
-                          <select class="form-input text-xs">
+                          <select class="form-input text-xs" data-vip-field="period">
                             <option>ماهانه</option>
                             <option>سه‌ماهه</option>
                             <option>سالانه</option>
@@ -3555,12 +3555,12 @@
                         </div>
                         <div>
                           <label class="block mb-1 text-white/70">متن دکمه</label>
-                          <input type="text" class="form-input text-xs" value="خرید VIP پرو">
+                          <input type="text" class="form-input text-xs" value="خرید VIP پرو" data-vip-field="buttonText">
                         </div>
                       </div>
                       <div>
                         <label class="block text-xs mb-1 text-white/70">مزایا (هر خط یک مورد)</label>
-                        <textarea class="form-input text-xs" rows="3">حذف تمام تبلیغات
+                        <textarea class="form-input text-xs" rows="3" data-vip-field="benefits">حذف تمام تبلیغات
 دو برابر محدودیت مسابقه و کلید
 مزایای رقابتی و قاب آواتار اختصاصی</textarea>
                       </div>
@@ -3591,30 +3591,30 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                       <div>
                         <label class="block mb-1 text-white/70">درصد تخفیف پیش‌فرض</label>
-                        <input type="number" class="form-input text-xs" value="20" min="0" max="100">
+                        <input type="number" class="form-input text-xs" value="20" min="0" max="100" data-promotions-field="defaultDiscount">
                       </div>
                       <div>
                         <label class="block mb-1 text-white/70">سقف استفاده روزانه (هر کاربر)</label>
-                        <input type="number" class="form-input text-xs" value="3" min="0">
+                        <input type="number" class="form-input text-xs" value="3" min="0" data-promotions-field="dailyLimit">
                       </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                       <div>
                         <label class="block mb-1 text-white/70">تاریخ شروع کمپین</label>
-                        <input type="date" class="form-input text-xs">
+                        <input type="date" class="form-input text-xs" data-promotions-field="startDate">
                       </div>
                       <div>
                         <label class="block mb-1 text-white/70">تاریخ پایان کمپین</label>
-                        <input type="date" class="form-input text-xs">
+                        <input type="date" class="form-input text-xs" data-promotions-field="endDate">
                       </div>
                     </div>
                     <div>
                       <label class="block text-xs mb-1 text-white/70">پیام ویژه (بنر اطلاع‌رسانی)</label>
-                      <textarea class="form-input text-xs" rows="2" placeholder="مثال: جمعه سیاه؛ هر خرید سکه با ۳۰٪ هدیه.">جمعه سیاه؛ هر خرید سکه با ۳۰٪ هدیه.</textarea>
+                      <textarea class="form-input text-xs" rows="2" data-promotions-field="bannerMessage" placeholder="مثال: جمعه سیاه؛ هر خرید سکه با ۳۰٪ هدیه.">جمعه سیاه؛ هر خرید سکه با ۳۰٪ هدیه.</textarea>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 text-xs">
                       <label class="toggle text-xs">
-                        <input type="checkbox" id="shop-auto-highlight" data-toggle-on="فعال" data-toggle-off="خاموش" checked>
+                        <input type="checkbox" id="shop-auto-highlight" data-toggle-on="فعال" data-toggle-off="خاموش" data-promotions-field="autoHighlight" checked>
                         <span class="toggle-label" data-toggle-text>فعال</span>
                       </label>
                       <span class="text-white/60">هایلایت خودکار پکیج‌هایی که تخفیف بالای ۱۵٪ دارند.</span>
@@ -3633,25 +3633,25 @@
                   <div class="space-y-4">
                     <div>
                       <label class="block text-xs mb-1 text-white/70">پیام کمبود سکه</label>
-                      <textarea class="form-input text-xs" rows="2" placeholder="مثال: برای ادامه مسابقه به حداقل ۵۰ سکه نیاز داری.">برای شروع مسابقه بعدی به حداقل ۵۰ سکه نیاز داری.</textarea>
+                      <textarea class="form-input text-xs" rows="2" data-messaging-field="lowBalance" placeholder="مثال: برای ادامه مسابقه به حداقل ۵۰ سکه نیاز داری.">برای شروع مسابقه بعدی به حداقل ۵۰ سکه نیاز داری.</textarea>
                     </div>
                     <div>
                       <label class="block text-xs mb-1 text-white/70">پیام موفقیت خرید</label>
-                      <textarea class="form-input text-xs" rows="2" placeholder="مثال: تبریک! سکه‌های جدید به حساب شما واریز شد.">تبریک! سکه‌های جدید به حساب شما واریز شد.</textarea>
+                      <textarea class="form-input text-xs" rows="2" data-messaging-field="success" placeholder="مثال: تبریک! سکه‌های جدید به حساب شما واریز شد.">تبریک! سکه‌های جدید به حساب شما واریز شد.</textarea>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                       <div>
                         <label class="block mb-1 text-white/70">متن دکمه پشتیبانی فروشگاه</label>
-                        <input type="text" class="form-input text-xs" value="ارتباط با پشتیبانی">
+                        <input type="text" class="form-input text-xs" value="ارتباط با پشتیبانی" data-messaging-field="supportCta">
                       </div>
                       <div>
                         <label class="block mb-1 text-white/70">لینک پشتیبانی</label>
-                        <input type="url" class="form-input text-xs" value="https://t.me/iquiz-support" placeholder="https://">
+                        <input type="url" class="form-input text-xs" value="https://t.me/iquiz-support" data-messaging-field="supportLink" placeholder="https://">
                       </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 text-xs">
                       <label class="toggle text-xs">
-                        <input type="checkbox" id="shop-show-tutorial" data-toggle-on="فعال" data-toggle-off="مخفی" checked>
+                        <input type="checkbox" id="shop-show-tutorial" data-toggle-on="فعال" data-toggle-off="مخفی" data-messaging-field="showTutorial" checked>
                         <span class="toggle-label" data-toggle-text>فعال</span>
                       </label>
                       <span class="text-white/60">نمایش راهنمای کوتاه در اولین ورود کاربر به فروشگاه.</span>

@@ -24,6 +24,12 @@
     body{ color:var(--text); min-height:100vh; overflow-x:hidden }
     .glass{ background:var(--card); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid var(--cardBorder); box-shadow:0 8px 32px rgba(31,38,135,.2) }
     .glass-dark{ background:rgba(0,0,0,.2); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,.15) }
+    #shop-hero-block{ transition:background .35s ease, border-color .35s ease; }
+    #shop-hero-block .chip{ background:rgba(255,255,255,0.18); border-color:rgba(255,255,255,0.28); color:#fff; }
+    .hero-theme-sky{ background:linear-gradient(135deg, rgba(59,130,246,0.45), rgba(14,165,233,0.35)); border:1px solid rgba(125,211,252,0.45); }
+    .hero-theme-emerald{ background:linear-gradient(135deg, rgba(16,185,129,0.45), rgba(45,212,191,0.35)); border:1px solid rgba(110,231,183,0.45); }
+    .hero-theme-purple{ background:linear-gradient(135deg, rgba(168,85,247,0.45), rgba(129,140,248,0.35)); border:1px solid rgba(196,181,253,0.45); }
+    .hero-theme-amber{ background:linear-gradient(135deg, rgba(251,191,36,0.45), rgba(249,115,22,0.35)); border:1px solid rgba(253,224,71,0.45); }
     .card-hover{ transition:all .3s ease }
     .card-hover:hover{ transform:translateY(-5px); box-shadow:0 12px 40px rgba(31,38,135,.3) }
     .nav-item{ position:relative; transition:all .3s ease }

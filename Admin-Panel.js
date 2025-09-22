@@ -66,6 +66,8 @@ const CATEGORY_STATUS_SUFFIX = {
   disabled: ' (غیرفعال)'
 };
 
+const ADMIN_SETTINGS_STORAGE_KEY = 'iquiz_admin_settings_v1';
+
 const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
   {
     order: 1,
@@ -498,7 +500,7 @@ const adModalScroll = adForm ? adForm.querySelector('.ad-modal-scroll') : null;
 const adModalHelperCreative = adModal ? adModal.querySelector('[data-ad-helper="creative"]') : null;
 const adModalSections = adModal ? Array.from(adModal.querySelectorAll('[data-show-placements]')) : [];
 
-const shopSettingsPage = $('#page-shop-settings');
+const shopSettingsPage = $('#page-shop-settings') || $('#shop-settings-card');
 const shopGlobalToggle = $('#shop-enable-toggle');
 const shopStatusChip = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-status-chip]') : null;
 const shopStatusLabel = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-status-label]') : null;
@@ -522,6 +524,28 @@ const shopKeysToggle = $('#shop-keys-toggle');
 const shopWalletToggle = $('#shop-wallet-toggle');
 const shopVipToggle = $('#shop-vip-toggle');
 const shopPromotionsToggle = $('#shop-promotions-toggle');
+const settingsSaveButton = $('#settings-save-button');
+const generalAppNameInput = $('#settings-app-name');
+const generalLanguageSelect = $('#settings-language');
+const generalQuestionTimeInput = $('#settings-question-time');
+const generalMaxQuestionsInput = $('#settings-max-questions');
+const rewardPointsCorrectInput = $('#settings-points-correct');
+const rewardCoinsCorrectInput = $('#settings-coins-correct');
+const rewardPointsStreakInput = $('#settings-points-streak');
+const rewardCoinsStreakInput = $('#settings-coins-streak');
+const shopPricingCurrencySelect = $('#shop-pricing-currency');
+const shopLowBalanceThresholdInput = $('#shop-low-balance-threshold');
+const shopQuickTopupToggle = $('#shop-quick-topup');
+const shopQuickPurchaseToggle = $('#shop-quick-purchase');
+const shopDynamicPricingToggle = $('#shop-dynamic-pricing');
+const shopHeroTitleInput = $('#shop-hero-title');
+const shopHeroSubtitleInput = $('#shop-hero-subtitle');
+const shopHeroCtaInput = $('#shop-hero-cta');
+const shopHeroNoteInput = $('#shop-hero-note');
+const shopShowBalancesToggle = $('#shop-show-balances');
+const shopShowTagsToggle = $('#shop-show-tags');
+const shopAutoHighlightToggle = $('#shop-auto-highlight');
+const shopShowTutorialToggle = $('#shop-show-tutorial');
 
 const questionFilters = {
   category: '',
@@ -2412,8 +2436,26 @@ async function api(path, options = {}) {
 }
 
 // --------------- TOAST ---------------
+function ensureToastContainer() {
+  if (typeof document === 'undefined') return null;
+  let container = $('#toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center';
+    (document.body || document.documentElement)?.appendChild(container);
+  }
+  return container;
+}
+
 function showToast(message, type = 'info', duration = 3000) {
-  const toastContainer = $('#toast-container');
+  const toastContainer = ensureToastContainer();
+  if (!toastContainer) {
+    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+      window.alert(message);
+    }
+    return;
+  }
   const toast = document.createElement('div');
   let icon = 'fa-info-circle', bgColor = 'bg-blue-500/80';
   if (type === 'success') { icon='fa-check-circle'; bgColor='bg-green-500/80'; }
@@ -4541,6 +4583,420 @@ $('#save-achievement-btn').addEventListener('click', async () => {
     closeModal('#add-achievement-modal');
   } catch (e) { showToast(e.message,'error'); }
 });
+
+const settingsSaveButtonDefault = settingsSaveButton ? settingsSaveButton.innerHTML : '';
+
+function safeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function safeString(value, fallback = '') {
+  if (value == null) return fallback;
+  return String(value).trim();
+}
+
+function getCheckboxValue(input, fallback = false) {
+  if (!input) return fallback;
+  return !!input.checked;
+}
+
+function readStoredSettings() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(ADMIN_SETTINGS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch (_) {
+    // ignore
+  }
+  return null;
+}
+
+function setSelectValue(select, value) {
+  if (!select || value == null) return;
+  const stringValue = String(value);
+  const options = Array.from(select.options || []);
+  if (!options.some((option) => option.value === stringValue) && stringValue) {
+    const opt = document.createElement('option');
+    opt.value = stringValue;
+    opt.textContent = stringValue;
+    select.appendChild(opt);
+  }
+  select.value = stringValue;
+}
+
+function setInputValue(input, value) {
+  if (!input || value == null) return;
+  input.value = value;
+}
+
+function setCheckboxValue(input, value) {
+  if (!input) return;
+  input.checked = !!value;
+}
+
+function applyPackageSettings(type, packages) {
+  if (!shopSettingsPage || !Array.isArray(packages)) return;
+  packages.forEach((pkg) => {
+    if (!pkg || !pkg.id) return;
+    const row = shopSettingsPage.querySelector(`[data-shop-package="${type}"][data-package-id="${pkg.id}"]`);
+    if (!row) return;
+    row.querySelectorAll('[data-package-field]').forEach((input) => {
+      const field = input.dataset.packageField;
+      if (!field) return;
+      if (input.type === 'checkbox') {
+        input.checked = pkg[field] !== false && !!pkg[field];
+      } else if (input.type === 'number') {
+        if (pkg[field] != null) input.value = pkg[field];
+      } else if (input.tagName === 'SELECT') {
+        if (pkg[field] != null) {
+          setSelectValue(input, pkg[field]);
+        }
+      } else if (pkg[field] != null) {
+        input.value = pkg[field];
+      }
+    });
+  });
+}
+
+function applyVipSettings(plans) {
+  if (!shopSettingsPage || !Array.isArray(plans)) return;
+  plans.forEach((plan) => {
+    if (!plan) return;
+    const selector = plan.id
+      ? `[data-shop-vip-plan][data-plan-id="${plan.id}"]`
+      : plan.tier
+        ? `[data-shop-vip-plan][data-plan-tier="${plan.tier}"]`
+        : '';
+    if (!selector) return;
+    const container = shopSettingsPage.querySelector(selector);
+    if (!container) return;
+    const activeToggle = container.querySelector('[data-shop-vip-active]');
+    if (activeToggle) activeToggle.checked = plan.active !== false && !!plan.active;
+    const displayEl = container.querySelector('[data-vip-field="displayName"]');
+    if (displayEl && plan.displayName != null) displayEl.textContent = plan.displayName;
+    const priceInput = container.querySelector('[data-vip-field="price"]');
+    if (priceInput && plan.price != null) priceInput.value = plan.price;
+    const periodSelect = container.querySelector('[data-vip-field="period"]');
+    if (periodSelect && plan.period != null) setSelectValue(periodSelect, plan.period);
+    const buttonInput = container.querySelector('[data-vip-field="buttonText"]');
+    if (buttonInput && plan.buttonText != null) buttonInput.value = plan.buttonText;
+    const benefitsTextarea = container.querySelector('[data-vip-field="benefits"]');
+    if (benefitsTextarea) {
+      if (Array.isArray(plan.benefits)) {
+        benefitsTextarea.value = plan.benefits.join('\n');
+      } else if (plan.benefits != null) {
+        benefitsTextarea.value = plan.benefits;
+      }
+    }
+  });
+}
+
+function applyPromotionsSettings(promotions) {
+  if (!shopSettingsPage || !promotions || typeof promotions !== 'object') return;
+  const setField = (field, value) => {
+    const el = shopSettingsPage.querySelector(`[data-promotions-field="${field}"]`);
+    if (!el || value == null) return;
+    if (el.type === 'checkbox') {
+      el.checked = !!value;
+    } else {
+      el.value = value;
+    }
+  };
+  setField('defaultDiscount', promotions.defaultDiscount);
+  setField('dailyLimit', promotions.dailyLimit);
+  setField('startDate', promotions.startDate);
+  setField('endDate', promotions.endDate);
+  setField('bannerMessage', promotions.bannerMessage);
+  if (shopAutoHighlightToggle) shopAutoHighlightToggle.checked = promotions.autoHighlight !== false && !!promotions.autoHighlight;
+}
+
+function applyMessagingSettings(messaging) {
+  if (!shopSettingsPage || !messaging || typeof messaging !== 'object') return;
+  const setField = (field, value) => {
+    const el = shopSettingsPage.querySelector(`[data-messaging-field="${field}"]`);
+    if (!el || value == null) return;
+    el.value = value;
+  };
+  setField('lowBalance', messaging.lowBalance);
+  setField('success', messaging.success);
+  setField('supportCta', messaging.supportCta);
+  setField('supportLink', messaging.supportLink);
+  if (shopShowTutorialToggle) shopShowTutorialToggle.checked = messaging.showTutorial !== false && !!messaging.showTutorial;
+}
+
+function applySectionsState(sections) {
+  if (!sections || typeof sections !== 'object') return;
+  if (shopHeroToggle && sections.hero != null) shopHeroToggle.checked = !!sections.hero;
+  if (shopKeysToggle && sections.keys != null) shopKeysToggle.checked = !!sections.keys;
+  if (shopWalletToggle && sections.wallet != null) shopWalletToggle.checked = !!sections.wallet;
+  if (shopVipToggle && sections.vip != null) shopVipToggle.checked = !!sections.vip;
+  if (shopPromotionsToggle && sections.promotions != null) shopPromotionsToggle.checked = !!sections.promotions;
+}
+
+function applySettingsSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return;
+  const general = snapshot.general || {};
+  if (generalAppNameInput && general.appName != null) generalAppNameInput.value = general.appName;
+  if (generalLanguageSelect && general.language != null) setSelectValue(generalLanguageSelect, general.language);
+  if (generalQuestionTimeInput && general.questionTime != null) generalQuestionTimeInput.value = general.questionTime;
+  if (generalMaxQuestionsInput && general.maxQuestions != null) generalMaxQuestionsInput.value = general.maxQuestions;
+
+  const rewards = snapshot.rewards || {};
+  if (rewardPointsCorrectInput && rewards.pointsCorrect != null) rewardPointsCorrectInput.value = rewards.pointsCorrect;
+  if (rewardCoinsCorrectInput && rewards.coinsCorrect != null) rewardCoinsCorrectInput.value = rewards.coinsCorrect;
+  if (rewardPointsStreakInput && rewards.pointsStreak != null) rewardPointsStreakInput.value = rewards.pointsStreak;
+  if (rewardCoinsStreakInput && rewards.coinsStreak != null) rewardCoinsStreakInput.value = rewards.coinsStreak;
+
+  const shop = snapshot.shop || {};
+  if (shopGlobalToggle && shop.enabled != null) shopGlobalToggle.checked = !!shop.enabled;
+  if (shopPricingCurrencySelect && shop.currency != null) setSelectValue(shopPricingCurrencySelect, shop.currency);
+  if (shopLowBalanceThresholdInput && shop.lowBalanceThreshold != null) shopLowBalanceThresholdInput.value = shop.lowBalanceThreshold;
+  if (shopQuickTopupToggle) shopQuickTopupToggle.checked = !!shop.quickTopup;
+  if (shopQuickPurchaseToggle) shopQuickPurchaseToggle.checked = !!shop.quickPurchase;
+  if (shopDynamicPricingToggle) shopDynamicPricingToggle.checked = !!shop.dynamicPricing;
+
+  if (shop.hero && typeof shop.hero === 'object') {
+    const hero = shop.hero;
+    if (shopHeroTitleInput && hero.title != null) shopHeroTitleInput.value = hero.title;
+    if (shopHeroSubtitleInput && hero.subtitle != null) shopHeroSubtitleInput.value = hero.subtitle;
+    if (shopHeroCtaInput && hero.ctaText != null) shopHeroCtaInput.value = hero.ctaText;
+    if (shopHeroLinkInput && hero.ctaLink != null) shopHeroLinkInput.value = hero.ctaLink;
+    if (shopHeroThemeSelect && hero.theme != null) setSelectValue(shopHeroThemeSelect, hero.theme);
+    if (shopHeroNoteInput && hero.note != null) shopHeroNoteInput.value = hero.note;
+    if (shopShowBalancesToggle) shopShowBalancesToggle.checked = hero.showBalances !== false && !!hero.showBalances;
+    if (shopShowTagsToggle) shopShowTagsToggle.checked = hero.showTags !== false && !!hero.showTags;
+  }
+
+  applySectionsState(shop.sections);
+  applyPackageSettings('keys', (shop.packages && shop.packages.keys) || shop.keys);
+  applyPackageSettings('wallet', (shop.packages && shop.packages.wallet) || shop.wallet);
+  applyVipSettings(shop.vip);
+  applyPromotionsSettings(shop.promotions);
+  applyMessagingSettings(shop.messaging);
+
+  if (shopBoundInputs && shopBoundInputs.length) {
+    shopBoundInputs.forEach((input) => updateBoundTargets(input));
+  }
+  if (typeof updateHeroTheme === 'function') updateHeroTheme();
+  if (typeof updateHeroLink === 'function') updateHeroLink();
+}
+
+function collectGeneralSettings() {
+  return {
+    appName: safeString(generalAppNameInput ? generalAppNameInput.value : 'Quiz WebApp Pro', 'Quiz WebApp Pro'),
+    language: safeString(generalLanguageSelect ? generalLanguageSelect.value : 'fa', 'fa') || 'fa',
+    questionTime: safeNumber(generalQuestionTimeInput ? generalQuestionTimeInput.value : 30, 30),
+    maxQuestions: safeNumber(generalMaxQuestionsInput ? generalMaxQuestionsInput.value : 10, 10)
+  };
+}
+
+function collectRewardSettings() {
+  return {
+    pointsCorrect: safeNumber(rewardPointsCorrectInput ? rewardPointsCorrectInput.value : 100, 100),
+    coinsCorrect: safeNumber(rewardCoinsCorrectInput ? rewardCoinsCorrectInput.value : 5, 5),
+    pointsStreak: safeNumber(rewardPointsStreakInput ? rewardPointsStreakInput.value : 50, 50),
+    coinsStreak: safeNumber(rewardCoinsStreakInput ? rewardCoinsStreakInput.value : 10, 10)
+  };
+}
+
+function collectPackageRows(type) {
+  if (!shopSettingsPage) return [];
+  return Array.from(shopSettingsPage.querySelectorAll(`[data-shop-package="${type}"]`)).map((row) => {
+    const pkg = {};
+    const defaultId = safeString(row.dataset.packageId || '', '');
+    row.querySelectorAll('[data-package-field]').forEach((input) => {
+      const field = input.dataset.packageField;
+      if (!field) return;
+      if (input.type === 'checkbox') {
+        pkg[field] = !!input.checked;
+      } else if (input.type === 'number') {
+        pkg[field] = safeNumber(input.value, 0);
+      } else if (input.tagName === 'SELECT') {
+        pkg[field] = safeString(input.value, '');
+      } else {
+        pkg[field] = safeString(input.value, '');
+      }
+    });
+    pkg.id = safeString(pkg.id != null ? pkg.id : defaultId, defaultId);
+    if (!pkg.id) return null;
+    pkg.displayName = safeString(pkg.displayName != null ? pkg.displayName : '', '');
+    return pkg;
+  }).filter(Boolean);
+}
+
+function collectVipPlansSnapshot() {
+  if (!shopSettingsPage) return [];
+  return Array.from(shopSettingsPage.querySelectorAll('[data-shop-vip-plan]')).map((container) => {
+    const id = safeString(container.dataset.planId || container.dataset.planTier || '', '');
+    if (!id) return null;
+    const tier = safeString(container.dataset.planTier || container.dataset.planId || '', '');
+    const plan = {
+      id,
+      tier,
+      active: getCheckboxValue(container.querySelector('[data-shop-vip-active]'), true),
+      displayName: safeString((container.querySelector('[data-vip-field="displayName"]') || {}).textContent || '', ''),
+      price: safeNumber((container.querySelector('[data-vip-field="price"]') || {}).value, 0),
+      period: safeString((container.querySelector('[data-vip-field="period"]') || {}).value, ''),
+      buttonText: safeString((container.querySelector('[data-vip-field="buttonText"]') || {}).value, ''),
+      benefits: []
+    };
+    const benefitsTextarea = container.querySelector('[data-vip-field="benefits"]');
+    if (benefitsTextarea) {
+      plan.benefits = benefitsTextarea.value
+        .split(/\r?\n/)
+        .map((line) => safeString(line, ''))
+        .filter((line) => line.length > 0);
+    }
+    return plan;
+  }).filter(Boolean);
+}
+
+function collectPromotionsSnapshot() {
+  const promotions = {
+    defaultDiscount: safeNumber((shopSettingsPage?.querySelector('[data-promotions-field="defaultDiscount"]') || {}).value, 0),
+    dailyLimit: safeNumber((shopSettingsPage?.querySelector('[data-promotions-field="dailyLimit"]') || {}).value, 0),
+    startDate: safeString((shopSettingsPage?.querySelector('[data-promotions-field="startDate"]') || {}).value, ''),
+    endDate: safeString((shopSettingsPage?.querySelector('[data-promotions-field="endDate"]') || {}).value, ''),
+    bannerMessage: safeString((shopSettingsPage?.querySelector('[data-promotions-field="bannerMessage"]') || {}).value, ''),
+    autoHighlight: getCheckboxValue(shopAutoHighlightToggle, true)
+  };
+  return promotions;
+}
+
+function collectMessagingSnapshot() {
+  return {
+    lowBalance: safeString((shopSettingsPage?.querySelector('[data-messaging-field="lowBalance"]') || {}).value, ''),
+    success: safeString((shopSettingsPage?.querySelector('[data-messaging-field="success"]') || {}).value, ''),
+    supportCta: safeString((shopSettingsPage?.querySelector('[data-messaging-field="supportCta"]') || {}).value, ''),
+    supportLink: safeString((shopSettingsPage?.querySelector('[data-messaging-field="supportLink"]') || {}).value, ''),
+    showTutorial: getCheckboxValue(shopShowTutorialToggle, true)
+  };
+}
+
+function collectShopSettingsSnapshot() {
+  return {
+    enabled: getCheckboxValue(shopGlobalToggle, true),
+    currency: safeString(shopPricingCurrencySelect ? shopPricingCurrencySelect.value : 'coin', 'coin') || 'coin',
+    lowBalanceThreshold: safeNumber(shopLowBalanceThresholdInput ? shopLowBalanceThresholdInput.value : 0, 0),
+    quickTopup: getCheckboxValue(shopQuickTopupToggle),
+    quickPurchase: getCheckboxValue(shopQuickPurchaseToggle),
+    dynamicPricing: getCheckboxValue(shopDynamicPricingToggle),
+    hero: {
+      title: safeString(shopHeroTitleInput ? shopHeroTitleInput.value : '', ''),
+      subtitle: safeString(shopHeroSubtitleInput ? shopHeroSubtitleInput.value : '', ''),
+      ctaText: safeString(shopHeroCtaInput ? shopHeroCtaInput.value : '', ''),
+      ctaLink: safeString(shopHeroLinkInput ? shopHeroLinkInput.value : '', ''),
+      theme: safeString(shopHeroThemeSelect ? shopHeroThemeSelect.value : 'sky', 'sky') || 'sky',
+      note: safeString(shopHeroNoteInput ? shopHeroNoteInput.value : '', ''),
+      showBalances: getCheckboxValue(shopShowBalancesToggle, true),
+      showTags: getCheckboxValue(shopShowTagsToggle, true)
+    },
+    sections: {
+      hero: getCheckboxValue(shopHeroToggle, true),
+      keys: getCheckboxValue(shopKeysToggle, true),
+      wallet: getCheckboxValue(shopWalletToggle, true),
+      vip: getCheckboxValue(shopVipToggle, true),
+      promotions: getCheckboxValue(shopPromotionsToggle, true)
+    },
+    packages: {
+      keys: collectPackageRows('keys'),
+      wallet: collectPackageRows('wallet')
+    },
+    vip: collectVipPlansSnapshot(),
+    promotions: collectPromotionsSnapshot(),
+    messaging: collectMessagingSnapshot()
+  };
+}
+
+function collectSettingsSnapshot() {
+  return {
+    general: collectGeneralSettings(),
+    rewards: collectRewardSettings(),
+    shop: collectShopSettingsSnapshot(),
+    updatedAt: Date.now()
+  };
+}
+
+function persistSettings(snapshot) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch (_) {
+    // ignore storage quota errors
+  }
+}
+
+function initializeSettingsFromStorage() {
+  const saved = readStoredSettings();
+  if (saved) applySettingsSnapshot(saved);
+}
+
+function handleSettingsSave() {
+  if (!settingsSaveButton) return;
+
+  const general = collectGeneralSettings();
+  if (!general.appName) {
+    showToast('نام برنامه را وارد کنید', 'warning');
+    if (generalAppNameInput) generalAppNameInput.focus();
+    return;
+  }
+  if (!Number.isFinite(general.questionTime) || general.questionTime <= 0) {
+    showToast('زمان سوال باید بیشتر از صفر باشد', 'warning');
+    if (generalQuestionTimeInput) generalQuestionTimeInput.focus();
+    return;
+  }
+  if (!Number.isFinite(general.maxQuestions) || general.maxQuestions <= 0) {
+    showToast('حداکثر سوالات باید بیشتر از صفر باشد', 'warning');
+    if (generalMaxQuestionsInput) generalMaxQuestionsInput.focus();
+    return;
+  }
+
+  const rewards = collectRewardSettings();
+  if (rewards.pointsCorrect < 0 || rewards.coinsCorrect < 0 || rewards.pointsStreak < 0 || rewards.coinsStreak < 0) {
+    showToast('مقادیر پاداش نمی‌تواند منفی باشد', 'warning');
+    return;
+  }
+
+  const snapshot = {
+    general,
+    rewards,
+    shop: collectShopSettingsSnapshot(),
+    updatedAt: Date.now()
+  };
+
+  settingsSaveButton.disabled = true;
+  settingsSaveButton.innerHTML = `
+    <span class="flex items-center gap-2">
+      <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+      <span>در حال ذخیره...</span>
+    </span>
+  `;
+
+  try {
+    persistSettings(snapshot);
+    applySettingsSnapshot(snapshot);
+    showToast('تنظیمات ذخیره شد و اعمال شد', 'success');
+    markShopUpdated();
+    updateShopMetrics();
+    try {
+      window.dispatchEvent(new CustomEvent('iquiz-admin-settings-updated', { detail: snapshot }));
+    } catch (_) {}
+  } catch (error) {
+    showToast('ذخیره تنظیمات با خطا مواجه شد', 'error');
+  } finally {
+    settingsSaveButton.disabled = false;
+    settingsSaveButton.innerHTML = settingsSaveButtonDefault;
+  }
+}
+
+if (settingsSaveButton) {
+  settingsSaveButton.addEventListener('click', handleSettingsSave);
+}
+
+initializeSettingsFromStorage();
 
 // --------------- SHOP SETTINGS ---------------
 const shopToggleDisableMap = new WeakMap();

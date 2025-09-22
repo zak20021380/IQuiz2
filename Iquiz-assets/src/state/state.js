@@ -1,4 +1,11 @@
+import { getAdminSettings } from '../config/admin-settings.js';
+
 const STORAGE_KEY = 'quiz_webapp_pro_state_v2_fa';
+
+const ADMIN_SETTINGS = getAdminSettings();
+const GENERAL_SETTINGS = ADMIN_SETTINGS?.general || {};
+const DEFAULT_QUESTION_TIME = Math.max(5, Number(GENERAL_SETTINGS.questionTime) || 30);
+const DEFAULT_MAX_QUESTIONS = Math.max(3, Number(GENERAL_SETTINGS.maxQuestions) || 10);
 
 const ROSTER_ROLES = ['دانش عمومی','رهبر استراتژی','متخصص علوم','استاد ادبیات','تحلیل‌گر داده','هوش تاریخی','ریاضی‌دان','کارشناس فناوری','حل مسئله سریع','هوش مصنوعی'];
 const ROSTER_FIRST_NAMES = ['آرمان','نیلوفر','شروین','فرناز','پارسا','یاسمن','کاوه','مینا','هومن','هستی','رامتین','سولماز','آرین','بهاره','پریسا','بردیا','کیانا','مانی','ترانه','هانیه'];
@@ -196,9 +203,12 @@ const State = {
   ads: { banner: [], native: [], interstitial: [], rewarded: [] },
   quiz:{
     inProgress:false, answered:false, correctIndex:-1,
-    duration:30, remain:30, timer:null,
+    duration:DEFAULT_QUESTION_TIME, remain:DEFAULT_QUESTION_TIME, timer:null,
     list:[], idx:0, cat:'عمومی', diff:'آسان', diffValue:'easy',
-    sessionEarned:0, results:[]
+    sessionEarned:0, results:[],
+    baseDuration: DEFAULT_QUESTION_TIME,
+    maxQuestions: DEFAULT_MAX_QUESTIONS,
+    correctStreak: 0
   },
   notifications:[
     { id:'n1', text:'جام هفتگی از ساعت ۲۰:۰۰ شروع می‌شود. آماده‌ای؟', time:'امروز' },
@@ -282,6 +292,8 @@ ensureGroupRosters();
 export {
   State,
   STORAGE_KEY,
+  DEFAULT_QUESTION_TIME,
+  DEFAULT_MAX_QUESTIONS,
   ensureGroupRosters,
   getUserGroup,
   isUserGroupAdmin,

@@ -1,3 +1,5 @@
+import { getAdminSettings, subscribeToAdminSettings } from './admin-settings.js';
+
 // Remote configuration settings and helpers for IQuiz assets.
 
 export const RemoteConfig = {
@@ -30,9 +32,9 @@ export const RemoteConfig = {
     },
 
     keys: [
-      { id:'k1',  amount:1,  priceGame:30  },
-      { id:'k3',  amount:3,  priceGame:80  },
-      { id:'k10', amount:10, priceGame:250 }
+      { id:'k1',  amount:1,  priceGame:30,  label:'بسته کوچک',    displayName:'بسته کوچک',    priority: 1 },
+      { id:'k3',  amount:3,  priceGame:80,  label:'بسته اقتصادی',  displayName:'بسته اقتصادی', priority: 2 },
+      { id:'k10', amount:10, priceGame:250, label:'بسته بزرگ',     displayName:'بسته بزرگ',   priority: 3 }
     ]
   },
 
@@ -52,28 +54,42 @@ export const RemoteConfig = {
 
 export function patchPricingKeys(config = RemoteConfig){
   const defaults = [
-    { id:'k1',  amount:1,  priceGame:30,  label:'بسته کوچک'     },
-    { id:'k3',  amount:3,  priceGame:80,  label:'بسته اقتصادی'   },
-    { id:'k10', amount:10, priceGame:250, label:'بسته بزرگ'      }
+    { id:'k1',  amount:1,  priceGame:30,  label:'بسته کوچک',    displayName:'بسته کوچک',    priority: 1 },
+    { id:'k3',  amount:3,  priceGame:80,  label:'بسته اقتصادی',  displayName:'بسته اقتصادی', priority: 2 },
+    { id:'k10', amount:10, priceGame:250, label:'بسته بزرگ',     displayName:'بسته بزرگ',   priority: 3 }
   ];
 
   if (!config.pricing) config.pricing = {};
 
   const packs = config.pricing.keys;
-  const bad = (p)=> typeof p?.amount!=='number' || typeof p?.priceGame!=='number' || p.amount<=0 || p.priceGame<=0;
+  const invalid = (p)=> typeof p?.amount!=='number' || typeof p?.priceGame!=='number' || p.amount<=0 || p.priceGame<=0;
 
-  if (!Array.isArray(packs) || packs.length===0 || packs.some(bad)){
+  if (!Array.isArray(packs)){
+    config.pricing.keys = defaults;
+  } else if (packs.length === 0) {
+    config.pricing.keys = [];
+  } else if (packs.some(invalid)){
     config.pricing.keys = defaults;
   } else {
     config.pricing.keys = packs
-      .map(p => ({
-        id: String(p.id || ('k' + p.amount)),
-        amount: +p.amount,
-        priceGame: +p.priceGame,
-        label: p.label || (p.amount<=1 ? 'بسته کوچک' : p.amount<=3 ? 'بسته اقتصادی' : 'بسته بزرگ')
-      }))
+      .map((p, index) => {
+        const amount = +p.amount;
+        const normalized = {
+          ...p,
+          id: String(p.id || ('k' + amount) || 'k' + (index + 1)),
+          amount,
+          priceGame: +p.priceGame,
+        };
+        const fallbackLabel = amount<=1 ? 'بسته کوچک' : amount<=3 ? 'بسته اقتصادی' : 'بسته بزرگ';
+        normalized.label = p.label || p.displayName || fallbackLabel;
+        normalized.displayName = p.displayName || normalized.label;
+        if (p.badge != null) normalized.badge = p.badge;
+        if (p.description != null) normalized.description = p.description;
+        normalized.priority = Number.isFinite(p.priority) ? Number(p.priority) : (index + 1);
+        return normalized;
+      })
       .filter(p => p.amount>0 && p.priceGame>0)
-      .sort((a,b)=> a.amount - b.amount);
+      .sort((a,b)=> (a.priority ?? a.amount) - (b.priority ?? b.amount));
   }
 
   return config.pricing.keys;
@@ -99,5 +115,90 @@ export function applyAB(config = RemoteConfig){
   return config;
 }
 
+function applyAdminOverrides(config, settings){
+  if (!settings || typeof settings !== 'object') return config;
+  if (!config.pricing) config.pricing = {};
+
+  const shop = settings.shop || {};
+  const keyPackages = Array.isArray(shop.packages?.keys) ? shop.packages.keys : [];
+  const walletPackages = Array.isArray(shop.packages?.wallet) ? shop.packages.wallet : [];
+  const vipPlans = Array.isArray(shop.vip) ? shop.vip : [];
+
+  if (keyPackages.length){
+    config.pricing.keys = keyPackages.map((pkg, index) => ({
+      ...pkg,
+      id: String(pkg.id || ('k' + (pkg.amount || index + 1))),
+      amount: Number(pkg.amount) || 0,
+      priceGame: Number(pkg.priceGame ?? pkg.price) || 0,
+      label: pkg.displayName || pkg.badge || (pkg.amount <= 1 ? 'بسته کوچک' : pkg.amount <= 3 ? 'بسته اقتصادی' : 'بسته بزرگ'),
+    }));
+  }
+
+  if (walletPackages.length){
+    config.pricing.coins = walletPackages
+      .map((pkg, index) => ({
+        id: String(pkg.id || ('w' + (pkg.amount || index + 1))),
+        amount: Number(pkg.amount) || 0,
+        bonus: Number(pkg.bonus) || 0,
+        priceToman: Number(pkg.priceToman ?? pkg.price) || 0,
+        priceCents: config.pricing.usdToToman ? Math.round(((Number(pkg.priceToman ?? pkg.price) || 0) / config.pricing.usdToToman) * 100) : undefined,
+        displayName: pkg.displayName || '',
+        paymentMethod: pkg.paymentMethod || '',
+        priority: Number(pkg.priority) || (index + 1),
+      }))
+      .filter(pkg => pkg.amount > 0 && pkg.priceToman > 0)
+      .sort((a,b)=> (a.priority ?? a.amount) - (b.priority ?? b.amount));
+  }
+
+  if (!config.pricing.vip) config.pricing.vip = {};
+  const seenTiers = new Set();
+  vipPlans.forEach((plan, index) => {
+    const tier = plan.tier || plan.id || `vip_${index + 1}`;
+    seenTiers.add(tier);
+    const base = config.pricing.vip[tier] || {};
+    config.pricing.vip[tier] = {
+      ...base,
+      id: plan.id || base.id || tier,
+      priceCents: base.priceCents,
+      displayName: plan.displayName || base.displayName || tier,
+      priceToman: Number(plan.price) || base.priceToman || 0,
+      period: plan.period || base.period || '',
+      buttonText: plan.buttonText || base.buttonText || '',
+      benefits: Array.isArray(plan.benefits) ? plan.benefits.slice() : (base.benefits || []),
+      active: plan.active !== false,
+    };
+  });
+  Object.keys(config.pricing.vip).forEach((tier) => {
+    if (!seenTiers.has(tier)) {
+      config.pricing.vip[tier] = { ...config.pricing.vip[tier], active: false };
+    }
+  });
+
+  config.shop = {
+    ...config.shop,
+    enabled: shop.enabled !== false,
+    currency: shop.currency || config.shop?.currency || 'coin',
+    lowBalanceThreshold: typeof shop.lowBalanceThreshold === 'number' ? shop.lowBalanceThreshold : (config.shop?.lowBalanceThreshold ?? 0),
+    quickTopup: shop.quickTopup !== false,
+    quickPurchase: shop.quickPurchase !== false,
+    dynamicPricing: !!shop.dynamicPricing,
+    hero: { ...(shop.hero || {}) },
+    sections: { ...(shop.sections || {}) },
+    promotions: { ...(shop.promotions || {}) },
+    messaging: { ...(shop.messaging || {}) },
+    packages: { ...(shop.packages || {}) },
+    vipPlans: vipPlans,
+  };
+
+  return config;
+}
+
+const initialAdminSettings = getAdminSettings();
+applyAdminOverrides(RemoteConfig, initialAdminSettings);
 patchPricingKeys(RemoteConfig);
 applyAB(RemoteConfig);
+
+subscribeToAdminSettings((settings) => {
+  applyAdminOverrides(RemoteConfig, settings);
+  patchPricingKeys(RemoteConfig);
+});
