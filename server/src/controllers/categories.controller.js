@@ -1,10 +1,9 @@
 const mongoose = require('mongoose');
 const Category = require('../models/Category');
 const Question = require('../models/Question');
+const { resolveCategory } = require('../config/categories');
 
 const ALLOWED_STATUS = new Set(['active', 'pending', 'disabled']);
-const ALLOWED_COLORS = new Set(['blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'red', 'teal', 'indigo']);
-const ALLOWED_PROVIDERS = new Set(['manual', 'ai-gen', 'community']);
 
 const sanitizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -30,16 +29,6 @@ function sanitizeStatus(value, fallback = 'active') {
   return ALLOWED_STATUS.has(normalized) ? normalized : fallback;
 }
 
-function sanitizeColor(value, fallback = 'blue') {
-  const normalized = sanitizeString(value).toLowerCase();
-  return ALLOWED_COLORS.has(normalized) ? normalized : fallback;
-}
-
-function sanitizeProvider(value, fallback = 'manual') {
-  const normalized = sanitizeString(value).toLowerCase();
-  return ALLOWED_PROVIDERS.has(normalized) ? normalized : fallback;
-}
-
 function sanitizeAliases(values, fallbacks = []) {
   const list = Array.isArray(values) ? values : [];
   const merged = [...list, ...fallbacks];
@@ -58,29 +47,50 @@ exports.create = async (req, res, next) => {
 
     const displayName = sanitizeString(req.body.displayName) || name;
     const description = sanitizeString(req.body.description);
-    const icon = sanitizeString(req.body.icon) || 'fa-globe';
-    const color = sanitizeColor(req.body.color);
     const status = sanitizeStatus(req.body.status);
-    const provider = sanitizeProvider(req.body.provider);
-    const providerCategoryId = provider === 'manual'
-      ? null
-      : (sanitizeString(req.body.providerCategoryId) || null);
-    const aliases = sanitizeAliases(req.body.aliases, [name, displayName]);
-    const slug = sanitizeSlug(req.body.slug, displayName || name);
+    const slugCandidate = sanitizeSlug(req.body.slug, displayName || name);
+    const providerCategoryIdCandidate = sanitizeString(req.body.providerCategoryId) || slugCandidate;
+    const aliasCandidate = sanitizeAliases(req.body.aliases, [name, displayName]);
 
-    const category = await Category.create({
+    const canonical = resolveCategory({
+      slug: slugCandidate,
       name,
-      slug,
       displayName,
-      description,
-      icon,
-      color,
-      status,
-      provider,
-      providerCategoryId,
-      aliases
+      providerCategoryId: providerCategoryIdCandidate,
+      aliases: aliasCandidate
     });
-    res.status(201).json({ ok: true, data: category });
+
+    if (!canonical) {
+      return res.status(400).json({ ok: false, message: 'Only predefined categories are supported' });
+    }
+
+    const aliases = sanitizeAliases(aliasCandidate, canonical.aliases);
+    const payload = {
+      name: canonical.name,
+      displayName: canonical.displayName,
+      description: description || canonical.description || '',
+      icon: canonical.icon || 'fa-globe',
+      color: canonical.color || 'blue',
+      status,
+      provider: canonical.provider || 'ai-gen',
+      providerCategoryId: canonical.providerCategoryId || canonical.slug,
+      aliases,
+      slug: canonical.slug,
+      order: canonical.order
+    };
+
+    const category = await Category.findOneAndUpdate(
+      { slug: canonical.slug },
+      { $set: payload },
+      {
+        upsert: true,
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: true
+      }
+    );
+
+    res.status(201).json({ ok: true, data: category.toObject() });
   } catch (e) { next(e); }
 };
 
@@ -133,18 +143,42 @@ exports.list = async (req, res, next) => {
       total: Number(stat?.total) || 0,
       active: Number(stat?.active) || 0
     }]));
-    const items = itemsRaw.map((category) => {
-      const stat = statsMap.get(String(category._id)) || null;
-      const totalQuestions = stat?.total || 0;
-      const activeQuestions = stat?.active || 0;
-      const inactiveQuestions = Math.max(totalQuestions - activeQuestions, 0);
-      return {
-        ...category,
-        questionCount: totalQuestions,
-        activeQuestionCount: activeQuestions,
-        inactiveQuestionCount: inactiveQuestions
-      };
-    });
+    const items = itemsRaw
+      .map((category) => {
+        const canonical = resolveCategory(category);
+        if (!canonical) return null;
+
+        const stat = statsMap.get(String(category._id)) || null;
+        const totalQuestions = stat?.total || 0;
+        const activeQuestions = stat?.active || 0;
+        const inactiveQuestions = Math.max(totalQuestions - activeQuestions, 0);
+        const aliases = sanitizeAliases(category.aliases, canonical.aliases);
+
+        return {
+          ...category,
+          name: canonical.name,
+          displayName: canonical.displayName,
+          title: canonical.displayName || canonical.name,
+          slug: canonical.slug,
+          provider: canonical.provider || category.provider || 'ai-gen',
+          providerCategoryId: canonical.providerCategoryId || canonical.slug,
+          icon: canonical.icon || category.icon,
+          color: canonical.color || category.color,
+          description: category.description || canonical.description || '',
+          aliases,
+          order: canonical.order,
+          questionCount: totalQuestions,
+          activeQuestionCount: activeQuestions,
+          inactiveQuestionCount: inactiveQuestions
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.order !== b.order) return a.order - b.order;
+        const aLabel = a.displayName || a.name || '';
+        const bLabel = b.displayName || b.name || '';
+        return aLabel.localeCompare(bLabel, 'fa');
+      });
 
     res.json({
       ok: true,
@@ -161,58 +195,55 @@ exports.update = async (req, res, next) => {
       return res.status(404).json({ ok: false, message: 'Category not found' });
     }
 
-    if (Object.prototype.hasOwnProperty.call(req.body, 'name')) {
-      const name = sanitizeString(req.body.name);
-      if (!name) {
-        return res.status(400).json({ ok: false, message: 'Category name cannot be empty' });
-      }
-      category.name = name;
+    const currentName = category.name || '';
+    const currentDisplayName = category.displayName || currentName;
+
+    const nameCandidate = Object.prototype.hasOwnProperty.call(req.body, 'name')
+      ? (sanitizeString(req.body.name) || currentName)
+      : currentName;
+    const displayNameCandidate = Object.prototype.hasOwnProperty.call(req.body, 'displayName')
+      ? (sanitizeString(req.body.displayName) || nameCandidate)
+      : currentDisplayName;
+    const slugCandidate = Object.prototype.hasOwnProperty.call(req.body, 'slug')
+      ? sanitizeSlug(req.body.slug, displayNameCandidate || nameCandidate)
+      : category.slug;
+    const providerCategoryIdCandidate = Object.prototype.hasOwnProperty.call(req.body, 'providerCategoryId')
+      ? (sanitizeString(req.body.providerCategoryId) || category.providerCategoryId || slugCandidate)
+      : (category.providerCategoryId || slugCandidate);
+    const aliasCandidate = Object.prototype.hasOwnProperty.call(req.body, 'aliases')
+      ? sanitizeAliases(req.body.aliases, [nameCandidate, displayNameCandidate])
+      : sanitizeAliases(category.aliases, [nameCandidate, displayNameCandidate]);
+
+    const canonical = resolveCategory({
+      slug: slugCandidate,
+      name: nameCandidate,
+      displayName: displayNameCandidate,
+      providerCategoryId: providerCategoryIdCandidate,
+      aliases: aliasCandidate
+    });
+
+    if (!canonical) {
+      return res.status(400).json({ ok: false, message: 'Only predefined categories are supported' });
     }
 
-    if (Object.prototype.hasOwnProperty.call(req.body, 'displayName')) {
-      const displayName = sanitizeString(req.body.displayName);
-      category.displayName = displayName || category.name;
-    }
+    const descriptionCandidate = Object.prototype.hasOwnProperty.call(req.body, 'description')
+      ? sanitizeString(req.body.description)
+      : category.description;
+    const statusCandidate = Object.prototype.hasOwnProperty.call(req.body, 'status')
+      ? sanitizeStatus(req.body.status, category.status)
+      : category.status;
 
-    if (Object.prototype.hasOwnProperty.call(req.body, 'description')) {
-      category.description = sanitizeString(req.body.description);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(req.body, 'slug')) {
-      const slug = sanitizeSlug(req.body.slug, category.displayName || category.name);
-      category.slug = slug;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(req.body, 'icon')) {
-      category.icon = sanitizeString(req.body.icon) || 'fa-globe';
-    }
-
-    if (Object.prototype.hasOwnProperty.call(req.body, 'color')) {
-      category.color = sanitizeColor(req.body.color, category.color);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(req.body, 'status')) {
-      category.status = sanitizeStatus(req.body.status, category.status);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(req.body, 'provider')) {
-      const provider = sanitizeProvider(req.body.provider, category.provider);
-      category.provider = provider;
-      if (provider === 'manual') {
-        category.providerCategoryId = null;
-      }
-    }
-
-    if (Object.prototype.hasOwnProperty.call(req.body, 'providerCategoryId')) {
-      const providerCategoryId = sanitizeString(req.body.providerCategoryId);
-      category.providerCategoryId = providerCategoryId || category.providerCategoryId || null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(req.body, 'aliases')) {
-      category.aliases = sanitizeAliases(req.body.aliases, [category.name, category.displayName]);
-    } else {
-      category.aliases = sanitizeAliases(category.aliases, [category.name, category.displayName]);
-    }
+    category.name = canonical.name;
+    category.displayName = canonical.displayName;
+    category.slug = canonical.slug;
+    category.provider = canonical.provider || 'ai-gen';
+    category.providerCategoryId = canonical.providerCategoryId || canonical.slug;
+    category.icon = canonical.icon || 'fa-globe';
+    category.color = canonical.color || 'blue';
+    category.order = canonical.order;
+    category.description = descriptionCandidate || canonical.description || '';
+    category.status = statusCandidate;
+    category.aliases = sanitizeAliases(aliasCandidate, canonical.aliases);
 
     await category.save();
     res.json({ ok: true, data: category.toObject() });
@@ -221,7 +252,6 @@ exports.update = async (req, res, next) => {
 
 exports.remove = async (req, res, next) => {
   try {
-    await Category.findByIdAndDelete(req.params.id);
-    res.json({ ok:true });
+    res.status(405).json({ ok: false, message: 'Deleting categories is not allowed' });
   } catch (e) { next(e); }
 };
