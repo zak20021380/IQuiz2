@@ -14,7 +14,7 @@ function mapForResponse(clue) {
   if (!clue || typeof clue !== 'object') {
     return {
       id: null,
-      category: 'General Knowledge',
+      category: 'General',
       question: '',
       answer: '',
       value: null,
@@ -25,7 +25,7 @@ function mapForResponse(clue) {
 
   return {
     id: clue.id ?? null,
-    category: clue.category ?? 'General Knowledge',
+    category: clue.category ?? 'General',
     question: clue.clue ?? '',
     answer: clue.response ?? '',
     value: typeof clue.value === 'number' ? clue.value : null,

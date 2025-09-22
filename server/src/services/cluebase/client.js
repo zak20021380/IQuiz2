@@ -120,7 +120,7 @@ function sanitizeAnswer(value) {
 
 function sanitizeCategory(value) {
   const normalized = sanitizePlainText(value);
-  return normalized || 'General Knowledge';
+  return normalized || 'General';
 }
 
 function mapDifficulty(value) {
