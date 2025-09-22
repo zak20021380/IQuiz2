@@ -214,6 +214,8 @@ function populateProvinceOptions(selectEl, placeholder){
   const DUEL_TIMEOUT_MS = 24 * 60 * 60 * 1000;
   let DuelSession = null;
   let PendingDuelFriend = null;
+  let quizTimerPausedForQuit = false;
+  let quitModalKeyHandler = null;
   
   loadState();
   applyGeneralSettingsToUI();
@@ -1060,6 +1062,27 @@ function populateProvinceOptions(selectEl, placeholder){
     const isAdmin = group.admin === State.user.name;
     const isMember = (userGroup?.id === group.id) || State.user.group === group.name;
     const requested = group.requests?.includes(State.user.id);
+    const wins = Number.isFinite(Number(group.wins)) ? Number(group.wins) : 0;
+    const losses = Number.isFinite(Number(group.losses)) ? Number(group.losses) : 0;
+    const totalMatches = Math.max(0, wins + losses);
+    const winRateRaw = totalMatches ? (wins / totalMatches) * 100 : 0;
+    const lossRateRaw = totalMatches ? (losses / totalMatches) * 100 : 0;
+    const winRateDigits = totalMatches ? faDecimal(winRateRaw, Number.isInteger(winRateRaw) ? 0 : 1) : faNum(0);
+    const lossRateDigits = totalMatches ? faDecimal(lossRateRaw, Number.isInteger(lossRateRaw) ? 0 : 1) : faNum(0);
+    const progressValue = Number.isFinite(winRateRaw) ? Math.max(0, Math.min(100, winRateRaw)) : 0;
+    const progressDisplay = Math.round(progressValue * 10) / 10;
+    const progressWidth = progressDisplay;
+    const progressAria = progressDisplay.toFixed(1);
+    let dominanceBadge = '';
+    if (!totalMatches) {
+      dominanceBadge = '<span class="group-record-trend neutral"><i class="fas fa-seedling ml-1"></i>شروع تازه</span>';
+    } else if (wins > losses) {
+      dominanceBadge = `<span class="group-record-trend positive"><i class="fas fa-arrow-trend-up ml-1"></i>برتری ${faNum(Math.abs(wins - losses))}</span>`;
+    } else if (losses > wins) {
+      dominanceBadge = `<span class="group-record-trend negative"><i class="fas fa-arrow-trend-down ml-1"></i>نیاز به جبران ${faNum(Math.abs(wins - losses))}</span>`;
+    } else {
+      dominanceBadge = '<span class="group-record-trend neutral"><i class="fas fa-scale-balanced ml-1"></i>عملکرد متعادل</span>';
+    }
     let content = `
       <div class="flex flex-col items-center mb-4">
         <div class="w-20 h-20 rounded-full bg-gradient-to-r from-purple-400 to-indigo-500 flex items-center justify-center mb-3"><i class="fas fa-users text-white text-2xl"></i></div>
@@ -1070,6 +1093,67 @@ function populateProvinceOptions(selectEl, placeholder){
         <div class="flex justify-between items-center glass rounded-xl p-3"><span class="opacity-80">امتیاز کل</span><span class="font-bold text-purple-300">${faNum(group.score)}</span></div>
         <div class="flex justify-between items-center glass rounded-xl p-3"><span class="opacity-80">تعداد اعضا</span><span class="font-bold">${faNum(group.members)}</span></div>
       </div>`;
+
+    const recordSection = `
+      <div class="group-record-section mt-4">
+        <div class="group-record-header">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="group-record-title"><i class="fas fa-ranking-star"></i><span>عملکرد رقابتی گروه</span></div>
+            <div class="group-record-meta">
+              <span class="chip group-record-total"><i class="fas fa-hashtag ml-1"></i>مجموع نبردها: ${faNum(totalMatches)}</span>
+              ${dominanceBadge}
+            </div>
+          </div>
+          <p class="text-xs opacity-80 leading-6">
+            نگاهی سریع به توازن برد و باخت‌های رسمی و روند عملکرد کلی گروه.
+          </p>
+        </div>
+        <div class="group-record-grid">
+          <div class="group-record-card wins">
+            <div class="record-icon"><i class="fas fa-trophy"></i></div>
+            <div class="record-metric">
+              <span class="record-label">بردهای ثبت‌شده</span>
+              <span class="record-value">${faNum(wins)}</span>
+            </div>
+            <span class="record-badge">
+              <i class="fas fa-chart-line ml-1"></i>
+              ${winRateDigits}٪ پیروزی
+            </span>
+          </div>
+          <div class="group-record-card losses">
+            <div class="record-icon"><i class="fas fa-skull"></i></div>
+            <div class="record-metric">
+              <span class="record-label">باخت‌های تجربه‌شده</span>
+              <span class="record-value">${faNum(losses)}</span>
+            </div>
+            <span class="record-badge">
+              <i class="fas fa-heart-crack ml-1"></i>
+              ${lossRateDigits}٪ باخت
+            </span>
+          </div>
+        </div>
+        <div class="group-record-progress">
+          <div class="progress-header">
+            <div class="progress-title">
+              <i class="fas fa-wave-square"></i>
+              <span>نمودار عملکرد کلی</span>
+            </div>
+            <div class="progress-meta">
+              <span>نرخ برد <strong>${winRateDigits}٪</strong></span>
+              <span>نرخ باخت <strong>${lossRateDigits}٪</strong></span>
+            </div>
+          </div>
+          <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressAria}" aria-valuetext="${winRateDigits} درصد">
+            <span style="width:${progressWidth}%"></span>
+          </div>
+          <div class="progress-footer">
+            <span><i class="fas fa-trophy text-emerald-300"></i>${faNum(wins)} برد</span>
+            <span><i class="fas fa-skull text-rose-300"></i>${faNum(losses)} باخت</span>
+          </div>
+        </div>
+      </div>`;
+
+    content += recordSection;
 
     const membersHtml = (group.memberList || []).map(m=>`<div class="glass rounded-xl p-2 text-sm flex items-center gap-2"><i class="fas fa-user text-blue-200"></i>${m}</div>`).join('');
     content += `
@@ -1221,6 +1305,8 @@ function openCreateGroup(){
       score: 0,
       members: 1,
       admin: State.user.name,
+      wins: 0,
+      losses: 0,
       created: new Date().toLocaleDateString('fa-IR'),
       memberList: [State.user.name],
       requests: [],
@@ -1257,36 +1343,65 @@ function openCreateGroup(){
     ring.style.strokeDashoffset = String(TIMER_CIRC * (1 - (remain / total)));
   }
 
+function resetTimer(seconds){
+  const ring = $('#timer-ring');
+  if (ring?.setAttribute) ring.setAttribute('stroke-dasharray', String(TIMER_CIRC));
+
+  const effective = Number.isFinite(seconds) && seconds > 0
+    ? seconds
+    : getDurationForDifficulty(State.quiz.diffValue || State.quiz.diff || 'easy');
+
+  const baseDuration = getBaseQuestionDuration?.() ?? effective;
+  if (!State.quiz.inProgress || State.quiz.baseDuration !== baseDuration) {
+    State.quiz.baseDuration = baseDuration;
+  }
+
+  // خاموش کردن هر تایمر قبلی قبل از ست‌کردن مقادیر
+  if (State.quiz?.timer) { clearInterval(State.quiz.timer); State.quiz.timer = null; }
+
+  State.quiz.duration = effective;
+  State.quiz.remain   = effective;
+
+  updateTimerVisual?.();
+}
+
+function startQuizTimerCountdown(){
+  // جلوگیری از دوبل‌استارت
+  if (State.quiz?.timer) { clearInterval(State.quiz.timer); State.quiz.timer = null; }
+
+  // اگر بازی متوقفه/در جریان نیست، یا پرچم توقف فعاله، برگرد
+  if (!State.quiz || (typeof quizTimerPausedForQuit !== 'undefined' && quizTimerPausedForQuit) || !State.quiz.inProgress) {
+    return;
+  }
+
+  State.quiz.timer = setInterval(() => {
+    // توقف وسط راه
+    if (!State.quiz.inProgress) {
+      clearInterval(State.quiz.timer); State.quiz.timer = null; return;
+    }
+
+    State.quiz.remain = Math.max(0, (State.quiz.remain ?? 0) - 1);
+    if (State.quiz.remain <= 5 && State.quiz.remain > 0) SFX?.tick?.();
+    updateTimerVisual?.();
+
+    if (State.quiz.remain <= 0){
+      State.quiz.remain = 0;
+      clearInterval(State.quiz.timer); State.quiz.timer = null;
+      lockChoices?.();
+      const ended = registerAnswer?.(-1);
+      (typeof onTimerExpired === 'function' ? onTimerExpired : handleTimeUp)?.(ended);
+    }
+  }, 1000);
+}
+
+
   function resetTimer(seconds){
     const ring = $('#timer-ring');
     if(ring) ring.setAttribute('stroke-dasharray', String(TIMER_CIRC));
-    const effective = Number.isFinite(seconds) && seconds > 0
-      ? seconds
-      : getDurationForDifficulty(State.quiz.diffValue || State.quiz.diff || 'easy');
-    const baseDuration = getBaseQuestionDuration();
-    if (!State.quiz.inProgress || State.quiz.baseDuration !== baseDuration) {
-      State.quiz.baseDuration = baseDuration;
-    }
-    State.quiz.duration = effective;
-    State.quiz.remain = effective;
+    State.quiz.duration = seconds;
+    State.quiz.remain = seconds;
     updateTimerVisual();
-    if(State.quiz.timer) clearInterval(State.quiz.timer);
-    State.quiz.timer = setInterval(()=>{
-      State.quiz.remain -= 1;
-      if(State.quiz.remain <= 5 && State.quiz.remain > 0) SFX.tick();
-      if(State.quiz.remain <= 0){
-        State.quiz.remain = 0;
-        updateTimerVisual();
-        clearInterval(State.quiz.timer);
-        lockChoices();
-        const ended = registerAnswer(-1);
-        if(!ended){
-          setTimeout(nextQuestion, 900);
-        }
-        return;
-      }
-      updateTimerVisual();
-    },1000);
+    startQuizTimerCountdown();
   }
 
   function addExtraTime(extra){
@@ -2696,6 +2811,107 @@ async function startPurchaseCoins(pkgId){
     }
   }
 
+  function cleanupQuitModalKeyHandler(){
+    if(quitModalKeyHandler){
+      document.removeEventListener('keydown', quitModalKeyHandler);
+      quitModalKeyHandler = null;
+    }
+  }
+
+  function resumeQuizTimerAfterQuitPrompt(){
+    if(!quizTimerPausedForQuit) return;
+    quizTimerPausedForQuit = false;
+    if(!State.quiz?.inProgress) return;
+    if(State.quiz.remain <= 0) return;
+    startQuizTimerCountdown();
+  }
+
+  function updateQuitConfirmSummary(){
+    const results = Array.isArray(State.quiz?.results) ? State.quiz.results : [];
+    const answered = results.length;
+    const correct = results.reduce((sum, item)=> sum + (item?.ok ? 1 : 0), 0);
+    const earned = Math.max(0, Number(State.quiz?.sessionEarned || 0));
+    const total = Array.isArray(State.quiz?.list) ? State.quiz.list.length : answered;
+
+    const answeredEl = $('#quit-answered-count');
+    if(answeredEl) answeredEl.textContent = faNum(answered);
+
+    const correctEl = $('#quit-correct-count');
+    if(correctEl) correctEl.textContent = faNum(correct);
+
+    const earnedEl = $('#quit-earned-score');
+    if(earnedEl) earnedEl.textContent = faNum(earned);
+
+    const summaryTextEl = $('#quit-summary-text');
+    if(summaryTextEl){
+      if(answered === 0){
+        summaryTextEl.textContent = 'هنوز به هیچ سؤالی پاسخ نداده‌ای. با خروج، مسابقه بدون امتیاز پایان خواهد یافت.';
+      }else if(total > answered){
+        summaryTextEl.textContent = `تا این لحظه به ${faNum(answered)} سؤال از ${faNum(total)} پاسخ داده‌ای. با خروج، مسابقه همین حالا پایان می‌یابد.`;
+      }else{
+        summaryTextEl.textContent = `تا این لحظه به ${faNum(answered)} سؤال پاسخ داده‌ای. با خروج، مسابقه همین حالا پایان می‌یابد.`;
+      }
+    }
+  }
+
+  function bindQuitModalEscape(){
+    cleanupQuitModalKeyHandler();
+    quitModalKeyHandler = (event)=>{
+      if(event.key === 'Escape'){
+        event.preventDefault();
+        cleanupQuitModalKeyHandler();
+        closeModal('#modal-quit-confirm');
+        resumeQuizTimerAfterQuitPrompt();
+      }
+    };
+    document.addEventListener('keydown', quitModalKeyHandler);
+  }
+
+  function openQuitConfirmModal(){
+    if(!State.quiz?.inProgress){
+      quizTimerPausedForQuit = false;
+      navTo('dashboard');
+      return;
+    }
+    updateQuitConfirmSummary();
+    quizTimerPausedForQuit = true;
+    if(State.quiz?.timer){
+      clearInterval(State.quiz.timer);
+      State.quiz.timer = null;
+    }
+    openModal('#modal-quit-confirm');
+    bindQuitModalEscape();
+    setTimeout(()=> $('#confirm-quit')?.focus({ preventScroll:true }), 80);
+  }
+
+  function handleQuitConfirm(){
+    cleanupQuitModalKeyHandler();
+    closeModal('#modal-quit-confirm');
+    const confirmBtn = $('#confirm-quit');
+    if(confirmBtn) confirmBtn.disabled = true;
+    const hadQuiz = !!State.quiz?.inProgress;
+    quizTimerPausedForQuit = false;
+    if(State.quiz.timer){
+      clearInterval(State.quiz.timer);
+      State.quiz.timer = null;
+    }
+    if(hadQuiz){
+      cancelDuelSession('user_cancelled');
+      endQuiz();
+    }else{
+      navTo('dashboard');
+    }
+    if(confirmBtn){
+      setTimeout(()=>{ confirmBtn.disabled = false; }, 600);
+    }
+  }
+
+  function handleQuitCancel(){
+    cleanupQuitModalKeyHandler();
+    closeModal('#modal-quit-confirm');
+    resumeQuizTimerAfterQuitPrompt();
+  }
+
   // ===== Events =====
   // Delegate wallet package purchase buttons to handle re-renders
   $('#pkg-grid')?.addEventListener('click', (e) => {
@@ -2709,10 +2925,9 @@ async function startPurchaseCoins(pkgId){
   $('#btn-daily')?.addEventListener('click', startDaily);
   $('#btn-back-lb')?.addEventListener('click', ()=> navTo('dashboard'));
   $('#btn-back-shop')?.addEventListener('click', ()=> navTo('dashboard'));
-  $('#btn-quit')?.addEventListener('click', () => {
-    cancelDuelSession('user_cancelled');
-    navTo('dashboard');
-  });
+  $('#btn-quit')?.addEventListener('click', openQuitConfirmModal);
+  $('#btn-continue-quiz')?.addEventListener('click', handleQuitCancel);
+  $('#confirm-quit')?.addEventListener('click', handleQuitConfirm);
   $('#btn-claim-streak')?.addEventListener('click', claimStreak);
   $('#btn-invite')?.addEventListener('click', prepareInviteModal);
 

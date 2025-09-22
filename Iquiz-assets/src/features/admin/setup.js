@@ -1,6 +1,10 @@
 import Api from '../../services/api.js';
 import { RemoteConfig, patchPricingKeys } from '../../config/remote-config.js';
-import { enforceStaticCategoryList, STATIC_CATEGORY_DEFINITIONS } from '../../config/categories.js';
+import {
+  enforceStaticCategoryList,
+  STATIC_CATEGORY_DEFINITIONS,
+  getCategoryIdentityKeys
+} from '../../config/categories.js';
 import {
   Admin,
   DEFAULT_DIFFS,
@@ -191,27 +195,16 @@ export function buildSetupFromAdmin() {
   const categories = getAdminCategories();
   const fallbackDiffs = getEffectiveDiffs();
 
-  const normalizeCandidate = (value) => {
-    if (value == null) return '';
-    const normalized = String(value).trim().toLowerCase();
-    return normalized;
-  };
-
   const seenKeys = new Set();
   const uniqueCategories = [];
   categories.forEach((cat) => {
     if (!cat) return;
-    const keyCandidates = [cat.id, cat.slug, cat.providerCategoryId, cat.name, cat.displayName, cat.title];
-    let key = '';
-    for (const candidate of keyCandidates) {
-      const normalized = normalizeCandidate(candidate);
-      if (normalized) {
-        key = normalized;
-        break;
-      }
+    const identityKeys = getCategoryIdentityKeys(cat);
+    if (identityKeys.length) {
+      const hasDuplicate = identityKeys.some((key) => seenKeys.has(key));
+      if (hasDuplicate) return;
+      identityKeys.forEach((key) => seenKeys.add(key));
     }
-    if (key && seenKeys.has(key)) return;
-    if (key) seenKeys.add(key);
     uniqueCategories.push(cat);
   });
 

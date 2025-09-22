@@ -199,6 +199,52 @@
     .duel-avatar { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
     .duel-vs { font-size: 1.5rem; font-weight: 800; color: var(--accent2); }
     .location-card { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 1rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); transition: all 0.3s ease; cursor: pointer; min-height:44px }
+    .group-record-section{ display:flex; flex-direction:column; gap:1rem; }
+    .group-record-header{ display:flex; flex-direction:column; gap:.6rem; }
+    .group-record-title{ display:inline-flex; align-items:center; gap:.55rem; font-size:1rem; font-weight:800; letter-spacing:-0.01em; color:#ede9fe; }
+    .group-record-title i{ color:#c4b5fd; font-size:1.1rem; }
+    .group-record-meta{ display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; justify-content:flex-start; }
+    .chip.group-record-total{ font-size:.78rem; padding:.35rem .85rem; background:rgba(255,255,255,0.16); border-color:rgba(255,255,255,0.22); max-width:none; color:#f8fafc; box-shadow:0 8px 22px rgba(15,23,42,0.18); }
+    .group-record-trend{ display:inline-flex; align-items:center; gap:.4rem; padding:.38rem .9rem; border-radius:999px; font-size:.78rem; font-weight:700; border:1px solid rgba(255,255,255,0.2); background:rgba(15,23,42,0.32); color:#e2e8f0; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); box-shadow:0 12px 26px rgba(15,23,42,0.18); }
+    .group-record-trend i{ margin-left:.35rem; }
+    .group-record-trend.positive{ border-color:rgba(16,185,129,0.38); background:rgba(16,185,129,0.2); color:#bbf7d0; }
+    .group-record-trend.negative{ border-color:rgba(248,113,113,0.42); background:rgba(248,113,113,0.22); color:#fecdd3; }
+    .group-record-trend.neutral{ border-color:rgba(148,163,184,0.38); background:rgba(148,163,184,0.22); color:#e2e8f0; }
+    .group-record-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:.9rem; }
+    .group-record-card{ position:relative; padding:1.1rem 1.2rem; border-radius:1.35rem; border:1px solid rgba(255,255,255,0.18); background:linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05)); display:flex; align-items:center; justify-content:space-between; gap:.9rem; flex-wrap:wrap; overflow:hidden; min-height:95px; box-shadow:0 18px 40px rgba(15,23,42,0.18); }
+    .group-record-card::before{ content:""; position:absolute; inset:-35% auto auto -35%; width:220px; height:220px; border-radius:50%; opacity:.5; pointer-events:none; background:radial-gradient(circle at center, rgba(148,163,255,0.35), transparent 65%); }
+    .group-record-card .record-icon{ width:3.1rem; height:3.1rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; font-size:1.35rem; flex-shrink:0; box-shadow:0 12px 30px rgba(15,23,42,0.2); }
+    .group-record-card .record-metric{ display:flex; flex-direction:column; gap:.25rem; text-align:right; min-width:110px; }
+    .group-record-card .record-label{ font-size:.8rem; opacity:.8; font-weight:600; letter-spacing:-0.01em; }
+    .group-record-card .record-value{ font-size:2rem; font-weight:900; letter-spacing:-0.03em; }
+    .group-record-card .record-badge{ display:inline-flex; align-items:center; gap:.4rem; font-size:.78rem; font-weight:700; padding:.42rem .95rem; border-radius:999px; border:1px solid rgba(255,255,255,0.2); background:rgba(15,23,42,0.32); color:#f8fafc; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); box-shadow:0 12px 26px rgba(15,23,42,0.18); }
+    .group-record-card .record-badge i{ margin-left:.35rem; }
+    .group-record-card.wins{ border-color:rgba(16,185,129,0.38); }
+    .group-record-card.wins::before{ background:radial-gradient(circle at center, rgba(16,185,129,0.38), transparent 65%); left:-32%; right:auto; }
+    .group-record-card.wins .record-icon{ background:linear-gradient(135deg, rgba(16,185,129,0.32), rgba(20,184,166,0.18)); color:#bbf7d0; }
+    .group-record-card.wins .record-value{ color:#6ee7b7; }
+    .group-record-card.wins .record-badge{ border-color:rgba(16,185,129,0.38); background:rgba(16,185,129,0.2); color:#d1fae5; }
+    .group-record-card.losses{ border-color:rgba(244,63,94,0.38); }
+    .group-record-card.losses::before{ background:radial-gradient(circle at center, rgba(244,63,94,0.38), transparent 65%); right:-32%; left:auto; }
+    .group-record-card.losses .record-icon{ background:linear-gradient(135deg, rgba(244,63,94,0.32), rgba(236,72,153,0.18)); color:#fecdd3; }
+    .group-record-card.losses .record-value{ color:#fca5a5; }
+    .group-record-card.losses .record-badge{ border-color:rgba(244,63,94,0.38); background:rgba(244,63,94,0.22); color:#fee2e2; }
+    .group-record-progress{ border-radius:1.4rem; padding:1.15rem 1.2rem; border:1px solid rgba(255,255,255,0.18); background:rgba(15,23,42,0.34); display:flex; flex-direction:column; gap:.9rem; box-shadow:0 18px 40px rgba(15,23,42,0.18); }
+    .group-record-progress .progress-header{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
+    .group-record-progress .progress-title{ display:inline-flex; align-items:center; gap:.5rem; font-weight:800; font-size:.95rem; color:rgba(226,232,240,0.92); }
+    .group-record-progress .progress-title i{ color:#38bdf8; }
+    .group-record-progress .progress-meta{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; font-size:.78rem; font-weight:600; color:rgba(226,232,240,0.78); }
+    .group-record-progress .progress-meta strong{ color:#fde047; font-weight:900; }
+    .group-record-progress .progress-bar{ position:relative; width:100%; height:.62rem; border-radius:999px; background:rgba(255,255,255,0.16); overflow:hidden; }
+    .group-record-progress .progress-bar span{ display:block; height:100%; border-radius:inherit; background:linear-gradient(135deg, rgba(16,185,129,0.88), rgba(59,130,246,0.82)); transition:width .4s ease; }
+    .group-record-progress .progress-footer{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; font-size:.78rem; font-weight:600; color:rgba(226,232,240,0.78); }
+    .group-record-progress .progress-footer i{ margin-left:.35rem; }
+    @media(max-width:480px){
+      .group-record-grid{ grid-template-columns:1fr; }
+      .group-record-card{ padding:1rem; }
+      .group-record-card .record-value{ font-size:1.75rem; }
+      .group-record-progress{ padding:1rem; }
+    }
     .duel-category-option{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.9rem 1rem; border-radius:1rem; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); transition:all .25s ease; text-align:right; }
     .duel-category-option:hover{ background:rgba(255,255,255,0.22); transform:translateY(-2px); border-color:rgba(255,255,255,0.3); }
     .duel-category-icon{ width:2.5rem; height:2.5rem; border-radius:.9rem; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#111827; font-weight:800; font-size:1rem; box-shadow:0 8px 20px rgba(59,130,246,0.25); }

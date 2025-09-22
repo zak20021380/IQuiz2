@@ -1372,9 +1372,34 @@ function initializeAiGenerator() {
   renderAiPreview();
 }
 
+function deriveCategoryIdentityKey(category) {
+  if (!category || typeof category !== 'object') return '';
+  const candidates = [
+    category.slug,
+    category.providerCategoryId,
+    category._id,
+    category.id,
+    category.name,
+    category.displayName,
+    category.title
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    const normalized = String(candidate).trim().toLowerCase();
+    if (normalized) return normalized;
+  }
+
+  return '';
+}
+
 function sanitizeCategoryList(list) {
   if (!Array.isArray(list)) return [];
-  return list
+
+  const seenKeys = new Set();
+  const normalized = [];
+
+  list
     .map((category) => {
       if (!category?._id || !category?.name) return null;
       const aliases = Array.isArray(category.aliases)
@@ -1410,15 +1435,25 @@ function sanitizeCategoryList(list) {
       };
     })
     .map(mergeCategoryWithStaticDefinition)
-    .filter(Boolean)
-    .sort((a, b) => {
-      const orderA = Number.isFinite(Number(a.order)) ? Number(a.order) : 0;
-      const orderB = Number.isFinite(Number(b.order)) ? Number(b.order) : 0;
-      if (orderA !== orderB) return orderA - orderB;
-      const aLabel = a.displayName || a.name || '';
-      const bLabel = b.displayName || b.name || '';
-      return aLabel.localeCompare(bLabel, 'fa');
+    .forEach((category) => {
+      if (!category) return;
+      const key = deriveCategoryIdentityKey(category) || `idx:${normalized.length}`;
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
+      normalized.push(category);
     });
+
+  normalized.sort((a, b) => {
+    const orderA = Number.isFinite(Number(a.order)) ? Number(a.order) : 0;
+    const orderB = Number.isFinite(Number(b.order)) ? Number(b.order) : 0;
+    if (orderA !== orderB) return orderA - orderB;
+    const aLabel = a.displayName || a.name || '';
+    const bLabel = b.displayName || b.name || '';
+    return aLabel.localeCompare(bLabel, 'fa');
+  });
+
+  const limit = STATIC_CATEGORY_DEFINITIONS.length;
+  return limit > 0 ? normalized.slice(0, limit) : normalized;
 }
 
 function categoryOptionLabel(category) {
