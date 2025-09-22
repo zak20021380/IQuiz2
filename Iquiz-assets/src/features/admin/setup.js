@@ -186,35 +186,53 @@ export async function initFromAdmin() {
 
 export function buildSetupFromAdmin() {
   const catWrap = document.getElementById('cat-wrap');
-  const diffWrap = document.getElementById('diff-wrap');
-  if (!catWrap || !diffWrap) return;
+  if (!catWrap) return;
 
   const categories = getAdminCategories();
   const fallbackDiffs = getEffectiveDiffs();
 
-  const firstCat = getActiveCategories()[0] || getFirstCategory();
-  const catExists = categories.some((c) => c && c.id === State.quiz.catId);
+  const normalizeCandidate = (value) => {
+    if (value == null) return '';
+    const normalized = String(value).trim().toLowerCase();
+    return normalized;
+  };
+
+  const seenKeys = new Set();
+  const uniqueCategories = [];
+  categories.forEach((cat) => {
+    if (!cat) return;
+    const keyCandidates = [cat.id, cat.slug, cat.providerCategoryId, cat.name, cat.displayName, cat.title];
+    let key = '';
+    for (const candidate of keyCandidates) {
+      const normalized = normalizeCandidate(candidate);
+      if (normalized) {
+        key = normalized;
+        break;
+      }
+    }
+    if (key && seenKeys.has(key)) return;
+    if (key) seenKeys.add(key);
+    uniqueCategories.push(cat);
+  });
+
+  const firstCat = uniqueCategories.find((c) => c && c.id != null) || getActiveCategories()[0] || getFirstCategory() || null;
+  const catExists = uniqueCategories.some((c) => c && c.id === State.quiz.catId);
   if (!catExists) {
-    State.quiz.catId = firstCat?.id || null;
+    State.quiz.catId = firstCat?.id ?? uniqueCategories[0]?.id ?? null;
   }
-  const activeCat = categories.find((c) => c && c.id === State.quiz.catId) || firstCat || null;
+  const activeCat =
+    uniqueCategories.find((c) => c && c.id === State.quiz.catId) ||
+    firstCat ||
+    uniqueCategories[0] ||
+    null;
   if (activeCat) {
-    State.quiz.cat = activeCat.title || activeCat.name || `دسته ${categories.indexOf(activeCat) + 1}`;
+    const label = activeCat.title || activeCat.name || activeCat.displayName;
+    State.quiz.cat = label || `دسته ${uniqueCategories.indexOf(activeCat) + 1}`;
   } else if (!State.quiz.cat) {
     State.quiz.cat = '—';
   }
 
   const diffForCat = (cat) => getCategoryDifficultyPool(cat) || fallbackDiffs;
-
-  const selectDiffOption = (opt) => {
-    if (opt) {
-      State.quiz.diff = opt.label || opt.value || '—';
-      State.quiz.diffValue = opt.value || opt.label || null;
-    } else {
-      State.quiz.diff = '—';
-      State.quiz.diffValue = null;
-    }
-  };
 
   const updateCatLabel = () => {
     const catLabel = document.getElementById('quiz-cat');
@@ -230,72 +248,79 @@ export function buildSetupFromAdmin() {
     }
   };
 
-  const renderDiffButtons = (diffSource) => {
-    const diffs = Array.isArray(diffSource) && diffSource.length ? diffSource : fallbackDiffs;
-    const hasSelected = diffs.some(
+  const ensureDiffForCat = (cat) => {
+    const source = diffForCat(cat);
+    const diffs = Array.isArray(source) && source.length ? source : fallbackDiffs;
+    let preferred = diffs.find(
       (d) =>
         (State.quiz.diffValue != null && d.value === State.quiz.diffValue) ||
         (State.quiz.diff && d.label === State.quiz.diff)
     );
-    if (!hasSelected) {
-      const firstDiff = diffs[0] || fallbackDiffs[0] || null;
-      selectDiffOption(firstDiff);
+    if (!preferred) {
+      preferred = diffs[0] || null;
     }
-    diffWrap.innerHTML = '';
-    diffs.forEach((d, i) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-sm setup-diff';
-      btn.textContent = d.label || d.value || `سطح ${i + 1}`;
-      const isSelected =
-        (State.quiz.diffValue != null && d.value === State.quiz.diffValue) ||
-        (State.quiz.diff && d.label === State.quiz.diff) ||
-        (!State.quiz.diff && i === 0);
-      if (isSelected) btn.classList.add('selected-setup-item');
-      btn.addEventListener('click', () => {
-        $$('.setup-diff').forEach((b) => b.classList.remove('selected-setup-item'));
-        btn.classList.add('selected-setup-item');
-        selectDiffOption(d);
-        updateDiffLabel();
-      });
-      diffWrap.appendChild(btn);
-    });
+    if (preferred) {
+      State.quiz.diff = preferred.label || preferred.value || '—';
+      State.quiz.diffValue = preferred.value || preferred.label || null;
+    } else {
+      State.quiz.diff = '—';
+      State.quiz.diffValue = null;
+    }
     updateDiffLabel();
   };
 
-  const initialDiffs = diffForCat(activeCat);
-  const hasInitial = Array.isArray(initialDiffs) && initialDiffs.some(
-    (d) =>
-      (State.quiz.diffValue != null && d.value === State.quiz.diffValue) ||
-      (State.quiz.diff && d.label === State.quiz.diff)
-  );
-  if (!hasInitial) {
-    const first = initialDiffs[0] || fallbackDiffs[0] || null;
-    selectDiffOption(first);
-  }
-  renderDiffButtons(initialDiffs);
+  ensureDiffForCat(activeCat);
 
   catWrap.innerHTML = '';
-  categories.forEach((c, i) => {
+  catWrap.setAttribute('data-count', String(uniqueCategories.length));
+
+  uniqueCategories.forEach((c, i) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-sm setup-cat';
-    btn.dataset.id = c.id;
-    btn.textContent = c.title || c.name || `دسته ${i + 1}`;
-    const isSelected = (State.quiz.catId != null && c.id === State.quiz.catId) || (State.quiz.catId == null && i === 0);
+    btn.className =
+      'setup-cat w-full px-3 py-3 rounded-2xl bg-white/10 border border-white/15 text-sm flex items-center transition duration-200 hover:bg-white/15';
+    if (c.id != null) btn.dataset.id = c.id;
+
+    const label = c.title || c.name || c.displayName || `دسته ${i + 1}`;
+    btn.setAttribute('aria-label', label);
+
+    const content = document.createElement('span');
+    content.className = 'flex items-center justify-between gap-2 flex-row-reverse w-full';
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'font-medium text-right leading-tight';
+    labelSpan.textContent = label;
+    content.appendChild(labelSpan);
+
+    const iconEl = document.createElement('i');
+    iconEl.className = `fas ${c.icon || 'fa-layer-group'} text-base opacity-80`;
+    content.appendChild(iconEl);
+
+    btn.appendChild(content);
+
+    const isSelected =
+      (State.quiz.catId != null && c.id === State.quiz.catId) ||
+      (State.quiz.catId == null && i === 0);
+    btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
     if (isSelected) btn.classList.add('selected-setup-item');
+
     btn.addEventListener('click', () => {
-      $$('.setup-cat').forEach((b) => b.classList.remove('selected-setup-item'));
+      $$('.setup-cat').forEach((b) => {
+        b.classList.remove('selected-setup-item');
+        b.setAttribute('aria-pressed', 'false');
+      });
       btn.classList.add('selected-setup-item');
-      State.quiz.catId = c.id;
-      State.quiz.cat = c.title || c.name || '—';
-      renderDiffButtons(diffForCat(c));
+      btn.setAttribute('aria-pressed', 'true');
+      State.quiz.catId = c.id ?? State.quiz.catId;
+      State.quiz.cat = label;
+      ensureDiffForCat(c);
       updateCatLabel();
     });
+
     catWrap.appendChild(btn);
   });
 
   updateCatLabel();
+  updateDiffLabel();
 }
 
 export function buildCommunityQuestionForm() {

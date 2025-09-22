@@ -134,6 +134,26 @@ function normalizeKey(value) {
   return String(value).trim().toLowerCase();
 }
 
+function deriveCategoryKey(category) {
+  if (!category || typeof category !== 'object') return '';
+  const candidates = [
+    category.id,
+    category.slug,
+    category.providerCategoryId,
+    category.name,
+    category.displayName,
+    category.title
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeKey(candidate);
+    if (normalized) return normalized;
+  }
+  if (Number.isFinite(Number(category.order))) {
+    return `order:${Number(category.order)}`;
+  }
+  return '';
+}
+
 function resolveStaticCategoryDefinition(candidate) {
   if (!candidate) return null;
 
@@ -208,17 +228,27 @@ function enforceStaticCategory(category) {
 }
 
 function enforceStaticCategoryList(list = []) {
-  return list
+  const seen = new Set();
+  const normalized = [];
+
+  list
     .map(enforceStaticCategory)
     .filter(Boolean)
-    .sort((a, b) => {
-      const orderA = Number.isFinite(Number(a.order)) ? Number(a.order) : 0;
-      const orderB = Number.isFinite(Number(b.order)) ? Number(b.order) : 0;
-      if (orderA !== orderB) return orderA - orderB;
-      const aLabel = a.displayName || a.name || '';
-      const bLabel = b.displayName || b.name || '';
-      return aLabel.localeCompare(bLabel, 'fa');
+    .forEach((category) => {
+      const key = deriveCategoryKey(category) || `idx:${normalized.length}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      normalized.push(category);
     });
+
+  return normalized.sort((a, b) => {
+    const orderA = Number.isFinite(Number(a.order)) ? Number(a.order) : 0;
+    const orderB = Number.isFinite(Number(b.order)) ? Number(b.order) : 0;
+    if (orderA !== orderB) return orderA - orderB;
+    const aLabel = a.displayName || a.name || '';
+    const bLabel = b.displayName || b.name || '';
+    return aLabel.localeCompare(bLabel, 'fa');
+  });
 }
 
 export {
