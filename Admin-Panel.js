@@ -1044,6 +1044,9 @@ function sanitizeCategoryList(list) {
         ? Number(category.inactiveQuestionCount)
         : Math.max(totalQuestions - activeQuestions, 0);
       const inactiveQuestions = Math.max(inactiveQuestionsRaw, 0);
+      const order = Number.isFinite(Number(category.order))
+        ? Number(category.order)
+        : 0;
       return {
         ...category,
         _id: String(category._id),
@@ -1056,10 +1059,17 @@ function sanitizeCategoryList(list) {
         status: category.status || 'active',
         questionCount: totalQuestions,
         activeQuestionCount: activeQuestions,
-        inactiveQuestionCount: inactiveQuestions
+        inactiveQuestionCount: inactiveQuestions,
+        order
       };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      const aLabel = a.displayName || a.name || '';
+      const bLabel = b.displayName || b.name || '';
+      return aLabel.localeCompare(bLabel, 'fa');
+    });
 }
 
 function categoryOptionLabel(category) {

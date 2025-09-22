@@ -1,67 +1,34 @@
+const { CATEGORIES } = require('../config/categories');
+
 const DEFAULT_DIFFICULTIES = [
   { value: 'easy', label: 'آسان' },
   { value: 'medium', label: 'متوسط' },
   { value: 'hard', label: 'سخت' }
 ];
 
-const FALLBACK_CATEGORY_DATA = [
-  {
-    id: 'general',
-    title: 'عمومی',
-    description: 'پرسش‌های متنوع از دانستنی‌های روزمره و موضوعات عمومی.',
-    icon: 'fa-earth-asia',
-    color: '#60a5fa'
-  },
-  {
-    id: 'history-civilization',
-    title: 'تاریخ و تمدن',
-    description: 'رویدادها، شخصیت‌ها و میراث فرهنگی ایران و جهان.',
-    icon: 'fa-landmark-dome',
-    color: '#f97316'
-  },
-  {
-    id: 'geography-nature',
-    title: 'جغرافیا و طبیعت',
-    description: 'اقلیم‌ها، سرزمین‌ها و شگفتی‌های طبیعی دنیا.',
-    icon: 'fa-mountain-sun',
-    color: '#14b8a6'
-  },
-  {
-    id: 'science-technology',
-    title: 'علوم و فناوری',
-    description: 'دانسته‌های علمی، کشفیات تازه و نوآوری‌های فناوری.',
-    icon: 'fa-atom',
-    color: '#6366f1'
-  },
-  {
-    id: 'literature-language',
-    title: 'ادبیات و زبان',
-    description: 'شاهکارهای ادبی، زبان‌ها و ظرافت‌های واژگانی.',
-    icon: 'fa-feather-pointed',
-    color: '#a855f7'
-  },
-  {
-    id: 'movies-series',
-    title: 'فیلم و سریال',
-    description: 'دنیای سینما، تلویزیون و شخصیت‌های ماندگار داستانی.',
-    icon: 'fa-clapperboard',
-    color: '#facc15'
-  },
-  {
-    id: 'sports',
-    title: 'ورزش',
-    description: 'مسابقات، رکوردها و قهرمانان محبوب ورزشی.',
-    icon: 'fa-medal',
-    color: '#f87171'
-  },
-  {
-    id: 'entertainment',
-    title: 'سرگرمی',
-    description: 'بازی‌ها، پازل‌ها و فعالیت‌های سرگرم‌کننده برای اوقات فراغت.',
-    icon: 'fa-gamepad',
-    color: '#f472b6'
-  }
-];
+const CATEGORY_COLOR_HEX = {
+  blue: '#60a5fa',
+  orange: '#f97316',
+  teal: '#14b8a6',
+  indigo: '#6366f1',
+  purple: '#a855f7',
+  yellow: '#facc15',
+  red: '#f87171',
+  pink: '#f472b6'
+};
+
+const FALLBACK_CATEGORY_DATA = Array.from(CATEGORIES)
+  .sort((a, b) => {
+    if (a.order !== b.order) return a.order - b.order;
+    return (a.displayName || a.name || '').localeCompare(b.displayName || b.name || '', 'fa');
+  })
+  .map((category) => ({
+    id: category.slug,
+    title: category.displayName || category.name,
+    description: category.description || '',
+    icon: category.icon || 'fa-layer-group',
+    color: CATEGORY_COLOR_HEX[category.color] || CATEGORY_COLOR_HEX.blue
+  }));
 
 const FALLBACK_PROVINCES = [
   'آذربایجان شرقی',

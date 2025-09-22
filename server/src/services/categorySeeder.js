@@ -18,6 +18,7 @@ function buildCategoryDoc(seed) {
     seed.providerCategoryId || seed.id || seed.slug || ''
   );
   const providerCategoryId = providerCategoryIdCandidate || slug;
+  const order = Number.isFinite(Number(seed.order)) ? Number(seed.order) : 0;
   const aliases = Array.isArray(seed.aliases)
     ? Array.from(new Set(seed.aliases.map((alias) => sanitizeString(alias)).filter(Boolean)))
     : [];
@@ -34,7 +35,8 @@ function buildCategoryDoc(seed) {
     provider,
     providerCategoryId,
     aliases: Array.from(new Set(aliases)),
-    slug
+    slug,
+    order
   };
 }
 
@@ -67,7 +69,8 @@ async function seedStaticCategories() {
             provider: doc.provider,
             providerCategoryId: doc.providerCategoryId,
             aliases: doc.aliases,
-            slug: doc.slug
+            slug: doc.slug,
+            order: doc.order
           }
         },
         {
