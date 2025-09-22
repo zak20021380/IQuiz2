@@ -117,7 +117,9 @@ async function callOpenAi({ topic, count, difficulty, lang, model }) {
     frequency_penalty: 0.6,
     presence_penalty: 0.2,
     max_output_tokens: Math.min(120 * count, 120 * MAX_COUNT),
-    response_format: buildResponseFormat(count)
+    text: {
+      format: buildResponseFormat(count)
+    }
   };
 
   const headers = {
