@@ -13,5 +13,6 @@ const aiLimiter = rateLimit({
 
 router.use(protect, adminOnly);
 router.post('/generate', aiLimiter, aiController.generate);
+router.post('/generate-questions', aiLimiter, aiController.generate);
 
 module.exports = router;

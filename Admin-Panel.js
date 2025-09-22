@@ -1157,7 +1157,7 @@ async function runAiGeneration(previewOnly = false) {
   setAiStatus(previewOnly ? 'در حال آماده‌سازی پیش‌نمایش...' : 'در حال تولید سوالات...', 'info');
 
   try {
-    const response = await api('/ai/generate-questions', {
+    const response = await api('/ai/generate', {
       method: 'POST',
       body: JSON.stringify(body)
     });
