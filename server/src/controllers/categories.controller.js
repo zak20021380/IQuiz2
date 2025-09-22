@@ -93,7 +93,11 @@ exports.list = async (req, res, next) => {
     const skip = (pageNumber - 1) * limitNumber;
 
     const [itemsRaw, total] = await Promise.all([
-      Category.find(where).sort({ createdAt: -1 }).skip(skip).limit(limitNumber).lean(),
+      Category.find(where)
+        .sort({ order: 1, createdAt: -1 })
+        .skip(skip)
+        .limit(limitNumber)
+        .lean(),
       Category.countDocuments(where)
     ]);
 
