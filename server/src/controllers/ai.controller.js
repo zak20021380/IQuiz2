@@ -1,6 +1,6 @@
 const { generateQuestions } = require('../services/aiQuestionGenerator');
 
-function parsePreviewFlag(value) {
+function parseBooleanFlag(value) {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
@@ -12,21 +12,24 @@ function parsePreviewFlag(value) {
 exports.generate = async (req, res, next) => {
   try {
     const body = req.body || {};
-    const previewOnly = parsePreviewFlag(body.previewOnly || body.preview);
+    const previewOnly = parseBooleanFlag(body.previewOnly ?? body.preview);
+    const previewQuestions = Array.isArray(body.previewQuestions)
+      ? body.previewQuestions
+      : Array.isArray(body.questions)
+        ? body.questions
+        : undefined;
     const payload = {
+      topic: body.topic,
       count: body.count,
-      categorySlug: body.categorySlug,
       difficulty: body.difficulty,
-      topicHints: body.topicHints,
-      prompt: body.prompt,
-      temperature: body.temperature,
-      seed: body.seed,
+      lang: body.lang,
       previewOnly,
+      previewQuestions,
       requestedBy: req.user?._id ? String(req.user._id) : undefined
     };
 
     const result = await generateQuestions(payload);
-    const status = previewOnly ? 200 : (result.inserted > 0 ? 201 : 200);
+    const status = !previewOnly && result.inserted > 0 ? 201 : 200;
     res.status(status).json({ ok: true, ...result });
   } catch (error) {
     if (error?.statusCode) {

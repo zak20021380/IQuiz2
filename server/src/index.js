@@ -15,7 +15,7 @@ const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const errorHandler = require('./middleware/error');
 const jserviceRoutes = require('./routes/jservice.routes');
-const aiRoutes = require('./routes/ai.routes');
+const aiRoutes = require('./routes/ai');
 const { ensureInitialCategories, syncProviderCategories } = require('./services/categorySeeder');
 
 // init

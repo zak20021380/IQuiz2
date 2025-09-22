@@ -1,7 +1,7 @@
 const Question = require('../models/Question');
 const Category = require('../models/Category');
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'draft', 'archived'];
-const ALLOWED_SOURCES = ['manual', 'ai-gen', 'community'];
+const ALLOWED_SOURCES = ['manual', 'ai-gen', 'community', 'ai', 'AI'];
 const ALLOWED_PROVIDERS = ['manual', 'ai-gen', 'community'];
 const TRUTHY_QUERY_VALUES = new Set(['1', 'true', 'yes', 'y', 'on']);
 const FALSY_QUERY_VALUES = new Set(['0', 'false', 'no', 'n', 'off']);
@@ -41,8 +41,22 @@ function normalizeAuthorName(value, fallback = 'IQuiz Team') {
 
 function normalizeSource(value, fallback = 'manual') {
   if (typeof value !== 'string') return fallback;
-  const candidate = value.trim().toLowerCase();
-  return ALLOWED_SOURCES.includes(candidate) ? candidate : fallback;
+  const raw = value.trim();
+  if (!raw) return fallback;
+  const candidate = raw.toLowerCase();
+  if (candidate === 'ai') {
+    return 'AI';
+  }
+  if (candidate === 'ai-gen' || candidate === 'aigen') {
+    return 'ai-gen';
+  }
+  if (ALLOWED_SOURCES.includes(candidate)) {
+    return candidate;
+  }
+  if (ALLOWED_SOURCES.includes(raw)) {
+    return raw;
+  }
+  return fallback;
 }
 
 function normalizeProvider(value, fallback = '') {
@@ -190,22 +204,33 @@ exports.list = async (req, res, next) => {
       status,
       provider,
       type,
-      includeUnapproved: includeUnapprovedRaw
+      includeUnapproved: includeUnapprovedRaw,
+      duplicatesOnly: duplicatesOnlyRaw
     } = req.query;
-    const where = {};
+
     const includeUnapproved = parseBooleanQuery(includeUnapprovedRaw, false);
+    const duplicatesOnly = parseBooleanQuery(duplicatesOnlyRaw, false);
+    const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
+    const safeLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 20, 1), 200);
+    const skip = (safePage - 1) * safeLimit;
+
+    const where = {};
     const providerCandidate = provider ? normalizeProvider(provider, '') : '';
+
     if (q) where.text = { $regex: q, $options: 'i' };
     if (category) where.category = category;
     if (difficulty) where.difficulty = difficulty;
     if (source) {
-      const sourceCandidate = String(source).trim().toLowerCase();
-      if (ALLOWED_SOURCES.includes(sourceCandidate)) where.source = sourceCandidate;
+      const normalizedSource = normalizeSource(source, '');
+      if (normalizedSource) {
+        where.source = normalizedSource;
+      }
     }
+
     if (providerCandidate) {
       const aliases = [providerCandidate];
-
       const providerConditions = [];
+
       aliases.forEach((alias) => {
         const aliasRegex = new RegExp(`^${alias}$`, 'i');
         providerConditions.push({ provider: aliasRegex });
@@ -221,6 +246,11 @@ exports.list = async (req, res, next) => {
       if (!where.$and) where.$and = [];
       where.$and.push({ $or: providerConditions });
     }
+
+    if (!providerCandidate) {
+      where.provider = 'ai-gen';
+    }
+
     if (status) {
       const candidate = String(status).trim().toLowerCase();
       if (ALLOWED_STATUSES.includes(candidate)) {
@@ -231,14 +261,45 @@ exports.list = async (req, res, next) => {
         where.active = false;
       }
     }
-    if (!providerCandidate) {
-      where.provider = 'ai-gen';
-    }
+
     if (type) {
       const typeCandidate = String(type).trim().toLowerCase();
       if (typeCandidate) {
         where.type = typeCandidate;
       }
+    }
+
+    let duplicateFilterUids = [];
+    if (duplicatesOnly) {
+      const duplicateGroups = await Question.aggregate([
+        { $match: { uid: { $ne: null, $ne: '' } } },
+        { $group: { _id: '$uid', count: { $sum: 1 } } },
+        { $match: { count: { $gt: 1 } } }
+      ]);
+
+      duplicateFilterUids = duplicateGroups.map((group) => group._id).filter(Boolean);
+
+      if (!duplicateFilterUids.length) {
+        const pendingTotal = await Question.countDocuments({ status: 'pending' });
+        return res.json({
+          ok: true,
+          data: [],
+          meta: {
+            total: 0,
+            page: safePage,
+            limit: safeLimit,
+            pendingTotal,
+            duplicatesOnly: true,
+            duplicateCounts: {}
+          }
+        });
+      }
+
+      where.uid = { $in: duplicateFilterUids };
+    }
+
+    if (!includeUnapproved && !where.status) {
+      where.isApproved = { $ne: false };
     }
 
     const normalizedSort = typeof sort === 'string' ? sort.toLowerCase() : 'newest';
@@ -248,14 +309,51 @@ exports.list = async (req, res, next) => {
 
     const [items, total, pendingTotal] = await Promise.all([
       Question.find(where)
-        .populate('category','name')
+        .populate('category', 'name')
         .sort(sortOption)
-        .skip((page-1)*limit)
-        .limit(Number(limit)),
+        .skip(skip)
+        .limit(safeLimit)
+        .lean({ virtuals: true }),
       Question.countDocuments(where),
       Question.countDocuments({ status: 'pending' })
     ]);
-    res.json({ ok:true, data:items, meta:{ total, page:Number(page), limit:Number(limit), pendingTotal } });
+
+    const itemUids = items
+      .map((item) => (item && typeof item.uid === 'string' ? item.uid : ''))
+      .filter(Boolean);
+
+    let duplicateCounts = {};
+    if (itemUids.length) {
+      const stats = await Question.aggregate([
+        { $match: { uid: { $in: itemUids } } },
+        { $group: { _id: '$uid', count: { $sum: 1 } } }
+      ]);
+
+      duplicateCounts = stats.reduce((acc, entry) => {
+        if (entry && entry._id) {
+          acc[entry._id] = entry.count;
+        }
+        return acc;
+      }, {});
+    }
+
+    const dataWithDuplicates = items.map((item) => ({
+      ...item,
+      duplicateCount: item && item.uid ? (duplicateCounts[item.uid] || 0) : 0
+    }));
+
+    res.json({
+      ok: true,
+      data: dataWithDuplicates,
+      meta: {
+        total,
+        page: safePage,
+        limit: safeLimit,
+        pendingTotal,
+        duplicatesOnly,
+        duplicateCounts
+      }
+    });
   } catch (e) { next(e); }
 };
 
@@ -376,6 +474,86 @@ exports.remove = async (req, res, next) => {
     await Question.findByIdAndDelete(req.params.id);
     res.json({ ok:true });
   } catch (e) { next(e); }
+};
+
+exports.bulkDelete = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const normalizedIds = ids
+      .map((id) => (typeof id === 'string' ? id.trim() : ''))
+      .filter(Boolean);
+
+    if (!normalizedIds.length) {
+      return res.status(400).json({ ok: false, message: 'ids array is required' });
+    }
+
+    let result;
+    try {
+      result = await Question.deleteMany({ _id: { $in: normalizedIds } });
+    } catch (error) {
+      if (error?.name === 'CastError') {
+        return res.status(400).json({ ok: false, message: 'One or more ids are invalid' });
+      }
+      throw error;
+    }
+
+    res.json({ ok: true, deleted: result?.deletedCount || 0 });
+  } catch (e) {
+    next(e);
+  }
+};
+
+exports.listDuplicates = async (req, res, next) => {
+  try {
+    const limitRaw = Number.parseInt(req.query?.limit, 10);
+    const safeLimit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 100, 1), 500);
+
+    const groups = await Question.aggregate([
+      { $match: { uid: { $ne: null, $ne: '' } } },
+      {
+        $group: {
+          _id: '$uid',
+          count: { $sum: 1 },
+          items: {
+            $push: {
+              _id: '$_id',
+              text: '$text',
+              createdAt: '$createdAt',
+              difficulty: '$difficulty',
+              categoryName: '$categoryName',
+              source: '$source',
+              lang: '$lang',
+              options: '$choices',
+              answerIndex: '$correctIndex'
+            }
+          }
+        }
+      },
+      { $match: { count: { $gt: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: safeLimit }
+    ]);
+
+    const data = groups.map((group) => ({
+      uid: group._id,
+      count: group.count,
+      questions: (group.items || []).map((item) => ({
+        _id: item._id,
+        question: item.text,
+        options: Array.isArray(item.options) ? item.options : [],
+        answerIndex: item.answerIndex,
+        difficulty: item.difficulty,
+        category: item.categoryName,
+        source: item.source,
+        lang: item.lang,
+        createdAt: item.createdAt
+      }))
+    }));
+
+    res.json({ ok: true, data });
+  } catch (e) {
+    next(e);
+  }
 };
 
 exports.submitPublic = async (req, res, next) => {

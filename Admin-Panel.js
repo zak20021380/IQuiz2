@@ -31,6 +31,8 @@ const DIFFICULTY_META = {
 const SOURCE_META = {
   manual: { label: 'ایجاد دستی', class: 'meta-chip source-manual', icon: 'fa-pen-nib' },
   'ai-gen': { label: 'هوش مصنوعی', class: 'meta-chip source-ai', icon: 'fa-robot' },
+  ai: { label: 'هوش مصنوعی', class: 'meta-chip source-ai', icon: 'fa-robot' },
+  AI: { label: 'هوش مصنوعی', class: 'meta-chip source-ai', icon: 'fa-robot' },
   community: { label: 'سازنده‌ها', class: 'meta-chip source-community', icon: 'fa-users-gear' }
 };
 
@@ -555,7 +557,8 @@ const questionFilters = {
   search: '',
   sort: 'newest',
   type: undefined,
-  approvedOnly: undefined
+  approvedOnly: undefined,
+  duplicates: 'all'
 };
 
 const aiPanel = $('#ai-generator-panel');
@@ -602,6 +605,49 @@ const aiGeneratorState = {
   generating: false,
   theme: 'dark',
   previewMode: 'unique'
+};
+
+const aiModal = $('#ai-generate-modal');
+const aiModalForm = $('#ai-generate-form');
+const aiModalTopicInput = $('#ai-modal-topic');
+const aiModalCountInput = $('#ai-modal-count');
+const aiModalDifficultySelect = $('#ai-modal-difficulty');
+const aiModalLangSelect = $('#ai-modal-lang');
+const aiModalStatus = $('#ai-modal-status');
+const aiModalPreviewTableBody = $('#ai-modal-preview-body');
+const aiModalDuplicatesList = $('#ai-modal-duplicates');
+const aiModalPreviewBtn = $('#ai-modal-preview-btn');
+const aiModalInsertBtn = $('#ai-modal-insert-btn');
+const aiModalPreviewEmpty = $('#ai-modal-preview-empty');
+const aiModalDuplicatesEmpty = $('#ai-modal-duplicates-empty');
+const aiModalInvalidList = $('#ai-modal-invalid');
+const aiModalPreviewBtnDefault = aiModalPreviewBtn ? aiModalPreviewBtn.innerHTML : '';
+const aiModalInsertBtnDefault = aiModalInsertBtn ? aiModalInsertBtn.innerHTML : '';
+
+const duplicatesViewTabs = $$('#questions-view-tabs [data-questions-view]');
+const duplicatesViewCard = $('#duplicates-view-card');
+const duplicatesGroupsContainer = $('#duplicates-groups-container');
+const duplicatesEmptyState = $('#duplicates-empty-state');
+const duplicatesTotalEl = $('#duplicates-total');
+const duplicatesBulkDeleteBtn = $('#duplicates-bulk-delete');
+const filterDuplicatesSelect = $('#filter-duplicates');
+const btnAiGenerate = $('#btn-ai-generate');
+const duplicatesSelectedCountEl = $('#duplicates-selected-count');
+const questionsTableCard = $('#questions-table-card');
+
+const aiModalState = {
+  preview: [],
+  duplicates: [],
+  invalid: [],
+  loading: false
+};
+
+const duplicatesState = {
+  groups: [],
+  loading: false,
+  selected: new Set(),
+  view: 'list',
+  lastLoadedAt: 0
 };
 
 let filterSearchDebounce;
@@ -1192,6 +1238,435 @@ async function runAiGeneration(previewOnly = false) {
     renderAiPreview();
     updateTriviaControlsAvailability();
     updateTriviaSummary();
+  }
+}
+
+function resetAiModalForm() {
+  if (aiModalForm) aiModalForm.reset();
+  if (aiModalCountInput) aiModalCountInput.value = '5';
+  if (aiModalDifficultySelect) aiModalDifficultySelect.value = 'medium';
+  if (aiModalLangSelect) aiModalLangSelect.value = 'fa';
+}
+
+function clearAiModalState() {
+  aiModalState.preview = [];
+  aiModalState.duplicates = [];
+  aiModalState.invalid = [];
+  aiModalState.loading = false;
+}
+
+function setAiModalStatus(message = '', tone = 'muted') {
+  if (!aiModalStatus) return;
+  aiModalStatus.textContent = message || '';
+  aiModalStatus.dataset.tone = tone;
+  aiModalStatus.className = `ai-modal-status tone-${tone}`;
+}
+
+function setAiModalLoading({ preview = false, insert = false } = {}) {
+  if (aiModalPreviewBtn) {
+    aiModalPreviewBtn.disabled = preview;
+    aiModalPreviewBtn.innerHTML = preview
+      ? `<span class="loading-spinner"></span><span>در حال تولید...</span>`
+      : aiModalPreviewBtnDefault;
+  }
+  if (aiModalInsertBtn) {
+    aiModalInsertBtn.disabled = insert;
+    aiModalInsertBtn.innerHTML = insert
+      ? `<span class="loading-spinner"></span><span>در حال ذخیره...</span>`
+      : aiModalInsertBtnDefault;
+  }
+  aiModalState.loading = preview || insert;
+}
+
+function renderAiModalPreview() {
+  if (!aiModalPreviewTableBody) return;
+  const items = Array.isArray(aiModalState.preview) ? aiModalState.preview : [];
+  if (!items.length) {
+    aiModalPreviewTableBody.innerHTML = '';
+    if (aiModalPreviewEmpty) aiModalPreviewEmpty.classList.remove('hidden');
+    return;
+  }
+
+  if (aiModalPreviewEmpty) aiModalPreviewEmpty.classList.add('hidden');
+  aiModalPreviewTableBody.innerHTML = items.map((item, index) => {
+    const questionLabel = item?.question || `سوال شماره ${formatNumberFa(index + 1)}`;
+    const options = Array.isArray(item?.options) ? item.options : [];
+    const optionsHtml = options
+      .map((option, idx) => {
+        const label = formatNumberFa(idx + 1);
+        return `<li><span class="font-mono text-xs text-slate-400">${label}.</span> ${escapeHtml(option || '—')}</li>`;
+      })
+      .join('');
+    const correct = options[item?.answerIndex] || '';
+    return `
+      <tr>
+        <td>${escapeHtml(questionLabel)}</td>
+        <td><ul class="space-y-1 list-none">${optionsHtml}</ul></td>
+        <td>${escapeHtml(correct || '—')}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderAiModalDuplicates() {
+  if (!aiModalDuplicatesList) return;
+  const items = Array.isArray(aiModalState.duplicates) ? aiModalState.duplicates : [];
+  if (!items.length) {
+    aiModalDuplicatesList.innerHTML = '';
+    if (aiModalDuplicatesEmpty) aiModalDuplicatesEmpty.classList.remove('hidden');
+    return;
+  }
+
+  if (aiModalDuplicatesEmpty) aiModalDuplicatesEmpty.classList.add('hidden');
+  aiModalDuplicatesList.innerHTML = items.map((item) => {
+    const reason = item?.reason === 'batch'
+      ? 'تکرار در همین دسته تولیدی'
+      : 'در بانک سوال موجود است';
+    const existingLabel = item?.existingQuestion ? `<div class="text-xs text-white/60">نمونه موجود: ${escapeHtml(item.existingQuestion)}</div>` : '';
+    return `
+      <li class="ai-duplicate-item">
+        <div class="font-semibold">${escapeHtml(item.question || 'سوال تکراری')}</div>
+        <div class="text-xs text-white/60">${escapeHtml(reason)}</div>
+        ${existingLabel}
+      </li>
+    `;
+  }).join('');
+}
+
+function renderAiModalInvalid() {
+  if (!aiModalInvalidList) return;
+  const items = Array.isArray(aiModalState.invalid) ? aiModalState.invalid : [];
+  if (!items.length) {
+    aiModalInvalidList.innerHTML = '';
+    if (aiModalInvalidList.parentElement) {
+      aiModalInvalidList.parentElement.classList.add('hidden');
+    }
+    return;
+  }
+
+  if (aiModalInvalidList.parentElement) {
+    aiModalInvalidList.parentElement.classList.remove('hidden');
+  }
+  aiModalInvalidList.innerHTML = items.map((item) => {
+    const question = typeof item?.question === 'string' && item.question.trim()
+      ? item.question.trim()
+      : 'سوال بدون متن';
+    const reason = item?.reason || 'نامشخص';
+    return `<li><span class="font-semibold">${escapeHtml(question)}</span><span class="text-xs text-white/60 block mt-1">${escapeHtml(reason)}</span></li>`;
+  }).join('');
+}
+
+function getAiModalValues() {
+  const topic = aiModalTopicInput ? aiModalTopicInput.value.trim() : '';
+  if (!topic) {
+    throw new Error('موضوع سوال را وارد کنید.');
+  }
+
+  let count = Number.parseInt(aiModalCountInput ? aiModalCountInput.value : '5', 10);
+  if (!Number.isFinite(count)) count = 5;
+  if (count < 1) count = 1;
+  if (count > 50) count = 50;
+  if (aiModalCountInput) aiModalCountInput.value = String(count);
+
+  const difficultyCandidates = new Set(['easy', 'medium', 'hard']);
+  const difficultyValue = aiModalDifficultySelect ? aiModalDifficultySelect.value : 'medium';
+  const difficulty = difficultyCandidates.has(difficultyValue) ? difficultyValue : 'medium';
+
+  const langValue = aiModalLangSelect ? aiModalLangSelect.value : 'fa';
+  const lang = (langValue || 'fa').trim() || 'fa';
+
+  return { topic, count, difficulty, lang };
+}
+
+async function runAiModalGeneration(previewOnly) {
+  if (!getToken()) {
+    showToast('برای استفاده از این قابلیت ابتدا وارد شوید.', 'warning');
+    return;
+  }
+
+  if (!aiModal || !aiModalPreviewBtn || !aiModalInsertBtn) return;
+
+  let values;
+  try {
+    values = getAiModalValues();
+  } catch (error) {
+    const message = error?.message || 'اطلاعات فرم نامعتبر است.';
+    setAiModalStatus(message, 'error');
+    showToast(message, 'warning');
+    return;
+  }
+
+  if (!previewOnly && (!Array.isArray(aiModalState.preview) || !aiModalState.preview.length)) {
+    setAiModalStatus('برای ذخیره ابتدا پیش‌نمایش را اجرا کنید.', 'warning');
+    showToast('ابتدا پیش‌نمایش را اجرا کنید.', 'warning');
+    return;
+  }
+
+  const body = {
+    topic: values.topic,
+    count: values.count,
+    difficulty: values.difficulty,
+    lang: values.lang,
+    previewOnly: Boolean(previewOnly)
+  };
+
+  if (!previewOnly && aiModalState.preview.length) {
+    body.previewQuestions = aiModalState.preview;
+  }
+
+  setAiModalLoading({ preview: previewOnly, insert: !previewOnly });
+  setAiModalStatus(previewOnly ? 'در حال تولید نمونه سوال...' : 'در حال ذخیره سوالات...', 'info');
+
+  try {
+    const response = await api('/ai/generate', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+
+    aiModalState.preview = Array.isArray(response?.preview) ? response.preview : [];
+    aiModalState.duplicates = Array.isArray(response?.duplicates) ? response.duplicates : [];
+    aiModalState.invalid = Array.isArray(response?.invalid) ? response.invalid : [];
+
+    renderAiModalPreview();
+    renderAiModalDuplicates();
+    renderAiModalInvalid();
+
+    const duplicateCount = aiModalState.duplicates.length;
+    const invalidCount = aiModalState.invalid.length;
+    const previewCount = aiModalState.preview.length;
+
+    if (previewOnly) {
+      const tone = duplicateCount || invalidCount ? 'warning' : 'success';
+      const message = `پیش‌نمایش ${formatNumberFa(previewCount)} سوال آماده شد. تکراری: ${formatNumberFa(duplicateCount)} | نامعتبر: ${formatNumberFa(invalidCount)}.`;
+      setAiModalStatus(message, tone);
+      showToast('پیش‌نمایش آماده شد', tone === 'success' ? 'success' : 'warning');
+    } else {
+      const inserted = Number.isFinite(Number(response?.inserted)) ? Number(response.inserted) : 0;
+      const generated = Number.isFinite(Number(response?.generated)) ? Number(response.generated) : aiModalState.preview.length;
+      const messageParts = [
+        `تولید شده: ${formatNumberFa(generated)}`,
+        `ثبت شده: ${formatNumberFa(inserted)}`
+      ];
+      if (duplicateCount) messageParts.push(`تکراری: ${formatNumberFa(duplicateCount)}`);
+      if (invalidCount) messageParts.push(`نامعتبر: ${formatNumberFa(invalidCount)}`);
+      const tone = inserted > 0 ? 'success' : (generated > 0 ? 'warning' : 'error');
+      setAiModalStatus(messageParts.join(' | '), tone);
+      showToast(inserted > 0 ? `${formatNumberFa(inserted)} سوال جدید ذخیره شد` : 'سوالی برای ذخیره موجود نبود.', tone === 'success' ? 'success' : tone === 'warning' ? 'warning' : 'error');
+      clearAiModalState();
+      renderAiModalPreview();
+      renderAiModalDuplicates();
+      renderAiModalInvalid();
+      closeModal('#ai-generate-modal');
+      await Promise.all([
+        loadQuestions(),
+        loadDashboardStats(true),
+        loadDuplicateGroups(true)
+      ]);
+    }
+  } catch (error) {
+    console.error('AI modal generation failed', error);
+    const message = error?.message || 'در تولید سوالات خطایی رخ داد.';
+    setAiModalStatus(message, 'error');
+    showToast(message, 'error');
+  } finally {
+    setAiModalLoading({ preview: false, insert: false });
+  }
+}
+
+function openAiModal() {
+  if (!aiModal) return;
+  resetAiModalForm();
+  clearAiModalState();
+  renderAiModalPreview();
+  renderAiModalDuplicates();
+  renderAiModalInvalid();
+  setAiModalStatus('', 'muted');
+  setAiModalLoading({ preview: false, insert: false });
+  openModal('#ai-generate-modal');
+}
+
+function updateDuplicateBulkDeleteState() {
+  if (!duplicatesBulkDeleteBtn) return;
+  const count = duplicatesState.selected.size;
+  if (duplicatesSelectedCountEl) {
+    duplicatesSelectedCountEl.textContent = formatNumberFa(count);
+  }
+  duplicatesBulkDeleteBtn.disabled = count === 0;
+  if (duplicatesState.view === 'duplicates') {
+    duplicatesBulkDeleteBtn.classList.remove('hidden');
+  } else {
+    duplicatesBulkDeleteBtn.classList.add('hidden');
+  }
+}
+
+function setQuestionsView(view) {
+  const normalized = view === 'duplicates' ? 'duplicates' : 'list';
+  duplicatesState.view = normalized;
+  duplicatesViewTabs.forEach((button) => {
+    if (!button) return;
+    const buttonView = button.dataset.questionsView === 'duplicates' ? 'duplicates' : 'list';
+    const isActive = buttonView === normalized;
+    button.classList.toggle('btn-primary', isActive);
+    button.classList.toggle('btn-secondary', !isActive);
+  });
+
+  if (questionsTableCard) {
+    questionsTableCard.classList.toggle('hidden', normalized === 'duplicates');
+  }
+  if (duplicatesViewCard) {
+    duplicatesViewCard.classList.toggle('hidden', normalized !== 'duplicates');
+  }
+
+  updateDuplicateBulkDeleteState();
+
+  if (normalized === 'duplicates') {
+    loadDuplicateGroups();
+  }
+}
+
+function renderDuplicateGroups() {
+  if (!duplicatesGroupsContainer) return;
+
+  if (duplicatesState.loading) {
+    duplicatesGroupsContainer.innerHTML = `
+      <div class="loading-state">
+        <span class="loading-spinner"></span>
+        <p>در حال دریافت لیست سوالات تکراری...</p>
+      </div>
+    `;
+    if (duplicatesEmptyState) duplicatesEmptyState.classList.add('hidden');
+    if (duplicatesTotalEl) duplicatesTotalEl.textContent = '—';
+    return;
+  }
+
+  const groups = Array.isArray(duplicatesState.groups) ? duplicatesState.groups : [];
+  if (!groups.length) {
+    duplicatesGroupsContainer.innerHTML = '';
+    if (duplicatesEmptyState) duplicatesEmptyState.classList.remove('hidden');
+    if (duplicatesTotalEl) duplicatesTotalEl.textContent = '۰';
+    updateDuplicateBulkDeleteState();
+    return;
+  }
+
+  if (duplicatesEmptyState) duplicatesEmptyState.classList.add('hidden');
+  if (duplicatesTotalEl) duplicatesTotalEl.textContent = formatNumberFa(groups.length);
+
+  const fragment = document.createDocumentFragment();
+  groups.forEach((group) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'duplicate-group-card glass';
+    const countLabel = formatNumberFa(group?.count || (group?.questions ? group.questions.length : 0));
+    const questions = Array.isArray(group?.questions) ? group.questions : [];
+    const firstQuestion = questions[0]?.question || 'گروه سوال تکراری';
+
+    const itemsHtml = questions.map((question) => {
+      const id = typeof question?._id === 'string' ? question._id : '';
+      const checked = duplicatesState.selected.has(id) ? 'checked' : '';
+      const questionText = escapeHtml(question?.question || 'سوال بدون متن');
+      const difficultyMeta = DIFFICULTY_META[question?.difficulty] || DIFFICULTY_META.medium;
+      const difficultyLabel = difficultyMeta?.label || '';
+      const createdAt = formatDateTime(question?.createdAt);
+      const categoryLabel = question?.category ? escapeHtml(question.category) : '';
+      return `
+        <li>
+          <label class="duplicate-item">
+            <input type="checkbox" data-duplicate-id="${escapeHtml(id)}" ${checked}>
+            <div>
+              <div class="duplicate-item-question">${questionText}</div>
+              <div class="duplicate-item-meta">
+                ${categoryLabel ? `<span class="duplicate-item-chip">${categoryLabel}</span>` : ''}
+                ${difficultyLabel ? `<span class="duplicate-item-chip">${escapeHtml(difficultyLabel)}</span>` : ''}
+                ${createdAt ? `<span class="duplicate-item-chip">${escapeHtml(createdAt)}</span>` : ''}
+              </div>
+            </div>
+          </label>
+        </li>
+      `;
+    }).join('');
+
+    wrapper.innerHTML = `
+      <div class="duplicate-group-header">
+        <div>
+          <h3 class="duplicate-group-title">${escapeHtml(firstQuestion)}</h3>
+          <p class="duplicate-group-subtitle">${formatNumberFa(questions.length)} سوال ثبت شده با متن مشابه</p>
+        </div>
+        <span class="duplicate-count-badge">${countLabel}</span>
+      </div>
+      <ul class="duplicate-items">
+        ${itemsHtml}
+      </ul>
+    `;
+
+    fragment.appendChild(wrapper);
+  });
+
+  duplicatesGroupsContainer.innerHTML = '';
+  duplicatesGroupsContainer.appendChild(fragment);
+  updateDuplicateBulkDeleteState();
+}
+
+async function loadDuplicateGroups(force = false) {
+  if (!getToken()) {
+    duplicatesState.groups = [];
+    renderDuplicateGroups();
+    return [];
+  }
+
+  const now = Date.now();
+  if (!force && duplicatesState.groups.length && now - duplicatesState.lastLoadedAt < 60000) {
+    renderDuplicateGroups();
+    return duplicatesState.groups;
+  }
+
+  duplicatesState.loading = true;
+  renderDuplicateGroups();
+
+  try {
+    const response = await api('/questions/duplicates');
+    duplicatesState.groups = Array.isArray(response?.data) ? response.data : [];
+    duplicatesState.selected.clear();
+    duplicatesState.lastLoadedAt = Date.now();
+    renderDuplicateGroups();
+    return duplicatesState.groups;
+  } catch (error) {
+    duplicatesState.groups = [];
+    renderDuplicateGroups();
+    showToast(error.message || 'امکان دریافت لیست سوالات تکراری نبود', 'error');
+    return [];
+  } finally {
+    duplicatesState.loading = false;
+    updateDuplicateBulkDeleteState();
+  }
+}
+
+async function handleDuplicatesBulkDelete() {
+  if (!duplicatesState.selected.size) return;
+  if (!getToken()) {
+    showToast('برای مدیریت سوالات ابتدا وارد شوید', 'warning');
+    return;
+  }
+
+  if (!confirm('آیا از حذف سوالات انتخاب شده اطمینان دارید؟')) return;
+
+  const ids = Array.from(duplicatesState.selected);
+  try {
+    const response = await api('/questions/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids })
+    });
+    const deleted = Number.isFinite(Number(response?.deleted)) ? Number(response.deleted) : ids.length;
+    showToast(`${formatNumberFa(deleted)} سوال حذف شد`, 'success');
+    duplicatesState.selected.clear();
+    await Promise.all([
+      loadDuplicateGroups(true),
+      loadQuestions(),
+      loadDashboardStats(true)
+    ]);
+  } catch (error) {
+    console.error('Failed to bulk delete duplicates', error);
+    showToast(error.message || 'حذف سوالات تکراری ناموفق بود', 'error');
+  } finally {
+    updateDuplicateBulkDeleteState();
   }
 }
 
@@ -2611,6 +3086,16 @@ if (adsGridEl) {
   });
 }
 
+if (btnAiGenerate) {
+  btnAiGenerate.addEventListener('click', () => {
+    if (!getToken()) {
+      showToast('برای استفاده از این قابلیت ابتدا وارد شوید', 'warning');
+      return;
+    }
+    openAiModal();
+  });
+}
+
 $('#btn-add-question').addEventListener('click', async () => {
   if (!getToken()) {
     showToast('برای مدیریت سوالات ابتدا وارد شوید', 'warning');
@@ -3182,6 +3667,7 @@ function normalizeQuestion(raw = {}) {
     provider: normalizedProvider,
     authorName: normalizedAuthor,
     status: normalizedStatus,
+    duplicateCount: Number.isFinite(Number(raw?.duplicateCount)) ? Number(raw.duplicateCount) : 0,
     reviewNotes
   };
 }
@@ -3712,6 +4198,10 @@ async function loadQuestions(overrides = {}) {
           questionFilters.approvedOnly = Boolean(value);
         }
       }
+      if (Object.prototype.hasOwnProperty.call(overrides, 'duplicates')) {
+        const value = overrides.duplicates;
+        questionFilters.duplicates = value === 'duplicates' ? 'duplicates' : 'all';
+      }
     }
 
     if (questionFilters.status && questionFilters.status !== 'approved') {
@@ -3737,6 +4227,12 @@ async function loadQuestions(overrides = {}) {
       const shouldCheck = questionFilters.approvedOnly === true;
       if (filterApprovedOnlyToggle.checked !== shouldCheck) {
         filterApprovedOnlyToggle.checked = shouldCheck;
+      }
+    }
+    if (filterDuplicatesSelect) {
+      const nextDuplicates = questionFilters.duplicates === 'duplicates' ? 'duplicates' : 'all';
+      if (filterDuplicatesSelect.value !== nextDuplicates) {
+        filterDuplicatesSelect.value = nextDuplicates;
       }
     }
     if (filterTypeHelper) {
@@ -3772,6 +4268,7 @@ async function loadQuestions(overrides = {}) {
     if (questionFilters.sort) params.append('sort', questionFilters.sort);
     if (questionFilters.type) params.append('type', questionFilters.type);
     if (questionFilters.approvedOnly === false) params.append('includeUnapproved', '1');
+    if (questionFilters.duplicates === 'duplicates') params.append('duplicatesOnly', '1');
 
     const response = await api(`/questions?${params.toString()}`);
     const pendingTotal = Number(response?.meta?.pendingTotal);
@@ -3801,10 +4298,13 @@ async function loadQuestions(overrides = {}) {
         || questionFilters.search
         || questionFilters.type
         || questionFilters.approvedOnly === false
+        || questionFilters.duplicates === 'duplicates'
       );
       let emptyMessage;
       if (questionFilters.category) {
         emptyMessage = 'برای این دسته هنوز سوال AI ثبت نشده.';
+      } else if (questionFilters.duplicates === 'duplicates') {
+        emptyMessage = 'هیچ سوال تکراری با تنظیمات فعلی یافت نشد.';
       } else if (hasFilters) {
         emptyMessage = 'هیچ سوالی با فیلترهای انتخاب شده یافت نشد.';
       } else {
@@ -3838,8 +4338,14 @@ async function loadQuestions(overrides = {}) {
       const sourceMeta = SOURCE_META[item.source] || SOURCE_META.manual;
       const derivedAnswerRaw = item.options[item.correctIdx] || item.correctAnswer || '---';
       const answerText = escapeHtml(decodeHtmlEntities(derivedAnswerRaw));
+      const duplicateCount = Number.isFinite(Number(item.duplicateCount)) ? Number(item.duplicateCount) : 0;
+      const duplicateBadge = duplicateCount > 1
+        ? `<span class="meta-chip duplicate" title="تعداد موارد مشابه"><i class="fas fa-clone"></i>${formatNumberFa(duplicateCount)}</span>`
+        : '';
+      const rowClasses = ['question-row'];
+      if (duplicateCount > 1) rowClasses.push('question-row-duplicate');
       return `
-        <tr class="question-row" data-question-id="${idAttr}">
+        <tr class="${rowClasses.join(' ')}" data-question-id="${idAttr}">
           <td data-label="شناسه" class="font-mono text-xs md:text-sm text-white/70">#${idFragment}</td>
           <td data-label="سوال و جزئیات">
             <div class="question-text line-clamp-2" title="${questionText}">${questionText}</div>
@@ -3859,6 +4365,7 @@ async function loadQuestions(overrides = {}) {
               <span class="${status.class}" title="وضعیت سوال">
                 <span class="status-dot ${status.dot}"></span>${status.label}
               </span>
+              ${duplicateBadge}
             </div>
           </td>
           <td data-label="پاسخ صحیح">
@@ -4308,6 +4815,14 @@ if (filterApprovedOnlyToggle) {
     if (!getToken()) return;
     const nextValue = filterApprovedOnlyToggle.checked;
     loadQuestions({ approvedOnly: nextValue });
+  });
+}
+
+if (filterDuplicatesSelect) {
+  filterDuplicatesSelect.addEventListener('change', () => {
+    if (!getToken()) return;
+    const value = filterDuplicatesSelect.value === 'duplicates' ? 'duplicates' : 'all';
+    loadQuestions({ duplicates: value });
   });
 }
 
@@ -5387,6 +5902,46 @@ document.addEventListener('keydown', (e) => {
     $('#mobile-menu').classList.add('translate-x-full');
   }
 });
+
+if (aiModalPreviewBtn) {
+  aiModalPreviewBtn.addEventListener('click', () => runAiModalGeneration(true));
+}
+
+if (aiModalInsertBtn) {
+  aiModalInsertBtn.addEventListener('click', () => runAiModalGeneration(false));
+}
+
+if (aiModalForm) {
+  aiModalForm.addEventListener('submit', (event) => event.preventDefault());
+}
+
+if (duplicatesBulkDeleteBtn) {
+  duplicatesBulkDeleteBtn.addEventListener('click', handleDuplicatesBulkDelete);
+}
+
+if (duplicatesGroupsContainer) {
+  duplicatesGroupsContainer.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('input[type="checkbox"][data-duplicate-id]');
+    if (!checkbox) return;
+    const id = checkbox.dataset.duplicateId || '';
+    if (!id) return;
+    if (checkbox.checked) duplicatesState.selected.add(id);
+    else duplicatesState.selected.delete(id);
+    updateDuplicateBulkDeleteState();
+  });
+}
+
+if (duplicatesViewTabs.length) {
+  duplicatesViewTabs.forEach((button) => {
+    button.addEventListener('click', () => {
+      const view = button.dataset.questionsView || 'list';
+      setQuestionsView(view);
+    });
+  });
+}
+
+setQuestionsView('list');
+updateDuplicateBulkDeleteState();
 
 setupUserManagement();
 setupShopControls();
