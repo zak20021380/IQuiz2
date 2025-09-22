@@ -100,6 +100,56 @@ const questionStatsPercentEl = $('#question-stats-percent');
 const questionStatsDeltaEl = $('#question-stats-delta');
 const questionStatsSummaryEl = $('#question-stats-summary');
 const questionStatsDescriptionEl = $('#question-stats-description');
+const dashboardUsersActiveEl = $('#dashboard-users-active');
+const dashboardUsersDeltaEl = $('#dashboard-users-delta');
+const dashboardUsersTotalLabelEl = $('#dashboard-users-total');
+const dashboardCategoriesTotalEl = $('#dashboard-categories-total');
+const dashboardCategoriesPendingEl = $('#dashboard-categories-pending');
+const dashboardCategoriesActiveEl = $('#dashboard-categories-active');
+const dashboardCategoriesWithQuestionsEl = $('#dashboard-categories-with-questions');
+const dashboardAdsActiveEl = $('#dashboard-ads-active');
+const dashboardAdsStatusEl = $('#dashboard-ads-status');
+const dashboardAdsTotalEl = $('#dashboard-ads-total');
+const dashboardAdsPausedEl = $('#dashboard-ads-paused');
+const dashboardUsersChartEl = $('#dashboard-users-chart');
+const dashboardUsersChartEmptyEl = $('#dashboard-users-chart-empty');
+const dashboardUsersAverageEl = $('#dashboard-users-average');
+const dashboardTopCategoriesEl = $('#dashboard-top-categories');
+const dashboardTopCategoriesEmptyEl = $('#dashboard-top-categories-empty');
+const dashboardTopCategoriesTotalEl = $('#dashboard-top-categories-total');
+const dashboardActivityListEl = $('#dashboard-activity-list');
+const dashboardActivityEmptyEl = $('#dashboard-activity-empty');
+const dashboardOverviewState = {
+  loading: false,
+  loaded: false,
+  data: null,
+  promise: null
+};
+
+const CATEGORY_COLOR_GRADIENTS = {
+  blue: 'from-blue-500 to-blue-400',
+  green: 'from-green-500 to-green-400',
+  orange: 'from-orange-500 to-orange-400',
+  purple: 'from-purple-500 to-purple-400',
+  yellow: 'from-yellow-500 to-amber-400',
+  pink: 'from-pink-500 to-pink-400',
+  red: 'from-red-500 to-red-400',
+  teal: 'from-teal-500 to-teal-400',
+  indigo: 'from-indigo-500 to-indigo-400'
+};
+
+const ACTIVITY_ACCENTS = {
+  emerald: { iconBg: 'bg-emerald-500/20', iconColor: 'text-emerald-300' },
+  sky: { iconBg: 'bg-sky-500/20', iconColor: 'text-sky-300' },
+  amber: { iconBg: 'bg-amber-500/20', iconColor: 'text-amber-300' },
+  violet: { iconBg: 'bg-violet-500/20', iconColor: 'text-violet-300' },
+  rose: { iconBg: 'bg-rose-500/20', iconColor: 'text-rose-300' },
+  slate: { iconBg: 'bg-slate-500/20', iconColor: 'text-slate-200' }
+};
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat('fa-IR', { numeric: 'auto' });
+const persianWeekdayFormatter = new Intl.DateTimeFormat('fa-IR', { weekday: 'short' });
+const persianDateFormatter = new Intl.DateTimeFormat('fa-IR', { month: '2-digit', day: '2-digit' });
 const addQuestionModal = $('#add-question-modal');
 const addQuestionTextInput = $('#add-question-text');
 const addQuestionCategorySelect = $('#add-question-category');
@@ -834,7 +884,10 @@ async function runAiGeneration(previewOnly = false) {
         showToast('مدل سوالی بازنگرداند.', 'error');
       }
       await loadQuestions();
-      await loadDashboardStats(true);
+      await Promise.all([
+        loadDashboardStats(true),
+        loadDashboardOverview(true)
+      ]);
     }
   } catch (error) {
     console.error('AI generation failed', error);
@@ -1972,6 +2025,7 @@ async function handleAdDelete(adId, triggerButton) {
     await api(`/ads/${adId}`, { method: 'DELETE' });
     showToast('تبلیغ حذف شد', 'success');
     await loadAds(false);
+    await loadDashboardOverview(true);
   } catch (error) {
     showToast(error.message || 'حذف تبلیغ ناموفق بود', 'error');
   } finally {
@@ -2012,6 +2066,7 @@ async function handleAdSubmit(event) {
     }
     closeModal('#ad-modal');
     await loadAds(false);
+    await loadDashboardOverview(true);
   } catch (error) {
     showToast(error.message || 'ذخیره تبلیغ ناموفق بود', 'error');
   } finally {
@@ -2280,6 +2335,7 @@ if (categoriesGridEl) {
         await api(`/categories/${categoryId}`, { method: 'DELETE' });
         showToast('دسته‌بندی حذف شد', 'success');
         await loadCategoryFilterOptions(true);
+        await loadDashboardOverview(true);
       } catch (err) {
         showToast(err.message, 'error');
       } finally {
@@ -2338,6 +2394,374 @@ $('#login-submit').addEventListener('click', login);
 
 // اگر توکن نداریم، مودال ورود باز بماند
 if (getToken()) closeModal('#login-modal');
+
+function resolveDashboardMessage(state, message, fallback = {}) {
+  if (message) return message;
+  if (state === 'auth') return fallback.auth || 'برای مشاهده آمار وارد شوید';
+  if (state === 'loading') return fallback.loading || 'در حال بارگذاری داده‌ها...';
+  if (state === 'error') return fallback.error || 'آمار در دسترس نیست';
+  return fallback.empty || 'داده‌ای برای نمایش وجود ندارد';
+}
+
+const RELATIVE_DIVISIONS = [
+  { amount: 60, unit: 'second' },
+  { amount: 60, unit: 'minute' },
+  { amount: 24, unit: 'hour' },
+  { amount: 7, unit: 'day' },
+  { amount: 4.34524, unit: 'week' },
+  { amount: 12, unit: 'month' },
+  { amount: Number.POSITIVE_INFINITY, unit: 'year' }
+];
+
+function formatRelativeTimeFa(value) {
+  if (!value) return 'لحظاتی پیش';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return 'زمان نامشخص';
+  let duration = (date.getTime() - Date.now()) / 1000;
+  for (const division of RELATIVE_DIVISIONS) {
+    if (Math.abs(duration) < division.amount) {
+      return relativeTimeFormatter.format(Math.round(duration), division.unit);
+    }
+    duration /= division.amount;
+  }
+  return 'لحظاتی پیش';
+}
+
+function parseSeriesDate(item) {
+  if (!item) return null;
+  if (item.date instanceof Date) return item.date;
+  if (item.timestamp instanceof Date) return item.timestamp;
+  const source = typeof item.date === 'string' ? item.date : typeof item.timestamp === 'string' ? item.timestamp : '';
+  if (!source) return null;
+  const iso = source.length <= 10 ? `${source}T00:00:00` : source;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function formatPersianWeekday(value) {
+  const date = parseSeriesDate({ date: value });
+  if (!date) return '—';
+  return persianWeekdayFormatter.format(date);
+}
+
+function formatPersianDateShort(value) {
+  const date = parseSeriesDate({ date: value });
+  if (!date) return '—';
+  return persianDateFormatter.format(date);
+}
+
+function setDeltaTone(element, tone) {
+  if (!element) return;
+  element.classList.remove('text-emerald-300', 'bg-emerald-500/10', 'text-rose-300', 'bg-rose-500/10', 'text-white/80', 'bg-white/10');
+  if (tone === 'positive') {
+    element.classList.add('text-emerald-300', 'bg-emerald-500/10');
+  } else if (tone === 'negative') {
+    element.classList.add('text-rose-300', 'bg-rose-500/10');
+  } else {
+    element.classList.add('text-white/80', 'bg-white/10');
+  }
+}
+
+function renderDashboardUsersCard(data, state = 'success', message = '') {
+  if (!dashboardUsersActiveEl && !dashboardUsersTotalLabelEl && !dashboardUsersDeltaEl) return;
+  if (state !== 'success' || !data) {
+    const fallback = resolveDashboardMessage(state, message, {
+      loading: 'در حال بارگذاری آمار کاربران...',
+      empty: 'آماری برای نمایش وجود ندارد'
+    });
+    if (dashboardUsersActiveEl) dashboardUsersActiveEl.textContent = state === 'loading' ? '…' : '—';
+    if (dashboardUsersTotalLabelEl) dashboardUsersTotalLabelEl.textContent = fallback;
+    if (dashboardUsersDeltaEl) {
+      setDeltaTone(dashboardUsersDeltaEl, 'neutral');
+      dashboardUsersDeltaEl.textContent = state === 'loading' ? '...' : '—';
+    }
+    return;
+  }
+
+  const active = Number.isFinite(Number(data.active)) ? Number(data.active) : 0;
+  const total = Number.isFinite(Number(data.total)) ? Number(data.total) : active;
+  const today = Number.isFinite(Number(data.today)) ? Number(data.today) : 0;
+  const yesterday = Number.isFinite(Number(data.yesterday)) ? Number(data.yesterday) : 0;
+
+  if (dashboardUsersActiveEl) dashboardUsersActiveEl.textContent = formatNumberFa(active);
+  if (dashboardUsersTotalLabelEl) dashboardUsersTotalLabelEl.textContent = `کل کاربران: ${formatNumberFa(total)}`;
+
+  if (dashboardUsersDeltaEl) {
+    const delta = today - yesterday;
+    const percent = yesterday > 0 ? (delta / yesterday) * 100 : (today > 0 ? 100 : 0);
+    const roundedPercent = Math.round(percent * 10) / 10;
+    let label = 'بدون تغییر';
+    let tone = 'neutral';
+    if (roundedPercent > 0) {
+      label = `+${formatPercentFa(Math.abs(roundedPercent))}٪ نسبت به دیروز`;
+      tone = 'positive';
+    } else if (roundedPercent < 0) {
+      label = `−${formatPercentFa(Math.abs(roundedPercent))}٪ نسبت به دیروز`;
+      tone = 'negative';
+    }
+    setDeltaTone(dashboardUsersDeltaEl, tone);
+    dashboardUsersDeltaEl.textContent = label;
+  }
+}
+
+function renderDashboardCategoriesCard(data, state = 'success', message = '') {
+  if (!dashboardCategoriesTotalEl) return;
+  if (state !== 'success' || !data) {
+    const fallback = resolveDashboardMessage(state, message, {
+      loading: 'در حال بارگذاری آمار دسته‌بندی‌ها...',
+      empty: 'داده‌ای برای نمایش وجود ندارد'
+    });
+    dashboardCategoriesTotalEl.textContent = '—';
+    if (dashboardCategoriesActiveEl) dashboardCategoriesActiveEl.textContent = fallback;
+    if (dashboardCategoriesWithQuestionsEl) dashboardCategoriesWithQuestionsEl.textContent = '';
+    if (dashboardCategoriesPendingEl) {
+      dashboardCategoriesPendingEl.textContent = '—';
+      dashboardCategoriesPendingEl.classList.add('opacity-60');
+    }
+    return;
+  }
+
+  const total = Number.isFinite(Number(data.total)) ? Number(data.total) : 0;
+  const active = Number.isFinite(Number(data.active)) ? Number(data.active) : 0;
+  const pending = Number.isFinite(Number(data.pending)) ? Number(data.pending) : 0;
+  const withQuestions = Number.isFinite(Number(data.withQuestions)) ? Number(data.withQuestions) : 0;
+
+  dashboardCategoriesTotalEl.textContent = formatNumberFa(total);
+  if (dashboardCategoriesActiveEl) {
+    dashboardCategoriesActiveEl.textContent = `فعال: ${formatNumberFa(active)}`;
+  }
+  if (dashboardCategoriesWithQuestionsEl) {
+    dashboardCategoriesWithQuestionsEl.textContent = `دارای سوال: ${formatNumberFa(withQuestions)}`;
+  }
+  if (dashboardCategoriesPendingEl) {
+    dashboardCategoriesPendingEl.textContent = `در انتظار: ${formatNumberFa(pending)}`;
+    dashboardCategoriesPendingEl.classList.toggle('opacity-60', pending === 0);
+  }
+}
+
+function renderDashboardAdsCard(data, state = 'success', message = '') {
+  if (!dashboardAdsActiveEl) return;
+  if (state !== 'success' || !data) {
+    const fallback = resolveDashboardMessage(state, message, {
+      loading: 'در حال دریافت وضعیت کمپین‌ها...',
+      empty: 'داده‌ای برای نمایش وجود ندارد'
+    });
+    dashboardAdsActiveEl.textContent = '—';
+    if (dashboardAdsTotalEl) dashboardAdsTotalEl.textContent = fallback;
+    if (dashboardAdsPausedEl) dashboardAdsPausedEl.textContent = 'متوقف شده: —';
+    if (dashboardAdsStatusEl) {
+      dashboardAdsStatusEl.textContent = '—';
+      dashboardAdsStatusEl.classList.add('opacity-60');
+    }
+    return;
+  }
+
+  const active = Number.isFinite(Number(data.active)) ? Number(data.active) : 0;
+  const total = Number.isFinite(Number(data.total)) ? Number(data.total) : active;
+  const paused = Number.isFinite(Number(data.paused)) ? Number(data.paused) : 0;
+  const draft = Number.isFinite(Number(data.draft)) ? Number(data.draft) : 0;
+  const archived = Number.isFinite(Number(data.archived)) ? Number(data.archived) : 0;
+
+  dashboardAdsActiveEl.textContent = formatNumberFa(active);
+  if (dashboardAdsTotalEl) dashboardAdsTotalEl.textContent = `کل کمپین‌ها: ${formatNumberFa(total)}`;
+  if (dashboardAdsPausedEl) dashboardAdsPausedEl.textContent = `متوقف شده: ${formatNumberFa(paused)}`;
+  if (dashboardAdsStatusEl) {
+    let badgeText = '';
+    if (draft > 0) badgeText = `پیش‌نویس: ${formatNumberFa(draft)}`;
+    else if (archived > 0) badgeText = `آرشیو: ${formatNumberFa(archived)}`;
+    else if (paused > 0) badgeText = `متوقف شده: ${formatNumberFa(paused)}`;
+    else badgeText = 'بدون مورد خاص';
+    dashboardAdsStatusEl.textContent = badgeText;
+    dashboardAdsStatusEl.classList.toggle('opacity-60', badgeText === 'بدون مورد خاص');
+  }
+}
+
+function renderDashboardUsersChart(series = [], state = 'success', message = '') {
+  if (!dashboardUsersChartEl) return;
+  dashboardUsersChartEl.innerHTML = '';
+  const fallback = resolveDashboardMessage(state, message, {
+    loading: 'در حال آماده‌سازی نمودار کاربران...',
+    empty: 'داده‌ای برای نمایش وجود ندارد'
+  });
+
+  if (!Array.isArray(series) || state !== 'success') {
+    if (dashboardUsersChartEmptyEl) {
+      dashboardUsersChartEmptyEl.textContent = fallback;
+      dashboardUsersChartEmptyEl.classList.remove('hidden');
+    }
+    if (dashboardUsersAverageEl) dashboardUsersAverageEl.textContent = 'میانگین روزانه: —';
+    return;
+  }
+
+  const counts = series.map((item) => Number(item?.count) || 0);
+  const max = Math.max(...counts, 0);
+  const fragment = document.createDocumentFragment();
+  let total = 0;
+  series.forEach((item, index) => {
+    const count = counts[index];
+    total += count;
+    const container = document.createElement('div');
+    container.className = 'flex flex-col items-center flex-1';
+
+    const bar = document.createElement('div');
+    const isPeak = max > 0 && count === max;
+    const gradient = isPeak ? 'from-amber-500 to-amber-400' : 'from-blue-500 to-blue-400';
+    bar.className = `w-full bg-gradient-to-t ${gradient} rounded-t-lg transition-all duration-300`;
+    let height = max > 0 ? (count / max) * 100 : 0;
+    if (max > 0 && height < 8 && count > 0) height = 8;
+    if (max === 0 && count === 0) height = 4;
+    bar.style.height = `${Math.max(2, Math.min(100, height))}%`;
+    const date = parseSeriesDate(item);
+    const fullLabel = item && typeof item.fullLabel === 'string' ? item.fullLabel : formatPersianDateShort(date);
+    bar.title = `${fullLabel} · ${formatNumberFa(count)} کاربر`;
+    container.appendChild(bar);
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'text-xs mt-2';
+    const weekday = item && typeof item.label === 'string' ? item.label : formatPersianWeekday(date);
+    labelEl.textContent = weekday;
+    container.appendChild(labelEl);
+
+    fragment.appendChild(container);
+  });
+
+  dashboardUsersChartEl.appendChild(fragment);
+  if (dashboardUsersChartEmptyEl) {
+    const hasPositive = counts.some((value) => value > 0);
+    dashboardUsersChartEmptyEl.textContent = hasPositive ? '' : 'داده‌ای ثبت نشده است';
+    dashboardUsersChartEmptyEl.classList.toggle('hidden', hasPositive);
+  }
+  if (dashboardUsersAverageEl) {
+    const average = series.length ? total / series.length : 0;
+    dashboardUsersAverageEl.textContent = `میانگین روزانه: ${formatNumberFa(Math.round(average))}`;
+  }
+}
+
+function renderDashboardTopCategories(list = [], { state = 'success', message = '', totalQuestions = 0 } = {}) {
+  if (!dashboardTopCategoriesEl) return;
+  dashboardTopCategoriesEl.innerHTML = '';
+  if (dashboardTopCategoriesTotalEl) {
+    dashboardTopCategoriesTotalEl.textContent = totalQuestions > 0
+      ? `مجموع سوالات: ${formatNumberFa(totalQuestions)}`
+      : 'مجموع سوالات: —';
+  }
+
+  if (!Array.isArray(list) || state !== 'success' || list.length === 0) {
+    if (dashboardTopCategoriesEmptyEl) {
+      dashboardTopCategoriesEmptyEl.textContent = resolveDashboardMessage(state, message, {
+        loading: 'در حال دریافت محبوب‌ترین دسته‌ها...',
+        empty: 'داده‌ای برای نمایش وجود ندارد'
+      });
+      dashboardTopCategoriesEmptyEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (dashboardTopCategoriesEmptyEl) {
+    dashboardTopCategoriesEmptyEl.classList.add('hidden');
+  }
+
+  const fallbackBase = list.reduce((sum, item) => sum + (Number(item?.questionCount) || 0), 0);
+  const divisor = totalQuestions > 0 ? totalQuestions : (fallbackBase > 0 ? fallbackBase : 1);
+
+  const fragment = document.createDocumentFragment();
+  list.forEach((item) => {
+    const name = escapeHtml(item?.name || 'نامشخص');
+    const count = Number.isFinite(Number(item?.questionCount)) ? Number(item.questionCount) : 0;
+    const percentValue = Math.min(100, Math.max(0, (count / divisor) * 100));
+    const percentLabel = `${formatPercentFa(Math.round(percentValue * 10) / 10)}٪`;
+    const gradient = CATEGORY_COLOR_GRADIENTS[item?.color] || 'from-slate-500 to-slate-400';
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div class="flex justify-between mb-1">
+        <span>${name}</span>
+        <span>${percentLabel}</span>
+      </div>
+      <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
+        <div class="h-3 bg-gradient-to-r ${gradient} rounded-full" style="width: ${percentValue.toFixed(1)}%"></div>
+      </div>
+    `;
+    const bar = wrapper.querySelector('.bg-gradient-to-r');
+    if (bar) bar.setAttribute('title', `${formatNumberFa(count)} سوال`);
+    fragment.appendChild(wrapper);
+  });
+
+  dashboardTopCategoriesEl.appendChild(fragment);
+}
+
+function renderDashboardActivity(list = [], state = 'success', message = '') {
+  if (!dashboardActivityListEl) return;
+  dashboardActivityListEl.innerHTML = '';
+  if (!Array.isArray(list) || state !== 'success' || list.length === 0) {
+    if (dashboardActivityEmptyEl) {
+      dashboardActivityEmptyEl.textContent = resolveDashboardMessage(state, message, {
+        loading: 'در حال گردآوری فعالیت‌ها...',
+        empty: 'فعالی برای نمایش وجود ندارد'
+      });
+      dashboardActivityEmptyEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (dashboardActivityEmptyEl) {
+    dashboardActivityEmptyEl.classList.add('hidden');
+  }
+
+  const fragment = document.createDocumentFragment();
+  list.forEach((item) => {
+    const icon = typeof item?.icon === 'string' ? item.icon : 'fa-circle-info';
+    const title = escapeHtml(item?.title || 'رویداد');
+    const description = item?.description ? escapeHtml(item.description) : '';
+    const accentKey = typeof item?.accent === 'string' ? item.accent : 'slate';
+    const accent = ACTIVITY_ACCENTS[accentKey] || ACTIVITY_ACCENTS.slate;
+    const timeLabel = formatRelativeTimeFa(item?.createdAt);
+
+    const container = document.createElement('div');
+    container.className = 'flex items-center gap-3 p-3 rounded-xl bg-white/5';
+    container.innerHTML = `
+      <div class="w-10 h-10 rounded-full ${accent.iconBg} flex items-center justify-center flex-shrink-0">
+        <i class="fa-solid ${icon} ${accent.iconColor}"></i>
+      </div>
+      <div class="flex-1">
+        <div class="font-bold">${title}</div>
+        ${description ? `<div class="text-sm opacity-80">${description}</div>` : ''}
+      </div>
+      <div class="text-xs opacity-60">${escapeHtml(timeLabel)}</div>
+    `;
+    fragment.appendChild(container);
+  });
+
+  dashboardActivityListEl.appendChild(fragment);
+}
+
+function renderDashboardOverview(data, options = {}) {
+  const { state = data ? 'success' : 'auth', message = '' } = options;
+  if (state !== 'success' || !data) {
+    const fallbackState = state === 'success' ? 'auth' : state;
+    renderDashboardUsersCard(null, fallbackState, message);
+    renderDashboardCategoriesCard(null, fallbackState, message);
+    renderDashboardAdsCard(null, fallbackState, message);
+    renderDashboardUsersChart([], fallbackState, message);
+    renderDashboardTopCategories([], { state: fallbackState, message, totalQuestions: 0 });
+    renderDashboardActivity([], fallbackState, message);
+    return;
+  }
+
+  const users = data.users || {};
+  const categories = data.categories || {};
+  const ads = data.ads || {};
+  const topCategories = Array.isArray(data.topCategories) ? data.topCategories : [];
+  const activity = Array.isArray(data.activity) ? data.activity : [];
+
+  renderDashboardUsersCard(users, 'success');
+  renderDashboardCategoriesCard(categories, 'success');
+  renderDashboardAdsCard(ads, 'success');
+  renderDashboardUsersChart(Array.isArray(users.daily) ? users.daily : [], 'success');
+  renderDashboardTopCategories(topCategories, { state: 'success', totalQuestions: Number(data?.questions?.total) || 0 });
+  renderDashboardActivity(activity, 'success');
+}
 
 function normalizeQuestion(raw = {}) {
   const sourceOptions = Array.isArray(raw.options)
@@ -2722,7 +3146,8 @@ if (updateQuestionBtn) {
       closeModal('#question-detail-modal');
       await Promise.allSettled([
         loadQuestions(),
-        loadDashboardStats(true)
+        loadDashboardStats(true),
+        loadDashboardOverview(true)
       ]);
     } catch (err) {
       showToast(err.message, 'error');
@@ -2796,6 +3221,55 @@ async function loadCategoryFilterOptions(triggerReloadOnMissing = false) {
   if (shouldReload) {
     await loadQuestions();
   }
+}
+
+async function loadDashboardOverview(force = false) {
+  if (!dashboardUsersActiveEl && !dashboardUsersChartEl && !dashboardTopCategoriesEl && !dashboardActivityListEl) {
+    return null;
+  }
+  if (!getToken()) {
+    dashboardOverviewState.loading = false;
+    dashboardOverviewState.loaded = false;
+    dashboardOverviewState.data = null;
+    renderDashboardOverview(null, { state: 'auth' });
+    return null;
+  }
+
+  if (dashboardOverviewState.promise && !force) {
+    return dashboardOverviewState.promise;
+  }
+
+  if (dashboardOverviewState.loaded && !force) {
+    renderDashboardOverview(dashboardOverviewState.data, { state: 'success' });
+    return dashboardOverviewState.data;
+  }
+
+  renderDashboardOverview(null, { state: 'loading' });
+
+  const fetchPromise = (async () => {
+    try {
+      dashboardOverviewState.loading = true;
+      const response = await api('/analytics/dashboard');
+      const data = response?.data || null;
+      dashboardOverviewState.data = data;
+      dashboardOverviewState.loaded = true;
+      renderDashboardOverview(data, { state: 'success' });
+      return data;
+    } catch (error) {
+      console.error('Failed to load dashboard overview', error);
+      dashboardOverviewState.loaded = false;
+      dashboardOverviewState.data = null;
+      renderDashboardOverview(null, { state: 'error', message: error.message || 'دریافت آمار داشبورد ناموفق بود' });
+      if (force) showToast('امکان دریافت آمار داشبورد نبود', 'error');
+      return null;
+    } finally {
+      dashboardOverviewState.loading = false;
+      dashboardOverviewState.promise = null;
+    }
+  })();
+
+  dashboardOverviewState.promise = fetchPromise;
+  return fetchPromise;
 }
 
 async function loadDashboardStats(force = false) {
@@ -3417,7 +3891,8 @@ function setupUserManagement() {
       try {
         await api(`/users/${id}`, { method: 'DELETE' });
         showToast('کاربر حذف شد', 'success');
-        loadUsers();
+        await loadUsers();
+        await loadDashboardOverview(true);
       } catch (error) {
         showToast(error.message || 'حذف کاربر ناموفق بود', 'error');
       }
@@ -3581,7 +4056,8 @@ if (saveQuestionBtn) {
       closeModal('#add-question-modal');
       await Promise.allSettled([
         loadQuestions(),
-        loadDashboardStats(true)
+        loadDashboardStats(true),
+        loadDashboardOverview(true)
       ]);
     } catch (e) {
       showToast(e.message, 'error');
@@ -3676,6 +4152,7 @@ if (saveCategoryBtn) {
       }
       closeModal('#add-category-modal');
       await loadCategoryFilterOptions(true);
+      await loadDashboardOverview(true);
     } catch (e) {
       showToast(e.message, 'error');
     } finally {
@@ -3711,7 +4188,8 @@ $('#save-user-btn').addEventListener('click', async () => {
     if (addUserPasswordInput) addUserPasswordInput.value = '';
     if (addUserRoleSelect) addUserRoleSelect.value = 'user';
     if (addUserProvinceSelect) addUserProvinceSelect.value = '';
-    loadUsers();
+    await loadUsers();
+    await loadDashboardOverview(true);
   } catch (e) {
     showToast(e.message, 'error');
   }
@@ -4103,6 +4581,7 @@ function setupShopControls() {
 // --------------- INIT ---------------
 async function loadAllData() {
   await Promise.all([
+    loadDashboardOverview(),
     loadDashboardStats(),
     loadCategoryFilterOptions(),
     loadQuestions(),
@@ -4110,16 +4589,6 @@ async function loadAllData() {
     loadAds()
   ]);
 }
-
-// شبیه‌سازی کارت‌های داشبورد قبلی (آپدیت زمان‌دار)
-setInterval(() => {
-  const activeUsers = Math.floor(Math.random() * 100) + 2400;
-  const gamesToday = Math.floor(Math.random() * 500) + 5200;
-  const activeUsersEl = document.querySelector('#page-dashboard .stat-card:nth-child(1) .text-2xl');
-  const gamesTodayEl = document.querySelector('#page-dashboard .stat-card:nth-child(3) .text-2xl');
-  if (activeUsersEl) activeUsersEl.textContent = activeUsers.toLocaleString('fa-IR');
-  if (gamesTodayEl)  gamesTodayEl.textContent  = gamesToday.toLocaleString('fa-IR');
-}, 5000);
 
 function handleResize() { if (window.innerWidth >= 768) $('#mobile-menu').classList.add('translate-x-full'); }
 window.addEventListener('resize', handleResize);

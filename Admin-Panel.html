@@ -1839,7 +1839,7 @@
           <h1 class="text-2xl font-bold">داشبورد</h1>
           <div class="text-sm text-white/80">
             <i class="fa-solid fa-calendar-alt ml-1"></i>
-            <span id="current-date">۱۴۰۲/۰۳/۱۵</span>
+            <span id="current-date">—</span>
           </div>
         </div>
 
@@ -1850,10 +1850,11 @@
               <div class="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <i class="fa-solid fa-users text-blue-400 text-xl"></i>
               </div>
-              <span class="text-xs text-green-400 font-bold">+۱۲٪</span>
+              <span id="dashboard-users-delta" class="text-xs font-bold text-white/80 bg-white/10 rounded-xl px-2 py-1">—</span>
             </div>
-            <div class="text-2xl font-bold mb-1">۲,۴۵۶</div>
+            <div id="dashboard-users-active" class="text-2xl font-bold mb-1">—</div>
             <div class="text-sm opacity-80">کاربران فعال</div>
+            <div id="dashboard-users-total" class="text-xs text-white/60 mt-2">برای مشاهده آمار وارد شوید</div>
           </div>
           
           <div class="glass rounded-2xl p-5 stat-card cursor-pointer transition-transform duration-300" data-dashboard-card="questions" role="button" tabindex="0">
@@ -1890,111 +1891,52 @@
           <div class="glass rounded-2xl p-5 stat-card">
             <div class="flex items-center justify-between mb-3">
               <div class="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <i class="fa-solid fa-gamepad text-purple-400 text-xl"></i>
+                <i class="fa-solid fa-layer-group text-purple-400 text-xl"></i>
               </div>
-              <span class="text-xs text-green-400 font-bold">+۲۴٪</span>
+              <span id="dashboard-categories-pending" class="text-xs font-bold text-white/80 bg-white/10 rounded-xl px-2 py-1">—</span>
             </div>
-            <div class="text-2xl font-bold mb-1">۵,۶۷۸</div>
-            <div class="text-sm opacity-80">بازی‌های امروز</div>
+            <div id="dashboard-categories-total" class="text-2xl font-bold mb-1">—</div>
+            <div class="text-sm opacity-80">دسته‌بندی‌ها</div>
+            <div class="text-xs text-white/60 mt-2 space-y-1">
+              <div id="dashboard-categories-active">فعال: —</div>
+              <div id="dashboard-categories-with-questions" class="opacity-80">دارای سوال: —</div>
+            </div>
           </div>
-          
+
           <div class="glass rounded-2xl p-5 stat-card">
             <div class="flex items-center justify-between mb-3">
-              <div class="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                <i class="fa-solid fa-coins text-yellow-400 text-xl"></i>
+              <div class="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <i class="fa-solid fa-bullhorn text-amber-400 text-xl"></i>
               </div>
-              <span class="text-xs text-red-400 font-bold">-۳٪</span>
+              <span id="dashboard-ads-status" class="text-xs font-bold text-white/80 bg-white/10 rounded-xl px-2 py-1">—</span>
             </div>
-            <div class="text-2xl font-bold mb-1">۱۲,۳۴۵</div>
-            <div class="text-sm opacity-80">سکه‌های کسب شده</div>
+            <div id="dashboard-ads-active" class="text-2xl font-bold mb-1">—</div>
+            <div class="text-sm opacity-80">کمپین‌های فعال</div>
+            <div class="text-xs text-white/60 mt-2 space-y-1">
+              <div id="dashboard-ads-total">کل کمپین‌ها: —</div>
+              <div id="dashboard-ads-paused" class="opacity-80">متوقف شده: —</div>
+            </div>
           </div>
         </div>
 
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="glass rounded-2xl p-6">
-            <h2 class="text-lg font-bold mb-4">کاربران فعال در ۷ روز گذشته</h2>
-            <div class="h-64 flex items-end justify-between gap-2">
-              <div class="flex flex-col items-center flex-1">
-                <div class="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg" style="height: 70%"></div>
-                <div class="text-xs mt-2">شنبه</div>
-              </div>
-              <div class="flex flex-col items-center flex-1">
-                <div class="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg" style="height: 85%"></div>
-                <div class="text-xs mt-2">یکشنبه</div>
-              </div>
-              <div class="flex flex-col items-center flex-1">
-                <div class="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg" style="height: 60%"></div>
-                <div class="text-xs mt-2">دوشنبه</div>
-              </div>
-              <div class="flex flex-col items-center flex-1">
-                <div class="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg" style="height: 90%"></div>
-                <div class="text-xs mt-2">سه‌شنبه</div>
-              </div>
-              <div class="flex flex-col items-center flex-1">
-                <div class="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg" style="height: 75%"></div>
-                <div class="text-xs mt-2">چهارشنبه</div>
-              </div>
-              <div class="flex flex-col items-center flex-1">
-                <div class="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg" style="height: 95%"></div>
-                <div class="text-xs mt-2">پنجشنبه</div>
-              </div>
-              <div class="flex flex-col items-center flex-1">
-                <div class="w-full bg-gradient-to-t from-yellow-500 to-yellow-400 rounded-t-lg" style="height: 100%"></div>
-                <div class="text-xs mt-2">جمعه</div>
-              </div>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-bold">روند ثبت‌نام کاربران (۷ روز اخیر)</h2>
+              <span id="dashboard-users-average" class="text-sm text-white/60">میانگین روزانه: —</span>
             </div>
+            <div id="dashboard-users-chart" class="h-64 flex items-end justify-between gap-2"></div>
+            <p id="dashboard-users-chart-empty" class="text-sm text-white/60 mt-4">برای مشاهده آمار وارد شوید</p>
           </div>
-          
+
           <div class="glass rounded-2xl p-6">
-            <h2 class="text-lg font-bold mb-4">محبوب‌ترین دسته‌بندی‌ها</h2>
-            <div class="space-y-4">
-              <div>
-                <div class="flex justify-between mb-1">
-                  <span>علم</span>
-                  <span>۳۵٪</span>
-                </div>
-                <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                  <div class="h-3 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" style="width: 35%"></div>
-                </div>
-              </div>
-              <div>
-                <div class="flex justify-between mb-1">
-                  <span>تاریخ</span>
-                  <span>۲۵٪</span>
-                </div>
-                <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                  <div class="h-3 bg-gradient-to-r from-green-500 to-green-400 rounded-full" style="width: 25%"></div>
-                </div>
-              </div>
-              <div>
-                <div class="flex justify-between mb-1">
-                  <span>ورزش</span>
-                  <span>۲۰٪</span>
-                </div>
-                <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                  <div class="h-3 bg-gradient-to-r from-purple-500 to-purple-400 rounded-full" style="width: 20%"></div>
-                </div>
-              </div>
-              <div>
-                <div class="flex justify-between mb-1">
-                  <span>جغرافیا</span>
-                  <span>۱۵٪</span>
-                </div>
-                <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                  <div class="h-3 bg-gradient-to-r from-yellow-500 to-yellow-400 rounded-full" style="width: 15%"></div>
-                </div>
-              </div>
-              <div>
-                <div class="flex justify-between mb-1">
-                  <span>سرگرمی</span>
-                  <span>۵٪</span>
-                </div>
-                <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-                  <div class="h-3 bg-gradient-to-r from-pink-500 to-pink-400 rounded-full" style="width: 5%"></div>
-                </div>
-              </div>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-bold">محبوب‌ترین دسته‌بندی‌ها</h2>
+              <span id="dashboard-top-categories-total" class="text-sm text-white/60">مجموع سوالات: —</span>
             </div>
+            <div id="dashboard-top-categories" class="space-y-4"></div>
+            <p id="dashboard-top-categories-empty" class="text-sm text-white/60">برای نمایش دسته‌بندی‌های برتر ابتدا وارد شوید</p>
           </div>
         </div>
 
@@ -2004,38 +1946,9 @@
             <h2 class="text-lg font-bold">فعالیت‌های اخیر</h2>
             <button class="text-sm text-white/80 hover:text-white transition-colors">مشاهده همه</button>
           </div>
-          <div class="space-y-4">
-            <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-              <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-user-plus text-green-400"></i>
-              </div>
-              <div class="flex-1">
-                <div class="font-bold">کاربر جدید ثبت‌نام کرد</div>
-                <div class="text-sm opacity-80">کاربر "زکی" به سیستم اضافه شد</div>
-              </div>
-              <div class="text-xs opacity-60">۱۰ دقیقه پیش</div>
-            </div>
-            <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-              <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-question-circle text-blue-400"></i>
-              </div>
-              <div class="flex-1">
-                <div class="font-bold">سوال جدید اضافه شد</div>
-                <div class="text-sm opacity-80">سوال جدید در دسته‌بندی "علم" اضافه شد</div>
-              </div>
-              <div class="text-xs opacity-60">۲ ساعت پیش</div>
-            </div>
-            <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-              <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-trophy text-purple-400"></i>
-              </div>
-              <div class="flex-1">
-                <div class="font-bold">مسابقه جدید ایجاد شد</div>
-                <div class="text-sm opacity-80">مسابقه هفتگی جدید برای کاربران VIP ایجاد شد</div>
-              </div>
-              <div class="text-xs opacity-60">۵ ساعت پیش</div>
-            </div>
-          </div>
+          <div id="dashboard-activity-list" class="space-y-4"></div>
+          <p id="dashboard-activity-empty" class="text-sm text-white/60">برای مشاهده فعالیت‌های اخیر ابتدا وارد شوید</p>
+        </div>
       </section>
 
       <!-- QUESTIONS MANAGEMENT -->
