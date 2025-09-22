@@ -82,6 +82,29 @@ const DEFAULT_GROUP_RECORDS = {
   g5: { wins: 55, losses: 16 },
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DUEL_INVITE_TIMEOUT_MS = DAY_MS;
+
+const DEFAULT_DUEL_INVITES = (() => {
+  const base = Date.now();
+  const buildInvite = (id, opponent, avatar, hoursAgo = 2) => {
+    const requestedAt = base - Math.max(0, hoursAgo) * 60 * 60 * 1000;
+    return {
+      id,
+      opponent,
+      avatar,
+      requestedAt,
+      deadline: requestedAt + DUEL_INVITE_TIMEOUT_MS,
+      message: 'در انتظار پاسخ',
+      source: 'friend',
+    };
+  };
+
+  return [
+    buildInvite('invite-ali-rezaei', 'علی رضایی', 'https://i.pravatar.cc/100?img=3', 2),
+  ];
+})();
+
 function cloneDefaultRoster(groupId){
   return (DEFAULT_GROUP_ROSTERS[groupId] || []).map(player => ({ ...player }));
 }
@@ -183,6 +206,7 @@ const State = {
   duelWins:0,
   duelLosses:0,
   pendingDuels:[],
+  duelInvites: DEFAULT_DUEL_INVITES.map(invite => ({ ...invite })),
   duelHistory:[],
   achievements:{ firstWin:false, tenCorrect:false, streak3:false, vipBought:false },
   settings:{ sound:true, haptics:true, blockDuels:false },
@@ -300,5 +324,6 @@ export {
   isUserInGroup,
   stringToSeed,
   buildRosterEntry,
-  seededFloat
+  seededFloat,
+  DUEL_INVITE_TIMEOUT_MS
 };
