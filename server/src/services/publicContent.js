@@ -7,38 +7,59 @@ const DEFAULT_DIFFICULTIES = [
 const FALLBACK_CATEGORY_DATA = [
   {
     id: 'general',
-    title: 'دانش عمومی',
-    description: 'پرسش‌های متنوع از موضوعات روزمره و دانستنی‌های عمومی.',
-    icon: 'fa-globe',
+    title: 'عمومی',
+    description: 'پرسش‌های متنوع از دانستنی‌های روزمره و موضوعات عمومی.',
+    icon: 'fa-earth-asia',
     color: '#60a5fa'
   },
   {
-    id: 'science',
-    title: 'علم و فناوری',
-    description: 'سوال‌هایی از دنیای علوم پایه، فناوری و اکتشافات نو.',
-    icon: 'fa-flask',
-    color: '#34d399'
-  },
-  {
-    id: 'history',
+    id: 'history-civilization',
     title: 'تاریخ و تمدن',
-    description: 'سفر در تاریخ ایران و جهان و رخدادهای ماندگار.',
-    icon: 'fa-landmark',
+    description: 'رویدادها، شخصیت‌ها و میراث فرهنگی ایران و جهان.',
+    icon: 'fa-landmark-dome',
     color: '#f97316'
   },
   {
+    id: 'geography-nature',
+    title: 'جغرافیا و طبیعت',
+    description: 'اقلیم‌ها، سرزمین‌ها و شگفتی‌های طبیعی دنیا.',
+    icon: 'fa-mountain-sun',
+    color: '#14b8a6'
+  },
+  {
+    id: 'science-technology',
+    title: 'علوم و فناوری',
+    description: 'دانسته‌های علمی، کشفیات تازه و نوآوری‌های فناوری.',
+    icon: 'fa-atom',
+    color: '#6366f1'
+  },
+  {
+    id: 'literature-language',
+    title: 'ادبیات و زبان',
+    description: 'شاهکارهای ادبی، زبان‌ها و ظرافت‌های واژگانی.',
+    icon: 'fa-feather-pointed',
+    color: '#a855f7'
+  },
+  {
+    id: 'movies-series',
+    title: 'فیلم و سریال',
+    description: 'دنیای سینما، تلویزیون و شخصیت‌های ماندگار داستانی.',
+    icon: 'fa-clapperboard',
+    color: '#facc15'
+  },
+  {
     id: 'sports',
-    title: 'ورزش و رقابت',
-    description: 'اطلاعات ورزشی از تیم‌ها، مسابقات و رکوردها.',
+    title: 'ورزش',
+    description: 'مسابقات، رکوردها و قهرمانان محبوب ورزشی.',
     icon: 'fa-medal',
     color: '#f87171'
   },
   {
-    id: 'literature',
-    title: 'فرهنگ و ادبیات',
-    description: 'سوال‌هایی از شعر، هنر و میراث فرهنگی.',
-    icon: 'fa-book-open',
-    color: '#a855f7'
+    id: 'entertainment',
+    title: 'سرگرمی',
+    description: 'بازی‌ها، پازل‌ها و فعالیت‌های سرگرم‌کننده برای اوقات فراغت.',
+    icon: 'fa-gamepad',
+    color: '#f472b6'
   }
 ];
 
@@ -118,84 +139,209 @@ const FALLBACK_QUESTION_DATA = [
     difficulty: 'medium'
   },
   {
-    id: 'science-1',
-    categoryId: 'science',
-    text: 'کدام عنصر شیمیایی با نماد O شناخته می‌شود؟',
-    options: ['اکسیژن', 'اوزون', 'اوسمیوم', 'اکتینیوم'],
-    correctIndex: 0,
-    difficulty: 'easy'
-  },
-  {
-    id: 'science-2',
-    categoryId: 'science',
-    text: 'نخستین موجودی که به فضا فرستاده شد چه بود؟',
-    options: ['گربه', 'انسان', 'سگ', 'میمون'],
-    correctIndex: 2,
-    difficulty: 'medium'
-  },
-  {
-    id: 'science-3',
-    categoryId: 'science',
-    text: 'سرعت نور تقریبا برابر با چند کیلومتر در ثانیه است؟',
-    options: ['۳۰۰', '۳۰۰۰', '۳۰۰۰۰', '۳۰۰۰۰۰'],
-    correctIndex: 3,
-    difficulty: 'hard'
-  },
-  {
-    id: 'science-4',
-    categoryId: 'science',
-    text: 'کدام سیاره به عنوان سیاره سرخ شناخته می‌شود؟',
-    options: ['زهره', 'مریخ', 'زحل', 'عطارد'],
-    correctIndex: 1,
-    difficulty: 'easy'
-  },
-  {
-    id: 'science-5',
-    categoryId: 'science',
-    text: 'واحد اندازه‌گیری شدت جریان الکتریکی چیست؟',
-    options: ['ولت', 'وات', 'آمپر', 'اهم'],
-    correctIndex: 2,
-    difficulty: 'medium'
-  },
-  {
-    id: 'history-1',
-    categoryId: 'history',
+    id: 'history-civilization-1',
+    categoryId: 'history-civilization',
     text: 'سلسله هخامنشیان توسط چه کسی بنیان‌گذاری شد؟',
     options: ['داریوش اول', 'کوروش بزرگ', 'خشایارشاه', 'کمبوجیه'],
     correctIndex: 1,
     difficulty: 'medium'
   },
   {
-    id: 'history-2',
-    categoryId: 'history',
+    id: 'history-civilization-2',
+    categoryId: 'history-civilization',
     text: 'نام قدیمی شهر شیراز در دوران ساسانی چه بود؟',
     options: ['اردشیرخوره', 'گور', 'گندی‌شاپور', 'استخر'],
     correctIndex: 0,
     difficulty: 'hard'
   },
   {
-    id: 'history-3',
-    categoryId: 'history',
+    id: 'history-civilization-3',
+    categoryId: 'history-civilization',
     text: 'انقلاب مشروطه ایران در چه سالی آغاز شد؟',
     options: ['۱۲۸۵ خورشیدی', '۱۲۹۹ خورشیدی', '۱۳۱۲ خورشیدی', '۱۳۲۰ خورشیدی'],
     correctIndex: 0,
     difficulty: 'medium'
   },
   {
-    id: 'history-4',
-    categoryId: 'history',
+    id: 'history-civilization-4',
+    categoryId: 'history-civilization',
     text: 'نخستین پادشاه سلسله صفوی چه نام داشت؟',
     options: ['شاه طهماسب', 'شاه اسماعیل', 'شاه عباس', 'شاه صفی'],
     correctIndex: 1,
     difficulty: 'medium'
   },
   {
-    id: 'history-5',
-    categoryId: 'history',
+    id: 'history-civilization-5',
+    categoryId: 'history-civilization',
     text: 'کدام نبرد باعث سقوط دولت ساسانی شد؟',
     options: ['جنگ نهاوند', 'جنگ قادسیه', 'جنگ چالدران', 'جنگ صفین'],
     correctIndex: 0,
     difficulty: 'hard'
+  },
+  {
+    id: 'geography-nature-1',
+    categoryId: 'geography-nature',
+    text: 'کدام رود به عنوان طولانی‌ترین رود ایران شناخته می‌شود؟',
+    options: ['کارون', 'زاینده‌رود', 'سفیدرود', 'اروند رود'],
+    correctIndex: 0,
+    difficulty: 'medium'
+  },
+  {
+    id: 'geography-nature-2',
+    categoryId: 'geography-nature',
+    text: 'قله دماوند در کدام رشته‌کوه قرار دارد؟',
+    options: ['البرز', 'زاگرس', 'هیمالیا', 'پامیر'],
+    correctIndex: 0,
+    difficulty: 'easy'
+  },
+  {
+    id: 'geography-nature-3',
+    categoryId: 'geography-nature',
+    text: 'دریاچه ارومیه در کدام استان‌های ایران واقع شده است؟',
+    options: ['آذربایجان شرقی و غربی', 'گیلان و مازندران', 'فارس و بوشهر', 'خراسان رضوی و شمالی'],
+    correctIndex: 0,
+    difficulty: 'medium'
+  },
+  {
+    id: 'geography-nature-4',
+    categoryId: 'geography-nature',
+    text: 'بزرگ‌ترین بیابان گرم جهان کدام است؟',
+    options: ['بیابان لوت', 'صحرای بزرگ آفریقا', 'بیابان گوبی', 'صحرای عربستان'],
+    correctIndex: 1,
+    difficulty: 'medium'
+  },
+  {
+    id: 'geography-nature-5',
+    categoryId: 'geography-nature',
+    text: 'کدام کشور دارای بیشترین تعداد آتشفشان فعال در جهان است؟',
+    options: ['اندونزی', 'ایسلند', 'ژاپن', 'ایتالیا'],
+    correctIndex: 0,
+    difficulty: 'hard'
+  },
+  {
+    id: 'science-technology-1',
+    categoryId: 'science-technology',
+    text: 'کدام عنصر شیمیایی با نماد O شناخته می‌شود؟',
+    options: ['اکسیژن', 'اوزون', 'اوسمیوم', 'اکتینیوم'],
+    correctIndex: 0,
+    difficulty: 'easy'
+  },
+  {
+    id: 'science-technology-2',
+    categoryId: 'science-technology',
+    text: 'نخستین موجودی که به فضا فرستاده شد چه بود؟',
+    options: ['گربه', 'انسان', 'سگ', 'میمون'],
+    correctIndex: 2,
+    difficulty: 'medium'
+  },
+  {
+    id: 'science-technology-3',
+    categoryId: 'science-technology',
+    text: 'سرعت نور تقریبا برابر با چند کیلومتر در ثانیه است؟',
+    options: ['۳۰۰', '۳۰۰۰', '۳۰۰۰۰', '۳۰۰۰۰۰'],
+    correctIndex: 3,
+    difficulty: 'hard'
+  },
+  {
+    id: 'science-technology-4',
+    categoryId: 'science-technology',
+    text: 'کدام سیاره به عنوان سیاره سرخ شناخته می‌شود؟',
+    options: ['زهره', 'مریخ', 'زحل', 'عطارد'],
+    correctIndex: 1,
+    difficulty: 'easy'
+  },
+  {
+    id: 'science-technology-5',
+    categoryId: 'science-technology',
+    text: 'واحد اندازه‌گیری شدت جریان الکتریکی چیست؟',
+    options: ['ولت', 'وات', 'آمپر', 'اهم'],
+    correctIndex: 2,
+    difficulty: 'medium'
+  },
+  {
+    id: 'literature-language-1',
+    categoryId: 'literature-language',
+    text: 'سراینده مثنوی معنوی کیست؟',
+    options: ['حافظ', 'سعدی', 'مولوی', 'نظامی'],
+    correctIndex: 2,
+    difficulty: 'easy'
+  },
+  {
+    id: 'literature-language-2',
+    categoryId: 'literature-language',
+    text: 'شاهنامه فردوسی با چه بیتی آغاز می‌شود؟',
+    options: [
+      'به نام خداوند جان و خرد',
+      'الا یا ایهاالساقی ادر کاسا و ناولها',
+      'بشنو از نی چون حکایت می‌کند',
+      'به یاد یار و دیار آنچنان که بودیم'
+    ],
+    correctIndex: 0,
+    difficulty: 'easy'
+  },
+  {
+    id: 'literature-language-3',
+    categoryId: 'literature-language',
+    text: 'اصطلاح «سبک هندی» به کدام دوره شعر فارسی اشاره دارد؟',
+    options: ['قرن چهارم', 'قرن ششم', 'قرن یازدهم', 'قرن دوازدهم'],
+    correctIndex: 2,
+    difficulty: 'medium'
+  },
+  {
+    id: 'literature-language-4',
+    categoryId: 'literature-language',
+    text: 'کتاب «بوف کور» اثر کیست؟',
+    options: ['صادق هدایت', 'جلال آل احمد', 'سیمین دانشور', 'محمود دولت‌آبادی'],
+    correctIndex: 0,
+    difficulty: 'medium'
+  },
+  {
+    id: 'literature-language-5',
+    categoryId: 'literature-language',
+    text: 'کدام قالب شعری دارای چهار مصراع است؟',
+    options: ['غزل', 'قصیده', 'رباعی', 'مثنوی'],
+    correctIndex: 2,
+    difficulty: 'easy'
+  },
+  {
+    id: 'movies-series-1',
+    categoryId: 'movies-series',
+    text: 'فیلم «جدایی نادر از سیمین» ساخته کدام کارگردان است؟',
+    options: ['مجید مجیدی', 'اصغر فرهادی', 'رضا میرکریمی', 'بهرام بیضایی'],
+    correctIndex: 1,
+    difficulty: 'medium'
+  },
+  {
+    id: 'movies-series-2',
+    categoryId: 'movies-series',
+    text: 'شخصیت «نقی معمولی» متعلق به کدام سریال ایرانی است؟',
+    options: ['شب‌های برره', 'پایتخت', 'متهم گریخت', 'ساخت ایران'],
+    correctIndex: 1,
+    difficulty: 'easy'
+  },
+  {
+    id: 'movies-series-3',
+    categoryId: 'movies-series',
+    text: 'اسکار بهترین فیلم خارجی‌زبان سال ۲۰۱۷ به کدام فیلم ایرانی رسید؟',
+    options: ['درباره الی', 'فروشنده', 'ابد و یک روز', 'رگ خواب'],
+    correctIndex: 1,
+    difficulty: 'medium'
+  },
+  {
+    id: 'movies-series-4',
+    categoryId: 'movies-series',
+    text: 'در مجموعه فیلم‌های «هری پاتر»، نام مدرسه جادوگری چیست؟',
+    options: ['هاگوارتز', 'بئوکس‌باتون', 'درامسترنگ', 'ایلوِرمورنی'],
+    correctIndex: 0,
+    difficulty: 'easy'
+  },
+  {
+    id: 'movies-series-5',
+    categoryId: 'movies-series',
+    text: 'فیلم «پدرخوانده» در چه ژانری قرار می‌گیرد؟',
+    options: ['فانتزی', 'جنایی', 'علمی-تخیلی', 'وسترن'],
+    correctIndex: 1,
+    difficulty: 'medium'
   },
   {
     id: 'sports-1',
@@ -217,7 +363,7 @@ const FALLBACK_QUESTION_DATA = [
     id: 'sports-3',
     categoryId: 'sports',
     text: 'در کدام رشته ورزشی «یخ‌نوردی» انجام می‌شود؟',
-    options: ['سنگ‌نوردی', 'کوهنوردی', 'اسکی', 'هوازی'],
+    options: ['سنگ‌نوردی', 'کوهنوردی', 'اسکی', 'ورزش‌های هوازی'],
     correctIndex: 1,
     difficulty: 'hard'
   },
@@ -238,49 +384,49 @@ const FALLBACK_QUESTION_DATA = [
     difficulty: 'easy'
   },
   {
-    id: 'literature-1',
-    categoryId: 'literature',
-    text: 'سراینده مثنوی معنوی کیست؟',
-    options: ['حافظ', 'سعدی', 'مولوی', 'نظامی'],
-    correctIndex: 2,
+    id: 'entertainment-1',
+    categoryId: 'entertainment',
+    text: 'در بازی شطرنج، هر بازیکن با چند مهره بازی را آغاز می‌کند؟',
+    options: ['۱۴', '۱۶', '۱۸', '۲۰'],
+    correctIndex: 1,
     difficulty: 'easy'
   },
   {
-    id: 'literature-2',
-    categoryId: 'literature',
-    text: 'شاهنامه فردوسی با چه بیتی آغاز می‌شود؟',
+    id: 'entertainment-2',
+    categoryId: 'entertainment',
+    text: 'کدام بازی ویدیویی شخصیت «ماریو» را به شهرت جهانی رساند؟',
+    options: ['سونیک', 'سوپر ماریو برادرز', 'پک‌من', 'افسانه زلدا'],
+    correctIndex: 1,
+    difficulty: 'easy'
+  },
+  {
+    id: 'entertainment-3',
+    categoryId: 'entertainment',
+    text: 'در جدول سودوکو استاندارد، چند خانه باید با اعداد پر شوند؟',
+    options: ['۸۱', '۶۴', '۴۹', '۱۰۰'],
+    correctIndex: 0,
+    difficulty: 'medium'
+  },
+  {
+    id: 'entertainment-4',
+    categoryId: 'entertainment',
+    text: 'کدام سبک موسیقی با بداهه‌نوازی و سازهایی مانند ساکسوفون شناخته می‌شود؟',
+    options: ['جاز', 'راک', 'کلاسیک', 'پاپ'],
+    correctIndex: 0,
+    difficulty: 'medium'
+  },
+  {
+    id: 'entertainment-5',
+    categoryId: 'entertainment',
+    text: 'در بازی رومیزی «راز قتل» (Cluedo)، هدف اصلی بازیکنان چیست؟',
     options: [
-      'به نام خداوند جان و خرد',
-      'الا یا ایهاالساقی ادر کاسا و ناولها',
-      'بشنو از نی چون حکایت می‌کند',
-      'به یاد یار و دیار آنچنان که بودیم'
+      'جمع‌آوری بیشترین امتیاز',
+      'پیدا کردن قاتل، سلاح و مکان قتل',
+      'ساختن طولانی‌ترین مسیر',
+      'حدس زدن کلمات مخفی'
     ],
-    correctIndex: 0,
-    difficulty: 'easy'
-  },
-  {
-    id: 'literature-3',
-    categoryId: 'literature',
-    text: 'اصطلاح «سبک هندی» به کدام دوره شعر فارسی اشاره دارد؟',
-    options: ['قرن چهارم', 'قرن ششم', 'قرن یازدهم', 'قرن دوازدهم'],
-    correctIndex: 2,
+    correctIndex: 1,
     difficulty: 'medium'
-  },
-  {
-    id: 'literature-4',
-    categoryId: 'literature',
-    text: 'کتاب «بوف کور» اثر کیست؟',
-    options: ['صادق هدایت', 'جلال آل احمد', 'سیمین دانشور', 'محمود دولت‌آبادی'],
-    correctIndex: 0,
-    difficulty: 'medium'
-  },
-  {
-    id: 'literature-5',
-    categoryId: 'literature',
-    text: 'کدام قالب شعری دارای چهار مصراع است؟',
-    options: ['غزل', 'قصیده', 'رباعی', 'مثنوی'],
-    correctIndex: 2,
-    difficulty: 'easy'
   }
 ];
 
