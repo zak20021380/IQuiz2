@@ -126,6 +126,7 @@ function populateProvinceOptions(selectEl, placeholder){
   const DUEL_ROUNDS = 2;
   const DUEL_QUESTIONS_PER_ROUND = 10;
   const DUEL_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+  const DUEL_INVITE_TIMEOUT_MS = DUEL_TIMEOUT_MS;
   let DuelSession = null;
   let PendingDuelFriend = null;
   let quizTimerPausedForQuit = false;
@@ -445,7 +446,181 @@ function populateProvinceOptions(selectEl, placeholder){
     const vip = Server.subscription.active===true;
     $('#vip-badge').classList.toggle('hidden', !vip);
   }
-  
+
+  function getDuelInviteDeadline(invite){
+    if (!invite) return NaN;
+    const deadline = Number(invite.deadline);
+    if (Number.isFinite(deadline)) return deadline;
+    const requestedAt = Number(invite.requestedAt);
+    if (!Number.isFinite(requestedAt)) return NaN;
+    return requestedAt + DUEL_INVITE_TIMEOUT_MS;
+  }
+
+  function pruneExpiredDuelInvites(options = {}){
+    if (!Array.isArray(State.duelInvites)) {
+      State.duelInvites = [];
+      return [];
+    }
+    const now = Date.now();
+    const normalized = [];
+    const expired = [];
+    const fallbackAvatar = (id, opponent) => `https://i.pravatar.cc/100?u=${encodeURIComponent(`${id}-${opponent}`)}`;
+    const prevSnapshot = JSON.stringify(State.duelInvites || []);
+    for (const invite of State.duelInvites) {
+      if (!invite || typeof invite !== 'object') continue;
+      const idRaw = invite.id ?? invite.inviteId ?? invite.duelId;
+      const id = idRaw != null ? String(idRaw) : '';
+      if (!id) continue;
+      const opponentRaw = typeof invite.opponent === 'string' ? invite.opponent.trim() : '';
+      const opponent = opponentRaw || 'حریف ناشناس';
+      const avatar = invite.avatar || fallbackAvatar(id, opponent);
+      let requestedAt = Number(invite.requestedAt);
+      let deadline = Number(invite.deadline);
+      if (!Number.isFinite(requestedAt) && Number.isFinite(deadline)) {
+        requestedAt = deadline - DUEL_INVITE_TIMEOUT_MS;
+      }
+      if (!Number.isFinite(deadline) && Number.isFinite(requestedAt)) {
+        deadline = requestedAt + DUEL_INVITE_TIMEOUT_MS;
+      }
+      if (!Number.isFinite(requestedAt) || !Number.isFinite(deadline)) continue;
+      requestedAt = Math.round(requestedAt);
+      deadline = Math.round(deadline);
+      const normalizedInvite = {
+        id,
+        opponent,
+        avatar,
+        requestedAt,
+        deadline,
+        message: typeof invite.message === 'string' ? invite.message : 'در انتظار پاسخ',
+        source: invite.source || 'friend',
+      };
+      if (deadline <= now) {
+        expired.push(normalizedInvite);
+      } else {
+        normalized.push(normalizedInvite);
+      }
+    }
+    normalized.sort((a, b) => a.deadline - b.deadline);
+    State.duelInvites = normalized;
+    if (prevSnapshot !== JSON.stringify(State.duelInvites)) {
+      saveState();
+    }
+    if (expired.length && !options.silent) {
+      const label = expired.length === 1
+        ? `درخواست نبرد ${expired[0].opponent} به دلیل اتمام مهلت حذف شد`
+        : `${faNum(expired.length)} درخواست نبرد به دلیل اتمام مهلت حذف شد`;
+      toast(`<i class="fas fa-hourglass-end ml-2"></i>${label}`);
+    }
+    return expired;
+  }
+
+  function renderDuelInvites(options = {}){
+    const container = $('#active-duel-requests');
+    if (!container) return 0;
+    const { skipPrune = false, silent = true } = options;
+    if (!skipPrune) pruneExpiredDuelInvites({ silent });
+    const invites = Array.isArray(State.duelInvites) ? State.duelInvites : [];
+    container.innerHTML = '';
+    if (!invites.length) {
+      const empty = document.createElement('div');
+      empty.className = 'glass rounded-2xl p-3 text-sm opacity-80 text-center';
+      empty.textContent = 'درخواست فعالی وجود ندارد.';
+      container.appendChild(empty);
+      return 0;
+    }
+    const now = Date.now();
+    invites.forEach(invite => {
+      if (!invite || typeof invite !== 'object') return;
+      const item = document.createElement('div');
+      item.className = 'active-match-item';
+      item.dataset.inviteId = invite.id;
+      const info = document.createElement('div');
+      info.className = 'match-info';
+      const avatar = document.createElement('img');
+      avatar.className = 'match-avatar';
+      avatar.src = invite.avatar;
+      avatar.alt = invite.opponent;
+      const details = document.createElement('div');
+      details.className = 'match-details';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'match-name';
+      nameEl.textContent = invite.opponent;
+      const statusEl = document.createElement('div');
+      statusEl.className = 'match-status';
+      const requestedAt = Number(invite.requestedAt);
+      const deadline = getDuelInviteDeadline(invite);
+      const timeLeft = Number.isFinite(deadline) ? deadline - now : NaN;
+      const requestedLabel = Number.isFinite(requestedAt) ? formatRelativeTime(requestedAt) : '';
+      let statusText;
+      if (!Number.isFinite(timeLeft) || timeLeft <= 0) {
+        statusText = requestedLabel ? `ارسال شده ${requestedLabel} • مهلت تمام شده` : 'مهلت تمام شده';
+      } else if (timeLeft < 60 * 1000) {
+        statusText = requestedLabel
+          ? `ارسال شده ${requestedLabel} • کمتر از یک دقیقه تا پایان مهلت`
+          : 'کمتر از یک دقیقه تا پایان مهلت';
+      } else {
+        const duration = formatDuration(timeLeft);
+        statusText = requestedLabel
+          ? `ارسال شده ${requestedLabel} • ${duration} تا پایان مهلت`
+          : `${duration} تا پایان مهلت`;
+      }
+      statusEl.textContent = statusText;
+      details.append(nameEl, statusEl);
+      info.append(avatar, details);
+      const actions = document.createElement('div');
+      actions.className = 'match-actions';
+      const acceptBtn = document.createElement('button');
+      acceptBtn.className = 'match-action match-action--accept';
+      acceptBtn.type = 'button';
+      acceptBtn.dataset.duelAction = 'accept';
+      acceptBtn.dataset.inviteId = invite.id;
+      acceptBtn.textContent = 'پذیرفتن';
+      const declineBtn = document.createElement('button');
+      declineBtn.className = 'match-action match-action--decline';
+      declineBtn.type = 'button';
+      declineBtn.dataset.duelAction = 'decline';
+      declineBtn.dataset.inviteId = invite.id;
+      declineBtn.textContent = 'رد کردن';
+      actions.append(acceptBtn, declineBtn);
+      item.append(info, actions);
+      container.appendChild(item);
+    });
+    return invites.length;
+  }
+
+  function removeDuelInvite(inviteId){
+    if (!Array.isArray(State.duelInvites)) return null;
+    const index = State.duelInvites.findIndex(invite => invite && invite.id === inviteId);
+    if (index === -1) return null;
+    const [invite] = State.duelInvites.splice(index, 1);
+    saveState();
+    return invite;
+  }
+
+  function handleDuelInviteAccept(inviteId){
+    const invite = removeDuelInvite(inviteId);
+    if (!invite){
+      toast('درخواست نبرد یافت نشد');
+      renderDuelInvites({ skipPrune: true, silent: true });
+      return;
+    }
+    toast(`<i class="fas fa-handshake ml-2"></i>درخواست نبرد ${invite.opponent} پذیرفته شد`);
+    logEvent('duel_invite_accepted', { inviteId, opponent: invite.opponent });
+    renderDuelInvites({ skipPrune: true, silent: true });
+  }
+
+  function handleDuelInviteDecline(inviteId){
+    const invite = removeDuelInvite(inviteId);
+    if (!invite){
+      toast('درخواست نبرد یافت نشد');
+      renderDuelInvites({ skipPrune: true, silent: true });
+      return;
+    }
+    toast(`<i class="fas fa-circle-xmark ml-2"></i>درخواست نبرد ${invite.opponent} رد شد`);
+    logEvent('duel_invite_declined', { inviteId, opponent: invite.opponent });
+    renderDuelInvites({ skipPrune: true, silent: true });
+  }
+
   function renderDashboard(){
     $('#profile-name').textContent = State.user.name;
     $('#profile-avatar').src = State.user.avatar;
@@ -526,6 +701,8 @@ function populateProvinceOptions(selectEl, placeholder){
     $('#no-group-hint')?.classList.toggle('hidden', hasGroup);
     $('#duel-wins').textContent = faNum(State.duelWins);
     $('#duel-losses').textContent = faNum(State.duelLosses);
+
+    renderDuelInvites({ silent: true });
 
     // Update limits UI
     updateLimitsUI();
@@ -4598,8 +4775,23 @@ function leaveGroup(groupId) {
   
   // Share Result
   
+  $('#active-duel-requests')?.addEventListener('click', event => {
+    const actionBtn = event.target.closest('[data-duel-action]');
+    if (!actionBtn) return;
+    const inviteId = actionBtn.dataset.inviteId;
+    if (!inviteId) return;
+    event.preventDefault();
+    vibrate(15);
+    if (actionBtn.dataset.duelAction === 'accept') {
+      handleDuelInviteAccept(inviteId);
+    } else if (actionBtn.dataset.duelAction === 'decline') {
+      handleDuelInviteDecline(inviteId);
+    }
+  });
+
   // Active Match Actions
   $$('.match-action').forEach(btn => {
+    if (btn.dataset.duelAction) return;
     btn.addEventListener('click', (e) => {
       const matchName = e.currentTarget.closest('.active-match-item').querySelector('.match-name').textContent;
       toast(`در ${matchName} ثبت‌نام شدید!`);
@@ -4663,6 +4855,11 @@ async function init(){
 
       checkDailyReset();
       setInterval(checkDailyReset, 1000);
+
+      setInterval(() => {
+        pruneExpiredDuelInvites({ silent: false });
+        renderDuelInvites({ skipPrune: true, silent: true });
+      }, 60 * 1000);
 
       await Promise.all([refreshWallet(), refreshSubscription()]);
       renderHeader(); renderDashboard();

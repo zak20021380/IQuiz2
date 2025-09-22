@@ -326,7 +326,7 @@
     .match-type-card.active { background: linear-gradient(135deg, var(--accent1), var(--accent2)); color: #111827; border-color: transparent; }
     .match-type-icon { font-size: 2rem; margin-bottom: 0.5rem; }
     .active-matches { margin-top: 1.5rem; }
-    .active-match-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 1rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); margin-bottom: 0.75rem; transition: all 0.3s ease; min-height:44px }
+    .active-match-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 1rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); margin-bottom: 0.75rem; transition: all 0.3s ease; min-height:44px; gap:0.75rem; flex-wrap:wrap }
     .active-match-item:hover { background: rgba(255, 255, 255, 0.2); }
     .match-info { display: flex; align-items: center; gap: 0.75rem; }
     .match-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; object-fit: cover; }
@@ -335,6 +335,13 @@
     .match-status { font-size: 0.75rem; opacity: 0.8; }
     .match-action { padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 700; background: linear-gradient(135deg, var(--accent1), var(--accent2)); color: #111827; cursor: pointer; transition: all 0.2s ease; min-height:44px }
     .match-action:hover { transform: scale(1.05); }
+    .duel-request-list { display:flex; flex-direction:column; gap:0.75rem; margin-bottom:0.75rem; }
+    .duel-request-list .active-match-item { margin-bottom:0; }
+    .match-actions { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end; }
+    .match-action--accept { background: linear-gradient(135deg, rgba(134, 239, 172, 0.92), rgba(16, 185, 129, 0.95)); color:#0f172a; box-shadow:0 12px 28px rgba(16, 185, 129, 0.25); }
+    .match-action--accept:hover { box-shadow:0 16px 36px rgba(16, 185, 129, 0.35); }
+    .match-action--decline { background: linear-gradient(135deg, rgba(248, 113, 113, 0.92), rgba(239, 68, 68, 0.95)); color:#fff; box-shadow:0 12px 28px rgba(239, 68, 68, 0.25); }
+    .match-action--decline:hover { box-shadow:0 16px 36px rgba(239, 68, 68, 0.35); }
     .duel-entry-card{ position:relative; overflow:hidden; width:100%; display:grid; grid-template-columns:auto 1fr auto; grid-template-areas:'icon content cta'; align-items:center; gap:clamp(.7rem, .9vw, 1.1rem); border-radius:clamp(1rem, .9vw + .85rem, 1.45rem); padding:clamp(.72rem, .85rem + .4vw, 1.15rem); border:1px solid rgba(255,255,255,0.22); background:linear-gradient(145deg, rgba(248,113,113,0.92), rgba(244,63,94,0.94), rgba(236,72,153,0.88)); box-shadow:0 18px 45px rgba(244,63,94,0.25); cursor:pointer; transition:transform .3s ease, box-shadow .3s ease, border-color .3s ease; text-align:right; color:#fff; }
     .duel-entry-card::before{ content:''; position:absolute; inset:-38% 42% auto auto; width:clamp(140px, 28vw, 220px); height:clamp(140px, 28vw, 220px); background:radial-gradient(circle at center, rgba(255,255,255,0.55), rgba(255,255,255,0)); opacity:.65; transform:rotate(20deg); pointer-events:none; transition:opacity .3s ease, transform .3s ease; }
     .duel-entry-card:hover{ transform:translateY(-3px); box-shadow:0 22px 55px rgba(244,63,94,0.3); border-color:rgba(255,255,255,0.45); }

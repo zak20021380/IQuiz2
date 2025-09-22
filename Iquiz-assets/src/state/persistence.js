@@ -1,4 +1,4 @@
-import { State, STORAGE_KEY, ensureGroupRosters } from './state.js';
+import { State, STORAGE_KEY, ensureGroupRosters, DUEL_INVITE_TIMEOUT_MS } from './state.js';
 import { Server } from './server.js';
 
 const SERVER_STORAGE_KEY = 'server_state';
@@ -45,6 +45,44 @@ function loadState(){
     State.pendingDuels = [];
   } else {
     State.pendingDuels = State.pendingDuels.filter(duel => duel && duel.id && Number.isFinite(duel.deadline));
+  }
+  if (!Array.isArray(State.duelInvites)) {
+    State.duelInvites = [];
+  } else {
+    const now = Date.now();
+    const normalized = [];
+    for (const invite of State.duelInvites) {
+      if (!invite || typeof invite !== 'object') continue;
+      const idRaw = invite.id ?? invite.inviteId ?? invite.duelId;
+      const id = idRaw != null ? String(idRaw) : '';
+      if (!id) continue;
+      const opponentRaw = typeof invite.opponent === 'string' ? invite.opponent.trim() : '';
+      const opponent = opponentRaw || 'حریف ناشناس';
+      const avatar = invite.avatar || `https://i.pravatar.cc/100?u=${encodeURIComponent(`${id}-${opponent}`)}`;
+      let requestedAt = Number(invite.requestedAt);
+      let deadline = Number(invite.deadline);
+      if (!Number.isFinite(requestedAt) && Number.isFinite(deadline)) {
+        requestedAt = deadline - DUEL_INVITE_TIMEOUT_MS;
+      }
+      if (!Number.isFinite(deadline) && Number.isFinite(requestedAt)) {
+        deadline = requestedAt + DUEL_INVITE_TIMEOUT_MS;
+      }
+      if (!Number.isFinite(requestedAt) || !Number.isFinite(deadline)) continue;
+      requestedAt = Math.round(requestedAt);
+      deadline = Math.round(deadline);
+      if (deadline <= now) continue;
+      normalized.push({
+        id,
+        opponent,
+        avatar,
+        requestedAt,
+        deadline,
+        message: typeof invite.message === 'string' ? invite.message : 'در انتظار پاسخ',
+        source: invite.source || 'friend',
+      });
+    }
+    normalized.sort((a, b) => a.deadline - b.deadline);
+    State.duelInvites = normalized.slice(0, 12);
   }
   if (!Array.isArray(State.duelHistory)) State.duelHistory = [];
   State.duelHistory = State.duelHistory.slice(0, 20);
