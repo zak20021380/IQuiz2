@@ -128,6 +128,8 @@ function populateProvinceOptions(selectEl, placeholder){
   const DUEL_TIMEOUT_MS = 24 * 60 * 60 * 1000;
   let DuelSession = null;
   let PendingDuelFriend = null;
+  let quizTimerPausedForQuit = false;
+  let quitModalKeyHandler = null;
   
   loadState();
   document.documentElement.setAttribute('data-theme', State.theme || 'ocean');
@@ -1168,13 +1170,12 @@ function openCreateGroup(){
     ring.style.strokeDashoffset = String(TIMER_CIRC * (1 - (remain / total)));
   }
 
-  function resetTimer(seconds){
-    const ring = $('#timer-ring');
-    if(ring) ring.setAttribute('stroke-dasharray', String(TIMER_CIRC));
-    State.quiz.duration = seconds;
-    State.quiz.remain = seconds;
-    updateTimerVisual();
-    if(State.quiz.timer) clearInterval(State.quiz.timer);
+  function startQuizTimerCountdown(){
+    if(State.quiz?.timer) clearInterval(State.quiz.timer);
+    if(!State.quiz || quizTimerPausedForQuit || !State.quiz.inProgress){
+      if(State.quiz) State.quiz.timer = null;
+      return;
+    }
     State.quiz.timer = setInterval(()=>{
       State.quiz.remain -= 1;
       if(State.quiz.remain <= 5 && State.quiz.remain > 0) SFX.tick();
@@ -1191,6 +1192,15 @@ function openCreateGroup(){
       }
       updateTimerVisual();
     },1000);
+  }
+
+  function resetTimer(seconds){
+    const ring = $('#timer-ring');
+    if(ring) ring.setAttribute('stroke-dasharray', String(TIMER_CIRC));
+    State.quiz.duration = seconds;
+    State.quiz.remain = seconds;
+    updateTimerVisual();
+    startQuizTimerCountdown();
   }
 
   function addExtraTime(extra){
@@ -2172,6 +2182,107 @@ async function startPurchaseCoins(pkgId){
     }
   }
 
+  function cleanupQuitModalKeyHandler(){
+    if(quitModalKeyHandler){
+      document.removeEventListener('keydown', quitModalKeyHandler);
+      quitModalKeyHandler = null;
+    }
+  }
+
+  function resumeQuizTimerAfterQuitPrompt(){
+    if(!quizTimerPausedForQuit) return;
+    quizTimerPausedForQuit = false;
+    if(!State.quiz?.inProgress) return;
+    if(State.quiz.remain <= 0) return;
+    startQuizTimerCountdown();
+  }
+
+  function updateQuitConfirmSummary(){
+    const results = Array.isArray(State.quiz?.results) ? State.quiz.results : [];
+    const answered = results.length;
+    const correct = results.reduce((sum, item)=> sum + (item?.ok ? 1 : 0), 0);
+    const earned = Math.max(0, Number(State.quiz?.sessionEarned || 0));
+    const total = Array.isArray(State.quiz?.list) ? State.quiz.list.length : answered;
+
+    const answeredEl = $('#quit-answered-count');
+    if(answeredEl) answeredEl.textContent = faNum(answered);
+
+    const correctEl = $('#quit-correct-count');
+    if(correctEl) correctEl.textContent = faNum(correct);
+
+    const earnedEl = $('#quit-earned-score');
+    if(earnedEl) earnedEl.textContent = faNum(earned);
+
+    const summaryTextEl = $('#quit-summary-text');
+    if(summaryTextEl){
+      if(answered === 0){
+        summaryTextEl.textContent = 'هنوز به هیچ سؤالی پاسخ نداده‌ای. با خروج، مسابقه بدون امتیاز پایان خواهد یافت.';
+      }else if(total > answered){
+        summaryTextEl.textContent = `تا این لحظه به ${faNum(answered)} سؤال از ${faNum(total)} پاسخ داده‌ای. با خروج، مسابقه همین حالا پایان می‌یابد.`;
+      }else{
+        summaryTextEl.textContent = `تا این لحظه به ${faNum(answered)} سؤال پاسخ داده‌ای. با خروج، مسابقه همین حالا پایان می‌یابد.`;
+      }
+    }
+  }
+
+  function bindQuitModalEscape(){
+    cleanupQuitModalKeyHandler();
+    quitModalKeyHandler = (event)=>{
+      if(event.key === 'Escape'){
+        event.preventDefault();
+        cleanupQuitModalKeyHandler();
+        closeModal('#modal-quit-confirm');
+        resumeQuizTimerAfterQuitPrompt();
+      }
+    };
+    document.addEventListener('keydown', quitModalKeyHandler);
+  }
+
+  function openQuitConfirmModal(){
+    if(!State.quiz?.inProgress){
+      quizTimerPausedForQuit = false;
+      navTo('dashboard');
+      return;
+    }
+    updateQuitConfirmSummary();
+    quizTimerPausedForQuit = true;
+    if(State.quiz?.timer){
+      clearInterval(State.quiz.timer);
+      State.quiz.timer = null;
+    }
+    openModal('#modal-quit-confirm');
+    bindQuitModalEscape();
+    setTimeout(()=> $('#confirm-quit')?.focus({ preventScroll:true }), 80);
+  }
+
+  function handleQuitConfirm(){
+    cleanupQuitModalKeyHandler();
+    closeModal('#modal-quit-confirm');
+    const confirmBtn = $('#confirm-quit');
+    if(confirmBtn) confirmBtn.disabled = true;
+    const hadQuiz = !!State.quiz?.inProgress;
+    quizTimerPausedForQuit = false;
+    if(State.quiz.timer){
+      clearInterval(State.quiz.timer);
+      State.quiz.timer = null;
+    }
+    if(hadQuiz){
+      cancelDuelSession('user_cancelled');
+      endQuiz();
+    }else{
+      navTo('dashboard');
+    }
+    if(confirmBtn){
+      setTimeout(()=>{ confirmBtn.disabled = false; }, 600);
+    }
+  }
+
+  function handleQuitCancel(){
+    cleanupQuitModalKeyHandler();
+    closeModal('#modal-quit-confirm');
+    resumeQuizTimerAfterQuitPrompt();
+  }
+
   // ===== Events =====
   // Delegate wallet package purchase buttons to handle re-renders
   $('#pkg-grid')?.addEventListener('click', (e) => {
@@ -2185,10 +2296,9 @@ async function startPurchaseCoins(pkgId){
   $('#btn-daily')?.addEventListener('click', startDaily);
   $('#btn-back-lb')?.addEventListener('click', ()=> navTo('dashboard'));
   $('#btn-back-shop')?.addEventListener('click', ()=> navTo('dashboard'));
-  $('#btn-quit')?.addEventListener('click', () => {
-    cancelDuelSession('user_cancelled');
-    navTo('dashboard');
-  });
+  $('#btn-quit')?.addEventListener('click', openQuitConfirmModal);
+  $('#btn-continue-quiz')?.addEventListener('click', handleQuitCancel);
+  $('#confirm-quit')?.addEventListener('click', handleQuitConfirm);
   $('#btn-claim-streak')?.addEventListener('click', claimStreak);
   $('#btn-invite')?.addEventListener('click', prepareInviteModal);
 
