@@ -35,21 +35,73 @@ function buildCategoryDoc(seed) {
 
 async function seedStaticCategories() {
   const docs = CATEGORIES.map(buildCategoryDoc);
-  if (!docs.length) return 0;
-
-  try {
-    await Category.insertMany(docs, { ordered: false });
-    logger.info(`[CategorySeeder] Seeded ${docs.length} static categories`);
-    return docs.length;
-  } catch (error) {
-    logger.warn(`[CategorySeeder] Static category seed encountered issues: ${error.message}`);
-    return 0;
+  if (!docs.length) {
+    logger.warn('[CategorySeeder] No static categories configured to seed');
+    return { inserted: 0, updated: 0, removed: 0 };
   }
+
+  const allowedSlugs = new Set();
+  let inserted = 0;
+  let updated = 0;
+
+  for (const doc of docs) {
+    allowedSlugs.add(doc.slug);
+
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await Category.updateOne(
+        { slug: doc.slug },
+        {
+          $set: {
+            name: doc.name,
+            displayName: doc.displayName,
+            description: doc.description,
+            icon: doc.icon,
+            color: doc.color,
+            status: doc.status,
+            provider: doc.provider,
+            providerCategoryId: doc.providerCategoryId,
+            aliases: doc.aliases,
+            slug: doc.slug
+          }
+        },
+        {
+          upsert: true,
+          runValidators: true,
+          setDefaultsOnInsert: true,
+          timestamps: true
+        }
+      );
+
+      if (result?.upsertedCount) {
+        inserted += result.upsertedCount;
+      } else if (result?.modifiedCount) {
+        updated += result.modifiedCount;
+      }
+    } catch (error) {
+      logger.warn(`[CategorySeeder] Failed to sync category '${doc.slug}': ${error.message}`);
+    }
+  }
+
+  let removed = 0;
+  try {
+    const deleteResult = await Category.deleteMany({
+      provider: 'ai-gen',
+      slug: { $nin: Array.from(allowedSlugs) }
+    });
+    removed = deleteResult?.deletedCount || 0;
+  } catch (error) {
+    logger.warn(`[CategorySeeder] Failed to prune legacy provider categories: ${error.message}`);
+  }
+
+  logger.info(
+    `[CategorySeeder] Synced static categories (inserted: ${inserted}, updated: ${updated}, removed: ${removed})`
+  );
+
+  return { inserted, updated, removed };
 }
 
 async function ensureInitialCategories() {
-  const total = await Category.countDocuments();
-  if (total > 0) return;
   await seedStaticCategories();
 }
 
