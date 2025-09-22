@@ -4775,6 +4775,10 @@ function renderGroupBattleCard(list, userGroup) {
 
     saveState();
 
+    renderHeader();
+    renderDashboard();
+    updateLimitsUI();
+
     startBtn.disabled = false;
     startBtn.innerHTML = originalLabel;
 
