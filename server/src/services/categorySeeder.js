@@ -56,15 +56,16 @@ async function seedStaticCategories() {
 
     try {
       const query = {
+        provider: doc.provider,
         $or: [{ slug: doc.slug }, { name: doc.name }]
       };
 
       if (doc.providerCategoryId) {
-        query.$or.push({ provider: doc.provider, providerCategoryId: doc.providerCategoryId });
+        query.$or.push({ providerCategoryId: doc.providerCategoryId });
       }
 
       // eslint-disable-next-line no-await-in-loop
-      const result = await Category.updateOne(
+      let result = await Category.updateOne(
         query,
         {
           $set: {
@@ -88,6 +89,41 @@ async function seedStaticCategories() {
           timestamps: true
         }
       );
+
+      if (!result?.matchedCount && !result?.upsertedCount) {
+        const legacyMatch = await Category.findOneAndUpdate(
+          { slug: doc.slug, provider: { $ne: doc.provider } },
+          { $set: { provider: doc.provider } },
+          { new: true }
+        );
+
+        if (legacyMatch) {
+          result = await Category.updateOne(
+            query,
+            {
+              $set: {
+                name: doc.name,
+                displayName: doc.displayName,
+                description: doc.description,
+                icon: doc.icon,
+                color: doc.color,
+                status: doc.status,
+                provider: doc.provider,
+                providerCategoryId: doc.providerCategoryId,
+                aliases: doc.aliases,
+                slug: doc.slug,
+                order: doc.order
+              }
+            },
+            {
+              upsert: true,
+              runValidators: true,
+              setDefaultsOnInsert: true,
+              timestamps: true
+            }
+          );
+        }
+      }
 
       if (result?.upsertedCount) {
         inserted += result.upsertedCount;
