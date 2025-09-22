@@ -973,6 +973,27 @@ function populateProvinceOptions(selectEl, placeholder){
     const isAdmin = group.admin === State.user.name;
     const isMember = (userGroup?.id === group.id) || State.user.group === group.name;
     const requested = group.requests?.includes(State.user.id);
+    const wins = Number.isFinite(Number(group.wins)) ? Number(group.wins) : 0;
+    const losses = Number.isFinite(Number(group.losses)) ? Number(group.losses) : 0;
+    const totalMatches = Math.max(0, wins + losses);
+    const winRateRaw = totalMatches ? (wins / totalMatches) * 100 : 0;
+    const lossRateRaw = totalMatches ? (losses / totalMatches) * 100 : 0;
+    const winRateDigits = totalMatches ? faDecimal(winRateRaw, Number.isInteger(winRateRaw) ? 0 : 1) : faNum(0);
+    const lossRateDigits = totalMatches ? faDecimal(lossRateRaw, Number.isInteger(lossRateRaw) ? 0 : 1) : faNum(0);
+    const progressValue = Number.isFinite(winRateRaw) ? Math.max(0, Math.min(100, winRateRaw)) : 0;
+    const progressDisplay = Math.round(progressValue * 10) / 10;
+    const progressWidth = progressDisplay;
+    const progressAria = progressDisplay.toFixed(1);
+    let dominanceBadge = '';
+    if (!totalMatches) {
+      dominanceBadge = '<span class="group-record-trend neutral"><i class="fas fa-seedling ml-1"></i>شروع تازه</span>';
+    } else if (wins > losses) {
+      dominanceBadge = `<span class="group-record-trend positive"><i class="fas fa-arrow-trend-up ml-1"></i>برتری ${faNum(Math.abs(wins - losses))}</span>`;
+    } else if (losses > wins) {
+      dominanceBadge = `<span class="group-record-trend negative"><i class="fas fa-arrow-trend-down ml-1"></i>نیاز به جبران ${faNum(Math.abs(wins - losses))}</span>`;
+    } else {
+      dominanceBadge = '<span class="group-record-trend neutral"><i class="fas fa-scale-balanced ml-1"></i>عملکرد متعادل</span>';
+    }
     let content = `
       <div class="flex flex-col items-center mb-4">
         <div class="w-20 h-20 rounded-full bg-gradient-to-r from-purple-400 to-indigo-500 flex items-center justify-center mb-3"><i class="fas fa-users text-white text-2xl"></i></div>
@@ -983,6 +1004,67 @@ function populateProvinceOptions(selectEl, placeholder){
         <div class="flex justify-between items-center glass rounded-xl p-3"><span class="opacity-80">امتیاز کل</span><span class="font-bold text-purple-300">${faNum(group.score)}</span></div>
         <div class="flex justify-between items-center glass rounded-xl p-3"><span class="opacity-80">تعداد اعضا</span><span class="font-bold">${faNum(group.members)}</span></div>
       </div>`;
+
+    const recordSection = `
+      <div class="group-record-section mt-4">
+        <div class="group-record-header">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="group-record-title"><i class="fas fa-ranking-star"></i><span>عملکرد رقابتی گروه</span></div>
+            <div class="group-record-meta">
+              <span class="chip group-record-total"><i class="fas fa-hashtag ml-1"></i>مجموع نبردها: ${faNum(totalMatches)}</span>
+              ${dominanceBadge}
+            </div>
+          </div>
+          <p class="text-xs opacity-80 leading-6">
+            نگاهی سریع به توازن برد و باخت‌های رسمی و روند عملکرد کلی گروه.
+          </p>
+        </div>
+        <div class="group-record-grid">
+          <div class="group-record-card wins">
+            <div class="record-icon"><i class="fas fa-trophy"></i></div>
+            <div class="record-metric">
+              <span class="record-label">بردهای ثبت‌شده</span>
+              <span class="record-value">${faNum(wins)}</span>
+            </div>
+            <span class="record-badge">
+              <i class="fas fa-chart-line ml-1"></i>
+              ${winRateDigits}٪ پیروزی
+            </span>
+          </div>
+          <div class="group-record-card losses">
+            <div class="record-icon"><i class="fas fa-skull"></i></div>
+            <div class="record-metric">
+              <span class="record-label">باخت‌های تجربه‌شده</span>
+              <span class="record-value">${faNum(losses)}</span>
+            </div>
+            <span class="record-badge">
+              <i class="fas fa-heart-crack ml-1"></i>
+              ${lossRateDigits}٪ باخت
+            </span>
+          </div>
+        </div>
+        <div class="group-record-progress">
+          <div class="progress-header">
+            <div class="progress-title">
+              <i class="fas fa-wave-square"></i>
+              <span>نمودار عملکرد کلی</span>
+            </div>
+            <div class="progress-meta">
+              <span>نرخ برد <strong>${winRateDigits}٪</strong></span>
+              <span>نرخ باخت <strong>${lossRateDigits}٪</strong></span>
+            </div>
+          </div>
+          <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressAria}" aria-valuetext="${winRateDigits} درصد">
+            <span style="width:${progressWidth}%"></span>
+          </div>
+          <div class="progress-footer">
+            <span><i class="fas fa-trophy text-emerald-300"></i>${faNum(wins)} برد</span>
+            <span><i class="fas fa-skull text-rose-300"></i>${faNum(losses)} باخت</span>
+          </div>
+        </div>
+      </div>`;
+
+    content += recordSection;
 
     const membersHtml = (group.memberList || []).map(m=>`<div class="glass rounded-xl p-2 text-sm flex items-center gap-2"><i class="fas fa-user text-blue-200"></i>${m}</div>`).join('');
     content += `
@@ -1134,6 +1216,8 @@ function openCreateGroup(){
       score: 0,
       members: 1,
       admin: State.user.name,
+      wins: 0,
+      losses: 0,
       created: new Date().toLocaleDateString('fa-IR'),
       memberList: [State.user.name],
       requests: [],
