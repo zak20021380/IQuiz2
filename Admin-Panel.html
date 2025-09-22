@@ -411,6 +411,76 @@
       font-size:0.75rem;
       font-weight:600;
     }
+    .ai-preview-toolbar{
+      display:flex;
+      flex-direction:column;
+      gap:0.75rem;
+      margin-bottom:0.75rem;
+    }
+    @media (min-width:640px){
+      .ai-preview-toolbar{
+        flex-direction:row;
+        align-items:center;
+        justify-content:space-between;
+        flex-wrap:wrap;
+      }
+    }
+    .ai-summary-chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:0.5rem;
+    }
+    .ai-summary-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:0.45rem;
+      padding:0.45rem 0.9rem;
+      border-radius:999px;
+      font-weight:600;
+      font-size:0.78rem;
+      letter-spacing:0.01em;
+      border:1px solid rgba(255,255,255,0.16);
+      background:rgba(59,130,246,0.18);
+      color:#e0f2fe;
+      transition:transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    .ai-summary-chip-success{ background:linear-gradient(135deg, rgba(16,185,129,0.25), rgba(34,197,94,0.25)); border-color:rgba(74,222,128,0.4); color:#bbf7d0; }
+    .ai-summary-chip-warning{ background:linear-gradient(135deg, rgba(250,204,21,0.22), rgba(234,179,8,0.22)); border-color:rgba(251,191,36,0.4); color:#fef08a; }
+    .ai-summary-chip-danger{ background:linear-gradient(135deg, rgba(248,113,113,0.22), rgba(239,68,68,0.22)); border-color:rgba(248,113,113,0.4); color:#fecaca; }
+    .ai-summary-chip[data-muted="true"]{ opacity:0.55; filter:saturate(0.85); }
+    .ai-summary-chip:hover{ transform:translateY(-2px); box-shadow:0 10px 28px -20px rgba(59,130,246,0.8); }
+    .ai-generator[data-theme="light"] .ai-summary-chip{ color:#0f172a; border-color:rgba(15,23,42,0.12); background:rgba(226,232,240,0.6); }
+    .ai-generator[data-theme="light"] .ai-summary-chip-success{ background:rgba(187,247,208,0.65); color:#166534; border-color:rgba(34,197,94,0.35); }
+    .ai-generator[data-theme="light"] .ai-summary-chip-warning{ background:rgba(254,240,138,0.7); color:#92400e; border-color:rgba(251,191,36,0.35); }
+    .ai-generator[data-theme="light"] .ai-summary-chip-danger{ background:rgba(254,202,202,0.75); color:#b91c1c; border-color:rgba(248,113,113,0.35); }
+    .ai-summary-chip-text{ white-space:nowrap; }
+    .ai-preview-tabs{
+      display:flex;
+      flex-wrap:wrap;
+      gap:0.5rem;
+    }
+    .ai-preview-tab{
+      display:inline-flex;
+      align-items:center;
+      gap:0.45rem;
+      padding:0.45rem 0.9rem;
+      border-radius:999px;
+      font-weight:600;
+      font-size:0.8rem;
+      border:1px solid rgba(255,255,255,0.15);
+      background:rgba(15,23,42,0.35);
+      color:#e2e8f0;
+      cursor:pointer;
+      transition:all 0.2s ease;
+    }
+    .ai-preview-tab:hover{ background:rgba(59,130,246,0.25); border-color:rgba(96,165,250,0.5); box-shadow:0 10px 30px -24px rgba(59,130,246,0.8); }
+    .ai-preview-tab.active{ background:linear-gradient(135deg, rgba(59,130,246,0.4), rgba(99,102,241,0.45)); border-color:rgba(96,165,250,0.7); color:#fff; box-shadow:0 12px 34px -20px rgba(99,102,241,0.8); }
+    .ai-preview-tab[disabled]{ opacity:0.4; cursor:not-allowed; box-shadow:none; }
+    .ai-preview-tab[data-busy="true"]{ opacity:0.55; cursor:progress; }
+    .ai-generator[data-theme="light"] .ai-preview-tab{ background:rgba(226,232,240,0.65); color:#1f2937; border-color:rgba(148,163,184,0.45); }
+    .ai-generator[data-theme="light"] .ai-preview-tab:hover{ background:rgba(96,165,250,0.15); color:#111827; }
+    .ai-generator[data-theme="light"] .ai-preview-tab.active{ background:linear-gradient(135deg, rgba(96,165,250,0.35), rgba(129,140,248,0.45)); color:#0f172a; border-color:rgba(59,130,246,0.6); }
+    .ai-preview-pane{ margin-top:0.75rem; }
     .ai-preview-table{
       width:100%;
       border-collapse:separate;
@@ -431,6 +501,14 @@
     .ai-preview-table tr:nth-child(even){
       background:rgba(148,163,184,0.12);
     }
+    .ai-preview-table-compact th,
+    .ai-preview-table-compact td{
+      font-size:0.85rem;
+    }
+    .ai-preview-table-duplicates td:last-child{ color:#facc15; font-weight:600; }
+    .ai-preview-table-invalid td:last-child{ color:#f87171; font-weight:600; }
+    .ai-generator[data-theme="light"] .ai-preview-table-duplicates td:last-child{ color:#b45309; }
+    .ai-generator[data-theme="light"] .ai-preview-table-invalid td:last-child{ color:#dc2626; }
     .ai-generator[data-theme="light"] .ai-preview-table th{
       background:rgba(59,130,246,0.1);
       color:#0f172a;
@@ -445,6 +523,15 @@
     }
     .ai-generator[data-theme="light"] .ai-preview-empty{
       color:rgba(15,23,42,0.6);
+    }
+    .ai-preview-explanation{
+      margin-top:0.35rem;
+      font-size:0.8rem;
+      color:rgba(148,163,184,0.85);
+      line-height:1.5;
+    }
+    .ai-generator[data-theme="light"] .ai-preview-explanation{
+      color:rgba(71,85,105,0.85);
     }
     .sr-only{
       position:absolute;
@@ -2097,7 +2184,13 @@
             </fieldset>
             <div class="ai-field ai-field-wide">
               <label for="ai-topic-hints" class="ai-label">سرنخ‌های موضوعی (اختیاری)</label>
-              <textarea id="ai-topic-hints" name="topicHints" rows="3" class="ai-input" placeholder="مثلاً: تاریخ معاصر ایران، دستاوردهای علمی ایرانیان، مسابقات فوتبال لیگ برتر"></textarea>
+              <textarea id="ai-topic-hints" name="topicHints" rows="3" class="ai-input" maxlength="400" placeholder="مثلاً: تاریخ معاصر ایران، دستاوردهای علمی ایرانیان، مسابقات فوتبال لیگ برتر"></textarea>
+              <p class="ai-helper">می‌توانید چند موضوع یا کلیدواژه را مشخص کنید تا مدل روی همان‌ها تمرکز کند.</p>
+            </div>
+            <div class="ai-field ai-field-wide">
+              <label for="ai-custom-prompt" class="ai-label">پرامپت اختصاصی (اختیاری)</label>
+              <textarea id="ai-custom-prompt" name="prompt" rows="3" class="ai-input" maxlength="600" placeholder="مثلاً: روی نوآوری‌های فناورانه استارتاپ‌های ایرانی در دهه ۱۴۰۰ تمرکز کن و از مثال‌های واقعی استفاده کن."></textarea>
+              <p class="ai-helper">با نوشتن دستورالعمل دلخواه، خروجی متناسب با این راهنما و دسته‌بندی انتخابی تولید می‌شود. همیشه دقیقاً چهار گزینه و یک پاسخ صحیح ساخته خواهد شد.</p>
             </div>
             <div class="ai-field">
               <label for="ai-temperature" class="ai-label">خلاقیت (Temperature)</label>
@@ -2126,23 +2219,89 @@
           <div id="ai-preview" class="ai-preview hidden" aria-live="polite">
             <div class="ai-preview-header">
               <h3>پیش‌نمایش سوالات</h3>
-              <span id="ai-preview-count" class="ai-badge"></span>
+              <span id="ai-preview-count" class="ai-badge">برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.</span>
             </div>
-            <div class="ai-preview-table-wrapper" tabindex="0">
-              <table class="ai-preview-table">
-                <thead>
-                  <tr>
-                    <th scope="col">سوال</th>
-                    <th scope="col">گزینه‌ها</th>
-                    <th scope="col">پاسخ صحیح</th>
-                  </tr>
-                </thead>
-                <tbody id="ai-preview-tbody">
-                  <tr>
-                    <td colspan="3" class="ai-preview-empty">برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="ai-preview-toolbar">
+              <div class="ai-summary-chips" aria-live="polite">
+                <span class="ai-summary-chip ai-summary-chip-success" id="ai-summary-unique" data-muted="true">
+                  <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
+                  <span class="ai-summary-chip-text" id="ai-summary-unique-text">سوالات جدید: ۰</span>
+                </span>
+                <span class="ai-summary-chip ai-summary-chip-warning" id="ai-summary-duplicates" data-muted="true">
+                  <i class="fa-solid fa-clone" aria-hidden="true"></i>
+                  <span class="ai-summary-chip-text" id="ai-summary-duplicates-text">تکراری: ۰</span>
+                </span>
+                <span class="ai-summary-chip ai-summary-chip-danger" id="ai-summary-invalid" data-muted="true">
+                  <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                  <span class="ai-summary-chip-text" id="ai-summary-invalid-text">نامعتبر: ۰</span>
+                </span>
+              </div>
+              <div class="ai-preview-tabs" role="tablist" aria-label="پیش‌نمایش سوالات تولید شده">
+                <button type="button" class="ai-preview-tab active" id="ai-preview-tab-unique" data-preview-mode="unique" aria-controls="ai-preview-pane-unique" aria-pressed="true">
+                  <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+                  سوالات یکتا
+                </button>
+                <button type="button" class="ai-preview-tab" id="ai-preview-tab-duplicates" data-preview-mode="duplicates" aria-controls="ai-preview-pane-duplicates" aria-pressed="false">
+                  <i class="fa-solid fa-clone" aria-hidden="true"></i>
+                  موارد تکراری
+                </button>
+                <button type="button" class="ai-preview-tab" id="ai-preview-tab-invalid" data-preview-mode="invalid" aria-controls="ai-preview-pane-invalid" aria-pressed="false">
+                  <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                  موارد نامعتبر
+                </button>
+              </div>
+            </div>
+            <div class="ai-preview-pane" id="ai-preview-pane-unique" data-mode="unique" role="tabpanel" aria-labelledby="ai-preview-tab-unique">
+              <div class="ai-preview-table-wrapper" tabindex="0">
+                <table class="ai-preview-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">سوال</th>
+                      <th scope="col">گزینه‌ها</th>
+                      <th scope="col">پاسخ صحیح</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ai-preview-tbody">
+                    <tr>
+                      <td colspan="3" class="ai-preview-empty">برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="ai-preview-pane hidden" id="ai-preview-pane-duplicates" data-mode="duplicates" role="tabpanel" aria-labelledby="ai-preview-tab-duplicates" aria-hidden="true">
+              <div class="ai-preview-table-wrapper" tabindex="0">
+                <table class="ai-preview-table ai-preview-table-compact ai-preview-table-duplicates">
+                  <thead>
+                    <tr>
+                      <th scope="col">سوال</th>
+                      <th scope="col">دلیل تکراری بودن</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ai-duplicates-tbody">
+                    <tr>
+                      <td colspan="2" class="ai-preview-empty">هنوز سوال تکراری شناسایی نشده است.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="ai-preview-pane hidden" id="ai-preview-pane-invalid" data-mode="invalid" role="tabpanel" aria-labelledby="ai-preview-tab-invalid" aria-hidden="true">
+              <div class="ai-preview-table-wrapper" tabindex="0">
+                <table class="ai-preview-table ai-preview-table-compact ai-preview-table-invalid">
+                  <thead>
+                    <tr>
+                      <th scope="col">سوال</th>
+                      <th scope="col">دلیل رد شدن</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ai-invalid-tbody">
+                    <tr>
+                      <td colspan="2" class="ai-preview-empty">هیچ مورد نامعتبری گزارش نشده است.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>
