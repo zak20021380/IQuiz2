@@ -1854,9 +1854,33 @@ async function handleAdSubmit(event) {
 }
 
 // --------------- AUTH (JWT) ---------------
+let sessionExpiredNotified = false;
+
 function getToken() { return localStorage.getItem('iq_admin_token'); }
-function setToken(t) { localStorage.setItem('iq_admin_token', t); }
-function logout() { localStorage.removeItem('iq_admin_token'); location.reload(); }
+function setToken(t) {
+  sessionExpiredNotified = false;
+  if (!t) {
+    clearToken();
+    return;
+  }
+  localStorage.setItem('iq_admin_token', t);
+}
+function clearToken() { localStorage.removeItem('iq_admin_token'); }
+function logout() { clearToken(); location.reload(); }
+
+function forceReauthentication(message = '') {
+  clearToken();
+  const normalizedMessage = message && typeof message === 'string' ? message.trim() : '';
+  if (!sessionExpiredNotified) {
+    sessionExpiredNotified = true;
+    const fallbackMessage = normalizedMessage || 'نشست شما منقضی شده است. لطفاً دوباره وارد شوید';
+    showToast(fallbackMessage, 'warning');
+  }
+  const loginModal = $('#login-modal');
+  if (loginModal && !loginModal.classList.contains('active')) {
+    openModal('#login-modal');
+  }
+}
 
 async function api(path, options = {}) {
   const headers = options.headers ? { ...options.headers } : {};
@@ -1871,8 +1895,15 @@ async function api(path, options = {}) {
 
   const res = await fetch(`${API_BASE}${path}`, fetchOptions);
   if (!res.ok) {
-    const err = await res.json().catch(()=>({message:'Request failed'}));
-    throw new Error(err.message || 'Request failed');
+    const err = await res.json().catch(() => ({ message: 'Request failed' }));
+    const errorMessage = err.message || 'Request failed';
+    if (res.status === 401) {
+      const normalized = errorMessage.toLowerCase();
+      if (normalized.includes('token') || normalized.includes('unauthorized') || normalized.includes('expired')) {
+        forceReauthentication(errorMessage);
+      }
+    }
+    throw new Error(errorMessage);
   }
   return res.json();
 }
