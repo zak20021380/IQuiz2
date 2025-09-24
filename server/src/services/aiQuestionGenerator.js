@@ -1,11 +1,20 @@
+let OpenAI;
+try {
+  // Prefer the official OpenAI SDK when available
+  OpenAI = require('openai');
+} catch (error) {
+  OpenAI = null;
+}
+
 const env = require('../config/env');
 const logger = require('../config/logger');
 const Question = require('../models/Question');
-const { fetchWithRetry } = require('../lib/http');
 const { createQuestionUid } = require('../utils/hash');
 
 const MAX_COUNT = 50;
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || env.ai?.openai?.model || 'gpt-5-mini';
+
+let openAiClient;
 
 function sanitizeTopic(value) {
   if (typeof value !== 'string') return '';
@@ -34,6 +43,29 @@ function sanitizeCount(value) {
   return parsed;
 }
 
+function getOpenAiClient(config) {
+  if (openAiClient) {
+    return openAiClient;
+  }
+
+  if (!OpenAI) {
+    const error = new Error('The "openai" SDK is not installed. Please add it as a dependency.');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const clientOptions = {
+    apiKey: config.apiKey,
+  };
+
+  if (config.baseURL) clientOptions.baseURL = config.baseURL;
+  if (config.organization) clientOptions.organization = config.organization;
+  if (config.project) clientOptions.project = config.project;
+
+  openAiClient = new OpenAI(clientOptions);
+  return openAiClient;
+}
+
 function normalizeOption(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
@@ -48,11 +80,21 @@ function slugifyTopic(topic) {
     .replace(/^-+|-+$/g, '');
 }
 
-function buildPrompt({ topic, count, difficulty, lang }) {
-  const safeTopic = topic.replace(/'/g, "\\'");
-  const safeDifficulty = difficulty.replace(/'/g, "\\'");
-  const safeLang = lang.replace(/'/g, "\\'");
-  return `You are an MCQ generator. Return ONLY a JSON array length=${count}. Each: {question,options[4],answerIndex,category:'${safeTopic}',difficulty:'${safeDifficulty}'}. Language=${safeLang}. Constraints: concise; factual; no explanations; no markdown; options mutually exclusive; no 'All/None'; vary answer position; avoid duplicates.`;
+function buildSystemPrompt(lang) {
+  const localized = lang === 'fa' ? 'Persian (Farsi)' : lang;
+  return `You are an expert quiz question generator. You craft ${localized} multiple-choice questions with exactly four answer options and one correct answer. Your responses must be valid JSON that adheres to the provided schema.`;
+}
+
+function buildUserPrompt({ topic, count, difficulty, lang }) {
+  const safeTopic = topic.replace(/\"/g, '\\"');
+  const safeDifficulty = difficulty.replace(/\"/g, '\\"');
+  const safeLang = lang.replace(/\"/g, '\\"');
+  return [
+    `Generate ${count} ${safeLang} multiple-choice questions about "${safeTopic}" with overall difficulty "${safeDifficulty}".`,
+    'Each question must have exactly four distinct answer options and specify the correct option index (0-based).',
+    'Avoid repeating questions, avoid answers like "All of the above" or "None of the above", and keep the content concise and factual.',
+    'Return ONLY valid JSON that satisfies the provided schema (an object with an "items" array). Do not include markdown or prose.'
+  ].join(' ');
 }
 
 function buildResponseFormat(count) {
@@ -62,26 +104,36 @@ function buildResponseFormat(count) {
     json_schema: {
       name: 'ai_mcq_batch',
       schema: {
-        type: 'array',
-        minItems: 1,
-        maxItems: normalizedCount,
-        items: {
-          type: 'object',
-          required: ['question', 'options', 'answerIndex'],
-          properties: {
-            question: { type: 'string', minLength: 6, maxLength: 400 },
-            options: {
-              type: 'array',
-              minItems: 4,
-              maxItems: 4,
-              items: { type: 'string', minLength: 1, maxLength: 200 }
-            },
-            answerIndex: { type: 'integer', minimum: 0, maximum: 3 },
-            category: { type: 'string' },
-            difficulty: { type: 'string' }
+        type: 'object',
+        additionalProperties: false,
+        required: ['items'],
+        properties: {
+          items: {
+            type: 'array',
+            minItems: normalizedCount,
+            maxItems: normalizedCount,
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['question', 'options', 'correct_index'],
+              properties: {
+                question: { type: 'string', minLength: 6, maxLength: 400 },
+                options: {
+                  type: 'array',
+                  minItems: 4,
+                  maxItems: 4,
+                  items: { type: 'string', minLength: 1, maxLength: 200 }
+                },
+                correct_index: { type: 'integer', minimum: 0, maximum: 3 },
+                explanation: { type: 'string', minLength: 0, maxLength: 600 },
+                category: { type: 'string', minLength: 1, maxLength: 160 },
+                difficulty: { type: 'string', minLength: 1, maxLength: 16 }
+              }
+            }
           }
         }
-      }
+      },
+      strict: true
     }
   };
 }
@@ -94,111 +146,88 @@ async function callOpenAi({ topic, count, difficulty, lang, model }) {
     throw error;
   }
 
-  const baseUrl = env.ai?.openai?.baseUrl || 'https://api.openai.com/v1';
-  const prompt = buildPrompt({ topic, count, difficulty, lang });
-  const payload = {
-    model,
-    input: [
-      {
-        role: 'system',
-        content: [
-          { type: 'input_text', text: 'You create high-quality multiple choice questions for quizzes.' }
-        ]
-      },
-      {
-        role: 'user',
-        content: [
-          { type: 'input_text', text: prompt }
-        ]
-      }
-    ],
-    temperature: 0.4,
-    top_p: 0.9,
-    max_output_tokens: Math.min(120 * count, 120 * MAX_COUNT),
-    text: {
-      format: buildResponseFormat(count)
-    }
-  };
-
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey}`
-  };
-
-  if (env.ai?.openai?.organization) {
-    headers['OpenAI-Organization'] = env.ai.openai.organization;
-  }
-  if (env.ai?.openai?.project) {
-    headers['OpenAI-Project'] = env.ai.openai.project;
-  }
-
-  const url = `${baseUrl.replace(/\/+$/, '')}/responses`;
-  const response = await fetchWithRetry(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-    timeout: 60000,
-    retries: 2,
-    retryOn: new Set([408, 425, 429, 500, 502, 503, 504])
+  const client = getOpenAiClient({
+    apiKey,
+    baseURL: env.ai?.openai?.baseUrl,
+    organization: env.ai?.openai?.organization,
+    project: env.ai?.openai?.project
   });
 
-  if (!response.ok) {
-    let message = `Failed to call OpenAI (status ${response.status})`;
-    try {
-      const errorBody = await response.json();
-      if (errorBody?.error?.message) {
-        message = errorBody.error.message;
-      }
-    } catch (parseError) {
-      // ignore parse error, keep default message
-    }
-    const error = new Error(message);
-    error.statusCode = response.status;
-    throw error;
-  }
+  const systemPrompt = buildSystemPrompt(lang);
+  const userPrompt = buildUserPrompt({ topic, count, difficulty, lang });
 
-  let data;
+  let response;
   try {
-    data = await response.json();
+    response = await client.responses.create({
+      model,
+      input: [
+        { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
+        { role: 'user', content: [{ type: 'input_text', text: userPrompt }] }
+      ],
+      response_format: buildResponseFormat(count),
+      temperature: 0.4,
+      top_p: 0.9,
+      max_output_tokens: Math.min(160 * count, 160 * MAX_COUNT)
+    });
   } catch (error) {
-    const err = new Error('Failed to parse OpenAI response');
+    const err = new Error(error?.message || 'Failed to call OpenAI');
+    err.statusCode = error?.status ?? error?.statusCode ?? 502;
     err.cause = error;
-    err.statusCode = 502;
     throw err;
   }
 
-  const usage = data?.usage || null;
-  const items = extractItemsFromResponse(data);
+  const usage = response?.usage || null;
+  const rawItems = extractItemsFromResponse(response);
+  const items = normalizeResponseItems(rawItems);
   return { items, usage };
+}
+
+function parseJsonSafe(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    return null;
+  }
+}
+
+function coerceItemArray(candidate) {
+  if (!candidate) return [];
+  if (Array.isArray(candidate)) return candidate;
+  if (typeof candidate === 'object') {
+    if (Array.isArray(candidate.items)) return candidate.items;
+    if (Array.isArray(candidate.questions)) return candidate.questions;
+    if (Array.isArray(candidate.data)) return candidate.data;
+  }
+  return [];
 }
 
 function extractItemsFromResponse(payload) {
   if (!payload) return [];
 
+  const fromCandidate = (candidate) => {
+    const arr = coerceItemArray(candidate);
+    return arr.length ? arr : null;
+  };
+
+  if (typeof payload.output_text === 'string') {
+    const arr = fromCandidate(parseJsonSafe(payload.output_text));
+    if (arr) return arr;
+  }
+
   if (Array.isArray(payload.output)) {
     for (const block of payload.output) {
       if (!Array.isArray(block?.content)) continue;
       for (const part of block.content) {
-        if (part?.type === 'output_json' && part.json) {
-          if (Array.isArray(part.json)) return part.json;
-          if (typeof part.json === 'string') {
-            try {
-              const parsed = JSON.parse(part.json);
-              if (Array.isArray(parsed)) return parsed;
-            } catch (err) {
-              // ignore
-            }
-          }
+        if (part?.type === 'output_json') {
+          const arr = fromCandidate(part.json);
+          if (arr) return arr;
         }
-        if (part?.type === 'output_text' || part?.type === 'text') {
-          if (typeof part.text === 'string' && part.text.trim()) {
-            try {
-              const parsed = JSON.parse(part.text);
-              if (Array.isArray(parsed)) return parsed;
-            } catch (error) {
-              // ignore and continue
-            }
-          }
+        if ((part?.type === 'output_text' || part?.type === 'text') && typeof part.text === 'string') {
+          const arr = fromCandidate(parseJsonSafe(part.text));
+          if (arr) return arr;
         }
       }
     }
@@ -206,29 +235,44 @@ function extractItemsFromResponse(payload) {
 
   if (Array.isArray(payload.choices)) {
     const message = payload.choices[0]?.message;
-    if (message?.parsed && Array.isArray(message.parsed)) {
-      return message.parsed;
+    if (message?.parsed) {
+      const arr = fromCandidate(message.parsed);
+      if (arr) return arr;
     }
     if (typeof message?.content === 'string') {
-      try {
-        const parsed = JSON.parse(message.content);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (error) {
-        // ignore
-      }
-    }
-  }
-
-  if (typeof payload.output_text === 'string') {
-    try {
-      const parsed = JSON.parse(payload.output_text);
-      if (Array.isArray(parsed)) return parsed;
-    } catch (error) {
-      // ignore
+      const arr = fromCandidate(parseJsonSafe(message.content));
+      if (arr) return arr;
     }
   }
 
   return [];
+}
+
+function normalizeResponseItems(rawItems) {
+  if (!Array.isArray(rawItems)) return [];
+
+  return rawItems.map((item) => {
+    const options = Array.isArray(item?.options) ? item.options : [];
+    const answerIndex =
+      item?.answerIndex ??
+      item?.correct_index ??
+      item?.correctIndex ??
+      item?.correct_option ??
+      item?.correctOption;
+
+    const explanation = typeof item?.explanation === 'string' ? item.explanation : undefined;
+    const difficulty = typeof item?.difficulty === 'string' ? item.difficulty : undefined;
+    const category = typeof item?.category === 'string' ? item.category : undefined;
+
+    return {
+      question: typeof item?.question === 'string' ? item.question : '',
+      options,
+      answerIndex,
+      difficulty,
+      category,
+      explanation
+    };
+  });
 }
 
 function buildInvalidEntry(raw, reason) {
@@ -257,7 +301,13 @@ function normalizeQuestionItem(raw, context) {
     return { error: buildInvalidEntry(raw, 'گزینه‌های تکراری مجاز نیست') };
   }
 
-  const answerIndex = Number(raw?.answerIndex);
+  const rawAnswerIndex =
+    raw?.answerIndex ??
+    raw?.correct_index ??
+    raw?.correctIndex ??
+    raw?.correct_option ??
+    raw?.correctOption;
+  const answerIndex = Number(rawAnswerIndex);
   if (!Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex > 3) {
     return { error: buildInvalidEntry(raw, 'پاسخ صحیح نامعتبر است') };
   }
@@ -269,6 +319,7 @@ function normalizeQuestionItem(raw, context) {
 
   const itemDifficulty = sanitizeDifficulty(raw?.difficulty || context.difficulty);
   const category = sanitizeTopic(raw?.category) || context.topic;
+  const explanation = typeof raw?.explanation === 'string' ? raw.explanation.trim() : '';
 
   return {
     value: {
@@ -278,7 +329,8 @@ function normalizeQuestionItem(raw, context) {
       answerIndex,
       difficulty: itemDifficulty,
       category,
-      lang: context.lang
+      lang: context.lang,
+      explanation: explanation || undefined
     }
   };
 }
@@ -363,7 +415,8 @@ function mapPreviewItem(item) {
     answerIndex: item.answerIndex,
     difficulty: item.difficulty,
     category: item.category,
-    lang: item.lang
+    lang: item.lang,
+    explanation: item.explanation || ''
   };
 }
 
@@ -379,6 +432,9 @@ async function insertQuestions(items, context) {
       lang: item.lang,
       model: context.model
     };
+    if (item.explanation) {
+      meta.explanation = item.explanation;
+    }
     if (context.requestedBy) {
       meta.requestedBy = context.requestedBy;
     }
