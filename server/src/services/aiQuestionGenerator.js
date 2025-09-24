@@ -102,13 +102,13 @@ async function callOpenAi({ topic, count, difficulty, lang, model }) {
       {
         role: 'system',
         content: [
-          { type: 'text', text: 'You create high-quality multiple choice questions for quizzes.' }
+          { type: 'input_text', text: 'You create high-quality multiple choice questions for quizzes.' }
         ]
       },
       {
         role: 'user',
         content: [
-          { type: 'text', text: prompt }
+          { type: 'input_text', text: prompt }
         ]
       }
     ],
