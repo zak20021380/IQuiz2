@@ -23,7 +23,7 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-async function generateQuestions({ systemPrompt, userPrompt, schema }) {
+async function generateQuestions({ systemPrompt, userPrompt, schema, temperature, seed }) {
   if (!process.env.OPENAI_API_KEY) throw new Error('Missing OPENAI_API_KEY');
 
   const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com';
@@ -45,6 +45,14 @@ async function generateQuestions({ systemPrompt, userPrompt, schema }) {
       }
     }
   };
+
+  if (Number.isFinite(temperature)) {
+    payload.temperature = Math.max(0, Math.min(2, Number(temperature)));
+  }
+
+  if (Number.isSafeInteger(seed)) {
+    payload.seed = seed;
+  }
 
   const fetchOptions = {
     method: 'POST',
