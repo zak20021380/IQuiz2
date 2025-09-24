@@ -572,7 +572,6 @@ const aiTopicHintsInput = $('#ai-topic-hints');
 const aiPromptInput = $('#ai-custom-prompt');
 const aiTemperatureRange = $('#ai-temperature');
 const aiTemperatureNumber = $('#ai-temperature-number');
-const aiSeedInput = $('#ai-seed');
 const aiPreviewBtn = $('#ai-preview-btn');
 const aiGenerateBtn = $('#ai-generate-btn');
 const aiStatusEl = $('#ai-status');
@@ -1105,14 +1104,6 @@ function getAiFormValues() {
   const topicHints = aiTopicHintsInput ? aiTopicHintsInput.value.trim() : '';
   const prompt = aiPromptInput ? aiPromptInput.value.trim() : '';
   const temperature = syncAiTemperatureInputs('number');
-  const seedRaw = aiSeedInput ? aiSeedInput.value.trim() : '';
-  let seed;
-  if (seedRaw !== '') {
-    seed = Number.parseInt(seedRaw, 10);
-    if (!Number.isInteger(seed)) {
-      throw new Error('مقدار Seed باید یک عدد صحیح باشد.');
-    }
-  }
 
   return {
     count,
@@ -1120,8 +1111,7 @@ function getAiFormValues() {
     difficulty,
     topicHints,
     prompt,
-    temperature,
-    seed
+    temperature
   };
 }
 
@@ -1156,8 +1146,7 @@ async function runAiGeneration(previewOnly = false) {
       topicHints: payload.topicHints || '',
       prompt: payload.prompt || '',
       lang: 'fa',
-      temperature: payload.temperature,
-      seed: payload.seed
+      temperature: payload.temperature
     };
 
     if (!previewOnly && Array.isArray(aiGeneratorState.preview) && aiGeneratorState.preview.length) {
@@ -1651,8 +1640,7 @@ function updateTriviaControlsAvailability() {
     aiTopicHintsInput,
     aiPromptInput,
     aiTemperatureRange,
-    aiTemperatureNumber,
-    aiSeedInput
+    aiTemperatureNumber
   ];
   inputs.forEach((input) => {
     if (!input) return;
@@ -2946,11 +2934,6 @@ async function generateAiChunked(payload = {}, { previewOnly } = {}) {
     const tempNumber = Number(payload.temperature);
     if (Number.isFinite(tempNumber)) baseBody.temperature = tempNumber;
   }
-  if (payload.seed !== undefined && payload.seed !== null) {
-    const seedNumber = Number(payload.seed);
-    if (Number.isSafeInteger(seedNumber)) baseBody.seed = seedNumber;
-  }
-
   let remaining = totalTarget;
   let previewIndex = 0;
 
