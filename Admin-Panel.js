@@ -554,7 +554,7 @@ const shopShowTutorialToggle = $('#shop-show-tutorial');
 const questionFilters = {
   category: '',
   difficulty: '',
-  provider: 'ai-gen',
+  provider: '',
   status: '',
   search: '',
   sort: 'newest',
@@ -4330,7 +4330,6 @@ async function loadQuestions(overrides = {}) {
       tbody.onclick = null;
     }
 
-    questionFilters.provider = 'ai-gen';
     const params = new URLSearchParams({ limit: '50' });
     if (questionFilters.category) params.append('category', questionFilters.category);
     if (questionFilters.difficulty) params.append('difficulty', questionFilters.difficulty);
@@ -4374,7 +4373,7 @@ async function loadQuestions(overrides = {}) {
       );
       let emptyMessage;
       if (questionFilters.category) {
-        emptyMessage = 'برای این دسته هنوز سوال AI ثبت نشده.';
+        emptyMessage = 'برای این دسته هنوز سوالی ثبت نشده است.';
       } else if (questionFilters.duplicates === 'duplicates') {
         emptyMessage = 'هیچ سوال تکراری با تنظیمات فعلی یافت نشد.';
       } else if (hasFilters) {
