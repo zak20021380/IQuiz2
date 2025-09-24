@@ -16,6 +16,8 @@ const formatNumberFa = (value, options = {}) => {
   return formatter.format(safeNumber);
 };
 
+const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
+
 const formatPercentFa = (value) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return '۰';
@@ -1146,12 +1148,25 @@ async function runAiGeneration(previewOnly = false) {
   setAiStatus(previewOnly ? 'در حال آماده‌سازی پیش‌نمایش...' : 'در حال تولید سوالات...', 'info');
 
   try {
+    const requestPayload = {
+      count: payload.count,
+      categorySlug: payload.categorySlug,
+      difficulty: payload.difficulty,
+      topic: payload.topicHints || payload.prompt || '',
+      topicHints: payload.topicHints || '',
+      prompt: payload.prompt || '',
+      lang: 'fa',
+      temperature: payload.temperature,
+      seed: payload.seed
+    };
+
+    if (!previewOnly && Array.isArray(aiGeneratorState.preview) && aiGeneratorState.preview.length) {
+      requestPayload.previewQuestions = aiGeneratorState.preview.slice();
+    }
+
     // 👉 به‌جای یک درخواست بزرگ، تکه‌تکه می‌فرستیم
     const { preview, duplicates, invalid, inserted, generated } =
-      await generateAiChunked(
-        { topic: payload.topicHints || payload.prompt || '', count: payload.count, difficulty: payload.difficulty, lang: 'fa' },
-        { previewOnly }
-      );
+      await generateAiChunked(requestPayload, { previewOnly });
 
     aiGeneratorState.preview = preview;
     aiGeneratorState.invalid = invalid;
@@ -1367,7 +1382,11 @@ async function runAiModalGeneration(previewOnly) {
       combined = await generateAiChunked(values, { previewOnly: true });
     } else {
       // برای Insert هم chunked می‌رویم تا درخواست‌های سنگین نداشته باشیم
-      combined = await generateAiChunked(values, { previewOnly: false });
+      const insertPayload = { ...values };
+      if (Array.isArray(aiModalState.preview) && aiModalState.preview.length) {
+        insertPayload.previewQuestions = aiModalState.preview.map(normalizeAiPreviewItem);
+      }
+      combined = await generateAiChunked(insertPayload, { previewOnly: false });
     }
 
     aiModalState.preview = combined.preview;
@@ -2860,10 +2879,25 @@ async function api(path, options = {}) {
 
 
 // ---- AI helpers: chunked requests to avoid big payload/timeouts ----
-const AI_CHUNK_SIZE = 1; // 1=ایمن‌ترین حالت روی شبکه ناپایدار
+const AI_CHUNK_SIZE = 50; // حداکثر تعداد سوال در هر درخواست
+const AI_REQUEST_MAX_RETRIES = 3;
+const AI_REQUEST_RETRY_DELAYS = [800, 2000];
 
-async function requestAiGenerate(body) {
-  return api('/ai/generate', { method: 'POST', body: JSON.stringify(body) });
+async function requestAiGenerate(body, attempt = 1) {
+  try {
+    return await api('/ai/generate', { method: 'POST', body: JSON.stringify(body) });
+  } catch (error) {
+    const message = String(error?.message || '');
+    const isNetworkError = /network_error|fetch failed/i.test(message);
+
+    if (isNetworkError && attempt < AI_REQUEST_MAX_RETRIES) {
+      const delayMs = AI_REQUEST_RETRY_DELAYS[Math.min(attempt - 1, AI_REQUEST_RETRY_DELAYS.length - 1)] || 1000;
+      await wait(delayMs);
+      return requestAiGenerate(body, attempt + 1);
+    }
+
+    throw error;
+  }
 }
 
 function mergeAiBatches(batches) {
@@ -2890,18 +2924,58 @@ function mergeAiBatches(batches) {
   return { preview, duplicates, invalid, inserted, generated };
 }
 
-async function generateAiChunked({ topic, count, difficulty, lang }, { previewOnly }) {
+async function generateAiChunked(payload = {}, { previewOnly } = {}) {
   const batches = [];
-  let remaining = Math.max(1, Number(count) || 1);
+  const requestedCount = Number.isFinite(Number(payload.count)) ? Number(payload.count) : 1;
+  const previewQuestions = Array.isArray(payload.previewQuestions) ? payload.previewQuestions : [];
+  const hasPreview = !previewOnly && previewQuestions.length > 0;
+  const totalTarget = hasPreview ? Math.max(1, previewQuestions.length) : Math.max(1, requestedCount);
+
+  const baseBody = {
+    topic: typeof payload.topic === 'string' ? payload.topic : '',
+    topicHints: typeof payload.topicHints === 'string' ? payload.topicHints : '',
+    prompt: typeof payload.prompt === 'string' ? payload.prompt : '',
+    difficulty: payload.difficulty || 'medium',
+    lang: payload.lang || 'fa'
+  };
+
+  if (payload.categorySlug) baseBody.categorySlug = payload.categorySlug;
+  if (payload.categoryId) baseBody.categoryId = payload.categoryId;
+  if (payload.categoryKey) baseBody.categoryKey = payload.categoryKey;
+  if (payload.temperature !== undefined && payload.temperature !== null) {
+    const tempNumber = Number(payload.temperature);
+    if (Number.isFinite(tempNumber)) baseBody.temperature = tempNumber;
+  }
+  if (payload.seed !== undefined && payload.seed !== null) {
+    const seedNumber = Number(payload.seed);
+    if (Number.isSafeInteger(seedNumber)) baseBody.seed = seedNumber;
+  }
+
+  let remaining = totalTarget;
+  let previewIndex = 0;
 
   while (remaining > 0) {
-    const c = Math.min(AI_CHUNK_SIZE, remaining);
-    // هر بار فقط c سؤال می‌گیریم تا پاسخ کوچیک بمونه
-    const res = await requestAiGenerate({
-      topic, count: c, difficulty, lang, previewOnly: Boolean(previewOnly)
-    });
+    const chunkLimit = Math.min(AI_CHUNK_SIZE, remaining);
+    const previewSlice = hasPreview
+      ? previewQuestions.slice(previewIndex, previewIndex + chunkLimit)
+      : [];
+    const previewLength = previewSlice.length;
+    const countForRequest = previewLength > 0 ? previewLength : chunkLimit;
+
+    const body = {
+      ...baseBody,
+      count: countForRequest,
+      previewOnly: Boolean(previewOnly)
+    };
+
+    if (previewLength > 0) {
+      body.previewQuestions = previewSlice;
+      previewIndex += previewLength;
+    }
+
+    const res = await requestAiGenerate(body);
     batches.push(res);
-    remaining -= c;
+    remaining -= countForRequest;
   }
 
   return mergeAiBatches(batches);
