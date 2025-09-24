@@ -2867,7 +2867,8 @@ async function api(path, options = {}) {
 
 
 // ---- AI helpers: chunked requests to avoid big payload/timeouts ----
-const AI_CHUNK_SIZE = 50; // حداکثر تعداد سوال در هر درخواست
+const AI_CHUNK_SIZE = 4; // حداکثر تعداد سوال در هر درخواست (برای جلوگیری از تایم‌اوت و خطاهای شبکه)
+const AI_CHUNK_MIN_SIZE = 1;
 const AI_REQUEST_MAX_RETRIES = 3;
 const AI_REQUEST_RETRY_DELAYS = [800, 2000];
 
@@ -2934,11 +2935,13 @@ async function generateAiChunked(payload = {}, { previewOnly } = {}) {
     const tempNumber = Number(payload.temperature);
     if (Number.isFinite(tempNumber)) baseBody.temperature = tempNumber;
   }
+
   let remaining = totalTarget;
   let previewIndex = 0;
+  let chunkSize = Math.min(Math.max(1, totalTarget), AI_CHUNK_SIZE);
 
   while (remaining > 0) {
-    const chunkLimit = Math.min(AI_CHUNK_SIZE, remaining);
+    const chunkLimit = Math.min(chunkSize, remaining);
     const previewSlice = hasPreview
       ? previewQuestions.slice(previewIndex, previewIndex + chunkLimit)
       : [];
@@ -2953,12 +2956,28 @@ async function generateAiChunked(payload = {}, { previewOnly } = {}) {
 
     if (previewLength > 0) {
       body.previewQuestions = previewSlice;
-      previewIndex += previewLength;
     }
 
-    const res = await requestAiGenerate(body);
-    batches.push(res);
-    remaining -= countForRequest;
+    try {
+      const res = await requestAiGenerate(body);
+      batches.push(res);
+      remaining -= countForRequest;
+      if (previewLength > 0) {
+        previewIndex += previewLength;
+      }
+    } catch (error) {
+      const message = String(error?.message || '');
+      const isNetworkError = /network_error|fetch failed|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ECONNABORTED/i.test(message);
+      if (isNetworkError && chunkSize > AI_CHUNK_MIN_SIZE) {
+        const nextChunk = Math.max(AI_CHUNK_MIN_SIZE, Math.floor(chunkSize / 2));
+        chunkSize = nextChunk === chunkSize && chunkSize > AI_CHUNK_MIN_SIZE
+          ? chunkSize - 1
+          : nextChunk;
+        await wait(300);
+        continue;
+      }
+      throw error;
+    }
   }
 
   return mergeAiBatches(batches);
