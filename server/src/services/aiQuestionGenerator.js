@@ -57,31 +57,34 @@ function buildPrompt({ topic, count, difficulty, lang }) {
 
 function buildResponseFormat(count) {
   const normalizedCount = Math.max(1, Math.min(count, MAX_COUNT));
+  const schema = {
+    type: 'array',
+    minItems: 1,
+    maxItems: normalizedCount,
+    items: {
+      type: 'object',
+      required: ['question', 'options', 'answerIndex'],
+      properties: {
+        question: { type: 'string', minLength: 6, maxLength: 400 },
+        options: {
+          type: 'array',
+          minItems: 4,
+          maxItems: 4,
+          items: { type: 'string', minLength: 1, maxLength: 200 }
+        },
+        answerIndex: { type: 'integer', minimum: 0, maximum: 3 },
+        category: { type: 'string' },
+        difficulty: { type: 'string' }
+      }
+    }
+  };
+
   return {
     type: 'json_schema',
+    name: 'ai_mcq_batch',
     json_schema: {
       name: 'ai_mcq_batch',
-      schema: {
-        type: 'array',
-        minItems: 1,
-        maxItems: normalizedCount,
-        items: {
-          type: 'object',
-          required: ['question', 'options', 'answerIndex'],
-          properties: {
-            question: { type: 'string', minLength: 6, maxLength: 400 },
-            options: {
-              type: 'array',
-              minItems: 4,
-              maxItems: 4,
-              items: { type: 'string', minLength: 1, maxLength: 200 }
-            },
-            answerIndex: { type: 'integer', minimum: 0, maximum: 3 },
-            category: { type: 'string' },
-            difficulty: { type: 'string' }
-          }
-        }
-      }
+      schema
     }
   };
 }
