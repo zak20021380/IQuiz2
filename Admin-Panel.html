@@ -1100,6 +1100,221 @@
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.5rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 0.5rem;
+      background: rgba(148, 163, 184, 0.18);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      font-size: 0.75rem;
+      color: #e2e8f0;
+    }
+
+    #import-questions-modal .modal-content {
+      max-height: 90vh;
+      overflow: hidden;
+    }
+
+    #import-questions-modal .modal-body {
+      max-height: calc(90vh - 160px);
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    #import-questions-modal .modal-body::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #import-questions-modal .modal-body::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 999px;
+    }
+
+    #import-questions-modal .modal-body::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #import-questions-modal .sample-block {
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    #import-questions-modal .sample-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #f8fafc;
+      margin-bottom: 0.75rem;
+    }
+
+    #import-questions-modal .sample-code {
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: 0.75rem;
+      padding: 0.85rem 1rem;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      color: #a5b4fc;
+      overflow-x: auto;
+      direction: ltr;
+      text-align: left;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+
+    #import-questions-modal .import-summary {
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(100, 116, 139, 0.08));
+    }
+
+    #import-questions-modal .import-summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    #import-questions-modal .import-summary-card {
+      border-radius: 1rem;
+      padding: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    #import-questions-modal .import-summary-card span {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    #import-questions-modal .import-status-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    #import-questions-modal .import-status-badge.idle {
+      background: rgba(59, 130, 246, 0.15);
+      color: #bfdbfe;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+    }
+
+    #import-questions-modal .import-status-badge.uploading {
+      background: rgba(251, 191, 36, 0.15);
+      color: #facc15;
+      border: 1px solid rgba(251, 191, 36, 0.35);
+    }
+
+    #import-questions-modal .import-status-badge.success {
+      background: rgba(16, 185, 129, 0.18);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    #import-questions-modal .import-status-badge.error {
+      background: rgba(248, 113, 113, 0.18);
+      color: #fca5a5;
+      border: 1px solid rgba(248, 113, 113, 0.4);
+    }
+
+    #import-questions-modal .import-preview-card {
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.55);
+      padding: 1.15rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    #import-questions-modal .import-preview-card.success {
+      border-color: rgba(34, 197, 94, 0.5);
+      box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+    }
+
+    #import-questions-modal .import-preview-card.error {
+      border-color: rgba(248, 113, 113, 0.45);
+      box-shadow: 0 10px 30px rgba(248, 113, 113, 0.2);
+    }
+
+    #import-questions-modal .import-preview-meta {
+      font-size: 0.75rem;
+      color: rgba(226, 232, 240, 0.65);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    #import-questions-modal .import-preview-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #f8fafc;
+      margin-top: 0.5rem;
+      line-height: 1.7;
+    }
+
+    #import-questions-modal .import-preview-options {
+      display: grid;
+      gap: 0.5rem;
+      margin-top: 0.85rem;
+    }
+
+    #import-questions-modal .import-option {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.8rem;
+      padding: 0.45rem 0.65rem;
+      border-radius: 0.75rem;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    #import-questions-modal .import-option.correct {
+      border-color: rgba(34, 197, 94, 0.45);
+      background: rgba(34, 197, 94, 0.14);
+      color: #bbf7d0;
+    }
+
+    #import-questions-modal .import-warning,
+    #import-questions-modal .import-error-item {
+      border-radius: 0.85rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      line-height: 1.7;
+    }
+
+    #import-questions-modal .import-warning {
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.32);
+      color: #fde68a;
+    }
+
+    #import-questions-modal .import-error-item {
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.32);
+      color: #fecaca;
+    }
+
+    #import-questions-modal .empty-preview {
+      border-radius: 1rem;
+      padding: 1.5rem;
+      border: 1px dashed rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.4);
+      text-align: center;
+      color: rgba(226, 232, 240, 0.65);
+      font-size: 0.9rem;
+    }
+
     /* Responsive adjustments */
     @media (max-width: 768px) {
       body {
@@ -1637,6 +1852,10 @@
           <div class="flex items-center gap-3">
             <button id="btn-add-question" class="btn btn-primary w-auto px-5">
               <i class="fa-solid fa-plus ml-2"></i> افزودن سوال
+            </button>
+            <button id="btn-import-questions" class="btn btn-secondary w-auto px-5">
+              <i class="fa-solid fa-file-arrow-down ml-2"></i>
+              ورود سوالات JSON
             </button>
           </div>
         </div>
@@ -3599,6 +3818,77 @@
       <div class="modal-actions safe">
         <button type="button" id="save-question-btn" class="btn btn-primary">ذخیره سوال</button>
         <button type="button" class="btn btn-secondary close-modal">انصراف</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="import-questions-modal" class="modal">
+    <div class="glass rounded-3xl max-w-3xl w-full mx-4 modal-content">
+      <div class="modal-header">
+        <div>
+          <h3 class="font-extrabold text-2xl md:text-3xl">ورود سوالات از JSON</h3>
+          <p class="helper-text mt-1">
+            فایل یا محتوای JSON شامل سوالات خود را وارد کنید. ساختار می‌تواند شامل یک سوال تکی یا مجموعه‌ای از سوالات باشد.
+          </p>
+        </div>
+        <button type="button" class="close-modal rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+          <i class="fa-solid fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body space-y-6">
+        <div id="import-questions-summary" class="import-summary glass-dark rounded-2xl p-4"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-2 flex flex-col gap-3">
+            <label for="import-questions-json" class="field-label">چسباندن محتوای JSON</label>
+            <textarea id="import-questions-json" class="form-input min-h-[220px] text-xs md:text-sm font-mono leading-relaxed" placeholder='[{
+  "text": "متن سوال...",
+  "options": ["گزینه ۱", "گزینه ۲", "گزینه ۳", "گزینه ۴"],
+  "correctAnswer": "گزینه ۲",
+  "category": "علوم و فناوری",
+  "difficulty": "medium"
+}]'></textarea>
+            <p class="helper-text text-xs">
+              از کلیدهای <kbd class="kbd">⌘</kbd>/<kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">V</kbd> برای چسباندن سریع استفاده کنید.
+            </p>
+          </div>
+          <div class="flex flex-col gap-3">
+            <span class="field-label">آپلود فایل JSON</span>
+            <input id="import-questions-file" type="file" accept="application/json,.json" class="hidden" />
+            <button id="import-questions-file-btn" type="button" class="btn btn-tertiary w-full">
+              <i class="fa-solid fa-cloud-arrow-up ml-2"></i>
+              انتخاب فایل JSON
+            </button>
+            <div id="import-questions-file-name" class="text-xs text-white/60 truncate">هیچ فایلی انتخاب نشده است</div>
+            <div class="sample-block">
+              <p class="sample-title">نمونه ساختار معتبر</p>
+              <pre class="sample-code">{
+  "text": "پایتخت ژاپن کدام شهر است؟",
+  "options": ["کیوتو", "توکیو", "اوساکا", "ناگویا"],
+  "correctAnswer": "توکیو",
+  "category": "جغرافیا و طبیعت",
+  "difficulty": "easy",
+  "author": "تیم محتوا"
+}</pre>
+              <p class="sample-helper text-[11px] text-white/50 leading-5">
+                برای ورود گروهی، داده‌ها را داخل یک آرایه قرار دهید. فیلدهای <code>correctIdx</code>، <code>correctAnswer</code> یا حروف <code>A-D</code> پشتیبانی می‌شوند.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div id="import-questions-errors" class="hidden"></div>
+
+        <div>
+          <h4 class="text-sm font-semibold text-white/80 mb-3">پیش‌نمایش سوالات</h4>
+          <div id="import-questions-preview" class="space-y-3"></div>
+        </div>
+      </div>
+      <div class="modal-actions safe">
+        <button type="button" id="import-questions-submit" class="btn btn-primary">
+          ثبت سوالات انتخاب شده
+        </button>
+        <button type="button" class="btn btn-secondary close-modal">بستن</button>
       </div>
     </div>
   </div>

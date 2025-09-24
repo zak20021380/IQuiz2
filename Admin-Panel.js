@@ -18,6 +18,14 @@ const formatNumberFa = (value, options = {}) => {
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 
+const truncateText = (value = '', limit = 120) => {
+  const raw = typeof value === 'string' ? value : String(value ?? '');
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.slice(0, Math.max(0, limit - 1))}…`;
+};
+
 const formatPercentFa = (value) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return '۰';
@@ -294,6 +302,17 @@ const questionUpdatedEl = questionDetailModal ? questionDetailModal.querySelecto
 const questionCorrectPreviewEl = $('#question-correct-preview');
 const updateQuestionBtn = $('#update-question-btn');
 const updateQuestionBtnDefault = updateQuestionBtn ? updateQuestionBtn.innerHTML : '';
+const importQuestionsBtn = $('#btn-import-questions');
+const importQuestionsModal = $('#import-questions-modal');
+const importQuestionsTextarea = $('#import-questions-json');
+const importQuestionsFileInput = $('#import-questions-file');
+const importQuestionsFileButton = $('#import-questions-file-btn');
+const importQuestionsFileNameEl = $('#import-questions-file-name');
+const importQuestionsPreviewEl = $('#import-questions-preview');
+const importQuestionsErrorsEl = $('#import-questions-errors');
+const importQuestionsSummaryEl = $('#import-questions-summary');
+const importQuestionsSubmitBtn = $('#import-questions-submit');
+const importQuestionsSubmitDefault = importQuestionsSubmitBtn ? importQuestionsSubmitBtn.innerHTML : '';
 const filterCategorySelect = $('#filter-category');
 const filterDifficultySelect = $('#filter-difficulty');
 const filterSearchInput = $('#filter-search');
@@ -578,6 +597,17 @@ const duplicatesState = {
   lastLoadedAt: 0
 };
 
+const importQuestionsState = {
+  raw: '',
+  fileName: '',
+  questions: [],
+  errors: [],
+  total: 0,
+  importing: false
+};
+
+let importQuestionsDebounce = null;
+
 let filterSearchDebounce;
 let latestQuestionStats = null;
 let questionStatsLoaded = false;
@@ -811,6 +841,559 @@ async function handleDuplicatesBulkDelete() {
     showToast(error.message || 'حذف سوالات تکراری ناموفق بود', 'error');
   } finally {
     updateDuplicateBulkDeleteState();
+  }
+}
+
+// --------------- IMPORT QUESTIONS HELPERS ---------------
+function normalizeBooleanCandidate(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return fallback;
+    return value > 0;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return fallback;
+    if (['1', 'true', 'yes', 'y', 'on', 'active', 'فعال'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'n', 'off', 'inactive', 'غیرفعال'].includes(normalized)) return false;
+  }
+  return fallback;
+}
+
+function normalizeImportDifficulty(value) {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return 'easy';
+    if (['easy', 'ساده', 'آسون', 'آسان', 'light', 'beginner'].includes(normalized)) return 'easy';
+    if (['medium', 'متوسط', 'normal', 'standard'].includes(normalized)) return 'medium';
+    if (['hard', 'سخت', 'difficult', 'challenging', 'advanced'].includes(normalized)) return 'hard';
+    if (['2', 'mid'].includes(normalized)) return 'medium';
+    if (['3', '4', 'expert'].includes(normalized)) return 'hard';
+    if (['0'].includes(normalized)) return 'easy';
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return 'easy';
+    if (value <= 1) return 'easy';
+    if (value >= 3) return 'hard';
+    return 'medium';
+  }
+  return 'easy';
+}
+
+function normalizeImportStatus(value, activeCandidate) {
+  const fallback = normalizeBooleanCandidate(activeCandidate, true) ? 'approved' : 'draft';
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (['approved', 'active', 'accept', 'confirmed', 'تایید', 'تایید شده'].includes(normalized)) return 'approved';
+  if (['pending', 'review', 'waiting', 'در انتظار', 'درحال بررسی', 'در حال بررسی'].includes(normalized)) return 'pending';
+  if (['draft', 'inactive', 'disabled', 'غیرفعال', 'پیش نویس'].includes(normalized)) return 'draft';
+  if (['rejected', 'declined', 'رد', 'cancelled'].includes(normalized)) return 'rejected';
+  return fallback;
+}
+
+function normalizeImportSource(value) {
+  if (typeof value !== 'string') return 'manual';
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return 'manual';
+  if (['community', 'user', 'users', 'creator', 'external', 'community-generated', 'player'].includes(normalized)) {
+    return 'community';
+  }
+  if (['ai', 'ai-gen', 'gpt', 'chatgpt', 'assistant', 'machine', 'openai'].includes(normalized)) {
+    return 'AI';
+  }
+  return 'manual';
+}
+
+function gatherCategoryCandidates(candidate) {
+  if (candidate == null) return [];
+  if (typeof candidate === 'string' || typeof candidate === 'number') {
+    return [String(candidate)];
+  }
+  if (Array.isArray(candidate)) {
+    return candidate.flatMap((item) => gatherCategoryCandidates(item));
+  }
+  if (typeof candidate !== 'object') return [];
+  const values = [];
+  const keys = [
+    '_id', 'id', 'categoryId', 'category_id', 'category', 'slug', 'providerCategoryId',
+    'name', 'displayName', 'title', 'label', 'value', 'code'
+  ];
+  keys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(candidate, key) && candidate[key] != null) {
+      values.push(candidate[key]);
+    }
+  });
+  if (Array.isArray(candidate.aliases)) values.push(...candidate.aliases);
+  return values.flatMap((value) => gatherCategoryCandidates(value));
+}
+
+function resolveImportCategory(value) {
+  const candidates = Array.isArray(value) ? value : [value];
+  for (const candidate of candidates) {
+    const values = gatherCategoryCandidates(candidate);
+    for (const entry of values) {
+      const raw = typeof entry === 'string' ? entry : String(entry ?? '');
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      const direct = cachedCategories.find((category) => {
+        if (!category) return false;
+        if (category._id === trimmed) return true;
+        const normalized = trimmed.toLowerCase();
+        if (category.slug && category.slug.toLowerCase() === normalized) return true;
+        if (category.providerCategoryId && category.providerCategoryId.toLowerCase() === normalized) return true;
+        if (category.name && category.name.toLowerCase() === normalized) return true;
+        if (category.displayName && category.displayName.toLowerCase() === normalized) return true;
+        if (Array.isArray(category.aliases) && category.aliases.some((alias) => alias.toLowerCase() === normalized)) return true;
+        return false;
+      });
+      if (direct) return direct;
+
+      const staticMatch = resolveStaticCategoryDefinition(trimmed);
+      if (staticMatch) {
+        const expected = [];
+        if (staticMatch.slug) expected.push(staticMatch.slug.toLowerCase());
+        if (staticMatch.providerCategoryId) expected.push(staticMatch.providerCategoryId.toLowerCase());
+        if (staticMatch.name) expected.push(staticMatch.name.toLowerCase());
+        if (staticMatch.displayName) expected.push(staticMatch.displayName.toLowerCase());
+        const resolved = cachedCategories.find((category) => {
+          if (!category) return false;
+          const candidates = [
+            category.slug,
+            category.providerCategoryId,
+            category.name,
+            category.displayName
+          ]
+            .filter(Boolean)
+            .map((item) => String(item).toLowerCase());
+          return expected.some((expectedKey) => candidates.includes(expectedKey));
+        });
+        if (resolved) return resolved;
+      }
+    }
+  }
+  return null;
+}
+
+function extractOptionList(raw) {
+  if (!raw || typeof raw !== 'object') return [];
+  const arrayCandidates = [raw.options, raw.choices, raw.answers, raw.variants, raw.alternatives];
+  for (const candidate of arrayCandidates) {
+    if (Array.isArray(candidate) && candidate.length) {
+      const normalized = candidate.map((option) => safeString(option)).filter(Boolean);
+      if (normalized.length) return normalized;
+    }
+  }
+
+  const optionKeys = [
+    'option1', 'option2', 'option3', 'option4', 'optionA', 'optionB', 'optionC', 'optionD',
+    'a', 'b', 'c', 'd', 'first', 'second', 'third', 'fourth'
+  ];
+  const collected = [];
+  optionKeys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(raw, key)) {
+      collected.push(raw[key]);
+    }
+  });
+  return collected.map((option) => safeString(option)).filter(Boolean);
+}
+
+function resolveCorrectIndex(raw, options) {
+  if (!Array.isArray(options) || !options.length) return -1;
+  const numericCandidates = [
+    raw.correctIdx,
+    raw.correctIndex,
+    raw['correct-index'],
+    raw.correct_option_index,
+    raw.correctOptionIndex,
+    raw.answerIndex,
+    raw.answer_idx,
+    raw.correct
+  ];
+  for (const candidate of numericCandidates) {
+    const number = Number(candidate);
+    if (Number.isInteger(number) && number >= 0 && number < options.length) {
+      return number;
+    }
+  }
+
+  const stringCandidates = [
+    raw.correctAnswer,
+    raw.correct_option,
+    raw.correctOption,
+    raw.correctChoice,
+    raw.answer,
+    raw.solution,
+    raw.correct_value,
+    raw.correctText
+  ];
+  for (const candidate of stringCandidates) {
+    if (candidate == null) continue;
+    const value = safeString(candidate);
+    if (!value) continue;
+    if (value.length === 1 && /[A-D]/i.test(value)) {
+      const idx = value.toUpperCase().charCodeAt(0) - 65;
+      if (idx >= 0 && idx < options.length) return idx;
+    }
+    const normalized = value.toLowerCase();
+    const directIdx = options.findIndex((option) => option.toLowerCase() === normalized);
+    if (directIdx !== -1) return directIdx;
+  }
+
+  return -1;
+}
+
+function normalizeImportedQuestion(raw, index) {
+  if (!raw || typeof raw !== 'object') {
+    return { error: { index: index + 1, message: 'ساختار سوال باید یک شیء JSON باشد.' } };
+  }
+
+  const text = safeString(raw.text ?? raw.question ?? raw.prompt ?? raw.title ?? '');
+  if (!text) {
+    return { error: { index: index + 1, message: 'متن سوال خالی است.' } };
+  }
+
+  const options = extractOptionList(raw);
+  if (options.length !== 4) {
+    return { error: { index: index + 1, message: 'تعداد گزینه‌ها باید دقیقاً ۴ مورد باشد.' } };
+  }
+
+  const correctIdx = resolveCorrectIndex(raw, options);
+  if (!Number.isInteger(correctIdx) || correctIdx < 0 || correctIdx >= options.length) {
+    return { error: { index: index + 1, message: 'گزینه صحیح قابل شناسایی نیست.' } };
+  }
+
+  const categoryCandidate = [
+    raw.category,
+    raw.categoryId,
+    raw.category_id,
+    raw.categorySlug,
+    raw.categoryName,
+    raw.categoryTitle,
+    raw.categoryLabel,
+    raw.topic,
+    raw.subject,
+    raw.group
+  ];
+  const category = resolveImportCategory(categoryCandidate);
+  if (!category) {
+    return { error: { index: index + 1, message: 'دسته‌بندی معتبر برای سوال یافت نشد.' } };
+  }
+
+  const sourceRaw = raw.source ?? raw.origin ?? raw.provider;
+  const status = normalizeImportStatus(raw.status ?? raw.state ?? raw.approvalStatus, raw.active ?? raw.enabled ?? raw.isActive);
+  let active = normalizeBooleanCandidate(raw.active ?? raw.enabled ?? raw.isActive, status === 'approved');
+  const difficulty = normalizeImportDifficulty(raw.difficulty ?? raw.level ?? raw.difficultyLevel ?? raw.hardness ?? raw.rank);
+  const source = normalizeImportSource(sourceRaw);
+  if (status !== 'approved') active = false;
+  const lang = safeString(raw.lang ?? raw.language ?? 'fa') || 'fa';
+  const authorName = safeString(raw.authorName ?? raw.author ?? raw.creator ?? raw.writer ?? 'IQuiz Team');
+  const reviewNotes = safeString(raw.reviewNotes ?? raw.notes ?? raw.comment ?? '');
+
+  const warnings = [];
+  if (status !== 'approved' && normalizeBooleanCandidate(raw.active ?? raw.enabled ?? raw.isActive, false)) {
+    warnings.push('با توجه به وضعیت انتخاب شده، سوال به صورت غیرفعال ذخیره خواهد شد.');
+  }
+
+  const payload = {
+    text,
+    options,
+    correctIdx,
+    difficulty,
+    categoryId: category._id,
+    categoryName: category.displayName || category.name,
+    active,
+    authorName,
+    status,
+    source,
+    lang
+  };
+
+  if (reviewNotes) payload.reviewNotes = reviewNotes;
+
+  return {
+    question: {
+      index: index + 1,
+      payload,
+      previewText: text,
+      categoryLabel: category.displayName || category.name || '---',
+      warnings,
+      status: 'idle',
+      errorMessage: ''
+    }
+  };
+}
+
+function parseImportPayload(raw) {
+  const text = typeof raw === 'string' ? raw.trim() : '';
+  if (!text) {
+    return { questions: [], errors: [], total: 0 };
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (error) {
+    const message = error && error.message ? error.message : 'JSON معتبر نیست.';
+    return { questions: [], errors: [{ index: null, message: `فرمت JSON معتبر نیست: ${message}` }], total: 0 };
+  }
+
+  const list = Array.isArray(data) ? data : [data];
+  if (!list.length) {
+    return { questions: [], errors: [{ index: null, message: 'آرایه سوالات خالی است.' }], total: 0 };
+  }
+
+  const questions = [];
+  const errors = [];
+  list.forEach((entry, idx) => {
+    const result = normalizeImportedQuestion(entry, idx);
+    if (result?.question) {
+      questions.push(result.question);
+    } else if (result?.error) {
+      errors.push(result.error);
+    }
+  });
+
+  return { questions, errors, total: list.length };
+}
+
+function renderImportQuestionsState() {
+  if (importQuestionsTextarea && importQuestionsTextarea.value !== importQuestionsState.raw) {
+    importQuestionsTextarea.value = importQuestionsState.raw;
+  }
+  if (importQuestionsFileNameEl) {
+    importQuestionsFileNameEl.textContent = importQuestionsState.fileName
+      ? `فایل انتخابی: ${importQuestionsState.fileName}`
+      : 'هیچ فایلی انتخاب نشده است';
+  }
+
+  const summaryContainer = importQuestionsSummaryEl;
+  if (summaryContainer) {
+    const readyCount = importQuestionsState.questions.filter((question) => question.status === 'idle').length;
+    const successCount = importQuestionsState.questions.filter((question) => question.status === 'success').length;
+    const failedCount = importQuestionsState.questions.filter((question) => question.status === 'error').length + importQuestionsState.errors.length;
+    const total = importQuestionsState.total || (importQuestionsState.questions.length + importQuestionsState.errors.length);
+
+    if (!total) {
+      summaryContainer.innerHTML = `
+        <div class="text-sm text-white/70">
+          برای شروع، محتوای JSON سوالات را وارد یا فایل مربوطه را آپلود کنید.
+        </div>
+      `;
+    } else {
+      summaryContainer.innerHTML = `
+        <div class="import-summary-cards">
+          <div class="import-summary-card">
+            <span>${formatNumberFa(readyCount)}</span>
+            <p class="text-xs text-white/60">سوالات آماده ثبت</p>
+          </div>
+          <div class="import-summary-card">
+            <span class="text-emerald-200">${formatNumberFa(successCount)}</span>
+            <p class="text-xs text-white/60">ثبت موفق</p>
+          </div>
+          <div class="import-summary-card">
+            <span class="text-rose-200">${formatNumberFa(failedCount)}</span>
+            <p class="text-xs text-white/60">موارد دارای خطا</p>
+          </div>
+        </div>
+        <p class="text-[11px] text-white/50 mt-3">
+          مجموع ورودی‌ها: ${formatNumberFa(total)} مورد
+        </p>
+      `;
+    }
+  }
+
+  if (importQuestionsErrorsEl) {
+    if (!importQuestionsState.errors.length) {
+      importQuestionsErrorsEl.classList.add('hidden');
+      importQuestionsErrorsEl.innerHTML = '';
+    } else {
+      importQuestionsErrorsEl.classList.remove('hidden');
+      importQuestionsErrorsEl.innerHTML = importQuestionsState.errors
+        .map((error) => {
+          const prefix = Number.isInteger(error.index)
+            ? `ردیف ${formatNumberFa(error.index)}: `
+            : '';
+          return `<div class="import-error-item">${prefix}${escapeHtml(error.message || '')}</div>`;
+        })
+        .join('');
+    }
+  }
+
+  if (importQuestionsPreviewEl) {
+    if (!importQuestionsState.questions.length) {
+      importQuestionsPreviewEl.innerHTML = `
+        <div class="empty-preview">
+          هنوز سوال معتبری شناسایی نشده است. پس از وارد کردن JSON صحیح، پیش‌نمایش اینجا نمایش داده می‌شود.
+        </div>
+      `;
+    } else {
+      importQuestionsPreviewEl.innerHTML = importQuestionsState.questions
+        .map((question) => renderImportPreviewCard(question))
+        .join('');
+    }
+  }
+
+  if (importQuestionsSubmitBtn) {
+    const hasValid = importQuestionsState.questions.some((question) => question.status === 'idle' || question.status === 'error');
+    const disabled = !hasValid || importQuestionsState.importing;
+    importQuestionsSubmitBtn.disabled = disabled;
+    importQuestionsSubmitBtn.classList.toggle('opacity-70', disabled);
+    importQuestionsSubmitBtn.classList.toggle('cursor-not-allowed', disabled);
+    if (importQuestionsState.importing) {
+      importQuestionsSubmitBtn.innerHTML = `
+        <span class="flex items-center gap-2">
+          <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+          <span>در حال ثبت...</span>
+        </span>
+      `;
+    } else {
+      importQuestionsSubmitBtn.innerHTML = importQuestionsSubmitDefault;
+    }
+  }
+}
+
+function renderImportPreviewCard(question) {
+  if (!question || !question.payload) return '';
+  const difficultyMeta = DIFFICULTY_META[question.payload.difficulty] || DIFFICULTY_META.easy;
+  const sourceMeta = SOURCE_META[question.payload.source] || SOURCE_META.manual;
+  const statusMeta = STATUS_META[question.payload.status] || STATUS_META.approved;
+  const statusBadgeMap = {
+    idle: { label: 'آماده ثبت', icon: 'fa-hourglass-half', className: 'idle' },
+    uploading: { label: 'در حال ارسال', icon: 'fa-circle-notch fa-spin', className: 'uploading' },
+    success: { label: 'ذخیره شد', icon: 'fa-check-circle', className: 'success' },
+    error: { label: 'ناموفق', icon: 'fa-triangle-exclamation', className: 'error' }
+  };
+  const badge = statusBadgeMap[question.status || 'idle'];
+  const badgeHtml = badge
+    ? `<span class="import-status-badge ${badge.className}"><i class="fa-solid ${badge.icon}"></i>${badge.label}</span>`
+    : '';
+  const optionsHtml = question.payload.options
+    .map((option, idx) => {
+      const isCorrect = idx === question.payload.correctIdx;
+      const label = String.fromCharCode(65 + idx);
+      return `
+        <div class="import-option${isCorrect ? ' correct' : ''}">
+          <span class="font-mono text-xs text-white/50">${label}</span>
+          <span>${escapeHtml(option)}</span>
+        </div>
+      `;
+    })
+    .join('');
+  const warningsHtml = Array.isArray(question.warnings) && question.warnings.length
+    ? `<div class="import-warning mt-3">${question.warnings.map((warning) => escapeHtml(warning)).join('<br>')}</div>`
+    : '';
+  const errorHtml = question.status === 'error' && question.errorMessage
+    ? `<div class="import-error-item mt-3">${escapeHtml(question.errorMessage)}</div>`
+    : '';
+  const indexLabel = formatNumberFa(question.index || 0);
+  const excerpt = truncateText(question.previewText || '', 160);
+  return `
+    <div class="import-preview-card ${question.status || 'idle'}">
+      <div class="flex items-start justify-between gap-3">
+        <div class="space-y-2">
+          <div class="import-preview-meta">
+            <span class="font-mono text-white/60">#${indexLabel}</span>
+            <span>${escapeHtml(question.categoryLabel || '---')}</span>
+          </div>
+          <div class="import-preview-title">${escapeHtml(excerpt)}</div>
+          <div class="import-preview-meta">
+            <span class="meta-chip category"><i class="fa-solid fa-layer-group"></i>${escapeHtml(question.categoryLabel || '---')}</span>
+            <span class="${difficultyMeta.class}"><i class="fa-solid ${difficultyMeta.icon}"></i>${difficultyMeta.label}</span>
+            <span class="${sourceMeta.class}"><i class="fa-solid ${sourceMeta.icon}"></i>${sourceMeta.label}</span>
+            <span class="${statusMeta.class}"><span class="status-dot ${statusMeta.dot}"></span>${statusMeta.label}</span>
+          </div>
+        </div>
+        ${badgeHtml}
+      </div>
+      <div class="import-preview-options mt-4">
+        ${optionsHtml}
+      </div>
+      ${warningsHtml}
+      ${errorHtml}
+    </div>
+  `;
+}
+
+function resetImportQuestionsModal() {
+  importQuestionsState.raw = '';
+  importQuestionsState.questions = [];
+  importQuestionsState.errors = [];
+  importQuestionsState.fileName = '';
+  importQuestionsState.total = 0;
+  importQuestionsState.importing = false;
+  if (importQuestionsTextarea) importQuestionsTextarea.value = '';
+  if (importQuestionsFileInput) importQuestionsFileInput.value = '';
+  renderImportQuestionsState();
+}
+
+function applyImportPayload(raw) {
+  importQuestionsState.raw = raw;
+  const parsed = parseImportPayload(raw);
+  importQuestionsState.questions = parsed.questions.map((question) => ({
+    ...question,
+    status: 'idle',
+    errorMessage: '',
+    warnings: Array.isArray(question.warnings) ? question.warnings : []
+  }));
+  importQuestionsState.errors = parsed.errors;
+  importQuestionsState.total = parsed.total || 0;
+  importQuestionsState.importing = false;
+  renderImportQuestionsState();
+}
+
+async function handleImportQuestionsSubmit() {
+  if (!getToken()) {
+    showToast('برای مدیریت سوالات ابتدا وارد شوید', 'warning');
+    return;
+  }
+  const pendingQuestions = importQuestionsState.questions.filter((question) => question.status === 'idle' || question.status === 'error');
+  if (!pendingQuestions.length) {
+    showToast('ابتدا سوالات معتبر را بررسی کنید', 'warning');
+    return;
+  }
+
+  importQuestionsState.importing = true;
+  pendingQuestions.forEach((question) => {
+    question.status = 'uploading';
+    question.errorMessage = '';
+  });
+  renderImportQuestionsState();
+
+  let successCount = 0;
+  let failureCount = 0;
+
+  for (const question of pendingQuestions) {
+    try {
+      await api('/questions', {
+        method: 'POST',
+        body: JSON.stringify(question.payload)
+      });
+      question.status = 'success';
+      successCount += 1;
+      await wait(80);
+    } catch (error) {
+      question.status = 'error';
+      question.errorMessage = error?.message || 'ثبت سوال ناموفق بود';
+      failureCount += 1;
+    }
+    renderImportQuestionsState();
+  }
+
+  importQuestionsState.importing = false;
+  renderImportQuestionsState();
+
+  if (successCount > 0) {
+    showToast(`${formatNumberFa(successCount)} سوال با موفقیت ثبت شد`, 'success');
+    await Promise.all([
+      loadQuestions(),
+      loadDashboardStats(true)
+    ]);
+  }
+  if (failureCount > 0) {
+    showToast(`${formatNumberFa(failureCount)} سوال ثبت نشد. لطفاً خطاها را بررسی کنید.`, 'error');
+  } else if (successCount > 0) {
+    setTimeout(() => { closeModal('#import-questions-modal'); }, 600);
   }
 }
 
@@ -2001,6 +2584,9 @@ function closeModal(modalId) {
   if (modalId === '#ad-modal') {
     resetAdForm();
   }
+  if (modalId === '#import-questions-modal') {
+    resetImportQuestionsModal();
+  }
 }
 $$('.modal').forEach(modal => modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(`#${modal.id}`); }));
 $$('.close-modal').forEach(button => button.addEventListener('click', () => { const modal = button.closest('.modal'); closeModal(`#${modal.id}`); }));
@@ -2102,6 +2688,74 @@ $('#btn-add-question').addEventListener('click', async () => {
   openModal('#add-question-modal');
   setTimeout(() => { addQuestionTextInput?.focus(); }, 50);
 });
+
+if (importQuestionsBtn) {
+  importQuestionsBtn.addEventListener('click', async () => {
+    if (!getToken()) {
+      showToast('برای مدیریت سوالات ابتدا وارد شوید', 'warning');
+      return;
+    }
+    if (!cachedCategories.length) {
+      try {
+        await loadCategoryFilterOptions();
+      } catch (error) {
+        console.error('Failed to load categories before import modal', error);
+      }
+    }
+    resetImportQuestionsModal();
+    openModal('#import-questions-modal');
+    setTimeout(() => { importQuestionsTextarea?.focus(); }, 120);
+  });
+}
+
+if (importQuestionsFileButton && importQuestionsFileInput) {
+  importQuestionsFileButton.addEventListener('click', () => {
+    importQuestionsFileInput.click();
+  });
+}
+
+if (importQuestionsFileInput) {
+  importQuestionsFileInput.addEventListener('change', (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) {
+      importQuestionsState.fileName = '';
+      renderImportQuestionsState();
+      return;
+    }
+    const maxSize = 2 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showToast('حجم فایل نباید از ۲ مگابایت بیشتر باشد.', 'warning');
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      importQuestionsState.fileName = file.name;
+      applyImportPayload(text);
+    };
+    reader.onerror = () => {
+      showToast('خواندن فایل JSON با مشکل مواجه شد.', 'error');
+    };
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+if (importQuestionsTextarea) {
+  importQuestionsTextarea.addEventListener('input', (event) => {
+    const value = event.target.value || '';
+    if (importQuestionsDebounce) clearTimeout(importQuestionsDebounce);
+    importQuestionsDebounce = setTimeout(() => {
+      importQuestionsState.fileName = '';
+      applyImportPayload(value);
+    }, 250);
+  });
+}
+
+if (importQuestionsSubmitBtn) {
+  importQuestionsSubmitBtn.addEventListener('click', handleImportQuestionsSubmit);
+}
 if (addCategoryBtn) {
   addCategoryBtn.addEventListener('click', () => {
     if (CATEGORY_MANAGEMENT_LOCKED) {
