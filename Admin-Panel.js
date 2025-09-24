@@ -1142,91 +1142,47 @@ async function runAiGeneration(previewOnly = false) {
     return;
   }
 
-  const body = {
-    count: payload.count,
-    categorySlug: payload.categorySlug,
-    difficulty: payload.difficulty,
-    topicHints: payload.topicHints || undefined,
-    prompt: payload.prompt || undefined,
-    temperature: payload.temperature,
-    seed: payload.seed,
-    previewOnly
-  };
-
   setAiLoadingState({ preview: previewOnly, generate: !previewOnly });
   setAiStatus(previewOnly ? 'در حال آماده‌سازی پیش‌نمایش...' : 'در حال تولید سوالات...', 'info');
 
   try {
-    const response = await api('/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify(body)
-    });
+    // 👉 به‌جای یک درخواست بزرگ، تکه‌تکه می‌فرستیم
+    const { preview, duplicates, invalid, inserted, generated } =
+      await generateAiChunked(
+        { topic: payload.topicHints || payload.prompt || '', count: payload.count, difficulty: payload.difficulty, lang: 'fa' },
+        { previewOnly }
+      );
 
-    if (!response || typeof response !== 'object') {
-      throw new Error('پاسخ سرور نامعتبر بود.');
-    }
-
-    if (Object.prototype.hasOwnProperty.call(response, 'ok') && response.ok === false) {
-      const errorMessage = typeof response.message === 'string' && response.message.trim()
-        ? response.message.trim()
-        : 'در تولید سوالات خطایی رخ داد.';
-      throw new Error(errorMessage);
-    }
-
-    const previewItemsRaw = Array.isArray(response.preview) ? response.preview : [];
-    const invalidItemsRaw = Array.isArray(response.invalid) ? response.invalid : [];
-    const duplicateItemsRaw = Array.isArray(response.duplicates) ? response.duplicates : [];
-
-    const previewItems = previewItemsRaw.map(normalizeAiPreviewItem);
-    const invalidItems = invalidItemsRaw.map(normalizeInvalidPreviewItem);
-    const duplicateItems = duplicateItemsRaw.map(normalizeDuplicatePreviewItem);
-
-    aiGeneratorState.preview = previewItems;
-    aiGeneratorState.invalid = invalidItems;
-    aiGeneratorState.duplicates = duplicateItems;
+    aiGeneratorState.preview = preview;
+    aiGeneratorState.invalid = invalid;
+    aiGeneratorState.duplicates = duplicates;
     aiGeneratorState.previewMode = 'unique';
     renderAiPreview();
 
-    const invalidCountFallback = Number.isFinite(Number(response.invalid))
-      ? Math.max(0, Math.round(Number(response.invalid)))
-      : 0;
-    const duplicateCountFallback = Number.isFinite(Number(response.duplicates))
-      ? Math.max(0, Math.round(Number(response.duplicates)))
-      : 0;
-    const invalidCount = invalidItems.length || invalidCountFallback;
-    const duplicateCount = duplicateItems.length || duplicateCountFallback;
+    const duplicateCount = duplicates.length;
+    const invalidCount = invalid.length;
 
     if (previewOnly) {
       const tone = (invalidCount || duplicateCount) ? 'warning' : 'success';
       setAiStatus(
-        `پیش‌نمایش ${formatNumberFa(previewItems.length)} سوال آماده شد. موارد نامعتبر: ${formatNumberFa(invalidCount)}، تکراری: ${formatNumberFa(duplicateCount)}.`,
+        `پیش‌نمایش ${formatNumberFa(preview.length)} سوال آماده شد. نامعتبر: ${formatNumberFa(invalidCount)} | تکراری: ${formatNumberFa(duplicateCount)}.`,
         tone
       );
-      const toastType = pickToastTypeFromTone(tone);
-      showToast('پیش‌نمایش آماده شد', toastType);
+      showToast('پیش‌نمایش آماده شد', tone === 'success' ? 'success' : 'warning');
     } else {
-      const inserted = Number.isFinite(Number(response.inserted)) ? Number(response.inserted) : 0;
-      const generated = Number.isFinite(Number(response.generated)) ? Number(response.generated) : previewItems.length;
+      const ins = Number.isFinite(inserted) ? inserted : 0;
+      const gen = Number.isFinite(generated) ? generated : preview.length;
       const parts = [
-        `تعداد تولید شده: ${formatNumberFa(generated)}`,
-        `ثبت در بانک: ${formatNumberFa(inserted)}`
+        `تولید شده: ${formatNumberFa(gen)}`,
+        `ثبت شده: ${formatNumberFa(ins)}`
       ];
       if (duplicateCount) parts.push(`تکراری: ${formatNumberFa(duplicateCount)}`);
       if (invalidCount) parts.push(`نامعتبر: ${formatNumberFa(invalidCount)}`);
-      const tone = inserted > 0 ? 'success' : (generated > 0 ? 'warning' : 'error');
+      const tone = ins > 0 ? 'success' : (gen > 0 ? 'warning' : 'error');
       setAiStatus(parts.join(' | '), tone);
-      if (inserted > 0) {
-        showToast(`${formatNumberFa(inserted)} سوال جدید ذخیره شد`, 'success');
-      } else if (generated > 0) {
-        showToast('سوالات بازگردانده شده ذخیره نشدند (تکراری یا نامعتبر).', 'warning');
-      } else {
-        showToast('مدل سوالی بازنگرداند.', 'error');
-      }
+      showToast(ins > 0 ? `${formatNumberFa(ins)} سوال جدید ذخیره شد` : 'سوالی برای ذخیره موجود نبود.', tone);
       await loadQuestions();
-      await Promise.all([
-        loadDashboardStats(true),
-        loadDashboardOverview(true)
-      ]);
+      await Promise.all([loadDashboardStats(true), loadDashboardOverview(true)]);
     }
   } catch (error) {
     console.error('AI generation failed', error);
@@ -1240,6 +1196,7 @@ async function runAiGeneration(previewOnly = false) {
     updateTriviaSummary();
   }
 }
+
 
 function resetAiModalForm() {
   if (aiModalForm) aiModalForm.reset();
@@ -1383,7 +1340,6 @@ async function runAiModalGeneration(previewOnly) {
     showToast('برای استفاده از این قابلیت ابتدا وارد شوید.', 'warning');
     return;
   }
-
   if (!aiModal || !aiModalPreviewBtn || !aiModalInsertBtn) return;
 
   let values;
@@ -1402,30 +1358,21 @@ async function runAiModalGeneration(previewOnly) {
     return;
   }
 
-  const body = {
-    topic: values.topic,
-    count: values.count,
-    difficulty: values.difficulty,
-    lang: values.lang,
-    previewOnly: Boolean(previewOnly)
-  };
-
-  if (!previewOnly && aiModalState.preview.length) {
-    body.previewQuestions = aiModalState.preview;
-  }
-
   setAiModalLoading({ preview: previewOnly, insert: !previewOnly });
   setAiModalStatus(previewOnly ? 'در حال تولید نمونه سوال...' : 'در حال ذخیره سوالات...', 'info');
 
   try {
-    const response = await api('/ai/generate', {
-      method: 'POST',
-      body: JSON.stringify(body)
-    });
+    let combined;
+    if (previewOnly) {
+      combined = await generateAiChunked(values, { previewOnly: true });
+    } else {
+      // برای Insert هم chunked می‌رویم تا درخواست‌های سنگین نداشته باشیم
+      combined = await generateAiChunked(values, { previewOnly: false });
+    }
 
-    aiModalState.preview = Array.isArray(response?.preview) ? response.preview : [];
-    aiModalState.duplicates = Array.isArray(response?.duplicates) ? response.duplicates : [];
-    aiModalState.invalid = Array.isArray(response?.invalid) ? response.invalid : [];
+    aiModalState.preview = combined.preview;
+    aiModalState.duplicates = combined.duplicates;
+    aiModalState.invalid = combined.invalid;
 
     renderAiModalPreview();
     renderAiModalDuplicates();
@@ -1441,17 +1388,17 @@ async function runAiModalGeneration(previewOnly) {
       setAiModalStatus(message, tone);
       showToast('پیش‌نمایش آماده شد', tone === 'success' ? 'success' : 'warning');
     } else {
-      const inserted = Number.isFinite(Number(response?.inserted)) ? Number(response.inserted) : 0;
-      const generated = Number.isFinite(Number(response?.generated)) ? Number(response.generated) : aiModalState.preview.length;
-      const messageParts = [
+      const inserted = Number.isFinite(combined.inserted) ? combined.inserted : 0;
+      const generated = Number.isFinite(combined.generated) ? combined.generated : previewCount;
+      const parts = [
         `تولید شده: ${formatNumberFa(generated)}`,
         `ثبت شده: ${formatNumberFa(inserted)}`
       ];
-      if (duplicateCount) messageParts.push(`تکراری: ${formatNumberFa(duplicateCount)}`);
-      if (invalidCount) messageParts.push(`نامعتبر: ${formatNumberFa(invalidCount)}`);
+      if (duplicateCount) parts.push(`تکراری: ${formatNumberFa(duplicateCount)}`);
+      if (invalidCount) parts.push(`نامعتبر: ${formatNumberFa(invalidCount)}`);
       const tone = inserted > 0 ? 'success' : (generated > 0 ? 'warning' : 'error');
-      setAiModalStatus(messageParts.join(' | '), tone);
-      showToast(inserted > 0 ? `${formatNumberFa(inserted)} سوال جدید ذخیره شد` : 'سوالی برای ذخیره موجود نبود.', tone === 'success' ? 'success' : tone === 'warning' ? 'warning' : 'error');
+      setAiModalStatus(parts.join(' | '), tone);
+      showToast(inserted > 0 ? `${formatNumberFa(inserted)} سوال جدید ذخیره شد` : 'سوالی برای ذخیره موجود نبود.', tone);
       clearAiModalState();
       renderAiModalPreview();
       renderAiModalDuplicates();
@@ -1472,6 +1419,7 @@ async function runAiModalGeneration(previewOnly) {
     setAiModalLoading({ preview: false, insert: false });
   }
 }
+
 
 function openAiModal() {
   if (!aiModal) return;
@@ -2909,6 +2857,56 @@ async function api(path, options = {}) {
   }
   return res.json();
 }
+
+
+// ---- AI helpers: chunked requests to avoid big payload/timeouts ----
+const AI_CHUNK_SIZE = 1; // 1=ایمن‌ترین حالت روی شبکه ناپایدار
+
+async function requestAiGenerate(body) {
+  return api('/ai/generate', { method: 'POST', body: JSON.stringify(body) });
+}
+
+function mergeAiBatches(batches) {
+  const preview = [];
+  const duplicates = [];
+  const invalid = [];
+  let inserted = 0;
+  let generated = 0;
+
+  for (const b of batches) {
+    if (Array.isArray(b.preview)) {
+      preview.push(...b.preview.map(normalizeAiPreviewItem));
+    }
+    if (Array.isArray(b.duplicates)) {
+      duplicates.push(...b.duplicates.map(normalizeDuplicatePreviewItem));
+    }
+    if (Array.isArray(b.invalid)) {
+      invalid.push(...b.invalid.map(normalizeInvalidPreviewItem));
+    }
+    if (Number.isFinite(Number(b.inserted))) inserted += Number(b.inserted);
+    if (Number.isFinite(Number(b.generated))) generated += Number(b.generated);
+  }
+
+  return { preview, duplicates, invalid, inserted, generated };
+}
+
+async function generateAiChunked({ topic, count, difficulty, lang }, { previewOnly }) {
+  const batches = [];
+  let remaining = Math.max(1, Number(count) || 1);
+
+  while (remaining > 0) {
+    const c = Math.min(AI_CHUNK_SIZE, remaining);
+    // هر بار فقط c سؤال می‌گیریم تا پاسخ کوچیک بمونه
+    const res = await requestAiGenerate({
+      topic, count: c, difficulty, lang, previewOnly: Boolean(previewOnly)
+    });
+    batches.push(res);
+    remaining -= c;
+  }
+
+  return mergeAiBatches(batches);
+}
+
 
 // --------------- TOAST ---------------
 function ensureToastContainer() {

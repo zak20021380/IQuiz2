@@ -42,6 +42,12 @@ function parseSeed(value) {
   return Number.isSafeInteger(rounded) ? rounded : null;
 }
 
+/**
+ * JSON Schema سخت‌گیرانه برای خروجی مدل.
+ * ⚠️ نکته‌ی مهم: چون در درخواست Responses از `strict:true` استفاده می‌کنیم،
+ * همه‌ی کلیدهای تعریف‌شده در `properties` باید در `required` هم باشند.
+ * بنابراین فیلد اختیاری `explanation` را کلاً از schema حذف می‌کنیم تا مدل مجبور به تولیدش نشود.
+ */
 function buildSchema(count) {
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -65,8 +71,7 @@ function buildSchema(count) {
               maxItems: 4,
               items: { type: 'string' }
             },
-            correct_index: { type: 'integer', minimum: 0, maximum: 3 },
-            explanation: { type: 'string' }
+            correct_index: { type: 'integer', minimum: 0, maximum: 3 }
           }
         }
       }
