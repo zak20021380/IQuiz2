@@ -96,7 +96,7 @@ app.use('/api/ads', require('./routes/ads.routes'));
 app.use('/api/analytics', require('./routes/analytics.routes'));
 app.use('/api/public', require('./routes/public.routes'));
 app.use('/api/jservice', jserviceRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api', aiRoutes);
 
 // error handler
 app.use(errorHandler);
