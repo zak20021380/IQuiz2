@@ -13,7 +13,7 @@ async function postAiGenerate(req, res) {
           type: 'array', minItems: n, maxItems: n,
           items: {
             type: 'object',
-            required: ['question', 'options', 'correct_index'],
+            required: ['question','options','correct_index'],
             properties: {
               question: { type: 'string' },
               options: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'string' } },
@@ -26,19 +26,12 @@ async function postAiGenerate(req, res) {
     };
 
     const systemPrompt = `You generate ${lang==='fa'?'Persian':'target-language'} MCQs. One correct answer, exactly 4 options. Output MUST match the JSON schema.`;
-    const userPrompt = `Generate ${n} ${lang==='fa'?'Persian':lang} MCQs about: ${topic||'general knowledge'} (difficulty: ${difficulty}). Only JSON, no markdown.`;
+    const userPrompt   = `Generate ${n} ${lang==='fa'?'Persian':lang} MCQs about: ${topic||'general knowledge'} (difficulty: ${difficulty}). Only JSON, no markdown.`;
 
-    const resp = await generateQuestions({
-      systemPrompt,
-      userPrompt,
-      temperature: 0.7,
-      response_format: {
-        type: 'json_schema',
-        json_schema: { name: 'mcq_batch', schema, strict: true }
-      }
-    });
+    const resp = await generateQuestions({ systemPrompt, userPrompt, schema, temperature: 0.7 });
 
-    const data = JSON.parse(resp.output_text || '{}');
+    const out = resp.output_text || (resp?.output?.[0]?.content?.[0]?.text) || '{}';
+    const data = JSON.parse(out);
     const items = Array.isArray(data?.items) ? data.items : [];
 
     const preview = items.map(it => ({
@@ -56,7 +49,7 @@ async function postAiGenerate(req, res) {
       : { preview, inserted: preview.length, generated: preview.length, duplicates, invalid }
     );
   } catch (err) {
-    return res.status(400).json({ ok:false, message: err?.message || 'AI generation failed' });
+    res.status(400).json({ ok:false, message: err?.message || 'AI generation failed' });
   }
 }
 
