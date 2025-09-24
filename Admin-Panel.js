@@ -32,9 +32,6 @@ const DIFFICULTY_META = {
 
 const SOURCE_META = {
   manual: { label: 'ایجاد دستی', class: 'meta-chip source-manual', icon: 'fa-pen-nib' },
-  'ai-gen': { label: 'هوش مصنوعی', class: 'meta-chip source-ai', icon: 'fa-robot' },
-  ai: { label: 'هوش مصنوعی', class: 'meta-chip source-ai', icon: 'fa-robot' },
-  AI: { label: 'هوش مصنوعی', class: 'meta-chip source-ai', icon: 'fa-robot' },
   community: { label: 'سازنده‌ها', class: 'meta-chip source-community', icon: 'fa-users-gear' }
 };
 
@@ -81,7 +78,7 @@ const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
     description: 'سوالاتی متنوع از دانستنی‌های روزمره و موضوعات عمومی.',
     icon: 'fa-earth-asia',
     color: 'blue',
-    provider: 'ai-gen',
+    provider: 'manual',
     providerCategoryId: 'general',
     aliases: ['عمومی', 'دانش عمومی', 'General', 'General Knowledge']
   },
@@ -93,7 +90,7 @@ const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
     description: 'رویدادها، امپراتوری‌ها و میراث فرهنگی ملت‌ها.',
     icon: 'fa-landmark-dome',
     color: 'orange',
-    provider: 'ai-gen',
+    provider: 'manual',
     providerCategoryId: 'history-civilization',
     aliases: ['تاریخ', 'تمدن', 'History', 'History & Civilization']
   },
@@ -105,7 +102,7 @@ const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
     description: 'سرزمین‌ها، اقلیم‌ها و شگفتی‌های طبیعی جهان.',
     icon: 'fa-mountain-sun',
     color: 'teal',
-    provider: 'ai-gen',
+    provider: 'manual',
     providerCategoryId: 'geography-nature',
     aliases: ['جغرافیا', 'طبیعت', 'Geography', 'Geography & Nature']
   },
@@ -117,7 +114,7 @@ const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
     description: 'کشفیات علمی، نوآوری‌های فنی و پیشرفت‌های روز.',
     icon: 'fa-atom',
     color: 'indigo',
-    provider: 'ai-gen',
+    provider: 'manual',
     providerCategoryId: 'science-technology',
     aliases: ['علم', 'فناوری', 'Science', 'Science & Technology']
   },
@@ -129,7 +126,7 @@ const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
     description: 'نویسندگان، آثار ادبی و دنیای زبان‌ها و واژگان.',
     icon: 'fa-feather-pointed',
     color: 'purple',
-    provider: 'ai-gen',
+    provider: 'manual',
     providerCategoryId: 'literature-language',
     aliases: ['ادبیات', 'زبان', 'Literature', 'Literature & Language']
   },
@@ -141,7 +138,7 @@ const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
     description: 'سینما، تلویزیون و داستان‌های ماندگار پرده نقره‌ای.',
     icon: 'fa-clapperboard',
     color: 'yellow',
-    provider: 'ai-gen',
+    provider: 'manual',
     providerCategoryId: 'movies-series',
     aliases: ['فیلم', 'سریال', 'Movies', 'Movies & Series']
   },
@@ -153,7 +150,7 @@ const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
     description: 'رشته‌ها، قهرمانان و رویدادهای مهم ورزشی.',
     icon: 'fa-medal',
     color: 'red',
-    provider: 'ai-gen',
+    provider: 'manual',
     providerCategoryId: 'sports',
     aliases: ['ورزش', 'Sport', 'Sports']
   },
@@ -165,7 +162,7 @@ const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
     description: 'بازی‌ها، پازل‌ها و موضوعات سرگرم‌کننده برای اوقات فراغت.',
     icon: 'fa-gamepad',
     color: 'pink',
-    provider: 'ai-gen',
+    provider: 'manual',
     providerCategoryId: 'entertainment',
     aliases: ['سرگرمی', 'تفریح', 'Entertainment']
   }
@@ -270,7 +267,7 @@ function mergeCategoryWithStaticDefinition(category) {
     displayName: canonical.displayName,
     title: canonical.displayName,
     slug: canonical.slug,
-    provider: canonical.provider || category.provider || 'ai-gen',
+    provider: canonical.provider || category.provider || 'manual',
     providerCategoryId: canonical.providerCategoryId || canonical.slug,
     icon: canonical.icon,
     color: canonical.color,
@@ -563,68 +560,6 @@ const questionFilters = {
   duplicates: 'all'
 };
 
-const aiPanel = $('#ai-generator-panel');
-const aiForm = $('#ai-generator-form');
-const aiCategorySelect = $('#ai-category');
-const aiCountInput = $('#ai-count');
-const aiDifficultyRadios = $$('input[name="ai-difficulty"]');
-const aiTopicHintsInput = $('#ai-topic-hints');
-const aiPromptInput = $('#ai-custom-prompt');
-const aiTemperatureRange = $('#ai-temperature');
-const aiTemperatureNumber = $('#ai-temperature-number');
-const aiPreviewBtn = $('#ai-preview-btn');
-const aiGenerateBtn = $('#ai-generate-btn');
-const aiStatusEl = $('#ai-status');
-const aiPreviewWrapper = $('#ai-preview');
-const aiPreviewCountEl = $('#ai-preview-count');
-const aiPreviewTbody = $('#ai-preview-tbody');
-const aiPreviewDuplicatesTbody = $('#ai-duplicates-tbody');
-const aiPreviewInvalidTbody = $('#ai-invalid-tbody');
-const aiPreviewModeButtons = $$('#ai-preview [data-preview-mode]');
-const aiPreviewPanels = {
-  unique: $('#ai-preview-pane-unique'),
-  duplicates: $('#ai-preview-pane-duplicates'),
-  invalid: $('#ai-preview-pane-invalid')
-};
-const aiSummaryUniqueEl = $('#ai-summary-unique');
-const aiSummaryDuplicatesEl = $('#ai-summary-duplicates');
-const aiSummaryInvalidEl = $('#ai-summary-invalid');
-const aiSummaryUniqueText = $('#ai-summary-unique-text');
-const aiSummaryDuplicatesText = $('#ai-summary-duplicates-text');
-const aiSummaryInvalidText = $('#ai-summary-invalid-text');
-const aiThemeToggle = $('#ai-theme-toggle');
-const aiThemeAnnouncer = $('#ai-theme-announcer');
-const aiSourceChip = $('#ai-source-chip');
-const aiPreviewBtnDefault = aiPreviewBtn ? aiPreviewBtn.innerHTML : '';
-const aiGenerateBtnDefault = aiGenerateBtn ? aiGenerateBtn.innerHTML : '';
-
-const aiGeneratorState = {
-  preview: [],
-  duplicates: [],
-  invalid: [],
-  loading: false,
-  generating: false,
-  theme: 'dark',
-  previewMode: 'unique'
-};
-
-const aiModal = $('#ai-generate-modal');
-const aiModalForm = $('#ai-generate-form');
-const aiModalTopicInput = $('#ai-modal-topic');
-const aiModalCountInput = $('#ai-modal-count');
-const aiModalDifficultySelect = $('#ai-modal-difficulty');
-const aiModalLangSelect = $('#ai-modal-lang');
-const aiModalStatus = $('#ai-modal-status');
-const aiModalPreviewTableBody = $('#ai-modal-preview-body');
-const aiModalDuplicatesList = $('#ai-modal-duplicates');
-const aiModalPreviewBtn = $('#ai-modal-preview-btn');
-const aiModalInsertBtn = $('#ai-modal-insert-btn');
-const aiModalPreviewEmpty = $('#ai-modal-preview-empty');
-const aiModalDuplicatesEmpty = $('#ai-modal-duplicates-empty');
-const aiModalInvalidList = $('#ai-modal-invalid');
-const aiModalPreviewBtnDefault = aiModalPreviewBtn ? aiModalPreviewBtn.innerHTML : '';
-const aiModalInsertBtnDefault = aiModalInsertBtn ? aiModalInsertBtn.innerHTML : '';
-
 const duplicatesViewTabs = $$('#questions-view-tabs [data-questions-view]');
 const duplicatesViewCard = $('#duplicates-view-card');
 const duplicatesGroupsContainer = $('#duplicates-groups-container');
@@ -632,16 +567,8 @@ const duplicatesEmptyState = $('#duplicates-empty-state');
 const duplicatesTotalEl = $('#duplicates-total');
 const duplicatesBulkDeleteBtn = $('#duplicates-bulk-delete');
 const filterDuplicatesSelect = $('#filter-duplicates');
-const btnAiGenerate = $('#btn-ai-generate');
 const duplicatesSelectedCountEl = $('#duplicates-selected-count');
 const questionsTableCard = $('#questions-table-card');
-
-const aiModalState = {
-  preview: [],
-  duplicates: [],
-  invalid: [],
-  loading: false
-};
 
 const duplicatesState = {
   groups: [],
@@ -655,7 +582,6 @@ let filterSearchDebounce;
 let latestQuestionStats = null;
 let questionStatsLoaded = false;
 let cachedCategories = [];
-let aiCategoryOptionsSignature = '';
 let categoriesLoading = false;
 
 const adsState = {
@@ -702,744 +628,6 @@ const usersState = {
 };
 
 let userSearchDebounce;
-
-function computeAiCategorySignature(list) {
-  if (!Array.isArray(list) || !list.length) return '';
-  return list
-    .map((category) => `${category.slug || ''}::${categoryOptionLabel(category)}`)
-    .join('|');
-}
-
-function populateAiCategoryOptions() {
-  if (!aiCategorySelect) return;
-
-  const previousValue = aiCategorySelect.value || '';
-
-  const usableCategories = cachedCategories.filter((category) => {
-    if (!category?.slug) return false;
-    if (category.status && category.status !== 'active') return false;
-    return true;
-  });
-
-  const signature = computeAiCategorySignature(usableCategories);
-
-  if (signature === aiCategoryOptionsSignature && aiCategorySelect.options.length > 0) {
-    if (!previousValue || !usableCategories.some((category) => category.slug === previousValue)) {
-      aiCategorySelect.value = '';
-    }
-    aiCategorySelect.disabled = aiCategorySelect.options.length <= 1;
-    return;
-  }
-
-  aiCategoryOptionsSignature = signature;
-
-  aiCategorySelect.innerHTML = '';
-
-  const placeholderOption = document.createElement('option');
-  placeholderOption.value = '';
-  placeholderOption.textContent = 'یک دسته‌بندی را انتخاب کنید';
-  placeholderOption.disabled = true;
-  placeholderOption.setAttribute('data-placeholder', 'true');
-  if (!previousValue) {
-    placeholderOption.selected = true;
-  }
-  aiCategorySelect.appendChild(placeholderOption);
-
-  usableCategories.forEach((category) => {
-    const option = document.createElement('option');
-    option.value = category.slug;
-    option.textContent = categoryOptionLabel(category);
-    option.dataset.slug = category.slug;
-    aiCategorySelect.appendChild(option);
-  });
-
-  if (previousValue && usableCategories.some((category) => category.slug === previousValue)) {
-    aiCategorySelect.value = previousValue;
-  } else {
-    aiCategorySelect.value = '';
-  }
-
-  aiCategorySelect.disabled = aiCategorySelect.options.length <= 1;
-}
-
-function getAiDifficultyValue() {
-  const checked = aiDifficultyRadios.find((radio) => radio && radio.checked);
-  const value = checked ? String(checked.value || '').trim().toLowerCase() : '';
-  if (value === 'easy' || value === 'medium' || value === 'hard') {
-    return value;
-  }
-  return 'medium';
-}
-
-function clampTemperature(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 0;
-  if (numeric < 0) return 0;
-  if (numeric > 1) return 1;
-  return Math.round(numeric * 100) / 100;
-}
-
-function syncAiTemperatureInputs(source) {
-  if (!aiTemperatureRange || !aiTemperatureNumber) return 0.35;
-  const rawValue = source === 'number' ? aiTemperatureNumber.value : aiTemperatureRange.value;
-  const clamped = clampTemperature(rawValue);
-  aiTemperatureRange.value = String(clamped);
-  aiTemperatureNumber.value = String(clamped);
-  return clamped;
-}
-
-function pickToastTypeFromTone(tone) {
-  if (tone === 'error') return 'error';
-  if (tone === 'warning') return 'warning';
-  return 'success';
-}
-
-function setAiStatus(message, tone = 'info') {
-  if (!aiStatusEl) return;
-  if (!message) {
-    aiStatusEl.textContent = '';
-    delete aiStatusEl.dataset.tone;
-    return;
-  }
-  aiStatusEl.textContent = message;
-  aiStatusEl.dataset.tone = tone;
-}
-
-function setAiLoadingState({ preview = false, generate = false } = {}) {
-  aiGeneratorState.loading = preview;
-  aiGeneratorState.generating = generate;
-
-  const previewBusy = preview || generate;
-  const generateBusy = generate || preview;
-
-  if (aiPreviewBtn) {
-    aiPreviewBtn.disabled = previewBusy;
-    aiPreviewBtn.classList.toggle('opacity-60', previewBusy);
-    aiPreviewBtn.classList.toggle('cursor-not-allowed', previewBusy);
-    aiPreviewBtn.innerHTML = preview
-      ? '<span class="loader-inline"></span> در حال آماده‌سازی...'
-      : aiPreviewBtnDefault;
-  }
-
-  if (aiGenerateBtn) {
-    aiGenerateBtn.disabled = generateBusy;
-    aiGenerateBtn.classList.toggle('opacity-60', generateBusy);
-    aiGenerateBtn.classList.toggle('cursor-not-allowed', generateBusy);
-    aiGenerateBtn.innerHTML = generate
-      ? '<span class="loader-inline"></span> در حال ذخیره...'
-      : aiGenerateBtnDefault;
-  }
-
-  aiPreviewModeButtons.forEach((btn) => {
-    if (!btn) return;
-    if (previewBusy || generateBusy) {
-      btn.dataset.busy = 'true';
-      btn.disabled = true;
-      btn.classList.remove('active');
-      btn.setAttribute('aria-pressed', 'false');
-    } else {
-      delete btn.dataset.busy;
-    }
-  });
-
-  if (!previewBusy && !generateBusy) {
-    updateAiPreviewModeUI();
-  }
-}
-
-function normalizeAiPreviewItem(item) {
-  const text = typeof item?.text === 'string' ? item.text.trim() : '';
-  const rawChoices = Array.isArray(item?.choices) ? item.choices : [];
-  const choices = rawChoices.slice(0, 4).map((choice) => String(choice ?? '').trim());
-  while (choices.length < 4) choices.push('');
-  let correctIndex = Number.isInteger(item?.correctIndex)
-    ? Number(item.correctIndex)
-    : Number.parseInt(item?.correctIndex, 10);
-  if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
-    correctIndex = 0;
-  }
-  const explanation = typeof item?.explanation === 'string' ? item.explanation.trim() : '';
-  return { text, choices, correctIndex, explanation };
-}
-
-function normalizeDuplicatePreviewItem(item) {
-  const text = typeof item?.text === 'string' ? item.text.trim() : '';
-  const reason = typeof item?.reason === 'string' ? item.reason.trim() : '';
-  return { text, reason };
-}
-
-function normalizeInvalidPreviewItem(item) {
-  const text = typeof item?.text === 'string' ? item.text.trim() : '';
-  const reason = typeof item?.reason === 'string' ? item.reason.trim() : '';
-  return { text, reason };
-}
-
-function renderAiPreview() {
-  if (!aiPreviewTbody) return;
-
-  const uniqueList = Array.isArray(aiGeneratorState.preview) ? aiGeneratorState.preview : [];
-  const duplicatesList = Array.isArray(aiGeneratorState.duplicates) ? aiGeneratorState.duplicates : [];
-  const invalidList = Array.isArray(aiGeneratorState.invalid) ? aiGeneratorState.invalid : [];
-  const hasAny = uniqueList.length || duplicatesList.length || invalidList.length;
-
-  renderAiUniqueTable(uniqueList);
-  renderAiDuplicateTable(duplicatesList);
-  renderAiInvalidTable(invalidList);
-  updateAiPreviewSummary(uniqueList, duplicatesList, invalidList);
-
-  if (!hasAny) {
-    if (aiPreviewWrapper) {
-      aiPreviewWrapper.classList.add('hidden');
-      aiPreviewWrapper.setAttribute('aria-hidden', 'true');
-    }
-    if (aiPreviewCountEl) {
-      aiPreviewCountEl.textContent = 'برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.';
-    }
-    aiPreviewModeButtons.forEach((btn) => {
-      if (!btn) return;
-      btn.disabled = true;
-      btn.classList.remove('active');
-      btn.setAttribute('aria-pressed', 'false');
-    });
-    Object.values(aiPreviewPanels).forEach((panel) => {
-      if (!panel) return;
-      panel.classList.add('hidden');
-      panel.setAttribute('aria-hidden', 'true');
-    });
-    aiGeneratorState.previewMode = 'unique';
-    return;
-  }
-
-  if (aiPreviewWrapper) {
-    aiPreviewWrapper.classList.remove('hidden');
-    aiPreviewWrapper.setAttribute('aria-hidden', 'false');
-  }
-
-  ensureAiPreviewMode();
-  updateAiPreviewModeUI();
-}
-
-function renderAiUniqueTable(list) {
-  if (!aiPreviewTbody) return;
-  if (!Array.isArray(list) || !list.length) {
-    aiPreviewTbody.innerHTML = `
-      <tr>
-        <td colspan="3" class="ai-preview-empty">برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.</td>
-      </tr>
-    `;
-    return;
-  }
-
-  aiPreviewTbody.innerHTML = list.map((item, index) => {
-    const questionLabel = item.text || `سوال شماره ${formatNumberFa(index + 1)}`;
-    const questionText = escapeHtml(questionLabel);
-    const optionsHtml = item.choices.map((choice, idx) => {
-      const label = formatNumberFa(idx + 1);
-      const body = escapeHtml(choice || '---');
-      return `<li><span class="font-mono text-xs text-slate-400">${label}.</span> ${body}</li>`;
-    }).join('');
-    const correctChoice = item.choices[item.correctIndex] || '';
-    const correctHtml = escapeHtml(correctChoice || '---');
-    const explanationHtml = item.explanation
-      ? `<div class="ai-preview-explanation"><i class="fa-solid fa-circle-info text-xs opacity-70 ml-1" aria-hidden="true"></i>${escapeHtml(item.explanation)}</div>`
-      : '';
-    return `
-      <tr>
-        <td>${questionText}${explanationHtml}</td>
-        <td><ul class="space-y-1 list-none">${optionsHtml}</ul></td>
-        <td>${correctHtml}</td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function renderAiDuplicateTable(list) {
-  if (!aiPreviewDuplicatesTbody) return;
-  if (!Array.isArray(list) || !list.length) {
-    aiPreviewDuplicatesTbody.innerHTML = `
-      <tr>
-        <td colspan="2" class="ai-preview-empty">هنوز سوال تکراری شناسایی نشده است.</td>
-      </tr>
-    `;
-    return;
-  }
-
-  aiPreviewDuplicatesTbody.innerHTML = list.map((item, index) => {
-    const questionLabel = item.text || `سوال شماره ${formatNumberFa(index + 1)}`;
-    const reason = item.reason || '---';
-    return `
-      <tr>
-        <td>${escapeHtml(questionLabel)}</td>
-        <td>${escapeHtml(reason)}</td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function renderAiInvalidTable(list) {
-  if (!aiPreviewInvalidTbody) return;
-  if (!Array.isArray(list) || !list.length) {
-    aiPreviewInvalidTbody.innerHTML = `
-      <tr>
-        <td colspan="2" class="ai-preview-empty">هیچ مورد نامعتبری گزارش نشده است.</td>
-      </tr>
-    `;
-    return;
-  }
-
-  aiPreviewInvalidTbody.innerHTML = list.map((item, index) => {
-    const questionLabel = item.text || `سوال شماره ${formatNumberFa(index + 1)}`;
-    const reason = item.reason || '---';
-    return `
-      <tr>
-        <td>${escapeHtml(questionLabel)}</td>
-        <td>${escapeHtml(reason)}</td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function updateAiPreviewSummary(uniqueList, duplicatesList, invalidList) {
-  const items = [
-    { el: aiSummaryUniqueEl, textEl: aiSummaryUniqueText, label: 'سوالات جدید', count: uniqueList.length },
-    { el: aiSummaryDuplicatesEl, textEl: aiSummaryDuplicatesText, label: 'تکراری', count: duplicatesList.length },
-    { el: aiSummaryInvalidEl, textEl: aiSummaryInvalidText, label: 'نامعتبر', count: invalidList.length }
-  ];
-
-  items.forEach(({ el, textEl, label, count }) => {
-    if (!el || !textEl) return;
-    textEl.textContent = `${label}: ${formatNumberFa(count)}`;
-    el.dataset.muted = count ? 'false' : 'true';
-    el.setAttribute('title', `${label}: ${formatNumberFa(count)}`);
-  });
-}
-
-function ensureAiPreviewMode() {
-  const counts = {
-    unique: Array.isArray(aiGeneratorState.preview) ? aiGeneratorState.preview.length : 0,
-    duplicates: Array.isArray(aiGeneratorState.duplicates) ? aiGeneratorState.duplicates.length : 0,
-    invalid: Array.isArray(aiGeneratorState.invalid) ? aiGeneratorState.invalid.length : 0
-  };
-  const availableModes = ['unique', 'duplicates', 'invalid'].filter((mode) => counts[mode] > 0);
-  if (!availableModes.length) {
-    aiGeneratorState.previewMode = 'unique';
-    return;
-  }
-  if (!availableModes.includes(aiGeneratorState.previewMode)) {
-    [aiGeneratorState.previewMode] = availableModes;
-  }
-}
-
-function updateAiPreviewModeUI() {
-  const counts = {
-    unique: Array.isArray(aiGeneratorState.preview) ? aiGeneratorState.preview.length : 0,
-    duplicates: Array.isArray(aiGeneratorState.duplicates) ? aiGeneratorState.duplicates.length : 0,
-    invalid: Array.isArray(aiGeneratorState.invalid) ? aiGeneratorState.invalid.length : 0
-  };
-
-  aiPreviewModeButtons.forEach((btn) => {
-    if (!btn) return;
-    const mode = btn.dataset.previewMode;
-    const count = counts[mode] || 0;
-    const isActive = mode === aiGeneratorState.previewMode && count > 0 && btn.dataset.busy !== 'true';
-    btn.disabled = count === 0 || btn.dataset.busy === 'true';
-    btn.classList.toggle('active', isActive);
-    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-  });
-
-  Object.entries(aiPreviewPanels).forEach(([mode, panel]) => {
-    if (!panel) return;
-    const shouldShow = mode === aiGeneratorState.previewMode && counts[mode] > 0;
-    if (shouldShow) {
-      panel.classList.remove('hidden');
-      panel.setAttribute('aria-hidden', 'false');
-    } else {
-      panel.classList.add('hidden');
-      panel.setAttribute('aria-hidden', 'true');
-    }
-  });
-
-  if (aiPreviewCountEl) {
-    const mode = aiGeneratorState.previewMode;
-    const count = counts[mode] || 0;
-    let label;
-    if (!counts.unique && !counts.duplicates && !counts.invalid) {
-      label = 'برای مشاهده نمونه سوال، ابتدا پیش‌نمایش را اجرا کنید.';
-    } else if (!count) {
-      if (mode === 'unique') label = 'هیچ سوال تازه‌ای در این نوبت یافت نشد.';
-      else if (mode === 'duplicates') label = 'سوالی به عنوان تکراری شناسایی نشد.';
-      else label = 'مورد نامعتبر ثبت نشد.';
-    } else if (mode === 'unique') {
-      label = `نمایش ${formatNumberFa(count)} سوال جدید تایید شده`;
-    } else if (mode === 'duplicates') {
-      label = `${formatNumberFa(count)} سوال تکراری شناسایی شد`;
-    } else {
-      label = `${formatNumberFa(count)} مورد نامعتبر گزارش شد`;
-    }
-    aiPreviewCountEl.textContent = label;
-  }
-}
-
-function setAiPreviewMode(mode) {
-  const normalized = typeof mode === 'string' ? mode.trim().toLowerCase() : '';
-  aiGeneratorState.previewMode = normalized || 'unique';
-  ensureAiPreviewMode();
-  updateAiPreviewModeUI();
-}
-
-function getAiFormValues() {
-  if (!aiForm || !aiCountInput || !aiCategorySelect) return null;
-
-  const count = Number.parseInt(aiCountInput.value, 10);
-  if (!Number.isFinite(count) || count < 1 || count > 100) {
-    throw new Error('تعداد سوال باید بین ۱ تا ۱۰۰ باشد.');
-  }
-
-  const categorySlug = (aiCategorySelect.value || '').trim();
-  if (!categorySlug) {
-    throw new Error('لطفاً یک دسته‌بندی را انتخاب کنید.');
-  }
-
-  const difficulty = getAiDifficultyValue();
-  const topicHints = aiTopicHintsInput ? aiTopicHintsInput.value.trim() : '';
-  const prompt = aiPromptInput ? aiPromptInput.value.trim() : '';
-  const temperature = syncAiTemperatureInputs('number');
-
-  return {
-    count,
-    categorySlug,
-    difficulty,
-    topicHints,
-    prompt,
-    temperature
-  };
-}
-
-async function runAiGeneration(previewOnly = false) {
-  if (!aiForm) return;
-
-  if (!getToken()) {
-    showToast('برای استفاده از این قابلیت ابتدا وارد شوید.', 'warning');
-    updateTriviaSummary();
-    return;
-  }
-
-  let payload;
-  try {
-    payload = getAiFormValues();
-  } catch (error) {
-    const message = error?.message || 'مقادیر فرم معتبر نیست.';
-    setAiStatus(message, 'error');
-    showToast(message, 'warning');
-    return;
-  }
-
-  setAiLoadingState({ preview: previewOnly, generate: !previewOnly });
-  setAiStatus(previewOnly ? 'در حال آماده‌سازی پیش‌نمایش...' : 'در حال تولید سوالات...', 'info');
-
-  try {
-    const requestPayload = {
-      count: payload.count,
-      categorySlug: payload.categorySlug,
-      difficulty: payload.difficulty,
-      topic: payload.topicHints || payload.prompt || '',
-      topicHints: payload.topicHints || '',
-      prompt: payload.prompt || '',
-      lang: 'fa',
-      temperature: payload.temperature
-    };
-
-    if (!previewOnly && Array.isArray(aiGeneratorState.preview) && aiGeneratorState.preview.length) {
-      requestPayload.previewQuestions = aiGeneratorState.preview.slice();
-    }
-
-    // 👉 به‌جای یک درخواست بزرگ، تکه‌تکه می‌فرستیم
-    const { preview, duplicates, invalid, inserted, generated } =
-      await generateAiChunked(requestPayload, { previewOnly });
-
-    aiGeneratorState.preview = preview;
-    aiGeneratorState.invalid = invalid;
-    aiGeneratorState.duplicates = duplicates;
-    aiGeneratorState.previewMode = 'unique';
-    renderAiPreview();
-
-    const duplicateCount = duplicates.length;
-    const invalidCount = invalid.length;
-
-    if (previewOnly) {
-      const tone = (invalidCount || duplicateCount) ? 'warning' : 'success';
-      setAiStatus(
-        `پیش‌نمایش ${formatNumberFa(preview.length)} سوال آماده شد. نامعتبر: ${formatNumberFa(invalidCount)} | تکراری: ${formatNumberFa(duplicateCount)}.`,
-        tone
-      );
-      showToast('پیش‌نمایش آماده شد', tone === 'success' ? 'success' : 'warning');
-    } else {
-      const ins = Number.isFinite(inserted) ? inserted : 0;
-      const gen = Number.isFinite(generated) ? generated : preview.length;
-      const parts = [
-        `تولید شده: ${formatNumberFa(gen)}`,
-        `ثبت شده: ${formatNumberFa(ins)}`
-      ];
-      if (duplicateCount) parts.push(`تکراری: ${formatNumberFa(duplicateCount)}`);
-      if (invalidCount) parts.push(`نامعتبر: ${formatNumberFa(invalidCount)}`);
-      const tone = ins > 0 ? 'success' : (gen > 0 ? 'warning' : 'error');
-      setAiStatus(parts.join(' | '), tone);
-      showToast(ins > 0 ? `${formatNumberFa(ins)} سوال جدید ذخیره شد` : 'سوالی برای ذخیره موجود نبود.', tone);
-      await loadQuestions();
-      await Promise.all([loadDashboardStats(true), loadDashboardOverview(true)]);
-    }
-  } catch (error) {
-    console.error('AI generation failed', error);
-    const message = error?.message || 'در تولید سوالات خطایی رخ داد.';
-    setAiStatus(message, 'error');
-    showToast(message, 'error');
-  } finally {
-    setAiLoadingState({ preview: false, generate: false });
-    renderAiPreview();
-    updateTriviaControlsAvailability();
-    updateTriviaSummary();
-  }
-}
-
-
-function resetAiModalForm() {
-  if (aiModalForm) aiModalForm.reset();
-  if (aiModalCountInput) aiModalCountInput.value = '5';
-  if (aiModalDifficultySelect) aiModalDifficultySelect.value = 'medium';
-  if (aiModalLangSelect) aiModalLangSelect.value = 'fa';
-}
-
-function clearAiModalState() {
-  aiModalState.preview = [];
-  aiModalState.duplicates = [];
-  aiModalState.invalid = [];
-  aiModalState.loading = false;
-}
-
-function setAiModalStatus(message = '', tone = 'muted') {
-  if (!aiModalStatus) return;
-  aiModalStatus.textContent = message || '';
-  aiModalStatus.dataset.tone = tone;
-  aiModalStatus.className = `ai-modal-status tone-${tone}`;
-}
-
-function setAiModalLoading({ preview = false, insert = false } = {}) {
-  if (aiModalPreviewBtn) {
-    aiModalPreviewBtn.disabled = preview;
-    aiModalPreviewBtn.innerHTML = preview
-      ? `<span class="loading-spinner"></span><span>در حال تولید...</span>`
-      : aiModalPreviewBtnDefault;
-  }
-  if (aiModalInsertBtn) {
-    aiModalInsertBtn.disabled = insert;
-    aiModalInsertBtn.innerHTML = insert
-      ? `<span class="loading-spinner"></span><span>در حال ذخیره...</span>`
-      : aiModalInsertBtnDefault;
-  }
-  aiModalState.loading = preview || insert;
-}
-
-function renderAiModalPreview() {
-  if (!aiModalPreviewTableBody) return;
-  const items = Array.isArray(aiModalState.preview) ? aiModalState.preview : [];
-  if (!items.length) {
-    aiModalPreviewTableBody.innerHTML = '';
-    if (aiModalPreviewEmpty) aiModalPreviewEmpty.classList.remove('hidden');
-    return;
-  }
-
-  if (aiModalPreviewEmpty) aiModalPreviewEmpty.classList.add('hidden');
-  aiModalPreviewTableBody.innerHTML = items.map((item, index) => {
-    const questionLabel = item?.question || `سوال شماره ${formatNumberFa(index + 1)}`;
-    const options = Array.isArray(item?.options) ? item.options : [];
-    const optionsHtml = options
-      .map((option, idx) => {
-        const label = formatNumberFa(idx + 1);
-        return `<li><span class="font-mono text-xs text-slate-400">${label}.</span> ${escapeHtml(option || '—')}</li>`;
-      })
-      .join('');
-    const correct = options[item?.answerIndex] || '';
-    return `
-      <tr>
-        <td>${escapeHtml(questionLabel)}</td>
-        <td><ul class="space-y-1 list-none">${optionsHtml}</ul></td>
-        <td>${escapeHtml(correct || '—')}</td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function renderAiModalDuplicates() {
-  if (!aiModalDuplicatesList) return;
-  const items = Array.isArray(aiModalState.duplicates) ? aiModalState.duplicates : [];
-  if (!items.length) {
-    aiModalDuplicatesList.innerHTML = '';
-    if (aiModalDuplicatesEmpty) aiModalDuplicatesEmpty.classList.remove('hidden');
-    return;
-  }
-
-  if (aiModalDuplicatesEmpty) aiModalDuplicatesEmpty.classList.add('hidden');
-  aiModalDuplicatesList.innerHTML = items.map((item) => {
-    const reason = item?.reason === 'batch'
-      ? 'تکرار در همین دسته تولیدی'
-      : 'در بانک سوال موجود است';
-    const existingLabel = item?.existingQuestion ? `<div class="text-xs text-white/60">نمونه موجود: ${escapeHtml(item.existingQuestion)}</div>` : '';
-    return `
-      <li class="ai-duplicate-item">
-        <div class="font-semibold">${escapeHtml(item.question || 'سوال تکراری')}</div>
-        <div class="text-xs text-white/60">${escapeHtml(reason)}</div>
-        ${existingLabel}
-      </li>
-    `;
-  }).join('');
-}
-
-function renderAiModalInvalid() {
-  if (!aiModalInvalidList) return;
-  const items = Array.isArray(aiModalState.invalid) ? aiModalState.invalid : [];
-  if (!items.length) {
-    aiModalInvalidList.innerHTML = '';
-    if (aiModalInvalidList.parentElement) {
-      aiModalInvalidList.parentElement.classList.add('hidden');
-    }
-    return;
-  }
-
-  if (aiModalInvalidList.parentElement) {
-    aiModalInvalidList.parentElement.classList.remove('hidden');
-  }
-  aiModalInvalidList.innerHTML = items.map((item) => {
-    const question = typeof item?.question === 'string' && item.question.trim()
-      ? item.question.trim()
-      : 'سوال بدون متن';
-    const reason = item?.reason || 'نامشخص';
-    return `<li><span class="font-semibold">${escapeHtml(question)}</span><span class="text-xs text-white/60 block mt-1">${escapeHtml(reason)}</span></li>`;
-  }).join('');
-}
-
-function getAiModalValues() {
-  const topic = aiModalTopicInput ? aiModalTopicInput.value.trim() : '';
-  if (!topic) {
-    throw new Error('موضوع سوال را وارد کنید.');
-  }
-
-  let count = Number.parseInt(aiModalCountInput ? aiModalCountInput.value : '5', 10);
-  if (!Number.isFinite(count)) count = 5;
-  if (count < 1) count = 1;
-  if (count > 50) count = 50;
-  if (aiModalCountInput) aiModalCountInput.value = String(count);
-
-  const difficultyCandidates = new Set(['easy', 'medium', 'hard']);
-  const difficultyValue = aiModalDifficultySelect ? aiModalDifficultySelect.value : 'medium';
-  const difficulty = difficultyCandidates.has(difficultyValue) ? difficultyValue : 'medium';
-
-  const langValue = aiModalLangSelect ? aiModalLangSelect.value : 'fa';
-  const lang = (langValue || 'fa').trim() || 'fa';
-
-  return { topic, count, difficulty, lang };
-}
-
-async function runAiModalGeneration(previewOnly) {
-  if (!getToken()) {
-    showToast('برای استفاده از این قابلیت ابتدا وارد شوید.', 'warning');
-    return;
-  }
-  if (!aiModal || !aiModalPreviewBtn || !aiModalInsertBtn) return;
-
-  let values;
-  try {
-    values = getAiModalValues();
-  } catch (error) {
-    const message = error?.message || 'اطلاعات فرم نامعتبر است.';
-    setAiModalStatus(message, 'error');
-    showToast(message, 'warning');
-    return;
-  }
-
-  if (!previewOnly && (!Array.isArray(aiModalState.preview) || !aiModalState.preview.length)) {
-    setAiModalStatus('برای ذخیره ابتدا پیش‌نمایش را اجرا کنید.', 'warning');
-    showToast('ابتدا پیش‌نمایش را اجرا کنید.', 'warning');
-    return;
-  }
-
-  setAiModalLoading({ preview: previewOnly, insert: !previewOnly });
-  setAiModalStatus(previewOnly ? 'در حال تولید نمونه سوال...' : 'در حال ذخیره سوالات...', 'info');
-
-  try {
-    let combined;
-    if (previewOnly) {
-      combined = await generateAiChunked(values, { previewOnly: true });
-    } else {
-      // برای Insert هم chunked می‌رویم تا درخواست‌های سنگین نداشته باشیم
-      const insertPayload = { ...values };
-      if (Array.isArray(aiModalState.preview) && aiModalState.preview.length) {
-        insertPayload.previewQuestions = aiModalState.preview.map(normalizeAiPreviewItem);
-      }
-      combined = await generateAiChunked(insertPayload, { previewOnly: false });
-    }
-
-    aiModalState.preview = combined.preview;
-    aiModalState.duplicates = combined.duplicates;
-    aiModalState.invalid = combined.invalid;
-
-    renderAiModalPreview();
-    renderAiModalDuplicates();
-    renderAiModalInvalid();
-
-    const duplicateCount = aiModalState.duplicates.length;
-    const invalidCount = aiModalState.invalid.length;
-    const previewCount = aiModalState.preview.length;
-
-    if (previewOnly) {
-      const tone = duplicateCount || invalidCount ? 'warning' : 'success';
-      const message = `پیش‌نمایش ${formatNumberFa(previewCount)} سوال آماده شد. تکراری: ${formatNumberFa(duplicateCount)} | نامعتبر: ${formatNumberFa(invalidCount)}.`;
-      setAiModalStatus(message, tone);
-      showToast('پیش‌نمایش آماده شد', tone === 'success' ? 'success' : 'warning');
-    } else {
-      const inserted = Number.isFinite(combined.inserted) ? combined.inserted : 0;
-      const generated = Number.isFinite(combined.generated) ? combined.generated : previewCount;
-      const parts = [
-        `تولید شده: ${formatNumberFa(generated)}`,
-        `ثبت شده: ${formatNumberFa(inserted)}`
-      ];
-      if (duplicateCount) parts.push(`تکراری: ${formatNumberFa(duplicateCount)}`);
-      if (invalidCount) parts.push(`نامعتبر: ${formatNumberFa(invalidCount)}`);
-      const tone = inserted > 0 ? 'success' : (generated > 0 ? 'warning' : 'error');
-      setAiModalStatus(parts.join(' | '), tone);
-      showToast(inserted > 0 ? `${formatNumberFa(inserted)} سوال جدید ذخیره شد` : 'سوالی برای ذخیره موجود نبود.', tone);
-      clearAiModalState();
-      renderAiModalPreview();
-      renderAiModalDuplicates();
-      renderAiModalInvalid();
-      closeModal('#ai-generate-modal');
-      await Promise.all([
-        loadQuestions(),
-        loadDashboardStats(true),
-        loadDuplicateGroups(true)
-      ]);
-    }
-  } catch (error) {
-    console.error('AI modal generation failed', error);
-    const message = error?.message || 'در تولید سوالات خطایی رخ داد.';
-    setAiModalStatus(message, 'error');
-    showToast(message, 'error');
-  } finally {
-    setAiModalLoading({ preview: false, insert: false });
-  }
-}
-
-
-function openAiModal() {
-  if (!aiModal) return;
-  resetAiModalForm();
-  clearAiModalState();
-  renderAiModalPreview();
-  renderAiModalDuplicates();
-  renderAiModalInvalid();
-  setAiModalStatus('', 'muted');
-  setAiModalLoading({ preview: false, insert: false });
-  openModal('#ai-generate-modal');
-}
 
 function updateDuplicateBulkDeleteState() {
   if (!duplicatesBulkDeleteBtn) return;
@@ -1624,182 +812,6 @@ async function handleDuplicatesBulkDelete() {
   } finally {
     updateDuplicateBulkDeleteState();
   }
-}
-
-function updateTriviaControlsAvailability() {
-  if (!aiForm) return;
-  const hasToken = Boolean(getToken());
-  const hasCategories = aiCategorySelect && aiCategorySelect.options.length > 1;
-  const baseDisabled = !hasToken || !hasCategories;
-  const busy = aiGeneratorState.loading || aiGeneratorState.generating;
-  const disableInputs = baseDisabled || busy;
-
-  const inputs = [
-    aiCountInput,
-    aiCategorySelect,
-    aiTopicHintsInput,
-    aiPromptInput,
-    aiTemperatureRange,
-    aiTemperatureNumber
-  ];
-  inputs.forEach((input) => {
-    if (!input) return;
-    input.disabled = disableInputs;
-    input.classList.toggle('opacity-60', baseDisabled);
-    input.classList.toggle('cursor-not-allowed', baseDisabled);
-  });
-
-  aiDifficultyRadios.forEach((radio) => {
-    if (!radio) return;
-    radio.disabled = disableInputs;
-    const chip = radio.closest('.ai-chip');
-    if (chip) {
-      chip.classList.toggle('opacity-60', baseDisabled);
-    }
-  });
-
-  if (aiPreviewBtn && !busy) {
-    aiPreviewBtn.disabled = baseDisabled;
-    aiPreviewBtn.classList.toggle('opacity-60', baseDisabled);
-    aiPreviewBtn.classList.toggle('cursor-not-allowed', baseDisabled);
-    aiPreviewBtn.innerHTML = aiPreviewBtnDefault;
-  }
-
-  if (aiGenerateBtn && !busy) {
-    aiGenerateBtn.disabled = baseDisabled;
-    aiGenerateBtn.classList.toggle('opacity-60', baseDisabled);
-    aiGenerateBtn.classList.toggle('cursor-not-allowed', baseDisabled);
-    aiGenerateBtn.innerHTML = aiGenerateBtnDefault;
-  }
-
-  if (aiSourceChip) {
-    aiSourceChip.textContent = 'سوالات هوش مصنوعی';
-  }
-}
-
-function updateTriviaSummary() {
-  if (!aiStatusEl) return;
-  if (aiGeneratorState.loading || aiGeneratorState.generating) return;
-
-  const hasToken = Boolean(getToken());
-  if (!hasToken) {
-    setAiStatus('برای استفاده از تولید خودکار سوالات، ابتدا وارد حساب مدیریت شوید.', 'warning');
-    return;
-  }
-
-  if (!aiCategorySelect || aiCategorySelect.options.length <= 1) {
-    setAiStatus('ابتدا یک دسته‌بندی فعال برای تولید سوال انتخاب کنید.', 'warning');
-    return;
-  }
-
-  if (!aiStatusEl.textContent.trim()) {
-    setAiStatus('تعداد سوال، دسته‌بندی و سطح دشواری را مشخص کنید و سپس پیش‌نمایش یا تولید را اجرا نمایید.', 'info');
-  }
-}
-
-function clampAiCount(value) {
-  const numeric = Number.parseInt(value, 10);
-  if (!Number.isFinite(numeric)) return 10;
-  if (numeric < 1) return 1;
-  if (numeric > 100) return 100;
-  return numeric;
-}
-
-function initializeAiGenerator() {
-  if (!aiForm) return;
-
-  if (aiPanel && aiPanel.dataset.theme) {
-    aiGeneratorState.theme = aiPanel.dataset.theme;
-  }
-
-  aiForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-  });
-
-  if (aiCountInput) {
-    aiCountInput.addEventListener('input', () => {
-      const clamped = clampAiCount(aiCountInput.value);
-      if (String(clamped) !== aiCountInput.value) {
-        aiCountInput.value = String(clamped);
-      }
-      updateTriviaSummary();
-    });
-  }
-
-  if (aiCategorySelect) {
-    aiCategorySelect.addEventListener('change', () => {
-      updateTriviaSummary();
-    });
-  }
-
-  if (aiTopicHintsInput) {
-    aiTopicHintsInput.addEventListener('input', () => {
-      updateTriviaSummary();
-    });
-  }
-
-  if (aiPromptInput) {
-    aiPromptInput.addEventListener('input', () => {
-      updateTriviaSummary();
-    });
-  }
-
-  if (aiTemperatureRange) {
-    aiTemperatureRange.addEventListener('input', () => {
-      syncAiTemperatureInputs('range');
-    });
-  }
-
-  if (aiTemperatureNumber) {
-    aiTemperatureNumber.addEventListener('input', () => {
-      syncAiTemperatureInputs('number');
-    });
-  }
-
-  if (aiPreviewBtn) {
-    aiPreviewBtn.addEventListener('click', () => {
-      runAiGeneration(true);
-    });
-  }
-
-  if (aiGenerateBtn) {
-    aiGenerateBtn.addEventListener('click', () => {
-      runAiGeneration(false);
-    });
-  }
-
-  aiPreviewModeButtons.forEach((btn) => {
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      if (btn.disabled || btn.dataset.busy === 'true') return;
-      setAiPreviewMode(btn.dataset.previewMode);
-    });
-  });
-
-  if (aiThemeToggle && aiPanel) {
-    aiThemeToggle.addEventListener('click', () => {
-      const current = aiPanel.dataset.theme === 'light' ? 'light' : 'dark';
-      const nextTheme = current === 'light' ? 'dark' : 'light';
-      aiPanel.dataset.theme = nextTheme;
-      aiGeneratorState.theme = nextTheme;
-      aiThemeToggle.setAttribute('aria-pressed', nextTheme === 'light' ? 'true' : 'false');
-      if (aiThemeAnnouncer) {
-        aiThemeAnnouncer.textContent = nextTheme === 'light'
-          ? 'حالت روشن فعال شد.'
-          : 'حالت تاریک فعال شد.';
-      }
-    });
-  }
-
-  if (aiThemeToggle) {
-    const initialTheme = aiPanel && aiPanel.dataset.theme === 'light' ? 'light' : 'dark';
-    aiThemeToggle.setAttribute('aria-pressed', initialTheme === 'light' ? 'true' : 'false');
-  }
-
-  syncAiTemperatureInputs('number');
-  updateTriviaControlsAvailability();
-  updateTriviaSummary();
-  renderAiPreview();
 }
 
 function deriveCategoryIdentityKey(category) {
@@ -2866,124 +1878,6 @@ async function api(path, options = {}) {
 }
 
 
-// ---- AI helpers: chunked requests to avoid big payload/timeouts ----
-const AI_CHUNK_SIZE = 4; // حداکثر تعداد سوال در هر درخواست (برای جلوگیری از تایم‌اوت و خطاهای شبکه)
-const AI_CHUNK_MIN_SIZE = 1;
-const AI_REQUEST_MAX_RETRIES = 3;
-const AI_REQUEST_RETRY_DELAYS = [800, 2000];
-
-async function requestAiGenerate(body, attempt = 1) {
-  try {
-    return await api('/ai/generate', { method: 'POST', body: JSON.stringify(body) });
-  } catch (error) {
-    const message = String(error?.message || '');
-    const isNetworkError = /network_error|fetch failed/i.test(message);
-
-    if (isNetworkError && attempt < AI_REQUEST_MAX_RETRIES) {
-      const delayMs = AI_REQUEST_RETRY_DELAYS[Math.min(attempt - 1, AI_REQUEST_RETRY_DELAYS.length - 1)] || 1000;
-      await wait(delayMs);
-      return requestAiGenerate(body, attempt + 1);
-    }
-
-    throw error;
-  }
-}
-
-function mergeAiBatches(batches) {
-  const preview = [];
-  const duplicates = [];
-  const invalid = [];
-  let inserted = 0;
-  let generated = 0;
-
-  for (const b of batches) {
-    if (Array.isArray(b.preview)) {
-      preview.push(...b.preview.map(normalizeAiPreviewItem));
-    }
-    if (Array.isArray(b.duplicates)) {
-      duplicates.push(...b.duplicates.map(normalizeDuplicatePreviewItem));
-    }
-    if (Array.isArray(b.invalid)) {
-      invalid.push(...b.invalid.map(normalizeInvalidPreviewItem));
-    }
-    if (Number.isFinite(Number(b.inserted))) inserted += Number(b.inserted);
-    if (Number.isFinite(Number(b.generated))) generated += Number(b.generated);
-  }
-
-  return { preview, duplicates, invalid, inserted, generated };
-}
-
-async function generateAiChunked(payload = {}, { previewOnly } = {}) {
-  const batches = [];
-  const requestedCount = Number.isFinite(Number(payload.count)) ? Number(payload.count) : 1;
-  const previewQuestions = Array.isArray(payload.previewQuestions) ? payload.previewQuestions : [];
-  const hasPreview = !previewOnly && previewQuestions.length > 0;
-  const totalTarget = hasPreview ? Math.max(1, previewQuestions.length) : Math.max(1, requestedCount);
-
-  const baseBody = {
-    topic: typeof payload.topic === 'string' ? payload.topic : '',
-    topicHints: typeof payload.topicHints === 'string' ? payload.topicHints : '',
-    prompt: typeof payload.prompt === 'string' ? payload.prompt : '',
-    difficulty: payload.difficulty || 'medium',
-    lang: payload.lang || 'fa'
-  };
-
-  if (payload.categorySlug) baseBody.categorySlug = payload.categorySlug;
-  if (payload.categoryId) baseBody.categoryId = payload.categoryId;
-  if (payload.categoryKey) baseBody.categoryKey = payload.categoryKey;
-  if (payload.temperature !== undefined && payload.temperature !== null) {
-    const tempNumber = Number(payload.temperature);
-    if (Number.isFinite(tempNumber)) baseBody.temperature = tempNumber;
-  }
-
-  let remaining = totalTarget;
-  let previewIndex = 0;
-  let chunkSize = Math.min(Math.max(1, totalTarget), AI_CHUNK_SIZE);
-
-  while (remaining > 0) {
-    const chunkLimit = Math.min(chunkSize, remaining);
-    const previewSlice = hasPreview
-      ? previewQuestions.slice(previewIndex, previewIndex + chunkLimit)
-      : [];
-    const previewLength = previewSlice.length;
-    const countForRequest = previewLength > 0 ? previewLength : chunkLimit;
-
-    const body = {
-      ...baseBody,
-      count: countForRequest,
-      previewOnly: Boolean(previewOnly)
-    };
-
-    if (previewLength > 0) {
-      body.previewQuestions = previewSlice;
-    }
-
-    try {
-      const res = await requestAiGenerate(body);
-      batches.push(res);
-      remaining -= countForRequest;
-      if (previewLength > 0) {
-        previewIndex += previewLength;
-      }
-    } catch (error) {
-      const message = String(error?.message || '');
-      const isNetworkError = /network_error|fetch failed|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ECONNABORTED/i.test(message);
-      if (isNetworkError && chunkSize > AI_CHUNK_MIN_SIZE) {
-        const nextChunk = Math.max(AI_CHUNK_MIN_SIZE, Math.floor(chunkSize / 2));
-        chunkSize = nextChunk === chunkSize && chunkSize > AI_CHUNK_MIN_SIZE
-          ? chunkSize - 1
-          : nextChunk;
-        await wait(300);
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  return mergeAiBatches(batches);
-}
-
-
 // --------------- TOAST ---------------
 function ensureToastContainer() {
   if (typeof document === 'undefined') return null;
@@ -3160,16 +2054,6 @@ if (adsGridEl) {
   });
 }
 
-if (btnAiGenerate) {
-  btnAiGenerate.addEventListener('click', () => {
-    if (!getToken()) {
-      showToast('برای استفاده از این قابلیت ابتدا وارد شوید', 'warning');
-      return;
-    }
-    openAiModal();
-  });
-}
-
 $('#btn-add-question').addEventListener('click', async () => {
   if (!getToken()) {
     showToast('برای مدیریت سوالات ابتدا وارد شوید', 'warning');
@@ -3313,8 +2197,6 @@ async function login() {
     setToken(res.token);
     closeModal('#login-modal');
     showToast('ورود موفق', 'success');
-    updateTriviaControlsAvailability();
-    updateTriviaSummary();
     await loadAllData();
   } catch (e) {
     showToast(e.message, 'error');
@@ -4144,11 +3026,8 @@ async function loadCategoryFilterOptions(triggerReloadOnMissing = false) {
     cachedCategories = nextCategories;
   }
 
-  populateAiCategoryOptions();
   renderCategoryManagement();
   refreshCategorySelects();
-  updateTriviaControlsAvailability();
-  updateTriviaSummary();
   if (shouldReload) {
     await loadQuestions();
   }
@@ -5976,18 +4855,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-if (aiModalPreviewBtn) {
-  aiModalPreviewBtn.addEventListener('click', () => runAiModalGeneration(true));
-}
-
-if (aiModalInsertBtn) {
-  aiModalInsertBtn.addEventListener('click', () => runAiModalGeneration(false));
-}
-
-if (aiModalForm) {
-  aiModalForm.addEventListener('submit', (event) => event.preventDefault());
-}
-
 if (duplicatesBulkDeleteBtn) {
   duplicatesBulkDeleteBtn.addEventListener('click', handleDuplicatesBulkDelete);
 }
@@ -6018,7 +4885,6 @@ updateDuplicateBulkDeleteState();
 
 setupUserManagement();
 setupShopControls();
-initializeAiGenerator();
 renderCategoryManagement();
 resetAdForm();
 updateAdsStats();
