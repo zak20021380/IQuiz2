@@ -1,11 +1,34 @@
+const OpenAI = require('openai');
+
 const env = require('../config/env');
 const logger = require('../config/logger');
 const Question = require('../models/Question');
-const { fetchWithRetry } = require('../lib/http');
 const { createQuestionUid } = require('../utils/hash');
 
 const MAX_COUNT = 50;
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || env.ai?.openai?.model || 'gpt-5-mini';
+const DEFAULT_MODEL = env.ai?.openai?.model || process.env.OPENAI_MODEL || 'gpt-5';
+
+let openAiClient;
+
+function getOpenAiClient() {
+  if (openAiClient) return openAiClient;
+
+  const apiKey = process.env.OPENAI_API_KEY || env.ai?.openai?.apiKey;
+  if (!apiKey) {
+    const error = new Error('OPENAI_API_KEY is not configured');
+    error.statusCode = 503;
+    throw error;
+  }
+
+  openAiClient = new OpenAI({
+    apiKey,
+    baseURL: env.ai?.openai?.baseUrl || undefined,
+    organization: env.ai?.openai?.organization || undefined,
+    project: env.ai?.openai?.project || undefined
+  });
+
+  return openAiClient;
+}
 
 function sanitizeTopic(value) {
   if (typeof value !== 'string') return '';
@@ -48,11 +71,23 @@ function slugifyTopic(topic) {
     .replace(/^-+|-+$/g, '');
 }
 
+function describeLanguage(lang) {
+  if (typeof lang !== 'string') return 'Persian';
+  const normalized = lang.trim().toLowerCase();
+  if (!normalized) return 'Persian';
+  const map = {
+    fa: 'Persian',
+    en: 'English',
+    ar: 'Arabic'
+  };
+  return map[normalized] || normalized;
+}
+
 function buildPrompt({ topic, count, difficulty, lang }) {
-  const safeTopic = topic.replace(/'/g, "\\'");
-  const safeDifficulty = difficulty.replace(/'/g, "\\'");
-  const safeLang = lang.replace(/'/g, "\\'");
-  return `You are an MCQ generator. Return ONLY a JSON array length=${count}. Each: {question,options[4],answerIndex,category:'${safeTopic}',difficulty:'${safeDifficulty}'}. Language=${safeLang}. Constraints: concise; factual; no explanations; no markdown; options mutually exclusive; no 'All/None'; vary answer position; avoid duplicates.`;
+  const safeTopic = topic.replace(/"/g, '\\"');
+  const safeDifficulty = difficulty.replace(/"/g, '\\"');
+  const languageLabel = describeLanguage(lang);
+  return `Generate ${count} ${languageLabel} MCQs about "${safeTopic}" (difficulty: ${safeDifficulty}). Each: one correct answer, 4 options, JSON only.`;
 }
 
 function buildResponseFormat(count) {
@@ -60,106 +95,76 @@ function buildResponseFormat(count) {
   return {
     type: 'json_schema',
     json_schema: {
-      name: 'ai_mcq_batch',
+      name: 'mcq_batch',
       schema: {
-        type: 'array',
-        minItems: 1,
-        maxItems: normalizedCount,
-        items: {
-          type: 'object',
-          required: ['question', 'options', 'answerIndex'],
-          properties: {
-            question: { type: 'string', minLength: 6, maxLength: 400 },
-            options: {
-              type: 'array',
-              minItems: 4,
-              maxItems: 4,
-              items: { type: 'string', minLength: 1, maxLength: 200 }
-            },
-            answerIndex: { type: 'integer', minimum: 0, maximum: 3 },
-            category: { type: 'string' },
-            difficulty: { type: 'string' }
+        type: 'object',
+        required: ['items'],
+        properties: {
+          items: {
+            type: 'array',
+            minItems: 1,
+            maxItems: normalizedCount,
+            items: {
+              type: 'object',
+              required: ['question', 'options', 'correct_index'],
+              properties: {
+                question: { type: 'string', minLength: 6, maxLength: 400 },
+                options: {
+                  type: 'array',
+                  minItems: 4,
+                  maxItems: 4,
+                  items: { type: 'string', minLength: 1, maxLength: 200 }
+                },
+                correct_index: { type: 'integer', minimum: 0, maximum: 3 }
+              }
+            }
           }
         }
-      }
+      },
+      strict: true
     }
   };
 }
 
 async function callOpenAi({ topic, count, difficulty, lang, model }) {
-  const apiKey = process.env.OPENAI_API_KEY || env.ai?.openai?.apiKey;
-  if (!apiKey) {
-    const error = new Error('OPENAI_API_KEY is not configured');
-    error.statusCode = 503;
-    throw error;
-  }
-
-  const baseUrl = env.ai?.openai?.baseUrl || 'https://api.openai.com/v1';
+  const client = getOpenAiClient();
   const prompt = buildPrompt({ topic, count, difficulty, lang });
-  const payload = {
-    model,
-    input: [
-      {
-        role: 'system',
-        content: [
-          { type: 'text', text: 'You create high-quality multiple choice questions for quizzes.' }
-        ]
-      },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt }
-        ]
-      }
-    ],
-    temperature: 0.4,
-    top_p: 0.9,
-    max_output_tokens: Math.min(120 * count, 120 * MAX_COUNT),
-    text: {
-      format: buildResponseFormat(count)
-    }
-  };
 
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey}`
-  };
-
-  if (env.ai?.openai?.organization) {
-    headers['OpenAI-Organization'] = env.ai.openai.organization;
-  }
-  if (env.ai?.openai?.project) {
-    headers['OpenAI-Project'] = env.ai.openai.project;
+  let response;
+  try {
+    response = await client.responses.create({
+      model: model || DEFAULT_MODEL,
+      input: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: prompt }
+          ]
+        }
+      ],
+      response_format: buildResponseFormat(count),
+      temperature: 0.4,
+      top_p: 0.9,
+      max_output_tokens: Math.min(160 * count, 160 * MAX_COUNT)
+    });
+  } catch (error) {
+    const status = error?.status || error?.statusCode || 502;
+    const err = new Error(error?.message || 'Failed to call OpenAI');
+    err.statusCode = status;
+    err.cause = error;
+    throw err;
   }
 
-  const url = `${baseUrl.replace(/\/+$/, '')}/responses`;
-  const response = await fetchWithRetry(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-    timeout: 60000,
-    retries: 2,
-    retryOn: new Set([408, 425, 429, 500, 502, 503, 504])
-  });
-
-  if (!response.ok) {
-    let message = `Failed to call OpenAI (status ${response.status})`;
-    try {
-      const errorBody = await response.json();
-      if (errorBody?.error?.message) {
-        message = errorBody.error.message;
-      }
-    } catch (parseError) {
-      // ignore parse error, keep default message
-    }
-    const error = new Error(message);
-    error.statusCode = response.status;
+  const outputText = typeof response?.output_text === 'string' ? response.output_text.trim() : '';
+  if (!outputText) {
+    const error = new Error('Empty response from OpenAI');
+    error.statusCode = 502;
     throw error;
   }
 
-  let data;
+  let parsed;
   try {
-    data = await response.json();
+    parsed = JSON.parse(outputText);
   } catch (error) {
     const err = new Error('Failed to parse OpenAI response');
     err.cause = error;
@@ -167,82 +172,56 @@ async function callOpenAi({ topic, count, difficulty, lang, model }) {
     throw err;
   }
 
-  const usage = data?.usage || null;
-  const items = extractItemsFromResponse(data);
-  return { items, usage };
-}
+  let itemsRaw = [];
+  if (Array.isArray(parsed?.items)) {
+    itemsRaw = parsed.items;
+  } else if (Array.isArray(parsed)) {
+    itemsRaw = parsed;
+  }
 
-function extractItemsFromResponse(payload) {
-  if (!payload) return [];
-
-  if (Array.isArray(payload.output)) {
-    for (const block of payload.output) {
-      if (!Array.isArray(block?.content)) continue;
-      for (const part of block.content) {
-        if (part?.type === 'output_json' && part.json) {
-          if (Array.isArray(part.json)) return part.json;
-          if (typeof part.json === 'string') {
-            try {
-              const parsed = JSON.parse(part.json);
-              if (Array.isArray(parsed)) return parsed;
-            } catch (err) {
-              // ignore
-            }
+  const items = Array.isArray(itemsRaw)
+    ? itemsRaw
+        .filter((item) => item && typeof item === 'object')
+        .map((item) => {
+          const question = typeof item.question === 'string' ? item.question : '';
+          const rawOptions = Array.isArray(item.options) ? item.options : [];
+          const options = rawOptions
+            .slice(0, 4)
+            .map((option) => (typeof option === 'string' ? option : String(option ?? '').trim()));
+          while (options.length < 4) options.push('');
+          let correctIndex = Number.isInteger(item.correct_index)
+            ? item.correct_index
+            : Number.parseInt(item.correct_index, 10);
+          if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
+            correctIndex = 0;
           }
-        }
-        if (part?.type === 'output_text' || part?.type === 'text') {
-          if (typeof part.text === 'string' && part.text.trim()) {
-            try {
-              const parsed = JSON.parse(part.text);
-              if (Array.isArray(parsed)) return parsed;
-            } catch (error) {
-              // ignore and continue
-            }
-          }
-        }
-      }
-    }
-  }
+          return {
+            question,
+            options,
+            correct_index: correctIndex,
+            difficulty: typeof item.difficulty === 'string' ? item.difficulty : difficulty,
+            lang
+          };
+        })
+    : [];
 
-  if (Array.isArray(payload.choices)) {
-    const message = payload.choices[0]?.message;
-    if (message?.parsed && Array.isArray(message.parsed)) {
-      return message.parsed;
-    }
-    if (typeof message?.content === 'string') {
-      try {
-        const parsed = JSON.parse(message.content);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (error) {
-        // ignore
-      }
-    }
-  }
-
-  if (typeof payload.output_text === 'string') {
-    try {
-      const parsed = JSON.parse(payload.output_text);
-      if (Array.isArray(parsed)) return parsed;
-    } catch (error) {
-      // ignore
-    }
-  }
-
-  return [];
+  return { items, usage: response?.usage || null };
 }
 
 function buildInvalidEntry(raw, reason) {
   const questionText = typeof raw?.question === 'string' ? raw.question : '';
-  return { question: questionText, reason };
+  return { question: questionText, text: questionText, reason };
 }
 
 function normalizeQuestionItem(raw, context) {
-  const questionText = normalizeOption(raw?.question);
+  const sourceQuestion = typeof raw?.question === 'string' ? raw.question : raw?.text;
+  const questionText = normalizeOption(sourceQuestion);
   if (!questionText || questionText.length < 6) {
     return { error: buildInvalidEntry(raw, 'متن سوال نامعتبر است') };
   }
 
-  const rawOptions = Array.isArray(raw?.options) ? raw.options.slice(0, 4) : [];
+  const optionSource = Array.isArray(raw?.options) ? raw.options : Array.isArray(raw?.choices) ? raw.choices : [];
+  const rawOptions = optionSource.slice(0, 4);
   if (rawOptions.length !== 4) {
     return { error: buildInvalidEntry(raw, 'باید دقیقا چهار گزینه وجود داشته باشد') };
   }
@@ -257,7 +236,23 @@ function normalizeQuestionItem(raw, context) {
     return { error: buildInvalidEntry(raw, 'گزینه‌های تکراری مجاز نیست') };
   }
 
-  const answerIndex = Number(raw?.answerIndex);
+  const candidateIndices = [
+    raw?.answerIndex,
+    raw?.correctIndex,
+    raw?.correct_index,
+    raw?.correctIdx
+  ];
+
+  let answerIndex;
+  for (const candidate of candidateIndices) {
+    if (candidate == null) continue;
+    const parsed = typeof candidate === 'string' ? Number.parseInt(candidate, 10) : candidate;
+    if (Number.isInteger(parsed)) {
+      answerIndex = parsed;
+      break;
+    }
+  }
+
   if (!Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex > 3) {
     return { error: buildInvalidEntry(raw, 'پاسخ صحیح نامعتبر است') };
   }
@@ -343,6 +338,7 @@ function mapDuplicateForResponse(item) {
   const base = {
     uid: item.uid,
     question: item.question,
+    text: item.question,
     reason: item.reason || 'exists'
   };
 
@@ -356,11 +352,16 @@ function mapDuplicateForResponse(item) {
 }
 
 function mapPreviewItem(item) {
+  const correctIndex = item.answerIndex;
   return {
     uid: item.uid,
     question: item.question,
+    text: item.question,
     options: item.options,
-    answerIndex: item.answerIndex,
+    choices: item.options,
+    answerIndex: correctIndex,
+    correctIndex,
+    correct_index: correctIndex,
     difficulty: item.difficulty,
     category: item.category,
     lang: item.lang
@@ -419,6 +420,30 @@ function logUsage(usage, meta = {}) {
   logger.info(`[AI] OpenAI usage ${parts.join(' | ')}`);
 }
 
+async function generateMCQs(options = {}) {
+  const topic = sanitizeTopic(options.topic);
+  if (!topic) {
+    const error = new Error('موضوع سوال الزامی است.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const count = sanitizeCount(options.count);
+  const difficulty = sanitizeDifficulty(options.difficulty);
+  const lang = sanitizeLang(options.language || options.lang || 'fa');
+  const model = options.model || DEFAULT_MODEL;
+
+  const response = await callOpenAi({ topic, count, difficulty, lang, model });
+  logUsage(response.usage, { topic, count });
+
+  const { valid } = validateItems(response.items || [], { topic, difficulty, lang });
+  return valid.map((item) => ({
+    question: item.question,
+    options: item.options,
+    correct_index: item.answerIndex
+  }));
+}
+
 async function generateQuestions(options = {}) {
   const topic = sanitizeTopic(options.topic);
   if (!topic) {
@@ -475,5 +500,6 @@ async function generateQuestions(options = {}) {
 }
 
 module.exports = {
+  generateMCQs,
   generateQuestions,
 };

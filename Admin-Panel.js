@@ -847,28 +847,46 @@ function setAiLoadingState({ preview = false, generate = false } = {}) {
 }
 
 function normalizeAiPreviewItem(item) {
-  const text = typeof item?.text === 'string' ? item.text.trim() : '';
-  const rawChoices = Array.isArray(item?.choices) ? item.choices : [];
+  const sourceText = typeof item?.text === 'string' && item.text.trim()
+    ? item.text
+    : (typeof item?.question === 'string' ? item.question : '');
+  const text = sourceText.trim();
+  const rawChoices = Array.isArray(item?.choices)
+    ? item.choices
+    : Array.isArray(item?.options)
+      ? item.options
+      : [];
   const choices = rawChoices.slice(0, 4).map((choice) => String(choice ?? '').trim());
   while (choices.length < 4) choices.push('');
-  let correctIndex = Number.isInteger(item?.correctIndex)
-    ? Number(item.correctIndex)
-    : Number.parseInt(item?.correctIndex, 10);
-  if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
-    correctIndex = 0;
+  const indexCandidates = [item?.correctIndex, item?.answerIndex, item?.correct_index];
+  let correctIndex = 0;
+  for (const candidate of indexCandidates) {
+    if (candidate == null) continue;
+    const parsed = typeof candidate === 'string' ? Number.parseInt(candidate, 10) : Number(candidate);
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 3) {
+      correctIndex = parsed;
+      break;
+    }
   }
-  const explanation = typeof item?.explanation === 'string' ? item.explanation.trim() : '';
+  const explanationSource = typeof item?.explanation === 'string' ? item.explanation : '';
+  const explanation = explanationSource.trim();
   return { text, choices, correctIndex, explanation };
 }
 
 function normalizeDuplicatePreviewItem(item) {
-  const text = typeof item?.text === 'string' ? item.text.trim() : '';
+  const sourceText = typeof item?.text === 'string' && item.text.trim()
+    ? item.text
+    : (typeof item?.question === 'string' ? item.question : '');
+  const text = sourceText.trim();
   const reason = typeof item?.reason === 'string' ? item.reason.trim() : '';
   return { text, reason };
 }
 
 function normalizeInvalidPreviewItem(item) {
-  const text = typeof item?.text === 'string' ? item.text.trim() : '';
+  const sourceText = typeof item?.text === 'string' && item.text.trim()
+    ? item.text
+    : (typeof item?.question === 'string' ? item.question : '');
+  const text = sourceText.trim();
   const reason = typeof item?.reason === 'string' ? item.reason.trim() : '';
   return { text, reason };
 }
@@ -1289,18 +1307,36 @@ function renderAiModalPreview() {
 
   if (aiModalPreviewEmpty) aiModalPreviewEmpty.classList.add('hidden');
   aiModalPreviewTableBody.innerHTML = items.map((item, index) => {
-    const questionLabel = item?.question || `سوال شماره ${formatNumberFa(index + 1)}`;
-    const options = Array.isArray(item?.options) ? item.options : [];
-    const optionsHtml = options
+    const questionSource = typeof item?.question === 'string' && item.question.trim()
+      ? item.question
+      : (typeof item?.text === 'string' ? item.text : `سوال شماره ${formatNumberFa(index + 1)}`);
+    const optionsSource = Array.isArray(item?.options)
+      ? item.options
+      : Array.isArray(item?.choices)
+        ? item.choices
+        : [];
+    const normalizedOptions = optionsSource.slice(0, 4).map((option) => String(option ?? '').trim());
+    while (normalizedOptions.length < 4) normalizedOptions.push('');
+    const optionsHtml = normalizedOptions
       .map((option, idx) => {
         const label = formatNumberFa(idx + 1);
         return `<li><span class="font-mono text-xs text-slate-400">${label}.</span> ${escapeHtml(option || '—')}</li>`;
       })
       .join('');
-    const correct = options[item?.answerIndex] || '';
+    const indexCandidates = [item?.correctIndex, item?.answerIndex, item?.correct_index];
+    let correctIndex = 0;
+    for (const candidate of indexCandidates) {
+      if (candidate == null) continue;
+      const parsed = typeof candidate === 'string' ? Number.parseInt(candidate, 10) : Number(candidate);
+      if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 3) {
+        correctIndex = parsed;
+        break;
+      }
+    }
+    const correct = normalizedOptions[correctIndex] || '';
     return `
       <tr>
-        <td>${escapeHtml(questionLabel)}</td>
+        <td>${escapeHtml(questionSource || '')}</td>
         <td><ul class="space-y-1 list-none">${optionsHtml}</ul></td>
         <td>${escapeHtml(correct || '—')}</td>
       </tr>

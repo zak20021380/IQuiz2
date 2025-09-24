@@ -5,7 +5,7 @@ const DEFAULT_NODE_ENV = 'development';
 const DEFAULT_MONGO_URI = 'mongodb://localhost:27017/iquiz';
 const DEFAULT_MONGO_MAX_POOL = 10;
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
+const DEFAULT_OPENAI_MODEL = 'gpt-5';
 
 const truthyValues = new Set(['true', '1', 'yes', 'y', 'on']);
 const falsyValues = new Set(['false', '0', 'no', 'n', 'off']);
