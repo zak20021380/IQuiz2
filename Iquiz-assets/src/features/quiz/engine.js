@@ -175,6 +175,18 @@ export function renderQuestionUI(q) {
   $('#quiz-diff').innerHTML = `<i class="fas fa-signal ml-1"></i> ${diffLabel}`;
   $('#qnum').textContent = faNum(State.quiz.idx + 1);
   $('#qtotal').textContent = faNum(State.quiz.list.length);
+  const codeChip = $('#quiz-code');
+  const codeValueEl = $('#quiz-code-value');
+  if (codeChip && codeValueEl) {
+    const codeValue = (q.id || '').toString().trim();
+    if (codeValue) {
+      codeValueEl.textContent = codeValue;
+      codeChip.classList.remove('hidden');
+    } else {
+      codeValueEl.textContent = '—';
+      codeChip.classList.add('hidden');
+    }
+  }
   $('#question').textContent = q.q;
   const authorWrapper = $('#question-author');
   const authorNameEl = $('#question-author-name');
