@@ -7,7 +7,14 @@ async function generateQuestions({ systemPrompt, userPrompt, schema, temperature
       { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
       { role: 'user',   content: [{ type: 'input_text', text: userPrompt   }] }
     ],
-    response_format: { type: 'json_schema', json_schema: { name: 'mcq_batch', schema, strict: true } },
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'mcq_batch',
+        schema,
+        strict: true
+      }
+    },
     temperature
   };
 
