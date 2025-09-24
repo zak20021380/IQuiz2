@@ -6,6 +6,7 @@ const Category = require('../models/Category');
 const Question = require('../models/Question');
 const questionsController = require('../controllers/questions.controller');
 const AdModel = require('../models/Ad');
+const { resolveCategory } = require('../config/categories');
 const {
   getFallbackCategories,
   mapCategoryDocument,
@@ -20,6 +21,33 @@ const MAX_PUBLIC_QUESTIONS = 20;
 const AD_PLACEMENTS = new Set(AdModel.AD_PLACEMENTS || ['banner', 'native', 'interstitial', 'rewarded']);
 
 const sanitizeString = (value) => (typeof value === 'string' ? value.trim() : '');
+
+function collectCategoryLookupValues(...inputs) {
+  const values = new Set();
+
+  const push = (candidate) => {
+    if (candidate === undefined || candidate === null) return;
+    const trimmed = String(candidate).trim();
+    if (!trimmed) return;
+    values.add(trimmed);
+  };
+
+  inputs.forEach(push);
+
+  inputs.forEach((input) => {
+    const canonical = resolveCategory(input);
+    if (!canonical) return;
+    push(canonical.slug);
+    push(canonical.providerCategoryId);
+    push(canonical.name);
+    push(canonical.displayName);
+    if (Array.isArray(canonical.aliases)) {
+      canonical.aliases.forEach(push);
+    }
+  });
+
+  return Array.from(values);
+}
 
 function sanitizeCount(raw) {
   const parsed = Number.parseInt(raw, 10);
@@ -166,12 +194,12 @@ router.get('/questions', async (req, res) => {
   const count = sanitizeCount(req.query.count);
   const difficulty = sanitizeDifficulty(req.query.difficulty);
   const categoryIdRaw = typeof req.query.categoryId === 'string' ? req.query.categoryId.trim() : '';
+  const categorySlugRaw = typeof req.query.categorySlug === 'string' ? req.query.categorySlug.trim() : '';
 
   const fallbackResponse = () => {
     res.json(getFallbackQuestions({ categoryId: categoryIdRaw || null, difficulty, count }));
   };
 
-  let useFallback = false;
   const match = {
     active: true,
     $or: [
@@ -183,16 +211,40 @@ router.get('/questions', async (req, res) => {
     match.difficulty = difficulty;
   }
 
-  if (categoryIdRaw) {
-    if (mongoose.Types.ObjectId.isValid(categoryIdRaw)) {
-      match.category = new mongoose.Types.ObjectId(categoryIdRaw);
+  const categoryCandidates = collectCategoryLookupValues(categoryIdRaw, categorySlugRaw);
+  let categoryFilter = null;
+
+  if (categoryCandidates.length) {
+    const objectIdCandidate = categoryCandidates.find((candidate) => mongoose.Types.ObjectId.isValid(candidate));
+    if (objectIdCandidate) {
+      categoryFilter = new mongoose.Types.ObjectId(objectIdCandidate);
     } else {
-      useFallback = true;
+      const rawCandidates = Array.from(new Set(categoryCandidates.map((candidate) => String(candidate).trim()).filter(Boolean)));
+      const slugCandidates = Array.from(new Set(rawCandidates.map((candidate) => candidate.toLowerCase())));
+
+      const categoryDoc = await Category.findOne({
+        status: { $ne: 'disabled' },
+        $or: [
+          { slug: { $in: slugCandidates } },
+          { providerCategoryId: { $in: [...slugCandidates, ...rawCandidates] } },
+          { aliases: { $in: rawCandidates } },
+          { name: { $in: rawCandidates } },
+          { displayName: { $in: rawCandidates } }
+        ]
+      }).select({ _id: 1 }).lean();
+
+      if (categoryDoc?._id) {
+        categoryFilter = categoryDoc._id;
+      }
     }
   }
 
-  if (useFallback) {
+  if (categoryCandidates.length && !categoryFilter) {
     return fallbackResponse();
+  }
+
+  if (categoryFilter) {
+    match.category = categoryFilter;
   }
 
   try {
