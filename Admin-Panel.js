@@ -778,6 +778,48 @@ function clampTemperature(value) {
   return Math.round(numeric * 100) / 100;
 }
 
+function normalizeCategoryKey(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function findCategoryForAi(slug) {
+  const normalized = normalizeCategoryKey(slug);
+  if (!normalized) return null;
+
+  const cachedMatch = cachedCategories.find((category) => {
+    if (!category || typeof category !== 'object') return false;
+    if (normalizeCategoryKey(category.slug) === normalized) return true;
+    if (normalizeCategoryKey(category.providerCategoryId) === normalized) return true;
+    if (Array.isArray(category.aliases)) {
+      return category.aliases.some((alias) => normalizeCategoryKey(alias) === normalized);
+    }
+    return false;
+  });
+
+  if (cachedMatch) return cachedMatch;
+
+  if (STATIC_CATEGORY_ALIAS_LOOKUP.has(normalized)) {
+    return STATIC_CATEGORY_ALIAS_LOOKUP.get(normalized);
+  }
+
+  return null;
+}
+
+function resolveAiTopicFromCategory(slug) {
+  const category = findCategoryForAi(slug);
+  if (!category) return slug;
+
+  const candidates = [category.displayName, category.name, category.title, category.slug];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed) return trimmed;
+    }
+  }
+
+  return slug;
+}
+
 function syncAiTemperatureInputs(source) {
   if (!aiTemperatureRange || !aiTemperatureNumber) return 0.35;
   const rawValue = source === 'number' ? aiTemperatureNumber.value : aiTemperatureRange.value;
@@ -1099,6 +1141,8 @@ function getAiFormValues() {
     throw new Error('لطفاً یک دسته‌بندی را انتخاب کنید.');
   }
 
+  const topic = resolveAiTopicFromCategory(categorySlug);
+
   const difficulty = getAiDifficultyValue();
   const topicHints = aiTopicHintsInput ? aiTopicHintsInput.value.trim() : '';
   const prompt = aiPromptInput ? aiPromptInput.value.trim() : '';
@@ -1115,6 +1159,7 @@ function getAiFormValues() {
   return {
     count,
     categorySlug,
+    topic,
     difficulty,
     topicHints,
     prompt,
@@ -1145,6 +1190,7 @@ async function runAiGeneration(previewOnly = false) {
   const body = {
     count: payload.count,
     categorySlug: payload.categorySlug,
+    topic: payload.topic,
     difficulty: payload.difficulty,
     topicHints: payload.topicHints || undefined,
     prompt: payload.prompt || undefined,
