@@ -860,6 +860,21 @@ function normalizeBooleanCandidate(value, fallback = false) {
   return fallback;
 }
 
+function generateClientQuestionId(index = 0) {
+  const idx = Number.isFinite(index) && index >= 0 ? index + 1 : Math.floor(Math.random() * 1000);
+  const idxPart = idx.toString(36).toUpperCase();
+  let randomPart = '';
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buffer = new Uint32Array(1);
+    crypto.getRandomValues(buffer);
+    randomPart = buffer[0].toString(36).toUpperCase();
+  } else {
+    randomPart = Math.random().toString(36).slice(2).toUpperCase();
+  }
+  const timePart = Date.now().toString(36).toUpperCase().slice(-4);
+  return `TMP-${idxPart}-${timePart}${randomPart.slice(0, 6)}`;
+}
+
 function normalizeImportDifficulty(value) {
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
@@ -1083,12 +1098,23 @@ function normalizeImportedQuestion(raw, index) {
   const sourceRaw = raw.source ?? raw.origin ?? raw.provider;
   const status = normalizeImportStatus(raw.status ?? raw.state ?? raw.approvalStatus, raw.active ?? raw.enabled ?? raw.isActive);
   let active = normalizeBooleanCandidate(raw.active ?? raw.enabled ?? raw.isActive, status === 'approved');
-  const difficulty = normalizeImportDifficulty(raw.difficulty ?? raw.level ?? raw.difficultyLevel ?? raw.hardness ?? raw.rank);
+  const difficultyCandidate = raw.difficulty ?? raw.level ?? raw.difficultyLevel ?? raw.hardness ?? raw.rank;
+  const hasDifficulty = difficultyCandidate !== undefined
+    && difficultyCandidate !== null
+    && !(typeof difficultyCandidate === 'string' && !String(difficultyCandidate).trim());
+  const normalizedDifficulty = hasDifficulty
+    ? normalizeImportDifficulty(difficultyCandidate)
+    : 'easy';
   const source = normalizeImportSource(sourceRaw);
   if (status !== 'approved') active = false;
   const lang = safeString(raw.lang ?? raw.language ?? 'fa') || 'fa';
-  const authorName = safeString(raw.authorName ?? raw.author ?? raw.creator ?? raw.writer ?? 'IQuiz Team');
+  const authorCandidate = raw.authorName ?? raw.author ?? raw.creator ?? raw.writer;
+  const authorName = safeString(authorCandidate ?? '');
+  const hasAuthor = Boolean(authorName);
   const reviewNotes = safeString(raw.reviewNotes ?? raw.notes ?? raw.comment ?? '');
+  const previewAuthor = hasAuthor
+    ? authorName
+    : (source === 'community' ? 'کاربر آیکوئیز' : 'IQuiz Team');
 
   const warnings = [];
   if (status !== 'approved' && normalizeBooleanCandidate(raw.active ?? raw.enabled ?? raw.isActive, false)) {
@@ -1099,17 +1125,20 @@ function normalizeImportedQuestion(raw, index) {
     text,
     options,
     correctIdx,
-    difficulty,
     categoryId: category._id,
     categoryName: category.displayName || category.name,
     active,
-    authorName,
     status,
     source,
     lang
   };
 
+  if (hasDifficulty) payload.difficulty = normalizedDifficulty;
+  if (hasAuthor) payload.authorName = authorName;
+
   if (reviewNotes) payload.reviewNotes = reviewNotes;
+
+  const clientId = generateClientQuestionId(index);
 
   return {
     question: {
@@ -1119,7 +1148,11 @@ function normalizeImportedQuestion(raw, index) {
       categoryLabel: category.displayName || category.name || '---',
       warnings,
       status: 'idle',
-      errorMessage: ''
+      errorMessage: '',
+      clientId,
+      previewDifficulty: normalizedDifficulty,
+      previewAuthor,
+      previewId: clientId
     }
   };
 }
@@ -1255,9 +1288,12 @@ function renderImportQuestionsState() {
 
 function renderImportPreviewCard(question) {
   if (!question || !question.payload) return '';
-  const difficultyMeta = DIFFICULTY_META[question.payload.difficulty] || DIFFICULTY_META.easy;
+  const difficultyKey = question.previewDifficulty || question.payload.difficulty || 'easy';
+  const difficultyMeta = DIFFICULTY_META[difficultyKey] || DIFFICULTY_META.easy;
   const sourceMeta = SOURCE_META[question.payload.source] || SOURCE_META.manual;
   const statusMeta = STATUS_META[question.payload.status] || STATUS_META.approved;
+  const authorLabel = question.previewAuthor || question.payload.authorName || (question.payload.source === 'community' ? 'کاربر آیکوئیز' : 'IQuiz Team');
+  const displayId = question.clientId || question.previewId || '';
   const statusBadgeMap = {
     idle: { label: 'آماده ثبت', icon: 'fa-hourglass-half', className: 'idle' },
     uploading: { label: 'در حال ارسال', icon: 'fa-circle-notch fa-spin', className: 'uploading' },
@@ -1298,8 +1334,10 @@ function renderImportPreviewCard(question) {
           </div>
           <div class="import-preview-title">${escapeHtml(excerpt)}</div>
           <div class="import-preview-meta">
+            ${displayId ? `<span class="meta-chip id" title="شناسه موقت"><i class="fa-solid fa-hashtag"></i>${escapeHtml(displayId)}</span>` : ''}
             <span class="meta-chip category"><i class="fa-solid fa-layer-group"></i>${escapeHtml(question.categoryLabel || '---')}</span>
             <span class="${difficultyMeta.class}"><i class="fa-solid ${difficultyMeta.icon}"></i>${difficultyMeta.label}</span>
+            <span class="meta-chip author"><i class="fa-solid fa-user-pen"></i>${escapeHtml(authorLabel)}</span>
             <span class="${sourceMeta.class}"><i class="fa-solid ${sourceMeta.icon}"></i>${sourceMeta.label}</span>
             <span class="${statusMeta.class}"><span class="status-dot ${statusMeta.dot}"></span>${statusMeta.label}</span>
           </div>
@@ -3297,6 +3335,10 @@ function normalizeQuestion(raw = {}) {
     normalizedStatus = raw.active === false ? 'inactive' : 'active';
   }
   const reviewNotes = typeof raw.reviewNotes === 'string' ? raw.reviewNotes.trim() : '';
+  const publicIdRaw = typeof raw.publicId === 'string' ? raw.publicId.trim() : '';
+  const uidRaw = typeof raw.uid === 'string' ? raw.uid.trim() : '';
+  const legacyId = raw._id ? String(raw._id) : '';
+  const displayId = publicIdRaw || uidRaw || legacyId;
   return {
     ...raw,
     text: decodedText,
@@ -3309,7 +3351,11 @@ function normalizeQuestion(raw = {}) {
     authorName: normalizedAuthor,
     status: normalizedStatus,
     duplicateCount: Number.isFinite(Number(raw?.duplicateCount)) ? Number(raw.duplicateCount) : 0,
-    reviewNotes
+    reviewNotes,
+    publicId: publicIdRaw,
+    uid: uidRaw,
+    legacyId,
+    displayId
   };
 }
 
@@ -3456,8 +3502,13 @@ function syncQuestionDetailStatusUi(statusValue) {
 function populateQuestionDetail(question) {
   if (!questionDetailModal) return;
   const normalized = normalizeQuestion(question);
-  const idKey = normalized?._id ? String(normalized._id) : '';
-  if (questionIdEl) questionIdEl.textContent = idKey ? `شناسه: #${idKey.slice(-6)}` : 'شناسه: ---';
+  const legacyId = normalized?.legacyId ? String(normalized.legacyId) : (normalized?._id ? String(normalized._id) : '');
+  const displayId = normalized?.displayId ? String(normalized.displayId) : '';
+  const idLabel = displayId || legacyId;
+  if (questionIdEl) {
+    questionIdEl.textContent = idLabel ? `شناسه یکتا: #${idLabel}` : 'شناسه یکتا: ---';
+    questionIdEl.title = idLabel || '';
+  }
   if (questionTitleEl) questionTitleEl.textContent = normalized.text || 'بدون متن';
   refreshCategorySelects({ detailSelected: normalized.categoryId || '' });
   if (questionDetailDifficultySelect) {
@@ -3497,8 +3548,12 @@ function populateQuestionDetail(question) {
     const statusMeta = STATUS_META[statusKey] || STATUS_META.active;
     const authorSafe = escapeHtml(normalized.authorName || 'نامشخص');
     const sourceMeta = SOURCE_META[normalized.source] || SOURCE_META.manual;
+    const uniqueChip = displayId
+      ? `<span class="meta-chip id" title="شناسه یکتا"><i class="fas fa-hashtag"></i>${escapeHtml(displayId)}</span>`
+      : '';
     questionMetaEl.innerHTML = `
       <span class="meta-chip category" title="دسته‌بندی"><i class="fas fa-layer-group"></i>${categoryNameSafe}</span>
+      ${uniqueChip}
       <span class="${difficultyMeta.class}" title="سطح دشواری"><i class="fas ${difficultyMeta.icon}"></i>${difficultyMeta.label}</span>
       <span class="${sourceMeta.class}" title="منبع"><i class="fas ${sourceMeta.icon}"></i>${sourceMeta.label}</span>
       <span class="meta-chip author" title="سازنده"><i class="fas fa-user-pen"></i>${authorSafe}</span>
@@ -3508,7 +3563,8 @@ function populateQuestionDetail(question) {
   if (questionCreatedEl) questionCreatedEl.textContent = formatDateTime(normalized.createdAt);
   if (questionUpdatedEl) questionUpdatedEl.textContent = formatDateTime(normalized.updatedAt);
   renderQuestionOptions(normalized.options, normalized.correctIdx);
-  questionDetailModal.dataset.qId = idKey;
+  questionDetailModal.dataset.qId = legacyId;
+  questionDetailModal.dataset.qUid = displayId || '';
   if (updateQuestionBtn) {
     updateQuestionBtn.disabled = false;
     updateQuestionBtn.classList.remove('opacity-70', 'cursor-not-allowed', 'pointer-events-none');
@@ -3962,10 +4018,15 @@ async function loadQuestions(overrides = {}) {
 
     tbody.innerHTML = response.data.map(raw => {
       const item = normalizeQuestion(raw);
-      const idKey = item?._id ? String(item._id) : '';
-      if (idKey) questionsCache.set(idKey, item);
-      const idFragment = escapeHtml(idKey.slice(-6) || '---');
-      const idAttr = escapeHtml(idKey);
+      const legacyId = item?.legacyId ? String(item.legacyId) : (item?._id ? String(item._id) : '');
+      if (legacyId) questionsCache.set(legacyId, item);
+      const displayIdRaw = item?.displayId ? String(item.displayId) : '';
+      const displayLabelRaw = displayIdRaw
+        ? (displayIdRaw.length > 14 ? `${displayIdRaw.slice(0, 6)}…${displayIdRaw.slice(-4)}` : displayIdRaw)
+        : ((legacyId || '').slice(-6) || '---');
+      const displayLabel = escapeHtml(displayLabelRaw);
+      const displayTitle = escapeHtml(displayIdRaw || legacyId || '---');
+      const idAttr = escapeHtml(legacyId);
       const questionText = escapeHtml(item.text || 'بدون متن');
       const categoryName = escapeHtml(item.categoryName || 'بدون دسته‌بندی');
       const difficulty = DIFFICULTY_META[item.difficulty] || DIFFICULTY_META.medium;
@@ -3982,8 +4043,8 @@ async function loadQuestions(overrides = {}) {
       const rowClasses = ['question-row'];
       if (duplicateCount > 1) rowClasses.push('question-row-duplicate');
       return `
-        <tr class="${rowClasses.join(' ')}" data-question-id="${idAttr}">
-          <td data-label="شناسه" class="font-mono text-xs md:text-sm text-white/70">#${idFragment}</td>
+        <tr class="${rowClasses.join(' ')}" data-question-id="${idAttr}" data-question-uid="${escapeHtml(displayIdRaw)}">
+          <td data-label="شناسه" class="font-mono text-xs md:text-sm text-white/70" title="${displayTitle}">#${displayLabel}</td>
           <td data-label="سوال و جزئیات">
             <div class="question-text line-clamp-2" title="${questionText}">${questionText}</div>
             <div class="question-meta">

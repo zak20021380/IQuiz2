@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 
-const { createQuestionUid } = require('../utils/hash');
+const { createQuestionUid, createQuestionPublicId } = require('../utils/hash');
 
 function normalizeChoice(value) {
   return String(value ?? '').trim();
@@ -77,6 +77,14 @@ const questionSchema = new mongoose.Schema(
     reviewedAt: { type: Date },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewNotes: { type: String, trim: true },
+    publicId: {
+      type: String,
+      trim: true,
+      unique: true,
+      index: true,
+      sparse: true,
+      default: () => createQuestionPublicId(),
+    },
     uid: { type: String, trim: true, index: true, unique: true, sparse: true },
     hash: { type: String, required: true, trim: true },
     checksum: { type: String, trim: true, default: '' },
@@ -104,6 +112,9 @@ questionSchema.pre('validate', function deriveHashesAndAnswers(next) {
     }
 
     const questionText = this.text || this.question || '';
+    if (!this.publicId) {
+      this.publicId = createQuestionPublicId();
+    }
     const uid = createQuestionUid(questionText);
     if (uid) {
       this.uid = uid;

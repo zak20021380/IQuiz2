@@ -200,6 +200,7 @@ function getFallbackQuestions() {
 function mapQuestionDocument(doc, categoryMap) {
   if (!doc) return null;
   const id = doc._id ? String(doc._id) : doc.id;
+  const publicId = doc.publicId ? String(doc.publicId) : '';
   const categoryId = doc.category ? String(doc.category) : (doc.categoryId ? String(doc.categoryId) : null);
   const rawChoices = Array.isArray(doc.options) ? doc.options : Array.isArray(doc.choices) ? doc.choices : [];
   const options = rawChoices.map(opt => String(opt || '').trim()).filter(Boolean);
@@ -214,6 +215,8 @@ function mapQuestionDocument(doc, categoryMap) {
   const categoryName = doc.categoryName || (category ? (category.title || category.name) : '');
   return {
     id,
+    publicId,
+    uid: doc.uid || '',
     text: doc.text || doc.question || doc.title || '',
     title: doc.text || doc.title || '',
     options,

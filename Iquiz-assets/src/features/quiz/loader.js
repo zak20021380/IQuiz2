@@ -113,8 +113,16 @@ export function normalizeQuestions(list) {
     else if (q && typeof q.createdByName === 'string') authorNameValue = q.createdByName.trim();
     else if (q && typeof q.submittedByName === 'string') authorNameValue = q.submittedByName.trim();
 
+    const questionId = [q?.publicId, q?.uid, q?.id]
+      .map((candidate) => {
+        if (candidate == null) return '';
+        const value = String(candidate).trim();
+        return value;
+      })
+      .find((value) => value.length > 0) || '';
+
     if (valid && typeof answerIdx === 'number' && answerIdx >= 0 && answerIdx < choices.length) {
-      normalized.push({ q: qq, c: choices, a: answerIdx, authorName: authorNameValue, source: questionSource });
+      normalized.push({ q: qq, c: choices, a: answerIdx, authorName: authorNameValue, source: questionSource, id: questionId });
     }
   }
 

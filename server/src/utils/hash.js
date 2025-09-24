@@ -17,7 +17,18 @@ function createQuestionUid(question) {
   return crypto.createHash('sha256').update(canonical).digest('hex');
 }
 
+function createQuestionPublicId() {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  if (typeof crypto.randomUUID === 'function') {
+    const uuid = crypto.randomUUID().replace(/-/g, '').toUpperCase();
+    return `Q${timestamp.slice(-4)}${uuid.slice(0, 12)}`;
+  }
+  const randomBytes = crypto.randomBytes(9).toString('hex').toUpperCase();
+  return `Q${timestamp.slice(-4)}${randomBytes.slice(0, 12)}`;
+}
+
 module.exports = {
   canonicalizeQuestion,
   createQuestionUid,
+  createQuestionPublicId,
 };
