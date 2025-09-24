@@ -213,6 +213,8 @@ router.get('/questions', async (req, res) => {
 
   const categoryCandidates = collectCategoryLookupValues(categoryIdRaw, categorySlugRaw);
   let categoryFilter = null;
+  const fallbackSlugCandidates = [];
+  const fallbackNameCandidates = [];
 
   if (categoryCandidates.length) {
     const objectIdCandidate = categoryCandidates.find((candidate) => mongoose.Types.ObjectId.isValid(candidate));
@@ -221,6 +223,9 @@ router.get('/questions', async (req, res) => {
     } else {
       const rawCandidates = Array.from(new Set(categoryCandidates.map((candidate) => String(candidate).trim()).filter(Boolean)));
       const slugCandidates = Array.from(new Set(rawCandidates.map((candidate) => candidate.toLowerCase())));
+
+      fallbackNameCandidates.push(...rawCandidates);
+      fallbackSlugCandidates.push(...slugCandidates);
 
       const categoryDoc = await Category.findOne({
         status: { $ne: 'disabled' },
@@ -239,8 +244,21 @@ router.get('/questions', async (req, res) => {
     }
   }
 
-  if (categoryCandidates.length && !categoryFilter) {
-    return fallbackResponse();
+  if (!categoryFilter) {
+    const orConditions = [];
+    if (fallbackSlugCandidates.length) {
+      orConditions.push({ categorySlug: { $in: fallbackSlugCandidates } });
+    }
+    if (fallbackNameCandidates.length) {
+      orConditions.push({ categoryName: { $in: fallbackNameCandidates } });
+    }
+
+    if (orConditions.length) {
+      if (!match.$and) match.$and = [];
+      match.$and.push({ $or: orConditions });
+    } else if (categoryCandidates.length) {
+      return fallbackResponse();
+    }
   }
 
   if (categoryFilter) {
