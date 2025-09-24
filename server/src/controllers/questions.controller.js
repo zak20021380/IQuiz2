@@ -156,7 +156,8 @@ exports.create = async (req, res, next) => {
       correctIndex: idx,
       difficulty: safeDifficulty,
       category: category._id,
-      categoryName: category.name,
+      categoryName: category.displayName || category.name,
+      categorySlug: deriveCategorySlug(category),
       active: isActive,
       lang: detectedLang,
       source: safeSource,
@@ -245,10 +246,6 @@ exports.list = async (req, res, next) => {
 
       if (!where.$and) where.$and = [];
       where.$and.push({ $or: providerConditions });
-    }
-
-    if (!providerCandidate) {
-      where.provider = 'ai-gen';
     }
 
     if (status) {
