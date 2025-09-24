@@ -1,25 +1,15 @@
-const OpenAI = require('openai');
-const env = require('../config/env');
+// CJS-compatible shim for ESM-only 'openai'
+let OpenAIClass = null;
 
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-  const error = new Error('Missing OPENAI_API_KEY');
-  error.statusCode = 503;
-  throw error;
+async function getOpenAIClient() {
+  if (!OpenAIClass) {
+    // 'openai' is ESM; dynamic import works fine in CJS
+    OpenAIClass = (await import('openai')).default;
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('Missing OPENAI_API_KEY');
+  }
+  return new OpenAIClass({ apiKey: process.env.OPENAI_API_KEY });
 }
 
-const clientOptions = { apiKey };
-
-if (env?.ai?.openai?.baseUrl) {
-  clientOptions.baseURL = env.ai.openai.baseUrl;
-}
-if (env?.ai?.openai?.organization) {
-  clientOptions.organization = env.ai.openai.organization;
-}
-if (env?.ai?.openai?.project) {
-  clientOptions.project = env.ai.openai.project;
-}
-
-const openai = new OpenAI(clientOptions);
-
-module.exports = { openai };
+module.exports = { getOpenAIClient };
