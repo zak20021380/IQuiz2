@@ -11,6 +11,10 @@ const aiLimiter = rateLimit({
   legacyHeaders: false
 });
 
+router.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
+
 router.use(protect, adminOnly);
 router.post('/generate', aiLimiter, aiController.generate);
 router.post('/generate-questions', aiLimiter, aiController.generate);

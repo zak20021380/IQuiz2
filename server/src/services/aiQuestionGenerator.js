@@ -1,20 +1,11 @@
-let OpenAI;
-try {
-  // Prefer the official OpenAI SDK when available
-  OpenAI = require('openai');
-} catch (error) {
-  OpenAI = null;
-}
-
 const env = require('../config/env');
 const logger = require('../config/logger');
 const Question = require('../models/Question');
 const { createQuestionUid } = require('../utils/hash');
+const { openai } = require('../lib/openaiClient');
 
 const MAX_COUNT = 50;
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || env.ai?.openai?.model || 'gpt-5-mini';
-
-let openAiClient;
 
 function sanitizeTopic(value) {
   if (typeof value !== 'string') return '';
@@ -41,29 +32,6 @@ function sanitizeCount(value) {
   if (!Number.isFinite(parsed) || parsed <= 0) return 1;
   if (parsed > MAX_COUNT) return MAX_COUNT;
   return parsed;
-}
-
-function getOpenAiClient(config) {
-  if (openAiClient) {
-    return openAiClient;
-  }
-
-  if (!OpenAI) {
-    const error = new Error('The "openai" SDK is not installed. Please add it as a dependency.');
-    error.statusCode = 500;
-    throw error;
-  }
-
-  const clientOptions = {
-    apiKey: config.apiKey,
-  };
-
-  if (config.baseURL) clientOptions.baseURL = config.baseURL;
-  if (config.organization) clientOptions.organization = config.organization;
-  if (config.project) clientOptions.project = config.project;
-
-  openAiClient = new OpenAI(clientOptions);
-  return openAiClient;
 }
 
 function normalizeOption(value) {
@@ -139,26 +107,12 @@ function buildResponseFormat(count) {
 }
 
 async function callOpenAi({ topic, count, difficulty, lang, model }) {
-  const apiKey = process.env.OPENAI_API_KEY || env.ai?.openai?.apiKey;
-  if (!apiKey) {
-    const error = new Error('OPENAI_API_KEY is not configured');
-    error.statusCode = 503;
-    throw error;
-  }
-
-  const client = getOpenAiClient({
-    apiKey,
-    baseURL: env.ai?.openai?.baseUrl,
-    organization: env.ai?.openai?.organization,
-    project: env.ai?.openai?.project
-  });
-
   const systemPrompt = buildSystemPrompt(lang);
   const userPrompt = buildUserPrompt({ topic, count, difficulty, lang });
 
   let response;
   try {
-    response = await client.responses.create({
+    response = await openai.responses.create({
       model,
       input: [
         { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
