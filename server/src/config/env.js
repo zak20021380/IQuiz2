@@ -6,6 +6,9 @@ const DEFAULT_MONGO_URI = 'mongodb://localhost:27017/iquiz';
 const DEFAULT_MONGO_MAX_POOL = 10;
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
+const DEFAULT_GROUP_PAIRING_MODE = 'bench';
+const DEFAULT_GROUP_ROSTER_LOCK_SECONDS = 30;
+const DEFAULT_GROUP_ROTATION_WINDOW = 1;
 
 const truthyValues = new Set(['true', '1', 'yes', 'y', 'on']);
 const falsyValues = new Set(['false', '0', 'no', 'n', 'off']);
@@ -43,6 +46,13 @@ function parseAllowedOrigins(value) {
     .filter(Boolean);
 }
 
+function parsePairingMode(value, defaultValue = DEFAULT_GROUP_PAIRING_MODE) {
+  if (typeof value !== 'string') return defaultValue;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return defaultValue;
+  return ['bench', 'rotate', 'duplicate'].includes(normalized) ? normalized : defaultValue;
+}
+
 const nodeEnvRaw = process.env.NODE_ENV || DEFAULT_NODE_ENV;
 if (nodeEnvRaw === 'production' && !process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET required');
@@ -61,6 +71,17 @@ const openAiOrganization = process.env.OPENAI_ORG || process.env.OPENAI_ORGANIZA
 const openAiProject = process.env.OPENAI_PROJECT || '';
 
 const allowReviewModeAll = parseBoolean(process.env.ALLOW_REVIEW_MODE_ALL, true);
+const groupPairingMode = parsePairingMode(process.env.GROUP_PAIRING_MODE, DEFAULT_GROUP_PAIRING_MODE);
+const groupRosterLockSeconds = parseNumber(
+  process.env.GROUP_ROSTER_LOCK_SECONDS,
+  DEFAULT_GROUP_ROSTER_LOCK_SECONDS,
+  { min: 0 }
+);
+const groupRotationWindow = parseNumber(
+  process.env.GROUP_ROTATION_WINDOW,
+  DEFAULT_GROUP_ROTATION_WINDOW,
+  { min: 1 }
+);
 
 const env = {
   nodeEnv,
@@ -89,6 +110,11 @@ const env = {
   },
   features: {
     allowReviewModeAll
+  },
+  groupBattles: {
+    pairingMode: groupPairingMode,
+    rosterLockSeconds: groupRosterLockSeconds,
+    rotationWindow: groupRotationWindow
   }
 };
 
