@@ -372,6 +372,8 @@ const CATEGORY_COLOR_GRADIENTS = {
   indigo: 'from-indigo-500 to-indigo-400'
 };
 
+const CATEGORY_COLOR_VARIANTS = new Set(['blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'red', 'teal', 'indigo']);
+
 const ACTIVITY_ACCENTS = {
   emerald: { iconBg: 'bg-emerald-500/20', iconColor: 'text-emerald-300' },
   sky: { iconBg: 'bg-sky-500/20', iconColor: 'text-sky-300' },
@@ -401,6 +403,13 @@ const questionDetailNotesInput = $('#question-detail-notes');
 const addQuestionAuthorInput = $('#add-question-author');
 const pendingCommunityCountEl = $('#pending-community-count');
 const viewPendingQuestionsBtn = $('#btn-view-pending-questions');
+const questionCategoryStatsCard = $('#question-category-stats-card');
+const questionCategoryStatsGrid = $('#question-category-stats-grid');
+const questionCategoryStatsEmptyEl = $('#question-category-stats-empty');
+const questionCategoryStatsTotalEl = $('#question-category-stats-total');
+const questionCategoryStatsCategoriesEl = $('#question-category-stats-categories');
+const questionCategoryStatsManageBtn = $('#question-category-stats-manage');
+const questionCategoryStatsScrollEl = $('#question-category-stats-scroll');
 const categoriesGridEl = $('#categories-grid');
 const categoriesLoadingEl = $('#categories-loading-state');
 const categoriesEmptyEl = $('#categories-empty-state');
@@ -1715,6 +1724,13 @@ function getCategoryColorStyles(color) {
   return palette[normalized] || { iconBg: 'bg-slate-500/20', iconColor: 'text-slate-300' };
 }
 
+function normalizeCategoryColorKey(category) {
+  if (!category) return 'slate';
+  const raw = typeof category.color === 'string' ? category.color.trim().toLowerCase() : '';
+  if (CATEGORY_COLOR_VARIANTS.has(raw)) return raw;
+  return 'slate';
+}
+
 function renderCategoryStatusChip(status) {
   const normalized = typeof status === 'string' ? status.toLowerCase() : 'active';
   const meta = STATUS_META[normalized] || STATUS_META.active;
@@ -1857,6 +1873,7 @@ function renderCategoryManagement() {
       categoriesGridEl.classList.add('hidden');
     }
     if (categoriesEmptyEl) categoriesEmptyEl.classList.add('hidden');
+    renderQuestionCategoryStats();
     return;
   }
 
@@ -1880,6 +1897,7 @@ function renderCategoryManagement() {
         }
       }
     }
+    renderQuestionCategoryStats();
     return;
   }
 
@@ -1892,6 +1910,139 @@ function renderCategoryManagement() {
   });
   categoriesGridEl.innerHTML = '';
   categoriesGridEl.appendChild(fragment);
+  renderQuestionCategoryStats();
+}
+
+function createCategoryStatChip(category) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'category-stat-chip';
+  const id = category?._id ? String(category._id) : '';
+  const colorKey = normalizeCategoryColorKey(category);
+  chip.dataset.categoryId = id;
+  chip.dataset.color = colorKey;
+
+  const isActive = Boolean(id) && Boolean(questionFilters.category) && questionFilters.category === id;
+  if (isActive) {
+    chip.classList.add('active');
+    chip.dataset.active = 'true';
+  } else {
+    chip.dataset.active = 'false';
+  }
+  chip.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  if (!id) {
+    chip.disabled = true;
+    chip.classList.add('opacity-60', 'cursor-not-allowed');
+  }
+
+  const iconClass = typeof category?.icon === 'string' && category.icon.trim().startsWith('fa-')
+    ? category.icon.trim()
+    : 'fa-layer-group';
+  const title = category?.displayName || category?.name || 'بدون دسته‌بندی';
+  const questionCount = Number.isFinite(Number(category?.questionCount)) ? Number(category.questionCount) : 0;
+  const activeCount = Number.isFinite(Number(category?.activeQuestionCount)) ? Number(category.activeQuestionCount) : Math.max(questionCount - (Number.isFinite(Number(category?.inactiveQuestionCount)) ? Number(category.inactiveQuestionCount) : 0), 0);
+  const inactiveCount = Number.isFinite(Number(category?.inactiveQuestionCount)) ? Number(category.inactiveQuestionCount) : Math.max(questionCount - activeCount, 0);
+  const statusKey = typeof category?.status === 'string' ? category.status.trim().toLowerCase() : 'active';
+  const statusMeta = STATUS_META[statusKey] || STATUS_META.active;
+
+  const inactiveTemplate = inactiveCount > 0
+    ? `<span class="category-stat-meta-item"><i class="fa-regular fa-circle"></i>${formatNumberFa(inactiveCount)} غیرفعال</span>`
+    : '';
+  const statusTemplate = statusKey && statusKey !== 'active'
+    ? `<span class="category-stat-meta-item"><i class="fa-solid fa-circle-dot"></i>${escapeHtml(statusMeta.label || '')}</span>`
+    : '';
+
+  chip.innerHTML = `
+    <div class="category-stat-header">
+      <span class="category-stat-icon">
+        <i class="fa-solid ${escapeHtml(iconClass)}"></i>
+      </span>
+      <div>
+        <p class="category-stat-name">${escapeHtml(title)}</p>
+        <p class="category-stat-sub">${formatNumberFa(questionCount)} سوال</p>
+      </div>
+    </div>
+    <div class="category-stat-meta">
+      <span class="category-stat-meta-item"><i class="fa-solid fa-circle-check"></i>${formatNumberFa(activeCount)} فعال</span>
+      ${inactiveTemplate}
+      ${statusTemplate}
+    </div>
+  `;
+
+  return chip;
+}
+
+function renderQuestionCategoryStats() {
+  if (!questionCategoryStatsCard) return;
+
+  const isAuthenticated = Boolean(getToken());
+  const categories = Array.isArray(cachedCategories) ? cachedCategories : [];
+
+  if (questionCategoryStatsManageBtn) {
+    const manageDisabled = !isAuthenticated || CATEGORY_MANAGEMENT_LOCKED;
+    questionCategoryStatsManageBtn.disabled = manageDisabled;
+    questionCategoryStatsManageBtn.classList.toggle('opacity-60', manageDisabled);
+    questionCategoryStatsManageBtn.classList.toggle('cursor-not-allowed', manageDisabled);
+    if (manageDisabled) {
+      const title = !isAuthenticated
+        ? 'برای مدیریت دسته‌بندی‌ها ابتدا وارد شوید'
+        : CATEGORY_LOCKED_MESSAGE;
+      questionCategoryStatsManageBtn.title = title;
+    } else {
+      questionCategoryStatsManageBtn.removeAttribute('title');
+    }
+  }
+
+  if (!isAuthenticated) {
+    if (questionCategoryStatsTotalEl) questionCategoryStatsTotalEl.textContent = '—';
+    if (questionCategoryStatsCategoriesEl) questionCategoryStatsCategoriesEl.textContent = '—';
+    if (questionCategoryStatsGrid) questionCategoryStatsGrid.innerHTML = '';
+    if (questionCategoryStatsScrollEl) questionCategoryStatsScrollEl.classList.add('hidden');
+    if (questionCategoryStatsEmptyEl) {
+      questionCategoryStatsEmptyEl.textContent = 'برای مشاهده آمار دسته‌بندی‌ها ابتدا وارد شوید.';
+      questionCategoryStatsEmptyEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (questionCategoryStatsEmptyEl) {
+    questionCategoryStatsEmptyEl.classList.add('hidden');
+  }
+
+  const totalQuestions = categories.reduce((sum, category) => {
+    const count = Number.isFinite(Number(category?.questionCount)) ? Number(category.questionCount) : 0;
+    return sum + count;
+  }, 0);
+
+  if (questionCategoryStatsTotalEl) {
+    questionCategoryStatsTotalEl.textContent = formatNumberFa(totalQuestions);
+  }
+  if (questionCategoryStatsCategoriesEl) {
+    questionCategoryStatsCategoriesEl.textContent = formatNumberFa(categories.length);
+  }
+
+  if (!categories.length) {
+    if (questionCategoryStatsGrid) questionCategoryStatsGrid.innerHTML = '';
+    if (questionCategoryStatsScrollEl) questionCategoryStatsScrollEl.classList.add('hidden');
+    if (questionCategoryStatsEmptyEl) {
+      questionCategoryStatsEmptyEl.textContent = 'هنوز دسته‌بندی فعالی برای سوالات ثبت نشده است.';
+      questionCategoryStatsEmptyEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (questionCategoryStatsGrid) {
+    const fragment = document.createDocumentFragment();
+    categories.forEach((category) => {
+      fragment.appendChild(createCategoryStatChip(category));
+    });
+    questionCategoryStatsGrid.innerHTML = '';
+    questionCategoryStatsGrid.appendChild(fragment);
+  }
+
+  if (questionCategoryStatsScrollEl) {
+    questionCategoryStatsScrollEl.classList.remove('hidden');
+  }
 }
 
 function resetCategoryModal() {
@@ -3903,6 +4054,7 @@ if (updateQuestionBtn) {
       closeModal('#question-detail-modal');
       await Promise.allSettled([
         loadQuestions(),
+        loadCategoryFilterOptions(),
         loadDashboardStats(true),
         loadDashboardOverview(true)
       ]);
@@ -4138,6 +4290,8 @@ async function loadQuestions(overrides = {}) {
         questionFilters.duplicates = nextDuplicates;
       }
     }
+
+    renderQuestionCategoryStats();
 
     if (questionFilters.status && questionFilters.status !== 'approved') {
       if (questionFilters.approvedOnly !== false) {
@@ -4393,7 +4547,12 @@ async function loadQuestions(overrides = {}) {
       try {
         await api(`/questions/${id}`, { method: 'DELETE' });
         showToast('حذف شد','success');
-        loadQuestions();
+        await Promise.allSettled([
+          loadQuestions(),
+          loadCategoryFilterOptions(),
+          loadDashboardStats(true),
+          loadDashboardOverview(true)
+        ]);
       } catch (err) {
         showToast(err.message,'error');
       }
@@ -4791,6 +4950,37 @@ if (filterCategorySelect) {
   });
 }
 
+if (questionCategoryStatsGrid) {
+  questionCategoryStatsGrid.addEventListener('click', (event) => {
+    const chip = event.target.closest('.category-stat-chip[data-category-id]');
+    if (!chip) return;
+    if (!getToken()) {
+      showToast('برای مشاهده سوالات این دسته‌بندی ابتدا وارد شوید', 'warning');
+      return;
+    }
+    const id = chip.dataset.categoryId || '';
+    const nextCategory = questionFilters.category === id ? '' : id;
+    if (filterCategorySelect) {
+      filterCategorySelect.value = nextCategory;
+    }
+    loadQuestions({ category: nextCategory });
+  });
+}
+
+if (questionCategoryStatsManageBtn) {
+  questionCategoryStatsManageBtn.addEventListener('click', () => {
+    if (!getToken()) {
+      showToast('برای مدیریت دسته‌بندی‌ها ابتدا وارد شوید', 'warning');
+      return;
+    }
+    if (CATEGORY_MANAGEMENT_LOCKED) {
+      notifyCategoryManagementLocked('warning');
+      return;
+    }
+    navigateTo('categories');
+  });
+}
+
 if (filterDifficultySelect) {
   filterDifficultySelect.addEventListener('change', () => {
     if (!getToken()) return;
@@ -4985,6 +5175,7 @@ if (saveQuestionBtn) {
       closeModal('#add-question-modal');
       await Promise.allSettled([
         loadQuestions(),
+        loadCategoryFilterOptions(),
         loadDashboardStats(true),
         loadDashboardOverview(true)
       ]);
