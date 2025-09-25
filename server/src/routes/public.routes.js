@@ -196,9 +196,11 @@ router.get('/questions', async (req, res) => {
   const categoryIdRaw = typeof req.query.categoryId === 'string' ? req.query.categoryId.trim() : '';
   const categorySlugRaw = typeof req.query.categorySlug === 'string' ? req.query.categorySlug.trim() : '';
 
+  const fallbackPreference = (categoryIdRaw || categorySlugRaw || '').trim();
+
   const fallbackResponse = (candidate) => {
     const directCandidate = typeof candidate === 'string' ? candidate.trim() : '';
-    const preferredCategory = directCandidate || categorySlugRaw || categoryIdRaw || '';
+    const preferredCategory = directCandidate || fallbackPreference;
     res.json(
       getFallbackQuestions({
         categoryId: preferredCategory || null,
@@ -290,13 +292,57 @@ router.get('/questions', async (req, res) => {
         categoryMap = buildCategoryMap(categories.map(mapCategoryDocument));
       }
 
-      const normalized = docs
+      const normalizedDocs = docs
         .map(doc => mapQuestionDocument(doc, categoryMap))
-        .filter(Boolean)
-        .slice(0, count);
+        .filter(Boolean);
 
-      if (normalized.length > 0) {
-        return res.json(normalized);
+      if (normalizedDocs.length > 0) {
+        const unique = [];
+        const seen = new Set();
+        const pushUnique = (question) => {
+          if (!question) return;
+          const keyCandidate = [
+            question.publicId,
+            question.id,
+            question.uid,
+            question.text,
+            question.title,
+          ]
+            .map((value) => (value == null ? '' : String(value).trim().toLowerCase()))
+            .find((value) => value.length > 0);
+          const key = keyCandidate || `anon-${unique.length}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          unique.push(question);
+        };
+
+        normalizedDocs.forEach(pushUnique);
+
+        if (unique.length < count) {
+          const fallbackList = getFallbackQuestions({
+            categoryId:
+              fallbackPreference ||
+              unique[0]?.categorySlug ||
+              unique[0]?.categoryId ||
+              null,
+            difficulty,
+            count,
+          });
+          fallbackList.forEach(pushUnique);
+        }
+
+        if (unique.length < count) {
+          const generalFallback = getFallbackQuestions({
+            categoryId: null,
+            difficulty,
+            count,
+          });
+          generalFallback.forEach(pushUnique);
+        }
+
+        if (unique.length > 0) {
+          return res.json(unique.slice(0, count));
+        }
       }
     }
   } catch (error) {
