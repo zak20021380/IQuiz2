@@ -1,5 +1,6 @@
 import Api from '../../services/api.js';
 import { toast } from '../../utils/feedback.js';
+import { faNum } from '../../utils/format.js';
 import { State, DEFAULT_MAX_QUESTIONS } from '../../state/state.js';
 import {
   getActiveCategories,
@@ -156,6 +157,44 @@ export function normalizeQuestions(list) {
   return normalized;
 }
 
+function createQuestionKey(question) {
+  if (!question || typeof question !== 'object') return '';
+  const candidates = [
+    question.id,
+    question.publicId,
+    question.uid,
+    question.q,
+    question.text,
+    question.title,
+  ];
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const value = candidates[i];
+    if (value == null) continue;
+    const str = String(value).trim();
+    if (str) {
+      return str.toLowerCase();
+    }
+  }
+
+  return '';
+}
+
+function mergeUniqueQuestions(target, incoming, seenKeys) {
+  if (!Array.isArray(incoming)) return target;
+
+  for (let idx = 0; idx < incoming.length; idx += 1) {
+    const question = incoming[idx];
+    if (!question || typeof question !== 'object') continue;
+    const key = createQuestionKey(question) || `anon-${target.length}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    target.push(question);
+  }
+
+  return target;
+}
+
 export async function startQuizFromAdmin(arg) {
   if (typeof Event !== 'undefined' && arg instanceof Event) {
     try {
@@ -230,10 +269,48 @@ export async function startQuizFromAdmin(arg) {
       return false;
     }
 
-    const normalized = normalizeQuestions(list);
-    if (normalized.length === 0) {
+    const initialSeenKeys = new Set();
+    const uniqueQuestions = mergeUniqueQuestions([], normalizeQuestions(list), initialSeenKeys);
+
+    const requestParams = {
+      categoryId,
+      categorySlug: catSlug || undefined,
+      difficulty: difficultyValue,
+    };
+
+    if (uniqueQuestions.length < count) {
+      const seen = new Set(initialSeenKeys);
+      const working = [...uniqueQuestions];
+      const maxAttempts = 3;
+      let attempt = 0;
+      let requestSize = Math.max(count + 2, Math.min(DEFAULT_MAX_QUESTIONS * 2, count * 2));
+
+      while (working.length < count && attempt < maxAttempts) {
+        attempt += 1;
+        try {
+          const extraList =
+            (await Api.questions({ ...requestParams, count: requestSize })) || [];
+          const normalizedExtra = normalizeQuestions(extraList);
+          mergeUniqueQuestions(working, normalizedExtra, seen);
+        } catch (error) {
+          console.warn('Failed to fetch additional questions', error);
+          break;
+        }
+        requestSize = Math.min(requestSize + count, DEFAULT_MAX_QUESTIONS * 3);
+      }
+
+      uniqueQuestions.splice(0, uniqueQuestions.length, ...working);
+    }
+
+    const finalList = uniqueQuestions.slice(0, Math.min(uniqueQuestions.length, count));
+
+    if (finalList.length === 0) {
       toast('سوال معتبر برای این تنظیمات موجود نیست.');
       return false;
+    }
+
+    if (finalList.length < count) {
+      toast(`تنها ${faNum(finalList.length)} سوال معتبر برای این تنظیمات یافت شد.`);
     }
 
     const stateQuizCat = State.quiz?.cat;
@@ -248,8 +325,8 @@ export async function startQuizFromAdmin(arg) {
       cat: catTitle,
       diff: difficultyLabel,
       diffValue: difficultyValue,
-      questions: normalized,
-      count,
+      questions: finalList,
+      count: finalList.length,
       source: opts.source != null ? opts.source : 'setup',
     });
 
