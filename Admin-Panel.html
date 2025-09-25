@@ -1076,6 +1076,21 @@
       background: linear-gradient(135deg, var(--accent1), var(--accent2));
       color: #111827;
     }
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: rgba(30, 41, 59, 0.5);
+    }
+    .pagination .ellipsis {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.6);
+      font-weight: 600;
+      pointer-events: none;
+    }
     .fade-in {
       animation: fadeIn 0.5s ease-in-out;
     }
@@ -2068,14 +2083,8 @@
           
           <!-- Pagination -->
           <div class="p-4">
-            <div class="pagination">
-              <button><i class="fa-solid fa-chevron-right"></i></button>
-              <button class="active">۱</button>
-              <button>۲</button>
-              <button>۳</button>
-              <button>۴</button>
-              <button>۵</button>
-              <button><i class="fa-solid fa-chevron-left"></i></button>
+            <div id="questions-pagination" class="pagination" role="navigation" aria-label="صفحه‌بندی سوالات">
+              <button type="button" class="active" disabled>۱</button>
             </div>
           </div>
         </div>

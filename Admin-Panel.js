@@ -582,6 +582,114 @@ const questionFilters = {
   duplicates: 'all'
 };
 
+const questionsState = {
+  pagination: {
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 1
+  },
+  loading: false,
+  meta: {}
+};
+
+const questionsPaginationContainer = $('#questions-pagination');
+
+let questionsRequestToken = 0;
+
+function getQuestionsTotalPages(pagination = questionsState.pagination) {
+  if (!pagination) return 1;
+  const total = Math.max(0, Number(pagination.total) || 0);
+  const limit = Math.max(1, Number(pagination.limit) || 50);
+  const fallback = Math.ceil(total / limit) || 1;
+  const candidate = Number.isFinite(Number(pagination.totalPages))
+    ? Number(pagination.totalPages)
+    : fallback;
+  return Math.max(1, Math.round(candidate) || fallback || 1);
+}
+
+function computeQuestionsPaginationSequence(totalPages, currentPage, maxLength = 7) {
+  const safeTotalPages = Math.max(1, Number(totalPages) || 1);
+  const safeCurrent = Math.min(Math.max(1, Number(currentPage) || 1), safeTotalPages);
+  if (safeTotalPages <= maxLength) {
+    return Array.from({ length: safeTotalPages }, (_, index) => index + 1);
+  }
+
+  const siblings = Math.max(1, Math.floor((maxLength - 3) / 2));
+  let left = Math.max(2, safeCurrent - siblings);
+  let right = Math.min(safeTotalPages - 1, safeCurrent + siblings);
+
+  if (safeCurrent - 1 <= siblings) {
+    right = Math.min(safeTotalPages - 1, 1 + siblings * 2);
+  } else if (safeTotalPages - safeCurrent <= siblings) {
+    left = Math.max(2, safeTotalPages - siblings * 2);
+  }
+
+  const sequence = [1];
+  if (left > 2) {
+    sequence.push('ellipsis');
+  }
+
+  for (let page = left; page <= right; page += 1) {
+    sequence.push(page);
+  }
+
+  if (right < safeTotalPages - 1) {
+    sequence.push('ellipsis');
+  }
+
+  sequence.push(safeTotalPages);
+  return sequence;
+}
+
+function renderQuestionsPagination() {
+  if (!questionsPaginationContainer) return;
+
+  const pagination = questionsState.pagination || {};
+  const total = Math.max(0, Number(pagination.total) || 0);
+  const limit = Math.max(1, Number(pagination.limit) || 50);
+  const totalPages = getQuestionsTotalPages(pagination) || Math.ceil(total / limit) || 1;
+  const currentPage = Math.min(Math.max(1, Number(pagination.page) || 1), totalPages);
+  const isLoading = Boolean(questionsState.loading);
+
+  const prevDisabled = currentPage <= 1;
+  const nextDisabled = currentPage >= totalPages;
+  const sequence = computeQuestionsPaginationSequence(totalPages, currentPage);
+
+  const parts = [];
+  parts.push(`
+    <button type="button" class="${prevDisabled ? 'disabled ' : ''}pagination-prev" data-direction="prev" aria-label="صفحه قبل" ${prevDisabled ? 'disabled' : ''}>
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+  `.trim());
+
+  sequence.forEach((item) => {
+    if (item === 'ellipsis') {
+      parts.push('<span class="ellipsis">…</span>');
+      return;
+    }
+    const pageNumber = Number(item);
+    if (!Number.isFinite(pageNumber) || pageNumber < 1) return;
+    const isActive = pageNumber === currentPage;
+    const shouldDisable = isActive;
+    const classes = isActive ? ' class="active"' : '';
+    const disabledAttr = shouldDisable ? ' disabled' : '';
+    const label = formatNumberFa(pageNumber);
+    parts.push(`<button type="button" data-page="${pageNumber}"${classes}${disabledAttr} aria-label="صفحه ${label}">${label}</button>`);
+  });
+
+  parts.push(`
+    <button type="button" class="${nextDisabled ? 'disabled ' : ''}pagination-next" data-direction="next" aria-label="صفحه بعد" ${nextDisabled ? 'disabled' : ''}>
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+  `.trim());
+
+  questionsPaginationContainer.innerHTML = parts.join('');
+  questionsPaginationContainer.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+}
+
+renderQuestionsPagination();
+
 const duplicatesViewTabs = $$('#questions-view-tabs [data-questions-view]');
 const duplicatesViewCard = $('#duplicates-view-card');
 const duplicatesGroupsContainer = $('#duplicates-groups-container');
@@ -3949,26 +4057,60 @@ async function loadDashboardStats(force = false) {
 
 async function loadQuestions(overrides = {}) {
   const tbody = $('#questions-tbody');
+  const requestId = ++questionsRequestToken;
+  const hasOwn = Object.prototype.hasOwnProperty;
+  let shouldResetPage = false;
+  let explicitPage = null;
+  let explicitLimit = null;
+
   try {
     if (overrides && typeof overrides === 'object') {
-      if (Object.prototype.hasOwnProperty.call(overrides, 'category')) {
-        questionFilters.category = overrides.category || '';
+      if (hasOwn.call(overrides, 'page')) {
+        const nextPage = Math.max(1, Number(overrides.page) || 1);
+        explicitPage = nextPage;
       }
-      if (Object.prototype.hasOwnProperty.call(overrides, 'difficulty')) {
-        questionFilters.difficulty = overrides.difficulty || '';
+      if (hasOwn.call(overrides, 'limit')) {
+        const nextLimit = Math.max(1, Number(overrides.limit) || 50);
+        if (questionsState.pagination.limit !== nextLimit) {
+          shouldResetPage = true;
+        }
+        questionsState.pagination.limit = nextLimit;
+        explicitLimit = nextLimit;
       }
-      if (Object.prototype.hasOwnProperty.call(overrides, 'status')) {
-        questionFilters.status = overrides.status || '';
+      if (hasOwn.call(overrides, 'category')) {
+        const nextCategory = overrides.category || '';
+        if (questionFilters.category !== nextCategory) shouldResetPage = true;
+        questionFilters.category = nextCategory;
       }
-      if (Object.prototype.hasOwnProperty.call(overrides, 'search')) {
-        questionFilters.search = (overrides.search || '').trim();
+      if (hasOwn.call(overrides, 'difficulty')) {
+        const nextDifficulty = overrides.difficulty || '';
+        if (questionFilters.difficulty !== nextDifficulty) shouldResetPage = true;
+        questionFilters.difficulty = nextDifficulty;
       }
-      if (Object.prototype.hasOwnProperty.call(overrides, 'sort')) {
+      if (hasOwn.call(overrides, 'provider')) {
+        const nextProvider = overrides.provider || '';
+        if (questionFilters.provider !== nextProvider) shouldResetPage = true;
+        questionFilters.provider = nextProvider;
+      }
+      if (hasOwn.call(overrides, 'status')) {
+        const nextStatus = overrides.status || '';
+        if (questionFilters.status !== nextStatus) shouldResetPage = true;
+        questionFilters.status = nextStatus;
+      }
+      if (hasOwn.call(overrides, 'search')) {
+        const nextSearch = (overrides.search || '').trim();
+        if (questionFilters.search !== nextSearch) shouldResetPage = true;
+        questionFilters.search = nextSearch;
+      }
+      if (hasOwn.call(overrides, 'sort')) {
         const candidate = typeof overrides.sort === 'string' ? overrides.sort : 'newest';
-        questionFilters.sort = ['oldest', 'newest'].includes(candidate) ? candidate : 'newest';
+        const nextSort = ['oldest', 'newest'].includes(candidate) ? candidate : 'newest';
+        if (questionFilters.sort !== nextSort) shouldResetPage = true;
+        questionFilters.sort = nextSort;
       }
-      if (Object.prototype.hasOwnProperty.call(overrides, 'type')) {
+      if (hasOwn.call(overrides, 'type')) {
         const value = overrides.type;
+        const previousType = questionFilters.type;
         if (value === undefined) {
           questionFilters.type = undefined;
         } else if (value === null || value === '') {
@@ -3976,9 +4118,11 @@ async function loadQuestions(overrides = {}) {
         } else {
           questionFilters.type = value;
         }
+        if (previousType !== questionFilters.type) shouldResetPage = true;
       }
-      if (Object.prototype.hasOwnProperty.call(overrides, 'approvedOnly')) {
+      if (hasOwn.call(overrides, 'approvedOnly')) {
         const value = overrides.approvedOnly;
+        const previous = questionFilters.approvedOnly;
         if (value === undefined) {
           questionFilters.approvedOnly = undefined;
         } else if (value === null) {
@@ -3986,15 +4130,20 @@ async function loadQuestions(overrides = {}) {
         } else {
           questionFilters.approvedOnly = Boolean(value);
         }
+        if (previous !== questionFilters.approvedOnly) shouldResetPage = true;
       }
-      if (Object.prototype.hasOwnProperty.call(overrides, 'duplicates')) {
-        const value = overrides.duplicates;
-        questionFilters.duplicates = value === 'duplicates' ? 'duplicates' : 'all';
+      if (hasOwn.call(overrides, 'duplicates')) {
+        const nextDuplicates = overrides.duplicates === 'duplicates' ? 'duplicates' : 'all';
+        if (questionFilters.duplicates !== nextDuplicates) shouldResetPage = true;
+        questionFilters.duplicates = nextDuplicates;
       }
     }
 
     if (questionFilters.status && questionFilters.status !== 'approved') {
-      questionFilters.approvedOnly = false;
+      if (questionFilters.approvedOnly !== false) {
+        questionFilters.approvedOnly = false;
+        shouldResetPage = true;
+      }
     }
 
     if (filterSortSelect && questionFilters.sort && filterSortSelect.value !== questionFilters.sort) {
@@ -4033,6 +4182,19 @@ async function loadQuestions(overrides = {}) {
         : 'در صورت فعال بودن، فقط سوالات تایید شده نمایش داده خواهند شد.';
     }
 
+    if (explicitLimit != null) {
+      questionsState.pagination.limit = Math.max(1, Number(explicitLimit) || 50);
+    }
+    const hasExplicitPage = explicitPage != null;
+    if (shouldResetPage && !hasExplicitPage) {
+      questionsState.pagination.page = 1;
+    } else if (hasExplicitPage) {
+      questionsState.pagination.page = explicitPage;
+    }
+
+    questionsState.pagination.page = Math.max(1, Number(questionsState.pagination.page) || 1);
+    questionsState.pagination.limit = Math.max(1, Number(questionsState.pagination.limit) || 50);
+
     if (tbody) {
       tbody.innerHTML = `
         <tr class="loading-row">
@@ -4047,7 +4209,12 @@ async function loadQuestions(overrides = {}) {
       tbody.onclick = null;
     }
 
-    const params = new URLSearchParams({ limit: '50' });
+    questionsState.loading = true;
+    renderQuestionsPagination();
+
+    const params = new URLSearchParams();
+    params.set('limit', String(questionsState.pagination.limit));
+    params.set('page', String(questionsState.pagination.page));
     if (questionFilters.category) params.append('category', questionFilters.category);
     if (questionFilters.difficulty) params.append('difficulty', questionFilters.difficulty);
     if (questionFilters.provider) params.append('provider', questionFilters.provider);
@@ -4059,7 +4226,14 @@ async function loadQuestions(overrides = {}) {
     if (questionFilters.duplicates === 'duplicates') params.append('duplicatesOnly', '1');
 
     const response = await api(`/questions?${params.toString()}`);
-    const pendingTotal = Number(response?.meta?.pendingTotal);
+    if (requestId !== questionsRequestToken) {
+      return null;
+    }
+
+    const meta = response?.meta || {};
+    questionsState.meta = meta;
+
+    const pendingTotal = Number(meta.pendingTotal);
     if (pendingCommunityCountEl) {
       const safePending = Number.isFinite(pendingTotal) ? pendingTotal : 0;
       pendingCommunityCountEl.textContent = formatNumberFa(safePending);
@@ -4067,15 +4241,37 @@ async function loadQuestions(overrides = {}) {
     if (viewPendingQuestionsBtn) {
       const safePending = Number.isFinite(pendingTotal) ? pendingTotal : 0;
       const highlight = questionFilters.status === 'pending';
-      const shouldDisable = safePending === 0 && !highlight;
-      viewPendingQuestionsBtn.disabled = shouldDisable;
-      viewPendingQuestionsBtn.classList.toggle('opacity-60', shouldDisable);
-      viewPendingQuestionsBtn.classList.toggle('cursor-not-allowed', shouldDisable);
+      const shouldDisablePending = safePending === 0 && !highlight;
+      viewPendingQuestionsBtn.disabled = shouldDisablePending;
+      viewPendingQuestionsBtn.classList.toggle('opacity-60', shouldDisablePending);
+      viewPendingQuestionsBtn.classList.toggle('cursor-not-allowed', shouldDisablePending);
       viewPendingQuestionsBtn.dataset.active = highlight ? 'true' : 'false';
     }
+
+    const safeTotal = Number.isFinite(Number(meta.total)) ? Number(meta.total) : (Array.isArray(response?.data) ? response.data.length : 0);
+    const safeLimit = Math.max(1, Number(meta.limit) || questionsState.pagination.limit);
+    const safePage = Math.max(1, Number(meta.page) || questionsState.pagination.page);
+    const computedTotalPages = Math.max(1, Math.ceil(safeTotal / safeLimit) || 1);
+
+    questionsState.pagination.total = safeTotal;
+    questionsState.pagination.limit = safeLimit;
+    questionsState.pagination.totalPages = computedTotalPages;
+    questionsState.pagination.page = Math.min(safePage, computedTotalPages);
+
+    if (safePage > computedTotalPages && computedTotalPages >= 1) {
+      if (safePage !== computedTotalPages) {
+        renderQuestionsPagination();
+        return loadQuestions({ page: computedTotalPages });
+      }
+    }
+
+    renderQuestionsPagination();
+
     questionsCache.clear();
 
-    if (!tbody) return;
+    if (!tbody) {
+      return null;
+    }
 
     if (!Array.isArray(response.data) || response.data.length === 0) {
       const hasFilters = Boolean(
@@ -4108,10 +4304,10 @@ async function loadQuestions(overrides = {}) {
           </td>
         </tr>
       `;
-      return;
+      return null;
     }
 
-    tbody.innerHTML = response.data.map(raw => {
+    tbody.innerHTML = response.data.map((raw) => {
       const item = normalizeQuestion(raw);
       const legacyId = item?.legacyId ? String(item.legacyId) : (item?._id ? String(item._id) : '');
       if (legacyId) questionsCache.set(legacyId, item);
@@ -4202,7 +4398,13 @@ async function loadQuestions(overrides = {}) {
         showToast(err.message,'error');
       }
     };
-  } catch (e) {
+
+    return response.data;
+  } catch (error) {
+    if (requestId !== questionsRequestToken) {
+      return null;
+    }
+
     if (tbody) {
       tbody.innerHTML = `
         <tr class="empty-row">
@@ -4223,7 +4425,16 @@ async function loadQuestions(overrides = {}) {
       viewPendingQuestionsBtn.classList.add('opacity-60', 'cursor-not-allowed');
       viewPendingQuestionsBtn.dataset.active = 'false';
     }
+    questionsState.pagination.total = 0;
+    questionsState.pagination.totalPages = 1;
+    renderQuestionsPagination();
     showToast('مشکل در دریافت سوالات','error');
+    return null;
+  } finally {
+    if (requestId === questionsRequestToken) {
+      questionsState.loading = false;
+      renderQuestionsPagination();
+    }
   }
 }
 
@@ -4635,6 +4846,45 @@ if (filterSortSelect) {
     if (!getToken()) return;
     const value = filterSortSelect.value || 'newest';
     loadQuestions({ sort: value });
+  });
+}
+
+if (questionsPaginationContainer) {
+  questionsPaginationContainer.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-page], button[data-direction]');
+    if (!button || button.disabled) return;
+    event.preventDefault();
+
+    if (!getToken()) {
+      showToast('برای مدیریت سوالات ابتدا وارد شوید', 'warning');
+      return;
+    }
+
+    const totalPages = getQuestionsTotalPages();
+    const currentPage = Math.max(1, Number(questionsState.pagination.page) || 1);
+
+    if (button.dataset.direction === 'prev') {
+      const prevPage = Math.max(1, currentPage - 1);
+      if (prevPage !== currentPage) {
+        loadQuestions({ page: prevPage });
+      }
+      return;
+    }
+
+    if (button.dataset.direction === 'next') {
+      const nextPage = Math.min(totalPages, currentPage + 1);
+      if (nextPage !== currentPage) {
+        loadQuestions({ page: nextPage });
+      }
+      return;
+    }
+
+    if (button.dataset.page) {
+      const targetPage = Math.max(1, Number(button.dataset.page) || 1);
+      if (targetPage !== currentPage) {
+        loadQuestions({ page: targetPage });
+      }
+    }
   });
 }
 
