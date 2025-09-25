@@ -2,128 +2,91 @@ const Category = require('../models/Category');
 const logger = require('../config/logger');
 const { CATEGORIES } = require('../config/categories');
 
-function sanitizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function buildCategoryDoc(seed) {
-  const name = sanitizeString(seed.name || seed.slug || seed.displayName || 'دسته‌بندی');
-  const displayName = sanitizeString(seed.displayName) || name || 'دسته‌بندی';
-  const description = sanitizeString(seed.description);
-  const icon = sanitizeString(seed.icon) || 'fa-layer-group';
-  const color = sanitizeString(seed.color) || 'blue';
-  const provider = sanitizeString(seed.provider) || 'ai-gen';
-  const slug = sanitizeString(seed.slug || seed.id || name).toLowerCase();
-  const providerCategoryIdCandidate = sanitizeString(
-    seed.providerCategoryId || seed.id || seed.slug || ''
-  );
-  const providerCategoryId = providerCategoryIdCandidate || slug;
-  const order = Number.isFinite(Number(seed.order)) ? Number(seed.order) : 0;
-  const aliases = Array.isArray(seed.aliases)
-    ? Array.from(new Set(seed.aliases.map((alias) => sanitizeString(alias)).filter(Boolean)))
-    : [];
-
-  aliases.push(name, displayName);
+const STATIC_CATEGORY_ENTRIES = CATEGORIES.map((category, index) => {
+  const name = typeof category.name === 'string' ? category.name.trim() : '';
+  const slug = typeof category.slug === 'string' ? category.slug.trim().toLowerCase() : '';
+  const provider = typeof category.provider === 'string' && category.provider.trim()
+    ? category.provider.trim()
+    : 'ai-gen';
+  const providerCategoryId = typeof category.providerCategoryId === 'string' && category.providerCategoryId.trim()
+    ? category.providerCategoryId.trim()
+    : slug || name;
 
   return {
-    name,
-    displayName,
-    description,
-    icon,
-    color,
+    name: name || slug || `category-${index + 1}`,
+    slug: slug || `category-${index + 1}`,
+    displayName: typeof category.displayName === 'string' && category.displayName.trim()
+      ? category.displayName.trim()
+      : name || slug || `Category ${index + 1}`,
+    description: typeof category.description === 'string' ? category.description.trim() : '',
+    icon: typeof category.icon === 'string' && category.icon.trim() ? category.icon.trim() : 'fa-layer-group',
+    color: typeof category.color === 'string' && category.color.trim() ? category.color.trim() : 'blue',
     status: 'active',
     provider,
     providerCategoryId,
-    aliases: Array.from(new Set(aliases)),
-    slug,
-    order
+    aliases: Array.isArray(category.aliases)
+      ? Array.from(new Set(category.aliases.map((alias) => (typeof alias === 'string' ? alias.trim() : '')).filter(Boolean)))
+      : [],
+    order: Number.isFinite(Number(category.order)) ? Number(category.order) : index + 1
   };
+});
+
+function pickNonUnique(category) {
+  const {
+    name,
+    slug,
+    provider,
+    providerCategoryId,
+    ...rest
+  } = category;
+  return rest;
 }
 
-async function seedStaticCategories() {
-  const docs = CATEGORIES.map(buildCategoryDoc);
-  if (!docs.length) {
-    logger.warn('[CategorySeeder] No static categories configured to seed');
-    return { inserted: 0, updated: 0, removed: 0 };
+function buildIdentityFilter(category) {
+  const or = [];
+  if (category.name) {
+    or.push({ name: category.name });
+  }
+  if (category.slug) {
+    or.push({ slug: category.slug });
+  }
+  if (category.provider && category.providerCategoryId) {
+    or.push({ provider: category.provider, providerCategoryId: category.providerCategoryId });
   }
 
-  const allowedSlugs = new Set();
+  if (!or.length) {
+    return { name: category.name }; // fallback to prevent empty filter
+  }
+
+  return { $or: or };
+}
+
+function buildInsertIdentity(category) {
+  const identity = {};
+  if (category.name) identity.name = category.name;
+  if (category.slug) identity.slug = category.slug;
+  if (category.provider) identity.provider = category.provider;
+  if (category.providerCategoryId) identity.providerCategoryId = category.providerCategoryId;
+  return identity;
+}
+
+async function seedCategories(CategoryModel = Category, entries = STATIC_CATEGORY_ENTRIES) {
   let inserted = 0;
   let updated = 0;
 
-  for (const doc of docs) {
-    allowedSlugs.add(doc.slug);
+  for (const category of entries) {
+    const filter = buildIdentityFilter(category);
+    const update = {
+      $set: pickNonUnique(category),
+      $setOnInsert: buildInsertIdentity(category)
+    };
 
     try {
-      const query = {
-        provider: doc.provider,
-        $or: [{ slug: doc.slug }, { name: doc.name }]
-      };
-
-      if (doc.providerCategoryId) {
-        query.$or.push({ providerCategoryId: doc.providerCategoryId });
-      }
-
       // eslint-disable-next-line no-await-in-loop
-      let result = await Category.updateOne(
-        query,
-        {
-          $set: {
-            name: doc.name,
-            displayName: doc.displayName,
-            description: doc.description,
-            icon: doc.icon,
-            color: doc.color,
-            status: doc.status,
-            provider: doc.provider,
-            providerCategoryId: doc.providerCategoryId,
-            aliases: doc.aliases,
-            slug: doc.slug,
-            order: doc.order
-          }
-        },
-        {
-          upsert: true,
-          runValidators: true,
-          setDefaultsOnInsert: true,
-          timestamps: true
-        }
-      );
-
-      if (!result?.matchedCount && !result?.upsertedCount) {
-        const legacyMatch = await Category.findOneAndUpdate(
-          { slug: doc.slug, provider: { $ne: doc.provider } },
-          { $set: { provider: doc.provider } },
-          { new: true }
-        );
-
-        if (legacyMatch) {
-          result = await Category.updateOne(
-            query,
-            {
-              $set: {
-                name: doc.name,
-                displayName: doc.displayName,
-                description: doc.description,
-                icon: doc.icon,
-                color: doc.color,
-                status: doc.status,
-                provider: doc.provider,
-                providerCategoryId: doc.providerCategoryId,
-                aliases: doc.aliases,
-                slug: doc.slug,
-                order: doc.order
-              }
-            },
-            {
-              upsert: true,
-              runValidators: true,
-              setDefaultsOnInsert: true,
-              timestamps: true
-            }
-          );
-        }
-      }
+      const result = await CategoryModel.updateOne(filter, update, {
+        upsert: true,
+        setDefaultsOnInsert: true
+      });
 
       if (result?.upsertedCount) {
         inserted += result.upsertedCount;
@@ -131,75 +94,39 @@ async function seedStaticCategories() {
         updated += result.modifiedCount;
       }
     } catch (error) {
-      if (error?.code === 11000 && error?.keyPattern?.name) {
-        try {
-          const fallbackUpdate = await Category.findOneAndUpdate(
-            { name: doc.name },
-            {
-              $set: {
-                name: doc.name,
-                displayName: doc.displayName,
-                description: doc.description,
-                icon: doc.icon,
-                color: doc.color,
-                status: doc.status,
-                provider: doc.provider,
-                providerCategoryId: doc.providerCategoryId,
-                aliases: doc.aliases,
-                slug: doc.slug,
-                order: doc.order
-              }
-            },
-            {
-              new: true,
-              runValidators: true,
-              setDefaultsOnInsert: true,
-              timestamps: true
-            }
-          );
-
-          if (fallbackUpdate) {
-            updated += 1;
-            continue;
-          }
-        } catch (fallbackError) {
-          logger.warn(
-            `[CategorySeeder] Fallback update failed for category '${doc.slug}': ${fallbackError.message}`
-          );
-        }
-      }
-
-      logger.warn(`[CategorySeeder] Failed to sync category '${doc.slug}': ${error.message}`);
+      logger.error(`[CategorySeeder] Failed to sync category '${category.slug}': ${error.message}`);
+      throw error;
     }
   }
 
-  let removed = 0;
-  try {
-    const deleteResult = await Category.deleteMany({
-      provider: 'ai-gen',
-      slug: { $nin: Array.from(allowedSlugs) }
-    });
-    removed = deleteResult?.deletedCount || 0;
-  } catch (error) {
-    logger.warn(`[CategorySeeder] Failed to prune legacy provider categories: ${error.message}`);
-  }
+  logger.info(`[CategorySeeder] inserted=${inserted}, updated=${updated}`);
 
-  logger.info(
-    `[CategorySeeder] Synced static categories (inserted: ${inserted}, updated: ${updated}, removed: ${removed})`
-  );
-
-  return { inserted, updated, removed };
+  return { inserted, updated };
 }
 
+let seededPromise = null;
+
 async function ensureInitialCategories() {
-  await seedStaticCategories();
+  if (global.__CATEGORY_SEEDED__) {
+    return global.__CATEGORY_SEEDED__;
+  }
+
+  if (!seededPromise) {
+    seededPromise = seedCategories();
+  }
+
+  global.__CATEGORY_SEEDED__ = seededPromise;
+  return seededPromise;
 }
 
 async function syncProviderCategories() {
-  await seedStaticCategories();
+  return ensureInitialCategories();
 }
 
 module.exports = {
   ensureInitialCategories,
-  syncProviderCategories
+  syncProviderCategories,
+  seedCategories,
+  pickNonUnique,
+  STATIC_CATEGORY_ENTRIES
 };
