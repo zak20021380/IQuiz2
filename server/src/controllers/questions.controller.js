@@ -657,10 +657,45 @@ exports.listDuplicates = async (req, res, next) => {
     const safeLimit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 100, 1), 500);
 
     const groups = await Question.aggregate([
-      { $match: { uid: { $ne: null, $ne: '' } } },
+      {
+        $addFields: {
+          dupKey: {
+            $let: {
+              vars: {
+                uidCandidate: {
+                  $cond: [
+                    { $gt: [{ $strLenCP: { $ifNull: ['$uid', ''] } }, 0] },
+                    '$uid',
+                    null
+                  ]
+                },
+                shaCandidate: {
+                  $cond: [
+                    { $gt: [{ $strLenCP: { $ifNull: ['$sha1Canonical', ''] } }, 0] },
+                    '$sha1Canonical',
+                    null
+                  ]
+                },
+                checksumCandidate: {
+                  $cond: [
+                    { $gt: [{ $strLenCP: { $ifNull: ['$checksum', ''] } }, 0] },
+                    '$checksum',
+                    null
+                  ]
+                }
+              },
+              in: {
+                $ifNull: ['$$uidCandidate', { $ifNull: ['$$shaCandidate', '$$checksumCandidate'] }]
+              }
+            }
+          }
+        }
+      },
+      { $match: { dupKey: { $ne: null, $ne: '' } } },
+      { $sort: { dupKey: 1, createdAt: -1 } },
       {
         $group: {
-          _id: '$uid',
+          _id: '$dupKey',
           count: { $sum: 1 },
           items: {
             $push: {
@@ -669,10 +704,21 @@ exports.listDuplicates = async (req, res, next) => {
               createdAt: '$createdAt',
               difficulty: '$difficulty',
               categoryName: '$categoryName',
+              categorySlug: '$categorySlug',
+              categoryId: '$category',
               source: '$source',
+              provider: '$provider',
               lang: '$lang',
               options: '$choices',
-              answerIndex: '$correctIndex'
+              answerIndex: '$correctIndex',
+              active: '$active',
+              status: '$status',
+              isApproved: '$isApproved',
+              authorName: '$authorName',
+              publicId: '$publicId',
+              uid: '$uid',
+              checksum: '$checksum',
+              sha1Canonical: '$sha1Canonical'
             }
           }
         }
@@ -682,21 +728,52 @@ exports.listDuplicates = async (req, res, next) => {
       { $limit: safeLimit }
     ]);
 
-    const data = groups.map((group) => ({
-      uid: group._id,
-      count: group.count,
-      questions: (group.items || []).map((item) => ({
-        _id: item._id,
-        question: item.text,
-        options: Array.isArray(item.options) ? item.options : [],
-        answerIndex: item.answerIndex,
-        difficulty: item.difficulty,
-        category: item.categoryName,
-        source: item.source,
-        lang: item.lang,
-        createdAt: item.createdAt
-      }))
-    }));
+    const data = groups.map((group) => {
+      const questions = Array.isArray(group.items) ? group.items.map((item) => {
+        const options = Array.isArray(item.options) ? item.options : [];
+        const safeAnswerIndex = Number.isInteger(item.answerIndex)
+          ? item.answerIndex
+          : Number.parseInt(item.answerIndex, 10);
+        const normalizedAnswerIndex = Number.isInteger(safeAnswerIndex) && safeAnswerIndex >= 0 && safeAnswerIndex < options.length
+          ? safeAnswerIndex
+          : 0;
+        const categoryId = item.categoryId ? String(item.categoryId) : '';
+        const uid = item.uid ? String(item.uid) : '';
+        return {
+          _id: item._id,
+          text: item.text,
+          question: item.text,
+          options,
+          choices: options,
+          answerIndex: normalizedAnswerIndex,
+          correctIndex: normalizedAnswerIndex,
+          correctIdx: normalizedAnswerIndex,
+          difficulty: item.difficulty,
+          category: item.categoryName,
+          categoryName: item.categoryName,
+          categorySlug: item.categorySlug,
+          categoryId,
+          source: item.source,
+          provider: item.provider,
+          lang: item.lang,
+          createdAt: item.createdAt,
+          active: item.active,
+          status: item.status,
+          isApproved: item.isApproved,
+          authorName: item.authorName,
+          publicId: item.publicId,
+          uid,
+          checksum: item.checksum,
+          sha1Canonical: item.sha1Canonical
+        };
+      }) : [];
+
+      return {
+        uid: group._id,
+        count: group.count,
+        questions
+      };
+    });
 
     res.json({ ok: true, data });
   } catch (e) {

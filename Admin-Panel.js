@@ -849,47 +849,148 @@ function renderDuplicateGroups() {
   if (duplicatesTotalEl) duplicatesTotalEl.textContent = formatNumberFa(groups.length);
 
   const fragment = document.createDocumentFragment();
-  groups.forEach((group) => {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'duplicate-group-card glass';
-    const countLabel = formatNumberFa(group?.count || (group?.questions ? group.questions.length : 0));
-    const questions = Array.isArray(group?.questions) ? group.questions : [];
-    const firstQuestion = questions[0]?.question || 'گروه سوال تکراری';
 
-    const itemsHtml = questions.map((question) => {
-      const id = typeof question?._id === 'string' ? question._id : '';
-      const checked = duplicatesState.selected.has(id) ? 'checked' : '';
-      const questionText = escapeHtml(question?.question || 'سوال بدون متن');
-      const difficultyMeta = DIFFICULTY_META[question?.difficulty] || DIFFICULTY_META.medium;
-      const difficultyLabel = difficultyMeta?.label || '';
-      const createdAt = formatDateTime(question?.createdAt);
-      const categoryLabel = question?.category ? escapeHtml(question.category) : '';
+  groups.forEach((group) => {
+    const questions = Array.isArray(group?.questions) ? group.questions : [];
+    if (!questions.length) return;
+
+    const wrapper = document.createElement('article');
+    wrapper.className = 'duplicate-group-card glass rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-xl shadow-black/10 flex flex-col gap-6';
+
+    const newestQuestion = questions[0] || {};
+    const title = newestQuestion.text || newestQuestion.question || 'سوال تکراری';
+    const latestCreatedAt = formatDateTime(newestQuestion.createdAt);
+    const groupUid = typeof group?.uid === 'string' ? group.uid : '';
+    const totalCount = Number.isFinite(Number(group?.count)) ? Number(group.count) : questions.length;
+    const countLabel = formatNumberFa(totalCount);
+    const referenceId = newestQuestion.displayId || newestQuestion.publicId || newestQuestion.uid || newestQuestion.legacyId || newestQuestion._id || '';
+
+    const itemsHtml = questions.map((question, index) => {
+      const id = typeof question?.legacyId === 'string' && question.legacyId
+        ? question.legacyId
+        : (typeof question?._id === 'string' ? question._id : '');
+      if (!id) return '';
+
+      const isSelected = duplicatesState.selected.has(id);
+      const checkedAttr = isSelected ? 'checked' : '';
+      const questionText = escapeHtml(question.text || question.question || 'سوال بدون متن');
+      const displayIdRaw = question.displayId || question.publicId || question.uid || id;
+      const displayId = escapeHtml(displayIdRaw.length > 14 ? `${displayIdRaw.slice(0, 6)}…${displayIdRaw.slice(-4)}` : displayIdRaw);
+      const difficultyMeta = DIFFICULTY_META[question.difficulty] || DIFFICULTY_META.medium;
+      const sourceKey = typeof question.source === 'string' ? question.source.toLowerCase() : 'manual';
+      const sourceMeta = SOURCE_META[sourceKey] || SOURCE_META.manual;
+      const statusKey = question.status || (question.active === false ? 'inactive' : 'active');
+      const statusMeta = STATUS_META[statusKey] || STATUS_META.active;
+      const createdLabel = formatDateTime(question.createdAt);
+      const categoryLabel = question.categoryName ? escapeHtml(question.categoryName) : '';
+      const langLabel = question.lang ? escapeHtml(String(question.lang).toUpperCase()) : '';
+      const authorLabel = question.authorName ? escapeHtml(question.authorName) : '';
+      const inactiveChip = question.active === false
+        ? '<span class="px-2 py-1 rounded-xl bg-rose-500/20 text-rose-100 text-xs font-semibold flex items-center gap-1"><i class="fas fa-ban"></i>غیرفعال</span>'
+        : '';
+      const approvalChip = question.isApproved === false
+        ? '<span class="px-2 py-1 rounded-xl bg-amber-500/20 text-amber-100 text-xs font-semibold flex items-center gap-1"><i class="fas fa-clock"></i>در انتظار تایید</span>'
+        : '';
+      const isPrimary = index === 0;
+      const primaryChip = isPrimary
+        ? '<span class="px-2 py-1 rounded-xl bg-emerald-500/20 text-emerald-100 text-xs font-semibold flex items-center gap-1"><i class="fas fa-star"></i>نسخه پیشنهادی برای نگه‌داری</span>'
+        : '';
+      const answerIndex = Number.isInteger(question.correctIdx)
+        ? question.correctIdx
+        : Number.isInteger(question.correctIndex)
+          ? question.correctIndex
+          : Number.isInteger(question.answerIndex)
+            ? question.answerIndex
+            : Number.parseInt(question.correctIdx ?? question.correctIndex ?? question.answerIndex ?? 0, 10) || 0;
+      const options = Array.isArray(question.options) ? question.options : Array.isArray(question.choices) ? question.choices : [];
+      const normalizedAnswerIndex = Number.isInteger(answerIndex) && answerIndex >= 0 && answerIndex < options.length
+        ? answerIndex
+        : 0;
+
+      const optionsHtml = options.map((option, optionIdx) => {
+        const value = escapeHtml(option || `گزینه ${optionIdx + 1}`);
+        const isCorrect = optionIdx === normalizedAnswerIndex;
+        const correctBadge = isCorrect
+          ? '<span class="ml-auto text-xs font-bold text-emerald-200 bg-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1"><i class="fas fa-check"></i>پاسخ صحیح</span>'
+          : '';
+        return `
+          <li class="flex items-center gap-3 px-3 py-2 rounded-xl border border-white/5 bg-white/5 text-sm text-slate-100 ${isCorrect ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-100 font-semibold' : ''}">
+            <span class="text-xs font-mono text-white/60">${formatNumberFa(optionIdx + 1)}.</span>
+            <span class="flex-1 leading-relaxed">${value}</span>
+            ${correctBadge}
+          </li>
+        `;
+      }).join('');
+
+      const itemClasses = [
+        'duplicate-entry flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-900/50 p-4 shadow-lg shadow-black/10 transition hover:border-emerald-400/40 hover:shadow-emerald-500/10',
+        isPrimary ? 'ring-1 ring-emerald-400/40 bg-emerald-500/5' : ''
+      ].filter(Boolean).join(' ');
+
       return `
-        <li>
-          <label class="duplicate-item">
-            <input type="checkbox" data-duplicate-id="${escapeHtml(id)}" ${checked}>
-            <div>
-              <div class="duplicate-item-question">${questionText}</div>
-              <div class="duplicate-item-meta">
-                ${categoryLabel ? `<span class="duplicate-item-chip">${categoryLabel}</span>` : ''}
-                ${difficultyLabel ? `<span class="duplicate-item-chip">${escapeHtml(difficultyLabel)}</span>` : ''}
-                ${createdAt ? `<span class="duplicate-item-chip">${escapeHtml(createdAt)}</span>` : ''}
+        <li class="${itemClasses}" data-duplicate-question-id="${escapeHtml(id)}">
+          <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div class="flex items-start gap-3">
+              <label class="flex items-center gap-2 text-sm font-medium text-white/70">
+                <input type="checkbox" data-duplicate-id="${escapeHtml(id)}" ${checkedAttr}>
+                <span class="hidden sm:inline">انتخاب</span>
+              </label>
+              <div class="flex flex-col gap-2">
+                <h4 class="text-base font-bold text-white leading-snug">${questionText}</h4>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                  ${categoryLabel ? `<span class="px-2 py-1 rounded-xl bg-white/10 text-white flex items-center gap-1"><i class="fas fa-layer-group"></i>${categoryLabel}</span>` : ''}
+                  <span class="${difficultyMeta.class} flex items-center gap-1"><i class="fas ${difficultyMeta.icon}"></i>${escapeHtml(difficultyMeta.label)}</span>
+                  <span class="${sourceMeta.class} flex items-center gap-1"><i class="fas ${sourceMeta.icon}"></i>${escapeHtml(sourceMeta.label)}</span>
+                  <span class="${statusMeta.class} flex items-center gap-1"><span class="status-dot ${statusMeta.dot}"></span>${escapeHtml(statusMeta.label)}</span>
+                  ${inactiveChip}
+                  ${approvalChip}
+                  ${primaryChip}
+                  ${langLabel ? `<span class="px-2 py-1 rounded-xl bg-white/10 text-white flex items-center gap-1"><i class="fas fa-language"></i>${langLabel}</span>` : ''}
+                  ${authorLabel ? `<span class="px-2 py-1 rounded-xl bg-white/10 text-white flex items-center gap-1"><i class="fas fa-user-pen"></i>${authorLabel}</span>` : ''}
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs text-white/60">
+                  <span class="px-2 py-1 rounded-xl bg-white/5 border border-white/10 font-mono">#${displayId}</span>
+                  ${createdLabel ? `<span class="px-2 py-1 rounded-xl bg-white/5 border border-white/10 flex items-center gap-1"><i class="fas fa-clock"></i>${escapeHtml(createdLabel)}</span>` : ''}
+                </div>
               </div>
             </div>
-          </label>
+            <div class="flex items-center gap-2 self-end md:self-start">
+              <button type="button" class="duplicate-item-action flex items-center gap-2 rounded-xl bg-white/10 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/20 transition" data-duplicate-open-id="${escapeHtml(id)}">
+                <i class="fas fa-eye"></i>
+                <span>جزئیات</span>
+              </button>
+              <button type="button" class="duplicate-item-action flex items-center gap-2 rounded-xl bg-rose-500/20 px-3 py-1.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/30 transition" data-duplicate-delete-id="${escapeHtml(id)}">
+                <i class="fas fa-trash"></i>
+                <span>حذف</span>
+              </button>
+            </div>
+          </div>
+          <ul class="duplicate-options grid grid-cols-1 gap-2 sm:grid-cols-2">
+            ${optionsHtml}
+          </ul>
         </li>
       `;
-    }).join('');
+    }).filter(Boolean).join('');
+
+    if (!itemsHtml) return;
 
     wrapper.innerHTML = `
-      <div class="duplicate-group-header">
-        <div>
-          <h3 class="duplicate-group-title">${escapeHtml(firstQuestion)}</h3>
-          <p class="duplicate-group-subtitle">${formatNumberFa(questions.length)} سوال ثبت شده با متن مشابه</p>
+      <header class="flex flex-col gap-3 border-b border-white/10 pb-4 md:flex-row md:items-center md:justify-between">
+        <div class="flex flex-col gap-1">
+          <h3 class="duplicate-group-title text-lg font-extrabold text-white leading-snug">${escapeHtml(title)}</h3>
+          <p class="duplicate-group-subtitle text-sm text-white/70">
+            ${formatNumberFa(questions.length)} نسخه مشابه · آخرین بروزرسانی ${escapeHtml(latestCreatedAt || '--')}
+            ${referenceId ? ` · مرجع: ${escapeHtml(referenceId)}` : ''}
+          </p>
         </div>
-        <span class="duplicate-count-badge">${countLabel}</span>
-      </div>
-      <ul class="duplicate-items">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="duplicate-count-badge">${countLabel}</span>
+          <button type="button" class="duplicate-group-action rounded-xl bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/20 transition" data-duplicate-group-select="all" data-duplicate-group-id="${escapeHtml(groupUid)}">انتخاب همه</button>
+          <button type="button" class="duplicate-group-action rounded-xl bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-100 hover:bg-emerald-500/30 transition" data-duplicate-group-select="others" data-duplicate-group-id="${escapeHtml(groupUid)}">انتخاب بجز جدیدترین</button>
+          <button type="button" class="duplicate-group-action rounded-xl bg-white/5 px-3 py-1.5 text-xs font-bold text-white/70 hover:bg-white/10 transition" data-duplicate-group-select="none" data-duplicate-group-id="${escapeHtml(groupUid)}">لغو انتخاب</button>
+        </div>
+      </header>
+      <ul class="flex flex-col gap-4">
         ${itemsHtml}
       </ul>
     `;
@@ -899,6 +1000,64 @@ function renderDuplicateGroups() {
 
   duplicatesGroupsContainer.innerHTML = '';
   duplicatesGroupsContainer.appendChild(fragment);
+  updateDuplicateBulkDeleteState();
+}
+
+function refreshDuplicateSelectionsUI() {
+  if (!duplicatesGroupsContainer) return;
+  duplicatesGroupsContainer.querySelectorAll('input[type="checkbox"][data-duplicate-id]').forEach((checkbox) => {
+    const checkboxId = checkbox?.dataset?.duplicateId || '';
+    checkbox.checked = duplicatesState.selected.has(checkboxId);
+  });
+}
+
+function findDuplicateQuestionById(id) {
+  const safeId = typeof id === 'string' ? id : '';
+  if (!safeId) return null;
+  for (const group of duplicatesState.groups || []) {
+    if (!group?.questions) continue;
+    for (const question of group.questions) {
+      const questionId = typeof question?.legacyId === 'string' && question.legacyId
+        ? question.legacyId
+        : (typeof question?._id === 'string' ? question._id : '');
+      if (questionId && questionId === safeId) {
+        return question;
+      }
+    }
+  }
+  return null;
+}
+
+function handleDuplicateGroupSelection(groupId, mode) {
+  const normalizedGroupId = typeof groupId === 'string' ? groupId : '';
+  if (!normalizedGroupId) return;
+  const normalizedMode = typeof mode === 'string' ? mode : 'all';
+
+  const group = (duplicatesState.groups || []).find((entry) => {
+    const uid = typeof entry?.uid === 'string' ? entry.uid : '';
+    return uid === normalizedGroupId;
+  });
+  if (!group || !Array.isArray(group.questions) || !group.questions.length) return;
+
+  const ids = group.questions
+    .map((question) => (typeof question?.legacyId === 'string' && question.legacyId
+      ? question.legacyId
+      : (typeof question?._id === 'string' ? question._id : '')))
+    .filter(Boolean);
+  if (!ids.length) return;
+
+  if (normalizedMode === 'none') {
+    ids.forEach((identifier) => duplicatesState.selected.delete(identifier));
+  } else if (normalizedMode === 'others') {
+    ids.forEach((identifier, index) => {
+      if (index === 0) duplicatesState.selected.delete(identifier);
+      else duplicatesState.selected.add(identifier);
+    });
+  } else {
+    ids.forEach((identifier) => duplicatesState.selected.add(identifier));
+  }
+
+  refreshDuplicateSelectionsUI();
   updateDuplicateBulkDeleteState();
 }
 
@@ -920,9 +1079,31 @@ async function loadDuplicateGroups(force = false) {
 
   try {
     const response = await api('/questions/duplicates');
-    duplicatesState.groups = Array.isArray(response?.data) ? response.data : [];
+    const rawGroups = Array.isArray(response?.data) ? response.data : [];
+    duplicatesState.groups = rawGroups.map((group) => {
+      const questions = Array.isArray(group?.questions)
+        ? group.questions.map((item) => normalizeQuestion(item))
+        : [];
+      return {
+        ...group,
+        uid: typeof group?.uid === 'string' ? group.uid : '',
+        count: Number.isFinite(Number(group?.count)) ? Number(group.count) : questions.length,
+        questions
+      };
+    });
     duplicatesState.selected.clear();
     duplicatesState.lastLoadedAt = Date.now();
+    duplicatesState.groups.forEach((group) => {
+      if (!Array.isArray(group?.questions)) return;
+      group.questions.forEach((question) => {
+        const identifier = typeof question?.legacyId === 'string' && question.legacyId
+          ? question.legacyId
+          : (typeof question?._id === 'string' ? question._id : '');
+        if (identifier) {
+          questionsCache.set(identifier, question);
+        }
+      });
+    });
     renderDuplicateGroups();
     return duplicatesState.groups;
   } catch (error) {
@@ -962,6 +1143,33 @@ async function handleDuplicatesBulkDelete() {
   } catch (error) {
     console.error('Failed to bulk delete duplicates', error);
     showToast(error.message || 'حذف سوالات تکراری ناموفق بود', 'error');
+  } finally {
+    updateDuplicateBulkDeleteState();
+  }
+}
+
+async function handleDuplicateSingleDelete(id) {
+  const safeId = typeof id === 'string' ? id.trim() : '';
+  if (!safeId) return;
+  if (!getToken()) {
+    showToast('برای مدیریت سوالات ابتدا وارد شوید', 'warning');
+    return;
+  }
+
+  if (!confirm('آیا از حذف این سوال تکراری اطمینان دارید؟')) return;
+
+  try {
+    await api(`/questions/${safeId}`, { method: 'DELETE' });
+    showToast('سوال انتخاب شده حذف شد', 'success');
+    duplicatesState.selected.delete(safeId);
+    await Promise.all([
+      loadDuplicateGroups(true),
+      loadQuestions(),
+      loadDashboardStats(true)
+    ]);
+  } catch (error) {
+    console.error('Failed to delete duplicate question', error);
+    showToast(error.message || 'حذف سوال تکراری ناموفق بود', 'error');
   } finally {
     updateDuplicateBulkDeleteState();
   }
@@ -6347,6 +6555,39 @@ if (duplicatesGroupsContainer) {
     if (checkbox.checked) duplicatesState.selected.add(id);
     else duplicatesState.selected.delete(id);
     updateDuplicateBulkDeleteState();
+  });
+
+  duplicatesGroupsContainer.addEventListener('click', (event) => {
+    const selectButton = event.target.closest('[data-duplicate-group-select]');
+    if (selectButton) {
+      event.preventDefault();
+      const mode = selectButton.dataset.duplicateGroupSelect || 'all';
+      const groupId = selectButton.dataset.duplicateGroupId || '';
+      handleDuplicateGroupSelection(groupId, mode);
+      return;
+    }
+
+    const deleteButton = event.target.closest('[data-duplicate-delete-id]');
+    if (deleteButton) {
+      event.preventDefault();
+      const targetId = deleteButton.dataset.duplicateDeleteId || '';
+      handleDuplicateSingleDelete(targetId);
+      return;
+    }
+
+    const detailButton = event.target.closest('[data-duplicate-open-id]');
+    if (detailButton) {
+      event.preventDefault();
+      const targetId = detailButton.dataset.duplicateOpenId || '';
+      if (!targetId) return;
+      if (!questionsCache.has(targetId)) {
+        const duplicateQuestion = findDuplicateQuestionById(targetId);
+        if (duplicateQuestion) {
+          questionsCache.set(targetId, duplicateQuestion);
+        }
+      }
+      openQuestionDetailById(targetId);
+    }
   });
 }
 
