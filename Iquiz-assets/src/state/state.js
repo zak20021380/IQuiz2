@@ -105,6 +105,13 @@ const DEFAULT_DUEL_INVITES = (() => {
   ];
 })();
 
+const DEFAULT_DUEL_FRIENDS = [
+  { id: 1, name: 'علی رضایی', score: 12450, avatar: 'https://i.pravatar.cc/60?img=3' },
+  { id: 2, name: 'سارا محمدی', score: 9800, avatar: 'https://i.pravatar.cc/60?img=5' },
+  { id: 3, name: 'رضا قاسمی', score: 15200, avatar: 'https://i.pravatar.cc/60?img=8' },
+  { id: 4, name: 'مریم احمدی', score: 7650, avatar: 'https://i.pravatar.cc/60?img=11' },
+];
+
 function normalizeKeyCount(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return 0;
@@ -219,6 +226,7 @@ const State = {
   duelLosses:0,
   pendingDuels:[],
   duelInvites: DEFAULT_DUEL_INVITES.map(invite => ({ ...invite })),
+  duelFriends: DEFAULT_DUEL_FRIENDS.map(friend => ({ ...friend })),
   duelHistory:[],
   achievements:{ firstWin:false, tenCorrect:false, streak3:false, vipBought:false },
   settings:{ sound:true, haptics:true, blockDuels:false },
@@ -359,5 +367,6 @@ export {
   buildRosterEntry,
   seededFloat,
   spendKeys,
-  DUEL_INVITE_TIMEOUT_MS
+  DUEL_INVITE_TIMEOUT_MS,
+  DEFAULT_DUEL_FRIENDS
 };

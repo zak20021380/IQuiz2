@@ -17,7 +17,8 @@ import {
   stringToSeed,
   buildRosterEntry,
   seededFloat,
-  spendKeys
+  spendKeys,
+  DEFAULT_DUEL_FRIENDS
 } from '../state/state.js';
 import { Server } from '../state/server.js';
 import {
@@ -3330,12 +3331,8 @@ async function startPurchaseCoins(pkgId){
   });
   
   // Duel Friends list
-  const duelFriends = [
-    { id: 1, name: 'علی رضایی', score: 12450, avatar: 'https://i.pravatar.cc/60?img=3' },
-    { id: 2, name: 'سارا محمدی', score: 9800, avatar: 'https://i.pravatar.cc/60?img=5' },
-    { id: 3, name: 'رضا قاسمی', score: 15200, avatar: 'https://i.pravatar.cc/60?img=8' },
-    { id: 4, name: 'مریم احمدی', score: 7650, avatar: 'https://i.pravatar.cc/60?img=11' }
-  ];
+  const duelFriends = normalizeDuelFriendsList(State.duelFriends);
+  State.duelFriends = duelFriends;
 
   const randomPool = [
     { id: 5, name: 'حسین کریمی', score: 13200, avatar: 'https://i.pravatar.cc/60?img=12' },
@@ -3709,6 +3706,39 @@ async function startPurchaseCoins(pkgId){
     return normalized;
   }
 
+  function normalizeDuelFriendsList(list){
+    const base = Array.isArray(list) ? list : [];
+    const normalized = [];
+    const seenNames = new Set();
+    const usedIds = new Set();
+    for (const friend of base) {
+      if (!friend || typeof friend !== 'object') continue;
+      const name = typeof friend.name === 'string' ? friend.name.trim() : '';
+      if (!name || seenNames.has(name)) continue;
+      let id = Number(friend.id);
+      if (!Number.isFinite(id) || id <= 0) id = null;
+      const scoreVal = Number(friend.score);
+      const score = Number.isFinite(scoreVal) && scoreVal > 0 ? Math.round(scoreVal) : suggestScoreFromState();
+      const avatar = typeof friend.avatar === 'string' && friend.avatar.trim()
+        ? friend.avatar
+        : generateAvatarFromName(name);
+      normalized.push({ id, name, score, avatar });
+      seenNames.add(name);
+    }
+    if (!normalized.length) {
+      return DEFAULT_DUEL_FRIENDS.map(friend => ({ ...friend }));
+    }
+    normalized.forEach((friend, index) => {
+      let id = Number(friend.id);
+      if (!Number.isFinite(id) || id <= 0 || usedIds.has(id)) {
+        id = index + 1;
+      }
+      usedIds.add(id);
+      friend.id = id;
+    });
+    return normalized.slice(0, 20);
+  }
+
   function hideDuelAddFriendCTA(){
     const container = $('#duel-add-friend');
     const nameEl = $('#duel-add-friend-name');
@@ -3768,6 +3798,7 @@ async function startPurchaseCoins(pkgId){
     };
     duelFriends.unshift(entry);
     renderDuelFriends();
+    saveState();
     toast(`${entry.name} به لیست حریف‌ها اضافه شد ✅`);
   }
 
@@ -3824,6 +3855,7 @@ async function startPurchaseCoins(pkgId){
         const [item] = duelFriends.splice(idx,1);
         duelFriends.unshift(item);
         renderDuelFriends();
+        saveState();
       }
     }
   }

@@ -1,4 +1,4 @@
-import { State, STORAGE_KEY, ensureGroupRosters, DUEL_INVITE_TIMEOUT_MS } from './state.js';
+import { State, STORAGE_KEY, ensureGroupRosters, DUEL_INVITE_TIMEOUT_MS, DEFAULT_DUEL_FRIENDS } from './state.js';
 import { Server } from './server.js';
 
 const SERVER_STORAGE_KEY = 'server_state';
@@ -86,6 +86,24 @@ function loadState(){
   }
   if (!Array.isArray(State.duelHistory)) State.duelHistory = [];
   State.duelHistory = State.duelHistory.slice(0, 20);
+  if (!Array.isArray(State.duelFriends)) {
+    State.duelFriends = DEFAULT_DUEL_FRIENDS.map(friend => ({ ...friend }));
+  } else {
+    const normalizedFriends = [];
+    const seen = new Set();
+    for (const friend of State.duelFriends) {
+      if (!friend || typeof friend !== 'object') continue;
+      const name = typeof friend.name === 'string' ? friend.name.trim() : '';
+      if (!name || seen.has(name)) continue;
+      const entry = { ...friend, name };
+      normalizedFriends.push(entry);
+      seen.add(name);
+      if (normalizedFriends.length >= 20) break;
+    }
+    State.duelFriends = normalizedFriends.length
+      ? normalizedFriends
+      : DEFAULT_DUEL_FRIENDS.map(friend => ({ ...friend }));
+  }
   State.duelOpponent = null;
   ensureGroupRosters();
 }
