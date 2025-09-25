@@ -534,28 +534,33 @@ const shopGlobalToggle = $('#shop-enable-toggle');
 const shopStatusChip = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-status-chip]') : null;
 const shopStatusLabel = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-status-label]') : null;
 const shopLastUpdateEl = shopSettingsPage ? shopSettingsPage.querySelector('#shop-last-update') : null;
-const shopMetricElements = {
-  activeSections: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-metric="activeSections"]') : null,
-  packages: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-metric="packages"]') : null,
-  vipPlans: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-metric="vipPlans"]') : null
+const shopSummaryElements = {
+  status: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-summary="status"]') : null,
+  packages: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-summary="packages"]') : null,
+  shortcuts: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-summary="shortcuts"]') : null
 };
-const shopLockableSections = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-lockable]')) : [];
-const shopSectionToggles = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-section-toggle]')) : [];
-const shopPackageToggles = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-package-active]')) : [];
-const shopVipToggles = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-vip-active]')) : [];
+const shopGlobalStatusLabel = shopSettingsPage ? shopSettingsPage.querySelector('#shop-global-status') : null;
 const shopHeroPreview = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-hero-preview]') : null;
-const shopHeroThemeSelect = $('#shop-hero-theme');
-const shopHeroLinkInput = $('#shop-hero-cta-link');
+const shopHeroPreviewTitle = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-preview-title]') : null;
+const shopHeroPreviewSubtitle = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-preview-subtitle]') : null;
 const shopPreviewCta = $('#shop-preview-cta');
-const shopBoundInputs = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-bind-target]')) : [];
-const shopHeroToggle = $('#shop-hero-toggle');
-const shopKeysToggle = $('#shop-keys-toggle');
-const shopWalletToggle = $('#shop-wallet-toggle');
-const shopVipToggle = $('#shop-vip-toggle');
-const shopPromotionsToggle = $('#shop-promotions-toggle');
-const shopAdvancedToggleBtn = $('#shop-advanced-toggle');
-const shopAdvancedToggleLabel = $('#shop-advanced-toggle-label');
-const shopAdvancedSections = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-advanced]')) : [];
+const shopPreviewCtaLabel = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-preview-cta-label]') : null;
+const shopPreviewHelper = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-preview-helper]') : null;
+const shopHeroTitleInput = $('#shop-hero-title');
+const shopHeroSubtitleInput = $('#shop-hero-subtitle');
+const shopHeroCtaInput = $('#shop-hero-cta');
+const shopHeroLinkInput = $('#shop-hero-cta-link');
+const shopPricingCurrencySelect = $('#shop-pricing-currency');
+const shopLowBalanceThresholdInput = $('#shop-low-balance-threshold');
+const shopQuickTopupToggle = $('#shop-quick-topup');
+const shopQuickPurchaseToggle = $('#shop-quick-purchase');
+const shopSupportMessageInput = $('#shop-support-message');
+const shopSupportLinkInput = $('#shop-support-link');
+const shopPackageCards = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-package]')) : [];
+const shopState = {
+  initialized: false,
+  lastUpdated: null
+};
 const settingsSaveButton = $('#settings-save-button');
 const generalAppNameInput = $('#settings-app-name');
 const generalLanguageSelect = $('#settings-language');
@@ -565,19 +570,6 @@ const rewardPointsCorrectInput = $('#settings-points-correct');
 const rewardCoinsCorrectInput = $('#settings-coins-correct');
 const rewardPointsStreakInput = $('#settings-points-streak');
 const rewardCoinsStreakInput = $('#settings-coins-streak');
-const shopPricingCurrencySelect = $('#shop-pricing-currency');
-const shopLowBalanceThresholdInput = $('#shop-low-balance-threshold');
-const shopQuickTopupToggle = $('#shop-quick-topup');
-const shopQuickPurchaseToggle = $('#shop-quick-purchase');
-const shopDynamicPricingToggle = $('#shop-dynamic-pricing');
-const shopHeroTitleInput = $('#shop-hero-title');
-const shopHeroSubtitleInput = $('#shop-hero-subtitle');
-const shopHeroCtaInput = $('#shop-hero-cta');
-const shopHeroNoteInput = $('#shop-hero-note');
-const shopShowBalancesToggle = $('#shop-show-balances');
-const shopShowTagsToggle = $('#shop-show-tags');
-const shopAutoHighlightToggle = $('#shop-auto-highlight');
-const shopShowTutorialToggle = $('#shop-show-tutorial');
 
 const questionFilters = {
   category: '',
@@ -5767,104 +5759,7 @@ function setCheckboxValue(input, value) {
   input.checked = !!value;
 }
 
-function applyPackageSettings(type, packages) {
-  if (!shopSettingsPage || !Array.isArray(packages)) return;
-  packages.forEach((pkg) => {
-    if (!pkg || !pkg.id) return;
-    const row = shopSettingsPage.querySelector(`[data-shop-package="${type}"][data-package-id="${pkg.id}"]`);
-    if (!row) return;
-    row.querySelectorAll('[data-package-field]').forEach((input) => {
-      const field = input.dataset.packageField;
-      if (!field) return;
-      if (input.type === 'checkbox') {
-        input.checked = pkg[field] !== false && !!pkg[field];
-      } else if (input.type === 'number') {
-        if (pkg[field] != null) input.value = pkg[field];
-      } else if (input.tagName === 'SELECT') {
-        if (pkg[field] != null) {
-          setSelectValue(input, pkg[field]);
-        }
-      } else if (pkg[field] != null) {
-        input.value = pkg[field];
-      }
-    });
-  });
-}
-
-function applyVipSettings(plans) {
-  if (!shopSettingsPage || !Array.isArray(plans)) return;
-  plans.forEach((plan) => {
-    if (!plan) return;
-    const selector = plan.id
-      ? `[data-shop-vip-plan][data-plan-id="${plan.id}"]`
-      : plan.tier
-        ? `[data-shop-vip-plan][data-plan-tier="${plan.tier}"]`
-        : '';
-    if (!selector) return;
-    const container = shopSettingsPage.querySelector(selector);
-    if (!container) return;
-    const activeToggle = container.querySelector('[data-shop-vip-active]');
-    if (activeToggle) activeToggle.checked = plan.active !== false && !!plan.active;
-    const displayEl = container.querySelector('[data-vip-field="displayName"]');
-    if (displayEl && plan.displayName != null) displayEl.textContent = plan.displayName;
-    const priceInput = container.querySelector('[data-vip-field="price"]');
-    if (priceInput && plan.price != null) priceInput.value = plan.price;
-    const periodSelect = container.querySelector('[data-vip-field="period"]');
-    if (periodSelect && plan.period != null) setSelectValue(periodSelect, plan.period);
-    const buttonInput = container.querySelector('[data-vip-field="buttonText"]');
-    if (buttonInput && plan.buttonText != null) buttonInput.value = plan.buttonText;
-    const benefitsTextarea = container.querySelector('[data-vip-field="benefits"]');
-    if (benefitsTextarea) {
-      if (Array.isArray(plan.benefits)) {
-        benefitsTextarea.value = plan.benefits.join('\n');
-      } else if (plan.benefits != null) {
-        benefitsTextarea.value = plan.benefits;
-      }
-    }
-  });
-}
-
-function applyPromotionsSettings(promotions) {
-  if (!shopSettingsPage || !promotions || typeof promotions !== 'object') return;
-  const setField = (field, value) => {
-    const el = shopSettingsPage.querySelector(`[data-promotions-field="${field}"]`);
-    if (!el || value == null) return;
-    if (el.type === 'checkbox') {
-      el.checked = !!value;
-    } else {
-      el.value = value;
-    }
-  };
-  setField('defaultDiscount', promotions.defaultDiscount);
-  setField('dailyLimit', promotions.dailyLimit);
-  setField('startDate', promotions.startDate);
-  setField('endDate', promotions.endDate);
-  setField('bannerMessage', promotions.bannerMessage);
-  if (shopAutoHighlightToggle) shopAutoHighlightToggle.checked = promotions.autoHighlight !== false && !!promotions.autoHighlight;
-}
-
-function applyMessagingSettings(messaging) {
-  if (!shopSettingsPage || !messaging || typeof messaging !== 'object') return;
-  const setField = (field, value) => {
-    const el = shopSettingsPage.querySelector(`[data-messaging-field="${field}"]`);
-    if (!el || value == null) return;
-    el.value = value;
-  };
-  setField('lowBalance', messaging.lowBalance);
-  setField('success', messaging.success);
-  setField('supportCta', messaging.supportCta);
-  setField('supportLink', messaging.supportLink);
-  if (shopShowTutorialToggle) shopShowTutorialToggle.checked = messaging.showTutorial !== false && !!messaging.showTutorial;
-}
-
-function applySectionsState(sections) {
-  if (!sections || typeof sections !== 'object') return;
-  if (shopHeroToggle && sections.hero != null) shopHeroToggle.checked = !!sections.hero;
-  if (shopKeysToggle && sections.keys != null) shopKeysToggle.checked = !!sections.keys;
-  if (shopWalletToggle && sections.wallet != null) shopWalletToggle.checked = !!sections.wallet;
-  if (shopVipToggle && sections.vip != null) shopVipToggle.checked = !!sections.vip;
-  if (shopPromotionsToggle && sections.promotions != null) shopPromotionsToggle.checked = !!sections.promotions;
-}
+// legacy helpers removed in simplified shop settings
 
 function applySettingsSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
@@ -5882,36 +5777,43 @@ function applySettingsSnapshot(snapshot) {
 
   const shop = snapshot.shop || {};
   if (shopGlobalToggle && shop.enabled != null) shopGlobalToggle.checked = !!shop.enabled;
+  updateShopStatus(getCheckboxValue(shopGlobalToggle, true));
+
   if (shopPricingCurrencySelect && shop.currency != null) setSelectValue(shopPricingCurrencySelect, shop.currency);
   if (shopLowBalanceThresholdInput && shop.lowBalanceThreshold != null) shopLowBalanceThresholdInput.value = shop.lowBalanceThreshold;
-  if (shopQuickTopupToggle) shopQuickTopupToggle.checked = !!shop.quickTopup;
-  if (shopQuickPurchaseToggle) shopQuickPurchaseToggle.checked = !!shop.quickPurchase;
-  if (shopDynamicPricingToggle) shopDynamicPricingToggle.checked = !!shop.dynamicPricing;
+  if (shopQuickTopupToggle) shopQuickTopupToggle.checked = shop.quickTopup !== false && !!shop.quickTopup;
+  if (shopQuickPurchaseToggle) shopQuickPurchaseToggle.checked = shop.quickPurchase !== false && !!shop.quickPurchase;
 
-  if (shop.hero && typeof shop.hero === 'object') {
-    const hero = shop.hero;
-    if (shopHeroTitleInput && hero.title != null) shopHeroTitleInput.value = hero.title;
-    if (shopHeroSubtitleInput && hero.subtitle != null) shopHeroSubtitleInput.value = hero.subtitle;
-    if (shopHeroCtaInput && hero.ctaText != null) shopHeroCtaInput.value = hero.ctaText;
-    if (shopHeroLinkInput && hero.ctaLink != null) shopHeroLinkInput.value = hero.ctaLink;
-    if (shopHeroThemeSelect && hero.theme != null) setSelectValue(shopHeroThemeSelect, hero.theme);
-    if (shopHeroNoteInput && hero.note != null) shopHeroNoteInput.value = hero.note;
-    if (shopShowBalancesToggle) shopShowBalancesToggle.checked = hero.showBalances !== false && !!hero.showBalances;
-    if (shopShowTagsToggle) shopShowTagsToggle.checked = hero.showTags !== false && !!hero.showTags;
-  }
+  const hero = shop.hero || {};
+  if (shopHeroTitleInput && hero.title != null) shopHeroTitleInput.value = hero.title;
+  if (shopHeroSubtitleInput && hero.subtitle != null) shopHeroSubtitleInput.value = hero.subtitle;
+  if (shopHeroCtaInput && hero.ctaText != null) shopHeroCtaInput.value = hero.ctaText;
+  if (shopHeroLinkInput && hero.ctaLink != null) shopHeroLinkInput.value = hero.ctaLink;
 
-  applySectionsState(shop.sections);
-  applyPackageSettings('keys', (shop.packages && shop.packages.keys) || shop.keys);
-  applyPackageSettings('wallet', (shop.packages && shop.packages.wallet) || shop.wallet);
-  applyVipSettings(shop.vip);
-  applyPromotionsSettings(shop.promotions);
-  applyMessagingSettings(shop.messaging);
+  const packagesData = shop.packages != null ? shop.packages : snapshot.packages;
+  applyPackageSnapshots(packagesData);
 
-  if (shopBoundInputs && shopBoundInputs.length) {
-    shopBoundInputs.forEach((input) => updateBoundTargets(input));
-  }
-  if (typeof updateHeroTheme === 'function') updateHeroTheme();
-  if (typeof updateHeroLink === 'function') updateHeroLink();
+  const support = shop.support || {};
+  if (shopSupportMessageInput && support.message != null) shopSupportMessageInput.value = support.message;
+  if (shopSupportLinkInput && support.link != null) shopSupportLinkInput.value = support.link;
+
+  shopPackageCards.forEach((card) => {
+    const nameInput = card.querySelector('[data-package-field="displayName"]');
+    const nameEl = card.querySelector('[data-package-name]');
+    if (nameInput && nameEl) {
+      const value = safeString(nameInput.value, '');
+      nameEl.textContent = value || '—';
+    }
+    const toggle = card.querySelector('[data-shop-package-active]');
+    syncToggleLabel(toggle);
+  });
+
+  syncToggleLabel(shopGlobalToggle);
+  syncToggleLabel(shopQuickTopupToggle);
+  syncToggleLabel(shopQuickPurchaseToggle);
+
+  updateHeroPreview();
+  updateShopSummary();
 }
 
 function collectGeneralSettings() {
@@ -5932,78 +5834,94 @@ function collectRewardSettings() {
   };
 }
 
-function collectPackageRows(type) {
-  if (!shopSettingsPage) return [];
-  return Array.from(shopSettingsPage.querySelectorAll(`[data-shop-package="${type}"]`)).map((row) => {
-    const pkg = {};
-    const defaultId = safeString(row.dataset.packageId || '', '');
-    row.querySelectorAll('[data-package-field]').forEach((input) => {
-      const field = input.dataset.packageField;
-      if (!field) return;
-      if (input.type === 'checkbox') {
-        pkg[field] = !!input.checked;
-      } else if (input.type === 'number') {
-        pkg[field] = safeNumber(input.value, 0);
-      } else if (input.tagName === 'SELECT') {
-        pkg[field] = safeString(input.value, '');
-      } else {
-        pkg[field] = safeString(input.value, '');
+function readPackageCard(card) {
+  if (!card) return null;
+  const pkg = {};
+  const defaultId = safeString(card.dataset.packageId || '', '');
+  card.querySelectorAll('[data-package-field]').forEach((input) => {
+    const field = input.dataset.packageField;
+    if (!field) return;
+    if (input.type === 'checkbox') {
+      pkg[field] = !!input.checked;
+    } else if (input.type === 'number') {
+      pkg[field] = safeNumber(input.value, 0);
+    } else {
+      pkg[field] = safeString(input.value, '');
+    }
+  });
+  pkg.id = safeString(pkg.id || defaultId, defaultId);
+  pkg.type = safeString(card.dataset.shopPackage || 'general', 'general');
+  if (!pkg.id) return null;
+  return pkg;
+}
+
+function applyPackageSnapshots(packages) {
+  if (!shopSettingsPage) return;
+  const normalized = [];
+  if (Array.isArray(packages)) {
+    packages.forEach((pkg) => {
+      if (pkg) normalized.push(pkg);
+    });
+  } else if (packages && typeof packages === 'object') {
+    Object.entries(packages).forEach(([type, items]) => {
+      if (!Array.isArray(items)) return;
+      items.forEach((item) => {
+        if (!item) return;
+        normalized.push({ ...item, type });
+      });
+    });
+  }
+
+  if (!normalized.length) {
+    shopPackageCards.forEach((card) => {
+      const nameInput = card.querySelector('[data-package-field="displayName"]');
+      const nameEl = card.querySelector('[data-package-name]');
+      if (nameInput && nameEl) {
+        const value = safeString(nameInput.value, '');
+        nameEl.textContent = value || '—';
       }
     });
-    pkg.id = safeString(pkg.id != null ? pkg.id : defaultId, defaultId);
-    if (!pkg.id) return null;
-    pkg.displayName = safeString(pkg.displayName != null ? pkg.displayName : '', '');
-    return pkg;
-  }).filter(Boolean);
-}
+    return;
+  }
 
-function collectVipPlansSnapshot() {
-  if (!shopSettingsPage) return [];
-  return Array.from(shopSettingsPage.querySelectorAll('[data-shop-vip-plan]')).map((container) => {
-    const id = safeString(container.dataset.planId || container.dataset.planTier || '', '');
-    if (!id) return null;
-    const tier = safeString(container.dataset.planTier || container.dataset.planId || '', '');
-    const plan = {
-      id,
-      tier,
-      active: getCheckboxValue(container.querySelector('[data-shop-vip-active]'), true),
-      displayName: safeString((container.querySelector('[data-vip-field="displayName"]') || {}).textContent || '', ''),
-      price: safeNumber((container.querySelector('[data-vip-field="price"]') || {}).value, 0),
-      period: safeString((container.querySelector('[data-vip-field="period"]') || {}).value, ''),
-      buttonText: safeString((container.querySelector('[data-vip-field="buttonText"]') || {}).value, ''),
-      benefits: []
-    };
-    const benefitsTextarea = container.querySelector('[data-vip-field="benefits"]');
-    if (benefitsTextarea) {
-      plan.benefits = benefitsTextarea.value
-        .split(/\r?\n/)
-        .map((line) => safeString(line, ''))
-        .filter((line) => line.length > 0);
+  normalized.forEach((pkg) => {
+    if (!pkg || !pkg.id) return;
+    const selector = `[data-shop-package][data-package-id="${pkg.id}"]`;
+    const card = shopSettingsPage.querySelector(selector);
+    if (!card) return;
+    card.querySelectorAll('[data-package-field]').forEach((input) => {
+      const field = input.dataset.packageField;
+      if (!field) return;
+      const value = pkg[field];
+      if (value == null) return;
+      if (input.type === 'checkbox') {
+        input.checked = value !== false && !!value;
+      } else if (input.type === 'number') {
+        input.value = value;
+      } else {
+        input.value = value;
+      }
+    });
+    const nameEl = card.querySelector('[data-package-name]');
+    if (nameEl && pkg.displayName != null) {
+      nameEl.textContent = safeString(pkg.displayName, '') || '—';
     }
-    return plan;
-  }).filter(Boolean);
+  });
 }
 
-function collectPromotionsSnapshot() {
-  const promotions = {
-    defaultDiscount: safeNumber((shopSettingsPage?.querySelector('[data-promotions-field="defaultDiscount"]') || {}).value, 0),
-    dailyLimit: safeNumber((shopSettingsPage?.querySelector('[data-promotions-field="dailyLimit"]') || {}).value, 0),
-    startDate: safeString((shopSettingsPage?.querySelector('[data-promotions-field="startDate"]') || {}).value, ''),
-    endDate: safeString((shopSettingsPage?.querySelector('[data-promotions-field="endDate"]') || {}).value, ''),
-    bannerMessage: safeString((shopSettingsPage?.querySelector('[data-promotions-field="bannerMessage"]') || {}).value, ''),
-    autoHighlight: getCheckboxValue(shopAutoHighlightToggle, true)
-  };
-  return promotions;
-}
-
-function collectMessagingSnapshot() {
-  return {
-    lowBalance: safeString((shopSettingsPage?.querySelector('[data-messaging-field="lowBalance"]') || {}).value, ''),
-    success: safeString((shopSettingsPage?.querySelector('[data-messaging-field="success"]') || {}).value, ''),
-    supportCta: safeString((shopSettingsPage?.querySelector('[data-messaging-field="supportCta"]') || {}).value, ''),
-    supportLink: safeString((shopSettingsPage?.querySelector('[data-messaging-field="supportLink"]') || {}).value, ''),
-    showTutorial: getCheckboxValue(shopShowTutorialToggle, true)
-  };
+function collectShopPackagesByType() {
+  const result = {};
+  if (!shopPackageCards.length) return result;
+  shopPackageCards.forEach((card) => {
+    const pkg = readPackageCard(card);
+    if (!pkg || !pkg.id) return;
+    const type = pkg.type || safeString(card.dataset.shopPackage || 'general', 'general');
+    if (!result[type]) result[type] = [];
+    const pkgCopy = { ...pkg };
+    delete pkgCopy.type;
+    result[type].push(pkgCopy);
+  });
+  return result;
 }
 
 function collectShopSettingsSnapshot() {
@@ -6013,31 +5931,17 @@ function collectShopSettingsSnapshot() {
     lowBalanceThreshold: safeNumber(shopLowBalanceThresholdInput ? shopLowBalanceThresholdInput.value : 0, 0),
     quickTopup: getCheckboxValue(shopQuickTopupToggle),
     quickPurchase: getCheckboxValue(shopQuickPurchaseToggle),
-    dynamicPricing: getCheckboxValue(shopDynamicPricingToggle),
     hero: {
       title: safeString(shopHeroTitleInput ? shopHeroTitleInput.value : '', ''),
       subtitle: safeString(shopHeroSubtitleInput ? shopHeroSubtitleInput.value : '', ''),
       ctaText: safeString(shopHeroCtaInput ? shopHeroCtaInput.value : '', ''),
-      ctaLink: safeString(shopHeroLinkInput ? shopHeroLinkInput.value : '', ''),
-      theme: safeString(shopHeroThemeSelect ? shopHeroThemeSelect.value : 'sky', 'sky') || 'sky',
-      note: safeString(shopHeroNoteInput ? shopHeroNoteInput.value : '', ''),
-      showBalances: getCheckboxValue(shopShowBalancesToggle, true),
-      showTags: getCheckboxValue(shopShowTagsToggle, true)
+      ctaLink: safeString(shopHeroLinkInput ? shopHeroLinkInput.value : '', '')
     },
-    sections: {
-      hero: getCheckboxValue(shopHeroToggle, true),
-      keys: getCheckboxValue(shopKeysToggle, true),
-      wallet: getCheckboxValue(shopWalletToggle, true),
-      vip: getCheckboxValue(shopVipToggle, true),
-      promotions: getCheckboxValue(shopPromotionsToggle, true)
-    },
-    packages: {
-      keys: collectPackageRows('keys'),
-      wallet: collectPackageRows('wallet')
-    },
-    vip: collectVipPlansSnapshot(),
-    promotions: collectPromotionsSnapshot(),
-    messaging: collectMessagingSnapshot()
+    packages: collectShopPackagesByType(),
+    support: {
+      message: safeString(shopSupportMessageInput ? shopSupportMessageInput.value : '', ''),
+      link: safeString(shopSupportLinkInput ? shopSupportLinkInput.value : '', '')
+    }
   };
 }
 
@@ -6110,7 +6014,7 @@ function handleSettingsSave() {
     applySettingsSnapshot(snapshot);
     showToast('تنظیمات ذخیره شد و اعمال شد', 'success');
     markShopUpdated();
-    updateShopMetrics();
+    updateShopSummary();
     try {
       window.dispatchEvent(new CustomEvent('iquiz-admin-settings-updated', { detail: snapshot }));
     } catch (_) {}
@@ -6129,160 +6033,19 @@ if (settingsSaveButton) {
 initializeSettingsFromStorage();
 
 // --------------- SHOP SETTINGS ---------------
-const shopToggleDisableMap = new WeakMap();
-const shopToggleVisibilityMap = new WeakMap();
-const shopState = {
-  enabled: shopGlobalToggle ? shopGlobalToggle.checked : true,
-  initialized: false,
-  lastUpdated: null,
-  metrics: {
-    activeSections: { total: shopSectionToggles.length, active: 0 },
-    packages: { total: shopPackageToggles.length, active: 0 },
-    vipPlans: { total: shopVipToggles.length, active: 0 }
-  }
-};
-
-function parseSelectorList(selectors) {
-  if (typeof selectors !== 'string') return [];
-  return selectors.split(',').map((item) => item.trim()).filter(Boolean);
-}
-
-function getToggleTargets(toggle) {
-  if (!toggle || !toggle.dataset) return [];
-  if (!toggle.__shopToggleTargets) {
-    const selectors = parseSelectorList(toggle.dataset.toggleTarget || '');
-    toggle.__shopToggleTargets = selectors.flatMap((selector) => Array.from(document.querySelectorAll(selector)));
-  }
-  return toggle.__shopToggleTargets;
-}
-
-function updateDisableBehavior(target, toggle, isChecked) {
-  if (!target) return;
-  if (!shopToggleDisableMap.has(target)) {
-    shopToggleDisableMap.set(target, new Set());
-  }
-  const toggles = shopToggleDisableMap.get(target);
-  if (isChecked) {
-    toggles.delete(toggle);
-  } else {
-    toggles.add(toggle);
-  }
-
-  const shouldDisable = toggles.size > 0;
-  if (target.matches('input, select, textarea, button')) {
-    if (!target.dataset.toggleOriginalDisabled) {
-      target.dataset.toggleOriginalDisabled = target.disabled ? 'true' : 'false';
-    }
-    const originalDisabled = target.dataset.toggleOriginalDisabled === 'true';
-    target.disabled = shouldDisable || originalDisabled;
-  } else {
-    const controls = target.querySelectorAll('input, select, textarea, button');
-    controls.forEach((control) => {
-      if (!control.dataset.toggleOriginalDisabled) {
-        control.dataset.toggleOriginalDisabled = control.disabled ? 'true' : 'false';
-      }
-      const originalDisabled = control.dataset.toggleOriginalDisabled === 'true';
-      control.disabled = shouldDisable || originalDisabled;
-    });
-  }
-
-  if (!target.hasAttribute('data-shop-lockable')) {
-    target.classList.toggle('settings-section-disabled', shouldDisable);
-  }
-  if (shouldDisable) {
-    target.setAttribute('aria-disabled', 'true');
-  } else if (!shopToggleDisableMap.get(target)?.size) {
-    target.removeAttribute('aria-disabled');
-  }
-}
-
-function updateVisibilityBehavior(target, toggle, isChecked) {
-  if (!target) return;
-  if (!shopToggleVisibilityMap.has(target)) {
-    shopToggleVisibilityMap.set(target, new Set());
-  }
-  const toggles = shopToggleVisibilityMap.get(target);
-  if (isChecked) {
-    toggles.delete(toggle);
-  } else {
-    toggles.add(toggle);
-  }
-  const hidden = toggles.size > 0;
-  target.classList.toggle('hidden', hidden);
-  target.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-}
-
-function applyToggleTargets(toggle, isChecked) {
-  if (!toggle) return;
-  const behavior = toggle.dataset.toggleBehavior || 'disable';
-  const targets = getToggleTargets(toggle);
-  targets.forEach((target) => {
-    if (behavior === 'visibility') {
-      updateVisibilityBehavior(target, toggle, isChecked);
-    } else {
-      updateDisableBehavior(target, toggle, isChecked);
-    }
-  });
-}
-
-function updateToggleTexts(toggle, isChecked) {
+function syncToggleLabel(toggle) {
   if (!toggle) return;
   const label = toggle.closest('label');
-  if (label) {
-    const labelText = label.querySelector('[data-toggle-text]');
-    if (labelText) {
-      if (!labelText.dataset.toggleOnText) {
-        labelText.dataset.toggleOnText = toggle.dataset.toggleOn || labelText.textContent || 'روشن';
-      }
-      if (!labelText.dataset.toggleOffText) {
-        labelText.dataset.toggleOffText = toggle.dataset.toggleOff || labelText.textContent || 'خاموش';
-      }
-      labelText.textContent = isChecked ? labelText.dataset.toggleOnText : labelText.dataset.toggleOffText;
-    }
+  if (!label) return;
+  const labelText = label.querySelector('[data-toggle-text]');
+  if (!labelText) return;
+  if (!labelText.dataset.toggleOnText) {
+    labelText.dataset.toggleOnText = toggle.dataset.toggleOn || labelText.textContent || 'فعال';
   }
-
-  const labelTargets = parseSelectorList(toggle.dataset.toggleLabelTarget || '');
-  labelTargets.forEach((selector) => {
-    document.querySelectorAll(selector).forEach((target) => {
-      if (!target) return;
-      if (!target.dataset.toggleOriginalText) {
-        target.dataset.toggleOriginalText = target.textContent.trim();
-      }
-      if (!target.dataset.toggleOnText && toggle.dataset.toggleOn) {
-        target.dataset.toggleOnText = toggle.dataset.toggleOn;
-      }
-      if (!target.dataset.toggleOffText && toggle.dataset.toggleOff) {
-        target.dataset.toggleOffText = toggle.dataset.toggleOff;
-      }
-      const onText = target.dataset.toggleOnText || target.dataset.toggleOriginalText;
-      const offText = target.dataset.toggleOffText || target.dataset.toggleOriginalText;
-      target.textContent = isChecked ? onText : offText;
-    });
-  });
-}
-
-function getSectionToggleForElement(element) {
-  if (!element) return null;
-  const section = element.closest('[data-shop-lockable]');
-  if (!section) return null;
-  return section.querySelector('[data-shop-section-toggle]');
-}
-
-function isShopFeatureActive(element) {
-  if (!shopState.enabled) return false;
-  const sectionToggle = getSectionToggleForElement(element);
-  if (sectionToggle && !sectionToggle.checked) return false;
-  return true;
-}
-
-function updateSectionVisualState() {
-  if (!shopLockableSections.length) return;
-  shopLockableSections.forEach((section) => {
-    const sectionToggle = section.querySelector('[data-shop-section-toggle]');
-    const sectionActive = shopState.enabled && (!sectionToggle || sectionToggle.checked);
-    section.classList.toggle('settings-section-disabled', !sectionActive);
-    section.setAttribute('aria-disabled', sectionActive ? 'false' : 'true');
-  });
+  if (!labelText.dataset.toggleOffText) {
+    labelText.dataset.toggleOffText = toggle.dataset.toggleOff || labelText.textContent || 'غیرفعال';
+  }
+  labelText.textContent = toggle.checked ? labelText.dataset.toggleOnText : labelText.dataset.toggleOffText;
 }
 
 function updateShopStatus(isEnabled) {
@@ -6295,97 +6058,66 @@ function updateShopStatus(isEnabled) {
     }
   }
   if (shopStatusLabel) {
-    if (!shopStatusLabel.dataset.toggleOriginalText) {
-      shopStatusLabel.dataset.toggleOriginalText = shopStatusLabel.textContent.trim();
-    }
     shopStatusLabel.textContent = isEnabled ? 'فروشگاه فعال است' : 'فروشگاه غیرفعال است';
   }
-}
-
-function formatRatio(active, total) {
-  if (!Number.isFinite(total) || total <= 0) {
-    return formatNumberFa(active);
+  if (shopGlobalStatusLabel) {
+    shopGlobalStatusLabel.textContent = isEnabled ? 'فعال' : 'غیرفعال';
+    shopGlobalStatusLabel.classList.toggle('text-emerald-300', isEnabled);
+    shopGlobalStatusLabel.classList.toggle('text-rose-300', !isEnabled);
   }
-  return `${formatNumberFa(active)} / ${formatNumberFa(total)}`;
-}
-
-function isSectionEnabled(toggle) {
-  if (!shopState.enabled) return false;
-  if (!toggle) return true;
-  return toggle.checked;
-}
-
-function updateShopMetrics() {
-  const sectionsTotal = shopSectionToggles.length;
-  const sectionsActive = shopState.enabled
-    ? shopSectionToggles.filter((toggle) => toggle.checked).length
-    : 0;
-  shopState.metrics.activeSections = { total: sectionsTotal, active: sectionsActive };
-  if (shopMetricElements.activeSections) {
-    shopMetricElements.activeSections.textContent = formatRatio(sectionsActive, sectionsTotal);
-  }
-
-  const packagesTotal = shopPackageToggles.length;
-  const packagesActive = shopState.enabled
-    ? shopPackageToggles.filter((toggle) => toggle.checked && isShopFeatureActive(toggle)).length
-    : 0;
-  shopState.metrics.packages = { total: packagesTotal, active: packagesActive };
-  if (shopMetricElements.packages) {
-    shopMetricElements.packages.textContent = formatRatio(packagesActive, packagesTotal);
-  }
-
-  const vipTotal = shopVipToggles.length;
-  const vipActive = shopState.enabled && isSectionEnabled(shopVipToggle)
-    ? shopVipToggles.filter((toggle) => toggle.checked).length
-    : 0;
-  shopState.metrics.vipPlans = { total: vipTotal, active: vipActive };
-  if (shopMetricElements.vipPlans) {
-    shopMetricElements.vipPlans.textContent = formatRatio(vipActive, vipTotal);
+  if (shopSummaryElements.status) {
+    shopSummaryElements.status.textContent = isEnabled ? 'فعال' : 'غیرفعال';
   }
 }
 
-function updateHeroTheme() {
-  if (!shopHeroPreview || !shopHeroThemeSelect) return;
-  const theme = shopHeroThemeSelect.value || 'sky';
-  shopHeroPreview.dataset.theme = theme;
+function updateHeroPreview() {
+  const title = safeString(shopHeroTitleInput ? shopHeroTitleInput.value : '', '');
+  const subtitle = safeString(shopHeroSubtitleInput ? shopHeroSubtitleInput.value : '', '');
+  const ctaText = safeString(shopHeroCtaInput ? shopHeroCtaInput.value : '', '');
+  const ctaLink = safeString(shopHeroLinkInput ? shopHeroLinkInput.value : '', '');
+  const ctaEnabled = getCheckboxValue(shopQuickTopupToggle, true);
+
+  if (shopHeroPreviewTitle) {
+    shopHeroPreviewTitle.textContent = title || 'عنوان فروشگاه شما';
+    shopHeroPreviewTitle.classList.toggle('opacity-70', !title);
+  }
+  if (shopHeroPreviewSubtitle) {
+    shopHeroPreviewSubtitle.textContent = subtitle || 'توضیح کوتاه را اینجا بنویسید.';
+    shopHeroPreviewSubtitle.classList.toggle('opacity-70', !subtitle);
+  }
+  if (shopPreviewCtaLabel) {
+    shopPreviewCtaLabel.textContent = ctaText || 'ورود به فروشگاه';
+  }
+  if (shopPreviewCta) {
+    shopPreviewCta.href = ctaLink || '#';
+    shopPreviewCta.classList.toggle('opacity-60', !ctaEnabled);
+    shopPreviewCta.classList.toggle('pointer-events-none', !ctaEnabled);
+  }
+  if (shopPreviewHelper) {
+    shopPreviewHelper.textContent = ctaEnabled ? 'CTA برای هدایت سریع کاربران' : 'دکمه CTA غیرفعال شده است';
+  }
 }
 
-function updateHeroLink() {
-  if (!shopPreviewCta) return;
-  const linkValue = shopHeroLinkInput ? shopHeroLinkInput.value.trim() : '';
-  shopPreviewCta.setAttribute('href', linkValue || '#');
-}
+function updateShopSummary() {
+  const totalPackages = shopPackageCards.length;
+  const activePackages = shopPackageCards.filter((card) => {
+    const toggle = card.querySelector('[data-shop-package-active]');
+    return getCheckboxValue(toggle, true);
+  }).length;
 
-function updateBoundTargets(input) {
-  if (!input) return;
-  const selectors = parseSelectorList(input.dataset.bindTarget || '');
-  const value = typeof input.value === 'string' ? input.value : String(input.value ?? '');
-  selectors.forEach((selector) => {
-    document.querySelectorAll(selector).forEach((target) => {
-      if (!target) return;
-      if (!target.dataset.shopBindFallback) {
-        target.dataset.shopBindFallback = target.textContent;
-      }
-      const trimmed = value.trim();
-      if (target.id === 'shop-preview-note') {
-        const fallback = target.dataset.shopBindFallback || '';
-        if (trimmed) {
-          target.textContent = trimmed;
-          target.classList.remove('hidden', 'opacity-50');
-          target.setAttribute('aria-hidden', 'false');
-        } else {
-          target.textContent = fallback;
-          target.classList.add('hidden');
-          target.classList.add('opacity-50');
-          target.setAttribute('aria-hidden', 'true');
-        }
-      } else {
-        const placeholder = target.dataset.shopBindPlaceholder || '—';
-        target.textContent = trimmed || placeholder;
-        target.classList.toggle('opacity-50', trimmed.length === 0);
-      }
-    });
-  });
+  if (shopSummaryElements.packages) {
+    shopSummaryElements.packages.textContent = totalPackages
+      ? `${formatNumberFa(activePackages)} از ${formatNumberFa(totalPackages)} فعال`
+      : 'بدون پکیج';
+  }
+
+  const shortcutToggles = [shopQuickTopupToggle, shopQuickPurchaseToggle].filter(Boolean);
+  const shortcutsActive = shortcutToggles.filter((toggle) => getCheckboxValue(toggle, true)).length;
+  if (shopSummaryElements.shortcuts) {
+    shopSummaryElements.shortcuts.textContent = shortcutToggles.length
+      ? `${formatNumberFa(shortcutsActive)} / ${formatNumberFa(shortcutToggles.length)} فعال`
+      : '—';
+  }
 }
 
 function markShopUpdated() {
@@ -6394,129 +6126,87 @@ function markShopUpdated() {
   shopState.lastUpdated = now;
   try {
     const formatter = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit' });
-    const timeText = formatter.format(now);
-    shopLastUpdateEl.textContent = `لحظاتی پیش (${timeText})`;
-  } catch (error) {
+    shopLastUpdateEl.textContent = `لحظاتی پیش (${formatter.format(now)})`;
+  } catch (_) {
     shopLastUpdateEl.textContent = 'لحظاتی پیش';
   }
-}
-
-function initializeShopToggle(toggle) {
-  if (!toggle) return;
-  const isChecked = toggle.checked;
-  toggle.dataset.toggleAppliedState = isChecked ? 'on' : 'off';
-  applyToggleTargets(toggle, isChecked);
-  updateToggleTexts(toggle, isChecked);
-}
-
-function handleShopToggleChange(toggle) {
-  if (!toggle) return;
-  const isChecked = toggle.checked;
-  const previousState = toggle.dataset.toggleAppliedState === 'on';
-  if (previousState === isChecked && shopState.initialized) {
-    updateToggleTexts(toggle, isChecked);
-    return;
-  }
-  toggle.dataset.toggleAppliedState = isChecked ? 'on' : 'off';
-  applyToggleTargets(toggle, isChecked);
-  updateToggleTexts(toggle, isChecked);
-
-  if (toggle === shopGlobalToggle) {
-    shopState.enabled = isChecked;
-    updateShopStatus(isChecked);
-  }
-
-  updateSectionVisualState();
-  updateShopMetrics();
-
-  if (shopState.initialized) {
-    markShopUpdated();
-  }
-}
-
-function handleShopInputEvent(event) {
-  const target = event.target;
-  if (!target || !shopState.initialized) return;
-  if (target.matches('input[type="checkbox"], input[type="radio"]')) return;
-  if (target.hasAttribute('data-bind-target')) return;
-  markShopUpdated();
 }
 
 function setupShopControls() {
   if (!shopSettingsPage) return;
 
-  const syncAdvancedVisibility = (expanded) => {
-    shopAdvancedSections.forEach((section) => {
-      section.classList.toggle('hidden', !expanded);
+  const registerToggle = (toggle) => {
+    if (!toggle) return;
+    syncToggleLabel(toggle);
+    toggle.addEventListener('change', () => {
+      if (toggle === shopGlobalToggle) {
+        updateShopStatus(toggle.checked);
+      }
+      if (toggle === shopQuickTopupToggle) {
+        updateHeroPreview();
+      }
+      updateShopSummary();
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
     });
-    if (shopAdvancedToggleBtn) {
-      shopAdvancedToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    }
-    if (shopAdvancedToggleLabel) {
-      shopAdvancedToggleLabel.textContent = expanded
-        ? 'پنهان‌سازی تنظیمات پیشرفته'
-        : 'نمایش تنظیمات پیشرفته';
-    }
   };
 
-  let advancedExpanded = false;
-  syncAdvancedVisibility(advancedExpanded);
+  [shopGlobalToggle, shopQuickTopupToggle, shopQuickPurchaseToggle].forEach(registerToggle);
 
-  if (shopAdvancedToggleBtn) {
-    shopAdvancedToggleBtn.addEventListener('click', () => {
-      advancedExpanded = !advancedExpanded;
-      syncAdvancedVisibility(advancedExpanded);
-    });
-  }
-
-  const toggles = Array.from(shopSettingsPage.querySelectorAll('input[type="checkbox"]'));
-  toggles.forEach((toggle) => {
-    initializeShopToggle(toggle);
-    toggle.addEventListener('change', () => handleShopToggleChange(toggle));
-  });
-
-  shopBoundInputs.forEach((input) => {
-    updateBoundTargets(input);
-    input.addEventListener('input', (event) => {
-      updateBoundTargets(event.target);
+  const heroInputs = [shopHeroTitleInput, shopHeroSubtitleInput, shopHeroCtaInput, shopHeroLinkInput];
+  heroInputs.forEach((input) => {
+    if (!input) return;
+    input.addEventListener('input', () => {
+      updateHeroPreview();
       if (shopState.initialized) {
         markShopUpdated();
       }
     });
   });
 
-  if (shopHeroThemeSelect) {
-    updateHeroTheme();
-    shopHeroThemeSelect.addEventListener('change', () => {
-      updateHeroTheme();
+  const supportInputs = [shopSupportMessageInput, shopSupportLinkInput, shopPricingCurrencySelect, shopLowBalanceThresholdInput];
+  supportInputs.forEach((input) => {
+    if (!input) return;
+    const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
+    input.addEventListener(eventName, () => {
+      if (input === shopPricingCurrencySelect || input === shopLowBalanceThresholdInput) {
+        updateShopSummary();
+      }
       if (shopState.initialized) {
         markShopUpdated();
       }
     });
-  }
-
-  if (shopHeroLinkInput) {
-    updateHeroLink();
-    shopHeroLinkInput.addEventListener('input', () => {
-      updateHeroLink();
-      if (shopState.initialized) {
-        markShopUpdated();
-      }
-    });
-  }
-
-  shopSettingsPage.addEventListener('input', handleShopInputEvent);
-  shopSettingsPage.addEventListener('change', (event) => {
-    const target = event.target;
-    if (!target || !shopState.initialized) return;
-    if (target.matches('select') && target !== shopHeroThemeSelect) {
-      markShopUpdated();
-    }
   });
 
-  updateShopStatus(shopState.enabled);
-  updateSectionVisualState();
-  updateShopMetrics();
+  shopPackageCards.forEach((card) => {
+    const toggle = card.querySelector('[data-shop-package-active]');
+    syncToggleLabel(toggle);
+    const nameInput = card.querySelector('[data-package-field="displayName"]');
+    const inputs = card.querySelectorAll('input, textarea');
+    inputs.forEach((input) => {
+      const eventName = input.type === 'checkbox' ? 'change' : 'input';
+      input.addEventListener(eventName, () => {
+        if (input === toggle) {
+          syncToggleLabel(toggle);
+          updateShopSummary();
+        }
+        if (input === nameInput) {
+          const nameEl = card.querySelector('[data-package-name]');
+          if (nameEl) {
+            nameEl.textContent = safeString(nameInput.value, '') || '—';
+          }
+        }
+        if (shopState.initialized) {
+          markShopUpdated();
+        }
+      });
+    });
+  });
+
+  updateShopStatus(getCheckboxValue(shopGlobalToggle, true));
+  updateHeroPreview();
+  updateShopSummary();
 
   shopState.initialized = true;
 }
