@@ -334,6 +334,57 @@ function mergeUniqueQuestions(target, incoming, seenKeys) {
   return target;
 }
 
+function getConsecutiveCheckKey(question) {
+  if (!question || typeof question !== 'object') return '';
+  const primary = createQuestionKey(question);
+  if (primary) return primary;
+  const fallbackText = question.q || question.question || question.text || question.title || '';
+  return toLowerKey(fallbackText);
+}
+
+function preventConsecutiveRepeats(list) {
+  if (!Array.isArray(list)) return [];
+  if (list.length < 2) return list.slice();
+
+  const working = list.slice();
+  let prevKey = getConsecutiveCheckKey(working[0]);
+
+  for (let idx = 1; idx < working.length; idx += 1) {
+    let currentKey = getConsecutiveCheckKey(working[idx]);
+
+    if (prevKey && currentKey && currentKey === prevKey) {
+      let swapIndex = -1;
+      for (let j = idx + 1; j < working.length; j += 1) {
+        const candidateKey = getConsecutiveCheckKey(working[j]);
+        if (!prevKey || candidateKey !== prevKey) {
+          swapIndex = j;
+          break;
+        }
+      }
+
+      if (swapIndex !== -1) {
+        const temp = working[idx];
+        working[idx] = working[swapIndex];
+        working[swapIndex] = temp;
+        currentKey = getConsecutiveCheckKey(working[idx]);
+        if (prevKey && currentKey && currentKey === prevKey) {
+          working.splice(idx, 1);
+          idx -= 1;
+          continue;
+        }
+      } else {
+        working.splice(idx, 1);
+        idx -= 1;
+        continue;
+      }
+    }
+
+    prevKey = currentKey || '';
+  }
+
+  return working;
+}
+
 export async function startQuizFromAdmin(arg) {
   if (typeof Event !== 'undefined' && arg instanceof Event) {
     try {
@@ -470,7 +521,8 @@ export async function startQuizFromAdmin(arg) {
       difficulty: difficultyValue,
     });
 
-    const finalList = filledList.slice(0, Math.min(filledList.length, count));
+    let finalList = filledList.slice(0, Math.min(filledList.length, count));
+    finalList = preventConsecutiveRepeats(finalList);
     console.log('[quiz] finalQuestions=', finalList.length);
 
     if (finalList.length === 0) {
