@@ -400,8 +400,8 @@ const DEFAULT_REMOTE_CONFIG = {
     B: { ads: { freqCaps: { interstitialPerSession: 1 } } }
   },
   gameLimits: {
-    matches: { daily: 5, vipMultiplier: 2, recoveryTime: 2 * 60 * 60 * 1000 },
-    duels: { daily: 3, vipMultiplier: 2, recoveryTime: 30 * 60 * 1000 },
+    matches: { daily: 3, vipMultiplier: 2, recoveryTime: 2 * 60 * 60 * 1000 },
+    duels: { daily: 1, vipMultiplier: 2, recoveryTime: 30 * 60 * 1000 },
     lives: { daily: 3, vipMultiplier: 2, recoveryTime: 30 * 60 * 1000 },
     groupBattles: { daily: 2, vipMultiplier: 2, recoveryTime: 60 * 60 * 1000 },
     energy: { daily: 10, vipMultiplier: 2, recoveryTime: 15 * 60 * 1000 }
