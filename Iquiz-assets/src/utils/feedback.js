@@ -29,7 +29,8 @@ export function vibrate(pattern) {
 export function toast(html, ms = 2200) {
   const el = document.createElement('div');
   el.className =
-    'fixed top-20 left-1/2 -translate-x-1/2 glass px-5 py-3 rounded-2xl text-white font-bold z-50 fade-in';
+    'fixed top-20 left-1/2 -translate-x-1/2 glass px-5 py-3 rounded-2xl text-white font-bold fade-in';
+  el.style.zIndex = '999';
   el.innerHTML = html;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), ms);
