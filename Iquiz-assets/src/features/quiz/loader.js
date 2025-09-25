@@ -10,6 +10,7 @@ import {
   getEffectiveDiffs,
 } from '../../state/admin.js';
 import { beginQuizSession } from './engine.js';
+import { topUpWithFallbackQuestions } from './fallback.js';
 
 function pickDifficulty(diffPool, { requested, stateValue, stateLabel }) {
   let selected = null;
@@ -301,6 +302,15 @@ export async function startQuizFromAdmin(arg) {
 
       uniqueQuestions.splice(0, uniqueQuestions.length, ...working);
     }
+
+    const supplemented = topUpWithFallbackQuestions(uniqueQuestions, {
+      count,
+      categoryId,
+      categorySlug: catSlug || undefined,
+      difficulty: difficultyValue,
+    });
+
+    uniqueQuestions.splice(0, uniqueQuestions.length, ...supplemented);
 
     const finalList = uniqueQuestions.slice(0, Math.min(uniqueQuestions.length, count));
 
