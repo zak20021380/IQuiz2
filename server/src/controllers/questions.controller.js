@@ -1,6 +1,7 @@
 const Question = require('../models/Question');
 const Category = require('../models/Category');
-const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'draft', 'archived'];
+const { evaluateDuplicate } = require('../services/questionIngest');
+const ALLOWED_STATUSES = ['pending', 'pending_review', 'approved', 'rejected', 'draft', 'archived'];
 const ALLOWED_SOURCES = ['manual', 'ai-gen', 'community', 'ai', 'AI'];
 const ALLOWED_PROVIDERS = ['manual', 'ai-gen', 'community'];
 const TRUTHY_QUERY_VALUES = new Set(['1', 'true', 'yes', 'y', 'on']);
@@ -8,7 +9,7 @@ const FALSY_QUERY_VALUES = new Set(['0', 'false', 'no', 'n', 'off']);
 
 function normalizeStatus(status, fallback = 'approved') {
   if (typeof status !== 'string') return fallback;
-  const candidate = status.trim().toLowerCase();
+  const candidate = status.trim().toLowerCase().replace(/[-\s]+/g, '_');
   return ALLOWED_STATUSES.includes(candidate) ? candidate : fallback;
 }
 
@@ -140,13 +141,31 @@ exports.create = async (req, res, next) => {
     const normalizedStatus = normalizeStatus(status, 'approved');
     const safeSource = normalizeSource(source, 'manual');
     const safeProvider = normalizeProvider(req.body.provider, safeSource);
-    let isActive = typeof active === 'boolean' ? active : true;
-    if (normalizedStatus !== 'approved') {
-      isActive = false;
-    }
     const detectedLang = typeof lang === 'string' && lang.trim() ? lang.trim() : 'fa';
     const resolvedAuthor = normalizeAuthorName(authorName, safeSource === 'community' ? 'کاربر آیکوئیز' : 'IQuiz Team');
     const now = new Date();
+
+    const ingestResult = await evaluateDuplicate({ text: trimmedText }, { QuestionModel: Question });
+    if (ingestResult.action === 'reject') {
+      return res.status(ingestResult.statusCode).json({
+        ok: false,
+        code: ingestResult.code,
+        message: ingestResult.message,
+        duplicateId: ingestResult.duplicateId || null
+      });
+    }
+
+    const fingerprints = ingestResult.fingerprints || {};
+
+    let finalStatus = normalizedStatus;
+    if (ingestResult.action === 'review') {
+      finalStatus = 'pending_review';
+    }
+
+    let isActive = typeof active === 'boolean' ? active : true;
+    if (finalStatus !== 'approved') {
+      isActive = false;
+    }
 
     const questionPayload = {
       text: trimmedText,
@@ -162,23 +181,26 @@ exports.create = async (req, res, next) => {
       lang: detectedLang,
       source: safeSource,
       provider: safeProvider,
-      status: normalizedStatus,
+      status: finalStatus,
       authorName: resolvedAuthor,
-      isApproved: normalizedStatus === 'approved'
+      isApproved: finalStatus === 'approved',
+      sha1Canonical: fingerprints.sha1,
+      simhash64: fingerprints.simhash,
+      lshBucket: fingerprints.bucket
     };
 
     if (req.user?._id) {
       questionPayload.submittedBy = String(req.user._id);
     }
 
-    if (normalizedStatus === 'pending') {
+    if (finalStatus === 'pending') {
       questionPayload.submittedAt = now;
       questionPayload.reviewedAt = undefined;
       questionPayload.reviewedBy = undefined;
-    } else if (normalizedStatus === 'approved' || normalizedStatus === 'rejected') {
+    } else if (finalStatus === 'approved' || finalStatus === 'rejected') {
       questionPayload.reviewedAt = now;
       if (req.user?._id) questionPayload.reviewedBy = req.user._id;
-      if (normalizedStatus === 'rejected') {
+      if (finalStatus === 'rejected') {
         questionPayload.active = false;
       }
     }
@@ -187,9 +209,138 @@ exports.create = async (req, res, next) => {
       questionPayload.reviewNotes = reviewNotes.trim();
     }
 
+    if (!questionPayload.meta || typeof questionPayload.meta !== 'object') {
+      questionPayload.meta = {};
+    }
+    if (fingerprints.normalized) {
+      questionPayload.meta.normalizedText = fingerprints.normalized;
+    }
+    if (ingestResult.duplicateId) {
+      questionPayload.meta.dupHint = ingestResult.duplicateId;
+    }
+
     const q = await Question.create(questionPayload);
-    res.status(201).json({ ok: true, data: q });
+
+    if (ingestResult.action === 'review') {
+      return res.status(ingestResult.statusCode).json({
+        ok: true,
+        code: ingestResult.code,
+        data: q,
+        duplicateId: ingestResult.duplicateId || null
+      });
+    }
+
+    return res.status(ingestResult.statusCode || 201).json({ ok: true, data: q });
   } catch (e) { next(e); }
+};
+
+exports.listDuplicateSuspects = async (req, res, next) => {
+  try {
+    const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      Question.find({ status: 'pending_review' })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Question.countDocuments({ status: 'pending_review' })
+    ]);
+
+    res.json({
+      ok: true,
+      data: items,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 0
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const REVIEW_ACTIONS = new Set(['approve', 'reject', 'disable', 'merge']);
+
+exports.reviewDuplicateCandidate = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const actionRaw = typeof req.body.action === 'string' ? req.body.action.trim().toLowerCase() : '';
+    const action = actionRaw.replace(/[-\s]+/g, '_');
+    if (!REVIEW_ACTIONS.has(action)) {
+      return res.status(400).json({ ok: false, message: 'Invalid action' });
+    }
+
+    const question = await Question.findById(id);
+    if (!question) {
+      return res.status(404).json({ ok: false, message: 'Question not found' });
+    }
+
+    const now = new Date();
+    let reviewNotes = '';
+    if (typeof req.body.reviewNotes === 'string') {
+      reviewNotes = req.body.reviewNotes.trim();
+    }
+
+    if (!question.meta || typeof question.meta !== 'object') {
+      question.meta = {};
+    }
+
+    switch (action) {
+      case 'approve':
+        question.status = 'approved';
+        question.isApproved = true;
+        question.active = true;
+        delete question.meta.dupHint;
+        break;
+      case 'reject':
+        question.status = 'rejected';
+        question.isApproved = false;
+        question.active = false;
+        delete question.meta.dupHint;
+        break;
+      case 'disable':
+        question.status = 'archived';
+        question.isApproved = false;
+        question.active = false;
+        question.meta.archivedAt = now;
+        delete question.meta.dupHint;
+        break;
+      case 'merge': {
+        const targetId = typeof req.body.targetId === 'string' ? req.body.targetId.trim() : '';
+        if (!targetId) {
+          return res.status(400).json({ ok: false, message: 'targetId is required for merge action' });
+        }
+        question.status = 'archived';
+        question.isApproved = false;
+        question.active = false;
+        question.meta.mergedInto = targetId;
+        question.meta.mergedAt = now;
+        delete question.meta.dupHint;
+        break;
+      }
+      default:
+        break;
+    }
+
+    question.reviewedAt = now;
+    if (req.user?._id) {
+      question.reviewedBy = req.user._id;
+    }
+    if (reviewNotes) {
+      question.reviewNotes = reviewNotes;
+    }
+
+    await question.save();
+
+    res.json({ ok: true, data: question });
+  } catch (error) {
+    next(error);
+  }
 };
 
 exports.list = async (req, res, next) => {
