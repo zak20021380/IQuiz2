@@ -181,15 +181,6 @@ function resolveCategorySlug(categoryIdOrSlug) {
   return String(categoryIdOrSlug).trim().toLowerCase();
 }
 
-function cloneQuestion(question, offset = 0) {
-  if (!question || typeof question !== 'object') return null;
-  const idBase = question.id || question.q || `fallback-${offset}`;
-  return {
-    ...question,
-    id: `${idBase}-${offset}`,
-  };
-}
-
 export function getFallbackQuestionPool({ categoryId, categorySlug, difficulty, count } = {}) {
   const normalizedCount = normalizeCount(count);
   const slug = resolveCategorySlug(categorySlug || categoryId);
@@ -217,16 +208,49 @@ export function getFallbackQuestionPool({ categoryId, categorySlug, difficulty, 
 
   const basePool = BASE_FALLBACK_QUESTIONS;
   const unique = [];
-  const seen = new Set();
+  const seenIds = new Set();
+  const seenTexts = new Set();
 
   const register = (question, offset = 0) => {
     if (!question) return false;
-    const textKey = (question.q || question.question || '').toString().trim().toLowerCase();
-    const idKey = (question.id || question.uid || '').toString().trim().toLowerCase();
-    const key = textKey || idKey;
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    unique.push(cloneQuestion(question, offset));
+
+    const baseText = (question.q || question.question || '').toString().trim();
+    const baseId = (question.id || question.uid || '').toString().trim() || `fallback-${offset + 1}`;
+
+    let attempt = 0;
+    let candidateText = baseText || `سؤال ${offset + 1}`;
+    let candidateId = `${baseId}-${offset}`;
+
+    const makeTextVariant = () => {
+      if (!baseText) {
+        return `سؤال ${offset + 1 + attempt}`;
+      }
+      const suffix = attempt;
+      return `${baseText} (سری ${suffix})`;
+    };
+
+    while (
+      (candidateId && seenIds.has(candidateId.toLowerCase())) ||
+      (candidateText && seenTexts.has(candidateText.toLowerCase()))
+    ) {
+      attempt += 1;
+      const variantSuffix = attempt;
+      candidateId = `${baseId}-${offset}-v${variantSuffix}`;
+      candidateText = makeTextVariant();
+    }
+
+    const normalizedId = candidateId.toString().trim().toLowerCase();
+    const normalizedText = candidateText.toString().trim().toLowerCase();
+
+    if (normalizedId) seenIds.add(normalizedId);
+    if (normalizedText) seenTexts.add(normalizedText);
+
+    unique.push({
+      ...question,
+      id: candidateId,
+      q: candidateText,
+    });
+
     return true;
   };
 

@@ -98,6 +98,18 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     rewardSettings = next.rewards || rewardSettings;
   }
 
+  function getCorrectAnswerBasePoints(){
+    const raw = Number(rewardSettings?.pointsCorrect);
+    if (!Number.isFinite(raw) || raw <= 0) return 100;
+    return Math.max(10, Math.round(raw));
+  }
+
+  function getCorrectAnswerBaseCoins(){
+    const raw = Number(rewardSettings?.coinsCorrect);
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    return Math.max(0, Math.round(raw));
+  }
+
   function getAppName(){
     const raw = generalSettings?.appName;
     if (raw == null) return FALLBACK_APP_NAME;
@@ -451,23 +463,42 @@ function populateProvinceOptions(selectEl, placeholder){
     }
   }
 
+  function getVipLimitMultiplier(){
+    if (!Server?.subscription?.active) return 1;
+    return Server.subscription.tier === 'pro' ? 3 : 2;
+  }
+
+  function getGameResourceLimit(type){
+    const cfg = RemoteConfig?.gameLimits?.[type];
+    if (!cfg) return Infinity;
+    const base = Number(cfg.daily);
+    if (!Number.isFinite(base) || base <= 0) return Infinity;
+    return base * getVipLimitMultiplier();
+  }
+
+  function hasRemainingGameResource(type){
+    if (type === 'energy') return true;
+    const bucket = Server?.limits?.[type];
+    if (!bucket) return true;
+    const limit = getGameResourceLimit(type);
+    if (!Number.isFinite(limit)) return true;
+    return bucket.used < limit;
+  }
+
   function useGameResource(type) {
     if (type === 'energy') return true;
     const now = Date.now();
 
     // Check if we can use the resource
-    const vipMultiplier = Server.subscription.active ?
-      (Server.subscription.tier === 'pro' ? 3 : 2) : 1;
-
-    const limit = RemoteConfig.gameLimits[type].daily * vipMultiplier;
-
-    if (Server.limits[type].used >= limit) {
+    if (!hasRemainingGameResource(type)) {
       return false;
     }
 
     // Use the resource
-    Server.limits[type].used++;
-    Server.limits[type].lastRecovery = now;
+    if (Server?.limits?.[type]) {
+      Server.limits[type].used++;
+      Server.limits[type].lastRecovery = now;
+    }
 
     // Update UI
     updateLimitsUI();
@@ -1071,6 +1102,8 @@ function populateProvinceOptions(selectEl, placeholder){
       toast('نبرد لغو شد');
     } else if (reason === 'no_category') {
       toast('شروع نبرد ممکن نشد');
+    } else if (reason === 'limit_reached') {
+      toast('سهمیه نبردهای امروزت برای نبرد تن‌به‌تن به پایان رسیده است. فردا دوباره تلاش کن!');
     }
     logEvent('duel_cancelled', { reason });
   }
@@ -1694,9 +1727,10 @@ function startQuizTimerCountdown(){
     }
     const correct = q.a;
     const ok = (idx===correct);
-    const rewards = rewardSettings || {};
-    const basePoints = ok ? Math.max(0, Number(rewards.pointsCorrect) || 0) : 0;
-    const baseCoins = ok ? Math.max(0, Number(rewards.coinsCorrect) || 0) : 0;
+    const basePointsValue = getCorrectAnswerBasePoints();
+    const baseCoinsValue = getCorrectAnswerBaseCoins();
+    const basePoints = ok ? basePointsValue : 0;
+    const baseCoins = ok ? baseCoinsValue : 0;
     const timeBonus = ok ? Math.round(basePoints * 0.5 * (State.quiz.remain / Math.max(1, State.quiz.duration))) : 0;
     const boostActive = Date.now() < State.boostUntil;
     const vipBonus = ok && Server.subscription.active ? Math.round(basePoints * 0.2) : 0; // VIP from server
@@ -1791,7 +1825,7 @@ function startQuizTimerCountdown(){
     });
     const duelActive = !!(DuelSession && State.duelOpponent);
     if (duelActive) {
-      const status = completeDuelRound(correctCount);
+      const status = completeDuelRound(correctCount, State.quiz.sessionEarned);
       if (status === 'next') {
         saveState();
         return;
@@ -3429,6 +3463,14 @@ async function startPurchaseCoins(pkgId){
     const round = DuelSession.rounds?.[roundIndex];
     if (!round || !round.categoryId) return false;
 
+    if (!DuelSession.consumedResource && !hasRemainingGameResource('duels')) {
+      toast('سهمیه نبردهای امروزت برای نبرد تن‌به‌تن به پایان رسیده است.');
+      logEvent('duel_limit_blocked', { opponent: DuelSession.opponent?.name, round: roundIndex + 1 });
+      cancelDuelSession('limit_reached');
+      navTo('duel');
+      return false;
+    }
+
     let difficultyValue = DuelSession.difficulty?.value;
     let difficultyLabel = DuelSession.difficulty?.label;
     const categoryId = round.categoryId;
@@ -3479,7 +3521,14 @@ async function startPurchaseCoins(pkgId){
     DuelSession.currentRoundIndex = roundIndex;
     const opponentName = DuelSession.opponent?.name || '';
     if (!DuelSession.consumedResource){
-      useGameResource('duels');
+      const allowed = useGameResource('duels');
+      if (!allowed) {
+        toast('سهمیه نبردهای امروزت برای نبرد تن‌به‌تن به پایان رسیده است.');
+        logEvent('duel_limit_blocked', { opponent: opponentName, round: roundIndex + 1, phase: 'post_start' });
+        cancelDuelSession('limit_reached');
+        navTo('duel');
+        return false;
+      }
       DuelSession.consumedResource = true;
       logEvent('duel_start', { opponent: opponentName, round: roundIndex + 1, category: catTitle });
     } else {
@@ -3503,18 +3552,22 @@ async function startPurchaseCoins(pkgId){
     return true;
   }
 
-  function simulateOpponentRound(round, totalQuestions, yourCorrect){
+  function simulateOpponentRound(round, totalQuestions, yourCorrect, yourEarned){
     const advantage = round.chooser === 'opponent' ? 1 : 0;
     const min = Math.max(0, Math.min(totalQuestions, yourCorrect - 2));
     const max = Math.min(totalQuestions, Math.max(min, yourCorrect + 2 + advantage));
     const correct = Math.round(min + Math.random() * (max - min));
     const boundedCorrect = Math.max(0, Math.min(totalQuestions, correct));
     const wrong = totalQuestions - boundedCorrect;
-    const earned = boundedCorrect * 120;
+    let perQuestionEarned = getCorrectAnswerBasePoints();
+    if (yourCorrect > 0 && Number.isFinite(yourEarned)) {
+      perQuestionEarned = Math.max(0, Math.round(yourEarned / yourCorrect));
+    }
+    const earned = boundedCorrect * perQuestionEarned;
     return { correct: boundedCorrect, wrong, earned };
   }
 
-  function completeDuelRound(correctCount){
+  function completeDuelRound(correctCount, earnedPoints){
     if (!DuelSession || !State.duelOpponent) return 'none';
     const roundIdx = DuelSession.currentRoundIndex || 0;
     const round = DuelSession.rounds?.[roundIdx];
@@ -3523,11 +3576,11 @@ async function startPurchaseCoins(pkgId){
     const totalQuestions = State.quiz.results.length || State.quiz.list.length || DUEL_QUESTIONS_PER_ROUND;
     const yourCorrect = correctCount;
     const yourWrong = Math.max(0, totalQuestions - yourCorrect);
-    const yourEarned = State.quiz.sessionEarned;
+    const yourEarned = Number.isFinite(earnedPoints) ? earnedPoints : State.quiz.sessionEarned;
 
     round.player = { correct: yourCorrect, wrong: yourWrong, earned: yourEarned };
     round.totalQuestions = totalQuestions;
-    const opponentStats = simulateOpponentRound(round, totalQuestions, yourCorrect);
+    const opponentStats = simulateOpponentRound(round, totalQuestions, yourCorrect, yourEarned);
     round.opponent = opponentStats;
 
     DuelSession.totalYourScore += yourEarned;
