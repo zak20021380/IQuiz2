@@ -16,7 +16,8 @@ import {
   isUserInGroup,
   stringToSeed,
   buildRosterEntry,
-  seededFloat
+  seededFloat,
+  spendKeys
 } from '../state/state.js';
 import { Server } from '../state/server.js';
 import {
@@ -1684,11 +1685,11 @@ function startQuizTimerCountdown(){
       SFX.correct(); vibrate(30);
     } else {
       State.quiz.correctStreak = 0;
-      State.lives -= 1;
+      const remainingKeys = spendKeys(1);
       // Use a life from the limit
       useGameResource('lives');
       SFX.wrong(); vibrate([10,30,10]);
-      if(State.lives<=0) shouldEnd = true;
+      if(remainingKeys<=0) shouldEnd = true;
     }
 
     State.quiz.results.push({ q:q.q, ok, correct: q.c[correct], you: idx>=0 && q.c[idx] != null ? q.c[idx] : '—' });
@@ -5100,7 +5101,7 @@ function leaveGroup(groupId) {
       toast('نیازی به ریست نیست');
       return;
     }
-    State.lives -= 1;
+    spendKeys(1);
     renderTopBars();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -5122,7 +5123,7 @@ function leaveGroup(groupId) {
       toast('نیازی به ریست نیست');
       return;
     }
-    State.lives -= 1;
+    spendKeys(1);
     renderTopBars();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -5144,7 +5145,7 @@ function leaveGroup(groupId) {
       toast('نیازی به ریست نیست');
       return;
     }
-    State.lives -= 1;
+    spendKeys(1);
     renderTopBars();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -5172,7 +5173,7 @@ function leaveGroup(groupId) {
       });
       const data = await res.json();
       if (res.ok && data?.success) {
-        State.lives -= 1;
+        spendKeys(1);
         renderTopBars();
         const today = new Date();
         today.setHours(0, 0, 0, 0);

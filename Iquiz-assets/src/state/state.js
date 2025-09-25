@@ -105,6 +105,18 @@ const DEFAULT_DUEL_INVITES = (() => {
   ];
 })();
 
+function normalizeKeyCount(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.floor(numeric));
+}
+
+function normalizeKeyAdjustment(amount) {
+  const numeric = Number(amount);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.floor(numeric));
+}
+
 function cloneDefaultRoster(groupId){
   return (DEFAULT_GROUP_ROSTERS[groupId] || []).map(player => ({ ...player }));
 }
@@ -274,6 +286,27 @@ const State = {
   }
 };
 
+const INTERNAL_KEY_STATE = { value: normalizeKeyCount(State.lives) };
+
+Object.defineProperty(State, 'lives', {
+  get() {
+    return INTERNAL_KEY_STATE.value;
+  },
+  set(value) {
+    INTERNAL_KEY_STATE.value = normalizeKeyCount(value);
+  },
+  enumerable: true,
+  configurable: false,
+});
+
+function spendKeys(amount = 1) {
+  const deduction = normalizeKeyAdjustment(amount);
+  if (deduction <= 0) return State.lives;
+  const remaining = INTERNAL_KEY_STATE.value - deduction;
+  State.lives = remaining;
+  return State.lives;
+}
+
 function ensureGroupRosters(){
   if (!Array.isArray(State.groups)) State.groups = [];
   State.groups.forEach(group => {
@@ -325,5 +358,6 @@ export {
   stringToSeed,
   buildRosterEntry,
   seededFloat,
+  spendKeys,
   DUEL_INVITE_TIMEOUT_MS
 };
