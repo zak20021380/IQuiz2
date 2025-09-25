@@ -1334,11 +1334,25 @@ function populateProvinceOptions(selectEl, placeholder){
 
     content += recordSection;
 
+    const inviteLink = `${location.origin}${location.pathname}?join=${encodeURIComponent(group.id)}`;
     const membersHtml = (group.memberList || []).map(m=>`<div class="glass rounded-xl p-2 text-sm flex items-center gap-2"><i class="fas fa-user text-blue-200"></i>${m}</div>`).join('');
     content += `
       <div class="mt-4">
-        ${isAdmin ? `<input id="new-member-name" class="form-input mb-2" placeholder="نام عضو جدید">
-        <button id="btn-add-member" class="btn btn-group w-full"><i class="fas fa-user-plus ml-2"></i> افزودن عضو</button>` : ''}
+        ${isAdmin ? `<div class="glass rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 text-sm font-bold">
+              <i class="fas fa-share-nodes text-sky-300"></i>
+              <span>دعوت از اعضا</span>
+            </div>
+            <span class="text-[0.7rem] chip bg-white/10 border-white/20">لینک اختصاصی</span>
+          </div>
+          <p class="text-xs opacity-80">لینک گروه خود را کپی کنید و برای دوستانتان ارسال نمایید تا بتوانند به سادگی به شما بپیوندند.</p>
+          <div class="flex gap-2">
+            <input id="group-share-link" class="form-input flex-1 text-left ltr" value="${inviteLink}" readonly>
+            <button id="btn-copy-group-link" class="btn btn-secondary" title="کپی لینک"><i class="fas fa-copy"></i></button>
+            <button id="btn-share-group-link" class="btn btn-group" title="اشتراک لینک"><i class="fas fa-paper-plane"></i></button>
+          </div>
+        </div>` : ''}
         <h5 class="font-bold mb-2${isAdmin ? ' mt-4' : ''}">اعضای گروه</h5>
         <div id="member-list" class="space-y-2">${membersHtml || '<div class="text-sm opacity-80">عضوی ثبت نشده است</div>'}</div>
       </div>`;
@@ -1380,16 +1394,28 @@ function populateProvinceOptions(selectEl, placeholder){
     showDetailPopup('جزئیات گروه', content);
 
     $('#btn-join-group')?.addEventListener('click', () => requestJoinGroup(group.id));
-    $('#btn-add-member')?.addEventListener('click', () => {
-      const name = $('#new-member-name').value.trim();
-      if(!name){ toast('نام عضو جدید را وارد کنید'); return; }
-      group.memberList = group.memberList || [];
-      group.memberList.push(name);
-      group.members += 1;
-      $('#member-list').innerHTML += `<div class="glass rounded-xl p-2 text-sm flex items-center gap-2"><i class="fas fa-user text-blue-200"></i>${name}</div>`;
-      $('#new-member-name').value='';
-      toast(`عضو ${name} اضافه شد`);
-      renderGroupSelect();
+    $('#btn-copy-group-link')?.addEventListener('click', async () => {
+      const ok = await copyToClipboard(inviteLink);
+      toast(ok ? '<i class="fas fa-check-circle ml-2"></i>لینک گروه کپی شد' : 'کپی لینک با خطا مواجه شد');
+    });
+    $('#btn-share-group-link')?.addEventListener('click', () => {
+      const appName = getAppName();
+      const text = `به گروه ${group.name} در ${appName} بپیوندید!`;
+      try {
+        if (navigator.share) {
+          navigator.share({
+            title: `دعوت به گروه ${group.name}`,
+            text,
+            url: inviteLink
+          });
+        } else {
+          window.open(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(text)}`, '_blank');
+          toast('<i class="fas fa-share-nodes ml-2"></i>لینک برای اشتراک باز شد');
+        }
+      } catch {
+        copyToClipboard(inviteLink);
+        toast('<i class="fas fa-check-circle ml-2"></i>لینک گروه کپی شد');
+      }
     });
     $('#btn-request-duel')?.addEventListener('click', () => openDuelRequest(group));
     $('#btn-delete-group-detail')?.addEventListener('click', () => {
