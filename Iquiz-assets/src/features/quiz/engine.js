@@ -21,6 +21,26 @@ export function configureQuizEngine(config = {}) {
   deps = { ...deps, ...config };
 }
 
+function normalizeIndex(value) {
+  if (typeof value !== 'number') return NaN;
+  return Number.isInteger(value) ? value : Math.floor(value);
+}
+
+export function isValidQuestion(question) {
+  if (!question || typeof question !== 'object') return false;
+  const text = typeof question.q === 'string' ? question.q.trim() : '';
+  if (!text) return false;
+  const choices = Array.isArray(question.c) ? question.c : [];
+  if (choices.length < 2) return false;
+  if (!choices.every((choice) => typeof choice === 'string' && choice.trim().length > 0)) {
+    return false;
+  }
+  const correctIndex = normalizeIndex(question.a);
+  if (!Number.isInteger(correctIndex)) return false;
+  if (correctIndex < 0 || correctIndex >= choices.length) return false;
+  return true;
+}
+
 function callDependency(key, ...args) {
   const fn = deps?.[key];
   if (typeof fn === 'function') {
@@ -118,10 +138,16 @@ export function life5050() {
     toast('۵۰–۵۰ را قبلاً استفاده کردی 😅');
     return;
   }
+  const current = State.quiz.list[State.quiz.idx];
+  if (!isValidQuestion(current)) {
+    toast('این سؤال برای ۵۰–۵۰ معتبر نیست. به سؤال بعدی می‌رویم.');
+    callDependency('nextQuestion');
+    return;
+  }
   if (!spendLifelineCost()) return;
   used5050 = true;
   markLifelineUsed('life-5050');
-  const correct = State.quiz.list[State.quiz.idx].a;
+  const correct = current.a;
   const idxs = [0, 1, 2, 3]
     .filter((i) => i !== correct)
     .sort(() => Math.random() - 0.5)
@@ -142,11 +168,16 @@ export function lifeSkip() {
     toast('پرش فقط یک‌بار مجازه');
     return;
   }
+  const cur = State.quiz.list[State.quiz.idx];
+  if (!isValidQuestion(cur)) {
+    toast('سؤال فعلی معتبر نبود و رد شد.');
+    callDependency('nextQuestion');
+    return;
+  }
   if (!spendLifelineCost()) return;
   usedSkip = true;
   markLifelineUsed('life-skip');
   clearInterval(State.quiz.timer);
-  const cur = State.quiz.list[State.quiz.idx];
   State.quiz.results.push({ q: cur.q, ok: false, correct: cur.c[cur.a], you: '— (پرش)' });
   saveState();
   toast('<i class="fas fa-forward ml-1"></i> به سؤال بعدی رفتی');
@@ -169,11 +200,12 @@ export function lifePause() {
 }
 
 export function renderQuestionUI(q) {
+  const questionValid = isValidQuestion(q);
   const catLabel = State.quiz.cat || q.cat || '—';
   const diffLabel = State.quiz.diff || q.diff || '—';
   $('#quiz-cat').innerHTML = `<i class="fas fa-folder ml-1"></i> ${catLabel}`;
   $('#quiz-diff').innerHTML = `<i class="fas fa-signal ml-1"></i> ${diffLabel}`;
-  $('#qnum').textContent = faNum(State.quiz.idx + 1);
+  $('#qnum').textContent = faNum(Math.min(State.quiz.idx + 1, Math.max(1, State.quiz.list.length)));
   $('#qtotal').textContent = faNum(State.quiz.list.length);
   const codeChip = $('#quiz-code');
   const codeValueEl = $('#quiz-code-value');
@@ -187,12 +219,12 @@ export function renderQuestionUI(q) {
       codeChip.classList.add('hidden');
     }
   }
-  $('#question').textContent = q.q;
+  $('#question').textContent = questionValid ? q.q : 'سؤال معتبر در دسترس نیست.';
   const authorWrapper = $('#question-author');
   const authorNameEl = $('#question-author-name');
   if (authorWrapper && authorNameEl) {
-    const sourceKey = (q.source || '').toString().toLowerCase();
-    let authorDisplay = (q.authorName || '').toString().trim();
+    const sourceKey = (q?.source || '').toString().toLowerCase();
+    let authorDisplay = (q?.authorName || '').toString().trim();
     if (!authorDisplay) {
       authorDisplay = sourceKey === 'community' ? 'قهرمان ناشناس' : 'تیم محتوایی IQuiz';
     }
@@ -223,6 +255,14 @@ export function renderQuestionUI(q) {
   }
   const box = $('#choices');
   if (box) box.innerHTML = '';
+  if (!questionValid) {
+    const warning = document.createElement('div');
+    warning.className = 'text-sm text-white/70 bg-white/5 border border-white/10 rounded-2xl px-4 py-3';
+    warning.textContent = 'سؤال معتبر یافت نشد. به سؤال بعدی می‌رویم.';
+    box?.appendChild(warning);
+    setTimeout(() => callDependency('nextQuestion'), 400);
+    return;
+  }
   q.c.forEach((txt, idx) => {
     const btn = document.createElement('button');
     btn.className = 'choice';
@@ -235,6 +275,9 @@ export function renderQuestionUI(q) {
 
 export function beginQuizSession({ cat, diff, diffValue, questions, count, source }) {
   if (!Array.isArray(questions) || questions.length === 0) return false;
+
+  const sanitized = questions.filter(isValidQuestion);
+  if (sanitized.length === 0) return false;
 
   resetLifelineUsage();
   resetLifelinesUI();
@@ -257,7 +300,7 @@ export function beginQuizSession({ cat, diff, diffValue, questions, count, sourc
       State.quiz.diffValue = 'easy';
     }
   }
-  State.quiz.list = questions.map((q) => ({
+  State.quiz.list = sanitized.map((q) => ({
     ...q,
     cat: State.quiz.cat,
     diff: State.quiz.diff,

@@ -41,6 +41,7 @@ import {
   configureQuizEngine,
   renderQuestionUI,
   updateLifelineStates,
+  isValidQuestion,
 } from '../features/quiz/engine.js';
 import { startQuizFromAdmin } from '../features/quiz/loader.js';
 
@@ -1510,6 +1511,49 @@ function openCreateGroup(){
 }
   
   // ===== Quiz Flow (legacy) =====
+  function getQuestionAt(index) {
+    if (!Array.isArray(State.quiz.list)) return null;
+    if (!Number.isInteger(index) || index < 0 || index >= State.quiz.list.length) return null;
+    const candidate = State.quiz.list[index];
+    return isValidQuestion(candidate) ? candidate : null;
+  }
+
+  function findNextValidQuestionIndex(startIndex = 0) {
+    if (!Array.isArray(State.quiz.list)) return -1;
+    const total = State.quiz.list.length;
+    for (let idx = Math.max(0, startIndex); idx < total; idx += 1) {
+      if (isValidQuestion(State.quiz.list[idx])) {
+        return idx;
+      }
+    }
+    return -1;
+  }
+
+  function goToQuestion(index) {
+    const question = getQuestionAt(index);
+    if (!question) {
+      return false;
+    }
+    State.quiz.idx = index;
+    State.quiz.answered = false;
+    renderQuestionUI(question);
+    resetTimer();
+    return true;
+  }
+
+  function moveToNextValidQuestion(startIndex = State.quiz.idx + 1) {
+    const nextIndex = findNextValidQuestionIndex(startIndex);
+    if (nextIndex === -1) {
+      endQuiz();
+      return true;
+    }
+    const moved = goToQuestion(nextIndex);
+    if (!moved) {
+      return moveToNextValidQuestion(nextIndex + 1);
+    }
+    return false;
+  }
+
   function updateTimerVisual(){
     const ring = $('#timer-ring');
     const text = $('#timer-text');
@@ -1566,7 +1610,8 @@ function startQuizTimerCountdown(){
       State.quiz.remain = 0;
       clearInterval(State.quiz.timer); State.quiz.timer = null;
       lockChoices?.();
-      const ended = registerAnswer?.(-1);
+      const currentQuestion = getQuestionAt(State.quiz.idx);
+      const ended = registerAnswer?.(-1, currentQuestion);
       (typeof onTimerExpired === 'function' ? onTimerExpired : handleTimeUp)?.(ended);
     }
   }, 1000);
@@ -1614,8 +1659,12 @@ function startQuizTimerCountdown(){
 
   function lockChoices(){ $$('#choices .choice').forEach(el=> el.classList.add('pointer-events-none','opacity-70')); }
   
-  function registerAnswer(idx){
-    const q = State.quiz.list[State.quiz.idx] || {};
+  function registerAnswer(idx, question){
+    const q = question || getQuestionAt(State.quiz.idx);
+    if (!q) {
+      console.warn('[quiz] Invalid question encountered, skipping.');
+      return moveToNextValidQuestion(State.quiz.idx + 1);
+    }
     const correct = q.a;
     const ok = (idx===correct);
     const rewards = rewardSettings || {};
@@ -1642,7 +1691,7 @@ function startQuizTimerCountdown(){
       if(State.lives<=0) shouldEnd = true;
     }
 
-    State.quiz.results.push({ q:q.q, ok, correct: q.c[correct], you: idx>=0 ? q.c[idx] : '—' });
+    State.quiz.results.push({ q:q.q, ok, correct: q.c[correct], you: idx>=0 && q.c[idx] != null ? q.c[idx] : '—' });
     saveState(); renderHeader(); renderTopBars();
 
     // Log analytics
@@ -1663,27 +1712,24 @@ function startQuizTimerCountdown(){
   
   function selectAnswer(idx){
     if(State.quiz.answered) return;
+    const currentQuestion = getQuestionAt(State.quiz.idx);
+    if (!currentQuestion) {
+      moveToNextValidQuestion(State.quiz.idx + 1);
+      return;
+    }
     State.quiz.answered = true; clearInterval(State.quiz.timer);
-    const correct = State.quiz.list[State.quiz.idx].a;
+    const correct = currentQuestion.a;
     const list = $$('#choices .choice');
     list.forEach((el,i)=> el.classList.add(i===correct? 'correct':'wrong'));
     lockChoices();
-    const ended = registerAnswer(idx);
-    if(!ended){
+    const ended = registerAnswer(idx, currentQuestion);
+    if(!ended && State.quiz.answered){
       setTimeout(nextQuestion, 900);
     }
   }
-  
+
   function nextQuestion(){
-    State.quiz.answered=false;
-    State.quiz.idx++;
-    if(State.quiz.idx >= State.quiz.list.length){
-      endQuiz();
-      return;
-    }
-    const q = State.quiz.list[State.quiz.idx];
-    renderQuestionUI(q);
-    resetTimer();
+    moveToNextValidQuestion(State.quiz.idx + 1);
   }
 
   configureQuizEngine({
