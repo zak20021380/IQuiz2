@@ -131,6 +131,44 @@ async function seedStaticCategories() {
         updated += result.modifiedCount;
       }
     } catch (error) {
+      if (error?.code === 11000 && error?.keyPattern?.name) {
+        try {
+          const fallbackUpdate = await Category.findOneAndUpdate(
+            { name: doc.name },
+            {
+              $set: {
+                name: doc.name,
+                displayName: doc.displayName,
+                description: doc.description,
+                icon: doc.icon,
+                color: doc.color,
+                status: doc.status,
+                provider: doc.provider,
+                providerCategoryId: doc.providerCategoryId,
+                aliases: doc.aliases,
+                slug: doc.slug,
+                order: doc.order
+              }
+            },
+            {
+              new: true,
+              runValidators: true,
+              setDefaultsOnInsert: true,
+              timestamps: true
+            }
+          );
+
+          if (fallbackUpdate) {
+            updated += 1;
+            continue;
+          }
+        } catch (fallbackError) {
+          logger.warn(
+            `[CategorySeeder] Fallback update failed for category '${doc.slug}': ${fallbackError.message}`
+          );
+        }
+      }
+
       logger.warn(`[CategorySeeder] Failed to sync category '${doc.slug}': ${error.message}`);
     }
   }
