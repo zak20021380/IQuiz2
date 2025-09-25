@@ -833,6 +833,10 @@ function populateProvinceOptions(selectEl, placeholder){
   function renderTopBars(){
     $('#lives').textContent = faNum(State.lives);
     $('#coins').textContent = faNum(State.coins);
+    const livesChip = $('#lives')?.closest('.chip');
+    if (livesChip) livesChip.classList.add('hidden');
+    const coinsChip = $('#coins')?.closest('.chip');
+    if (coinsChip) coinsChip.classList.add('hidden');
     updateLifelineStates();
   }
 
@@ -1670,13 +1674,19 @@ function startQuizTimerCountdown(){
     if (State.quiz.remain <= 0){
       State.quiz.remain = 0;
       clearInterval(State.quiz.timer); State.quiz.timer = null;
+      State.quiz.answered = true;
       lockChoices?.();
       const currentQuestion = getQuestionAt(State.quiz.idx);
-      const ended = registerAnswer?.(-1, currentQuestion);
+      const ended = registerAnswer?.(-1, currentQuestion, { timedOut: true });
       (typeof onTimerExpired === 'function' ? onTimerExpired : handleTimeUp)?.(ended);
     }
   }, 1000);
 }
+
+  function handleTimeUp(ended){
+    if(ended) return;
+    setTimeout(nextQuestion, 900);
+  }
 
   function addExtraTime(extra){
     if(!Number.isFinite(extra) || extra <= 0) return;
@@ -1720,14 +1730,16 @@ function startQuizTimerCountdown(){
 
   function lockChoices(){ $$('#choices .choice').forEach(el=> el.classList.add('pointer-events-none','opacity-70')); }
   
-  function registerAnswer(idx, question){
+  function registerAnswer(idx, question, options = {}){
+    const { timedOut = false } = options || {};
     const q = question || getQuestionAt(State.quiz.idx);
     if (!q) {
       console.warn('[quiz] Invalid question encountered, skipping.');
       return moveToNextValidQuestion(State.quiz.idx + 1);
     }
     const correct = q.a;
-    const ok = (idx===correct);
+    const hasAnswer = Number.isInteger(idx) && idx >= 0;
+    const ok = hasAnswer && (idx===correct);
     const basePointsValue = getCorrectAnswerBasePoints();
     const baseCoinsValue = getCorrectAnswerBaseCoins();
     const basePoints = ok ? basePointsValue : 0;
@@ -1742,15 +1754,27 @@ function startQuizTimerCountdown(){
       State.quiz.sessionEarned += earned;
       State.quiz.correctStreak = (State.quiz.correctStreak || 0) + 1;
       SFX.correct(); vibrate(30);
-    } else {
+    } else if (hasAnswer && !timedOut) {
       State.quiz.correctStreak = 0;
       spendKeys(1);
       // Use a life from the limit
       useGameResource('lives');
       SFX.wrong(); vibrate([10,30,10]);
+    } else {
+      State.quiz.correctStreak = 0;
     }
 
-    State.quiz.results.push({ q:q.q, ok, correct: q.c[correct], you: idx>=0 && q.c[idx] != null ? q.c[idx] : '—' });
+    const userAnswerLabel = hasAnswer && q.c[idx] != null
+      ? q.c[idx]
+      : (timedOut ? 'پاسخی ثبت نشد' : '—');
+
+    State.quiz.results.push({
+      q: q.q,
+      ok,
+      correct: q.c[correct],
+      you: userAnswerLabel,
+      timedOut,
+    });
     saveState(); renderHeader(); renderTopBars();
 
     // Log analytics
@@ -1812,7 +1836,6 @@ function startQuizTimerCountdown(){
       const row=document.createElement('div'); row.className='bg-white/10 border border-white/20 rounded-xl px-3 py-2';
       row.innerHTML=`<div class="text-sm font-bold mb-1">${faNum(i+1)}. ${r.q}</div>
         <div class="text-xs ${r.ok?'text-emerald-300':'text-rose-300'}">${r.ok?'درست':'نادرست'}</div>
-        <div class="text-xs opacity-90">پاسخ صحیح: ${r.correct}</div>
         <div class="text-xs opacity-70">پاسخ شما: ${r.you}</div>`;
       wrap.appendChild(row);
     });

@@ -202,22 +202,19 @@ export function lifePause() {
 export function renderQuestionUI(q) {
   const questionValid = isValidQuestion(q);
   const catLabel = State.quiz.cat || q.cat || '—';
-  const diffLabel = State.quiz.diff || q.diff || '—';
   $('#quiz-cat').innerHTML = `<i class="fas fa-folder ml-1"></i> ${catLabel}`;
-  $('#quiz-diff').innerHTML = `<i class="fas fa-signal ml-1"></i> ${diffLabel}`;
+  const diffChip = $('#quiz-diff');
+  if (diffChip) {
+    diffChip.textContent = '';
+    diffChip.classList.add('hidden');
+  }
   $('#qnum').textContent = faNum(Math.min(State.quiz.idx + 1, Math.max(1, State.quiz.list.length)));
   $('#qtotal').textContent = faNum(State.quiz.list.length);
   const codeChip = $('#quiz-code');
   const codeValueEl = $('#quiz-code-value');
   if (codeChip && codeValueEl) {
-    const codeValue = (q.id || '').toString().trim();
-    if (codeValue) {
-      codeValueEl.textContent = codeValue;
-      codeChip.classList.remove('hidden');
-    } else {
-      codeValueEl.textContent = '—';
-      codeChip.classList.add('hidden');
-    }
+    codeValueEl.textContent = '—';
+    codeChip.classList.add('hidden');
   }
   $('#question').textContent = questionValid ? q.q : 'سؤال معتبر در دسترس نیست.';
   const authorWrapper = $('#question-author');
