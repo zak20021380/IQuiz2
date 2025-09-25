@@ -76,7 +76,32 @@ export function normalizeQuestions(list) {
     let answerIdx;
     if (typeof q.answerIndex === 'number') {
       answerIdx = q.answerIndex;
-    } else if (Array.isArray(rawChoices)) {
+    } else if (typeof q.answerIndex === 'string') {
+      const parsed = Number.parseInt(q.answerIndex.trim(), 10);
+      if (Number.isFinite(parsed)) {
+        answerIdx = parsed;
+      }
+    }
+
+    if (typeof answerIdx !== 'number' && typeof q.correctIdx === 'number') {
+      answerIdx = q.correctIdx;
+    } else if (typeof answerIdx !== 'number' && typeof q.correctIdx === 'string') {
+      const parsed = Number.parseInt(q.correctIdx.trim(), 10);
+      if (Number.isFinite(parsed)) {
+        answerIdx = parsed;
+      }
+    }
+
+    if (typeof answerIdx !== 'number' && typeof q.correctIndex === 'number') {
+      answerIdx = q.correctIndex;
+    } else if (typeof answerIdx !== 'number' && typeof q.correctIndex === 'string') {
+      const parsed = Number.parseInt(q.correctIndex.trim(), 10);
+      if (Number.isFinite(parsed)) {
+        answerIdx = parsed;
+      }
+    }
+
+    if (typeof answerIdx !== 'number' && Array.isArray(rawChoices)) {
       let found = -1;
       for (let k = 0; k < rawChoices.length; k += 1) {
         const ro = rawChoices[k];
@@ -86,7 +111,9 @@ export function normalizeQuestions(list) {
         }
       }
       answerIdx = found;
-    } else {
+    }
+
+    if (typeof answerIdx !== 'number') {
       answerIdx = -1;
     }
 
