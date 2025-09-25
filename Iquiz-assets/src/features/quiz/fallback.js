@@ -215,21 +215,29 @@ export function getFallbackQuestionPool({ categoryId, categorySlug, difficulty, 
     working = pool;
   }
 
+  const basePool = BASE_FALLBACK_QUESTIONS;
   const unique = [];
   const seen = new Set();
-  for (let idx = 0; idx < working.length && unique.length < normalizedCount; idx += 1) {
-    const question = working[idx];
-    const key = question.id || question.q;
-    if (!key || seen.has(key)) continue;
+
+  const register = (question, offset = 0) => {
+    if (!question) return false;
+    const textKey = (question.q || question.question || '').toString().trim().toLowerCase();
+    const idKey = (question.id || question.uid || '').toString().trim().toLowerCase();
+    const key = textKey || idKey;
+    if (!key || seen.has(key)) return false;
     seen.add(key);
-    unique.push(cloneQuestion(question, idx));
+    unique.push(cloneQuestion(question, offset));
+    return true;
+  };
+
+  for (let idx = 0; idx < working.length && unique.length < normalizedCount; idx += 1) {
+    register(working[idx], idx);
   }
 
-  let offset = unique.length;
-  while (unique.length < normalizedCount && working.length) {
-    const question = working[offset % working.length];
-    unique.push(cloneQuestion(question, offset));
-    offset += 1;
+  if (unique.length < normalizedCount) {
+    for (let idx = 0; idx < basePool.length && unique.length < normalizedCount; idx += 1) {
+      register(basePool[idx], working.length + idx);
+    }
   }
 
   return unique;
@@ -242,34 +250,36 @@ export function topUpWithFallbackQuestions(list, options = {}) {
     return target.slice(0, desired);
   }
 
-  const existingKeys = new Set();
+  const existingIds = new Set();
+  const existingTexts = new Set();
+
   target.forEach((question, index) => {
-    const key = (question?.id || question?.q || `client-${index}`).toString().toLowerCase();
-    existingKeys.add(key);
+    if (!question) return;
+    const idKey = (question.id || question.uid || `client-${index}`).toString().trim().toLowerCase();
+    const textKey = (question.q || question.question || '').toString().trim().toLowerCase();
+    if (idKey) existingIds.add(idKey);
+    if (textKey) existingTexts.add(textKey);
   });
+
+  const tryAdd = (question, offset = 0) => {
+    if (!question) return false;
+    const idKey = (question.id || question.uid || `fallback-${offset}`).toString().trim().toLowerCase();
+    const textKey = (question.q || question.question || '').toString().trim().toLowerCase();
+    if (textKey && existingTexts.has(textKey)) return false;
+    if (idKey && existingIds.has(idKey)) return false;
+    const clone = { ...question };
+    if (idKey) existingIds.add(idKey);
+    if (textKey) existingTexts.add(textKey);
+    target.push(clone);
+    return true;
+  };
 
   const fallbackPool = getFallbackQuestionPool(options);
   for (let idx = 0; idx < fallbackPool.length && target.length < desired; idx += 1) {
-    const question = fallbackPool[idx];
-    const key = (question?.id || question?.q || `fallback-${idx}`).toString().toLowerCase();
-    if (existingKeys.has(key)) continue;
-    existingKeys.add(key);
-    target.push({ ...question });
+    tryAdd(fallbackPool[idx], idx);
   }
 
-  let recycleIndex = 0;
-  while (target.length < desired && fallbackPool.length) {
-    const base = fallbackPool[recycleIndex % fallbackPool.length];
-    const clone = cloneQuestion(base, target.length + recycleIndex);
-    const key = (clone?.id || clone?.q || `fallback-${recycleIndex}`).toString().toLowerCase();
-    if (!existingKeys.has(key)) {
-      existingKeys.add(key);
-      target.push(clone);
-    }
-    recycleIndex += 1;
-  }
-
-  return target.slice(0, desired);
+  return target.slice(0, Math.min(target.length, desired));
 }
 
 export { BASE_FALLBACK_QUESTIONS };
