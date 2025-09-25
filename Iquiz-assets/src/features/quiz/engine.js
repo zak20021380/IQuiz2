@@ -1,7 +1,7 @@
 import { $, $$ } from '../../utils/dom.js';
 import { faNum } from '../../utils/format.js';
 import { toast, SFX } from '../../utils/feedback.js';
-import { State } from '../../state/state.js';
+import { State, spendKeys } from '../../state/state.js';
 import { saveState } from '../../state/persistence.js';
 
 const LIFELINE_COST = 3;
@@ -81,7 +81,7 @@ export function spendLifelineCost() {
     animateKeyChip();
     return false;
   }
-  State.lives -= LIFELINE_COST;
+  spendKeys(LIFELINE_COST);
   callDependency('renderTopBars');
   saveState();
   animateKeyChip();
