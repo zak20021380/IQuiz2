@@ -10,9 +10,10 @@ export async function categories() {
   return await Net.jget(`${API_BASE}/categories`);
 }
 
-export async function questions({ categoryId, count, difficulty } = {}) {
+export async function questions({ categoryId, categorySlug, count, difficulty } = {}) {
   const qs = new URLSearchParams();
   if (categoryId) qs.set('categoryId', categoryId);
+  if (categorySlug) qs.set('categorySlug', categorySlug);
   if (count) qs.set('count', count);
   if (difficulty) qs.set('difficulty', difficulty);
   const query = qs.toString();

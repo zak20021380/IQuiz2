@@ -165,6 +165,9 @@ export async function startQuizFromAdmin(arg) {
   const catObj = findCategoryById(categoryId) || null;
   const diffPoolRaw = getCategoryDifficultyPool(catObj);
   const diffPool = Array.isArray(diffPoolRaw) && diffPoolRaw.length ? diffPoolRaw : getEffectiveDiffs();
+  const fallbackCat = firstCategory || null;
+  const catMeta = catObj || fallbackCat || {};
+  const catSlug = (catObj?.slug || catMeta?.slug || fallbackCat?.slug || firstCategory?.slug || '') || null;
 
   const selectedDiff = pickDifficulty(diffPool, {
     requested: opts.difficulty,
@@ -187,7 +190,12 @@ export async function startQuizFromAdmin(arg) {
   try {
     let list = [];
     if (typeof Api !== 'undefined' && Api && typeof Api.questions === 'function') {
-      list = (await Api.questions({ categoryId, count, difficulty: difficultyValue })) || [];
+      list = (await Api.questions({
+        categoryId,
+        categorySlug: catSlug || undefined,
+        count,
+        difficulty: difficultyValue,
+      })) || [];
     }
 
     if (!Array.isArray(list) || list.length === 0) {
@@ -201,8 +209,6 @@ export async function startQuizFromAdmin(arg) {
       return false;
     }
 
-    const fallbackCat = firstCategory || null;
-    const catMeta = catObj || fallbackCat || {};
     const stateQuizCat = State.quiz?.cat;
     const catTitle = opts.cat != null ? opts.cat : catMeta.title || catMeta.name || stateQuizCat || '—';
 
