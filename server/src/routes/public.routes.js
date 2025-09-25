@@ -203,7 +203,9 @@ router.get('/questions', async (req, res) => {
   const categoryIdRaw = typeof req.query.categoryId === 'string' ? req.query.categoryId.trim() : '';
   const categorySlugRaw = typeof req.query.categorySlug === 'string' ? req.query.categorySlug.trim() : '';
 
-  const fallbackPreference = (categoryIdRaw || categorySlugRaw || '').trim();
+  const fallbackPreference = [categorySlugRaw, categoryIdRaw]
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .find((value) => value.length > 0) || '';
 
   const fallbackResponse = (candidate) => {
     const directCandidate = typeof candidate === 'string' ? candidate.trim() : '';
