@@ -1744,29 +1744,31 @@
       <p class="text-sm opacity-80">لطفاً جزئیات خرید را بررسی کنید</p>
     </div>
     
-    <div class="payment-details">
-      <div class="payment-row">
-        <span class="payment-label">بسته انتخابی</span>
-        <span class="payment-value" id="payment-package-name">-</span>
+    <div class="payment-body">
+      <div class="payment-details">
+        <div class="payment-row">
+          <span class="payment-label">بسته انتخابی</span>
+          <span class="payment-value" id="payment-package-name">-</span>
+        </div>
+        <div class="payment-row">
+          <span class="payment-label">تعداد سکه</span>
+          <span class="payment-value text-yellow-300" id="payment-coins-amount">-</span>
+        </div>
+        <div class="payment-row">
+          <span class="payment-label">قیمت</span>
+          <span class="payment-value" id="payment-price">-</span>
+        </div>
+        <div class="payment-row">
+          <span class="payment-label">موجودی کیف پول</span>
+          <span class="payment-value" id="payment-wallet-balance">-</span>
+        </div>
       </div>
-      <div class="payment-row">
-        <span class="payment-label">تعداد سکه</span>
-        <span class="payment-value text-yellow-300" id="payment-coins-amount">-</span>
-      </div>
-      <div class="payment-row">
-        <span class="payment-label">قیمت</span>
-        <span class="payment-value" id="payment-price">-</span>
-      </div>
-      <div class="payment-row">
-        <span class="payment-label">موجودی کیف پول</span>
-        <span class="payment-value" id="payment-wallet-balance">-</span>
-      </div>
-    </div>
-    
-    <div class="payment-warning" id="payment-warning">
-      <div class="flex items-center gap-2">
-        <i class="fas fa-exclamation-triangle text-red-400"></i>
-        <span>موجودی کیف پول شما کافی نیست. به درگاه پرداخت هدایت می‌شوید.</span>
+
+      <div class="payment-warning" id="payment-warning">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-exclamation-triangle text-red-400"></i>
+          <span>موجودی کیف پول شما کافی نیست. به درگاه پرداخت هدایت می‌شوید.</span>
+        </div>
       </div>
     </div>
     

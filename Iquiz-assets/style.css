@@ -574,7 +574,7 @@
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(10px);
   z-index: 100;
-  padding: 1rem;
+  padding: clamp(0.75rem, 3vw, 1.5rem);
   animation: fadeIn 0.3s ease;
 }
 
@@ -589,10 +589,13 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 2rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 420px;
-  width: 100%;
-  padding: 2rem;
+  width: min(420px, calc(100vw - clamp(1.5rem, 6vw, 3rem)));
+  padding: clamp(1.4rem, 4vw, 2rem);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-height: calc(100dvh - clamp(1.5rem, 8vw, 3.5rem));
   overflow: hidden;
   animation: slideUp 0.4s ease;
 }
@@ -606,6 +609,7 @@
   height: 200%;
   background: radial-gradient(circle, rgba(251, 146, 60, 0.1), transparent 70%);
   animation: rotate 20s linear infinite;
+  pointer-events: none;
 }
 
 @keyframes slideUp {
@@ -620,9 +624,9 @@
 
 .payment-header {
   text-align: center;
-  margin-bottom: 2rem;
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
 }
 
 .payment-icon {
@@ -640,11 +644,31 @@
   animation: pulse 2s infinite;
 }
 
+.payment-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+  padding-inline-end: 0.25rem;
+  margin-inline-end: -0.25rem;
+  flex: 1 1 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.payment-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.payment-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
 .payment-details {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 1rem;
   padding: 1.5rem;
-  margin-bottom: 1.5rem;
   position: relative;
   z-index: 1;
 }
@@ -676,7 +700,6 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 0.75rem;
   padding: 1rem;
-  margin-bottom: 1.5rem;
   display: none;
   position: relative;
   z-index: 1;
@@ -698,6 +721,7 @@
   gap: 1rem;
   position: relative;
   z-index: 1;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .payment-success-animation {
@@ -707,10 +731,41 @@
   place-items: center;
   background: rgba(16, 185, 129, 0.1);
   z-index: 10;
+  pointer-events: none;
 }
 
 .payment-success-animation.show {
   display: grid;
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .payment-modal {
+    align-items: flex-end;
+    padding-bottom: max(clamp(0.75rem, 4vw, 1.5rem), env(safe-area-inset-bottom));
+  }
+
+  .payment-modal-card {
+    border-radius: 1.5rem 1.5rem max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-bottom));
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.45);
+    max-height: calc(100dvh - clamp(0.75rem, 6vw, 2.5rem));
+  }
+
+  .payment-actions {
+    flex-direction: column;
+  }
+
+  .payment-actions .btn {
+    width: 100%;
+  }
+
+  .payment-details {
+    padding: 1.1rem;
+  }
+
+  .payment-row {
+    padding-block: 0.6rem;
+  }
 }
 
 
