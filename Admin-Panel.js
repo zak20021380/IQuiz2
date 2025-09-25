@@ -1473,6 +1473,27 @@ function renderImportPreviewCard(question) {
   `;
 }
 
+function resolveImportConcurrency(total = 1) {
+  const safeTotal = Number.isFinite(Number(total)) ? Number(total) : 1;
+  let suggested = 4;
+  if (typeof navigator !== 'undefined' && navigator?.hardwareConcurrency) {
+    const hardware = Number(navigator.hardwareConcurrency);
+    if (Number.isFinite(hardware)) {
+      suggested = Math.max(2, Math.floor(hardware * 0.75));
+    }
+  } else if (safeTotal > 20) {
+    suggested = 6;
+  } else if (safeTotal > 8) {
+    suggested = 4;
+  } else if (safeTotal > 3) {
+    suggested = 3;
+  }
+
+  const upperBound = 8;
+  const limit = Math.max(1, Math.min(upperBound, suggested));
+  return Math.max(1, Math.min(limit, safeTotal));
+}
+
 function resetImportQuestionsModal() {
   importQuestionsState.raw = '';
   importQuestionsState.questions = [];
@@ -1521,22 +1542,36 @@ async function handleImportQuestionsSubmit() {
   let successCount = 0;
   let failureCount = 0;
 
-  for (const question of pendingQuestions) {
-    try {
-      await api('/questions', {
-        method: 'POST',
-        body: JSON.stringify(question.payload)
-      });
-      question.status = 'success';
-      successCount += 1;
-      await wait(80);
-    } catch (error) {
-      question.status = 'error';
-      question.errorMessage = error?.message || 'ثبت سوال ناموفق بود';
-      failureCount += 1;
+  const concurrency = resolveImportConcurrency(pendingQuestions.length);
+  let cursor = 0;
+
+  async function runWorker() {
+    while (cursor < pendingQuestions.length) {
+      const currentIndex = cursor;
+      cursor += 1;
+      const question = pendingQuestions[currentIndex];
+      if (!question) {
+        continue;
+      }
+
+      try {
+        await api('/questions', {
+          method: 'POST',
+          body: JSON.stringify(question.payload)
+        });
+        question.status = 'success';
+        successCount += 1;
+      } catch (error) {
+        question.status = 'error';
+        question.errorMessage = error?.message || 'ثبت سوال ناموفق بود';
+        failureCount += 1;
+      }
+      renderImportQuestionsState();
     }
-    renderImportQuestionsState();
   }
+
+  const workers = Array.from({ length: concurrency }, () => runWorker());
+  await Promise.all(workers);
 
   importQuestionsState.importing = false;
   renderImportQuestionsState();
