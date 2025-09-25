@@ -4,12 +4,16 @@ const assert = require('assert');
 const QuestionService = require('../src/services/questionService');
 const { loadDuelQuestions, MAX_DUEL_QUESTIONS } = require('../src/services/duelEngine');
 
-test('loadDuelQuestions enforces cap and removes duplicates', async () => {
+test('loadDuelQuestions enforces cap, removes duplicates, and forwards user identity', async () => {
   const original = QuestionService.getQuestions;
   let capturedCount = null;
+  let capturedUserId = null;
+  let capturedGuestId = null;
 
   QuestionService.getQuestions = async (params) => {
     capturedCount = params.count;
+    capturedUserId = params.userId;
+    capturedGuestId = params.guestId;
     return {
       ok: true,
       countRequested: params.count,
@@ -22,11 +26,18 @@ test('loadDuelQuestions enforces cap and removes duplicates', async () => {
   };
 
   try {
-    const questions = await loadDuelQuestions({ requested: MAX_DUEL_QUESTIONS + 5, category: 'general' });
+    const questions = await loadDuelQuestions({
+      requested: MAX_DUEL_QUESTIONS + 5,
+      category: 'general',
+      userId: 'user-42',
+      guestId: 'guest-1'
+    });
     assert.strictEqual(capturedCount, MAX_DUEL_QUESTIONS);
     assert.strictEqual(questions.length, 2);
     const ids = new Set(questions.map((q) => q.id));
     assert.strictEqual(ids.size, questions.length);
+    assert.strictEqual(capturedUserId, 'user-42');
+    assert.strictEqual(capturedGuestId, 'guest-1');
   } finally {
     QuestionService.getQuestions = original;
   }
