@@ -2821,8 +2821,18 @@ async function startPurchaseCoins(pkgId){
     },
     // Interstitial (frequency capping)
     async maybeShowInterstitial(trigger){
+      const allowedTrigger = 'app_open';
+      if(trigger !== allowedTrigger) return;
       if(!this.enabled() || !RemoteConfig.ads.placements.interstitial) return;
       const now = Date.now();
+      const storageKey = 'iquiz_interstitial_last_shown';
+      const dayMs = 24 * 60 * 60 * 1000;
+      let lastShown = 0;
+      try {
+        const stored = window.localStorage?.getItem(storageKey);
+        if(stored) lastShown = Number(stored) || 0;
+      } catch {}
+      if(lastShown && (now - lastShown) < dayMs) return;
       const caps = RemoteConfig.ads.freqCaps; const sess = RemoteConfig.ads.session;
       if(sess.interstitialShown >= caps.interstitialPerSession) return;
       if(now - sess.lastInterstitialAt < RemoteConfig.ads.interstitialCooldownMs) return;
@@ -2857,6 +2867,7 @@ async function startPurchaseCoins(pkgId){
         }
       }
       modal.classList.add('show');
+      try { window.localStorage?.setItem(storageKey, String(now)); } catch {}
       let closed=false;
       function close(){ if(closed) return; closed=true; modal.classList.remove('show'); frame.src='about:blank'; frame.removeAttribute('srcdoc'); logEvent('ad_close',{placement:'interstitial'}); }
       $('#interstitial-close').onclick = close;
