@@ -60,6 +60,11 @@ function animateKeyChip() {
 
 export function updateLifelineStates() {
   const hasKeys = State.lives >= LIFELINE_COST;
+  const balanceEl = $('#lifelines-balance');
+  if (balanceEl) {
+    const keys = Number.isFinite(State.lives) ? Math.max(0, State.lives) : 0;
+    balanceEl.innerHTML = `<i class="fas fa-key"></i><span>${faNum(keys)} کلید در دسترس</span>`;
+  }
   ['life-5050', 'life-skip', 'life-pause'].forEach((id) => {
     const btn = $('#' + id);
     if (!btn) return;
