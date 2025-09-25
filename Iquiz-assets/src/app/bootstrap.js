@@ -1736,8 +1736,6 @@ function startQuizTimerCountdown(){
     const boostActive = Date.now() < State.boostUntil;
     const vipBonus = ok && Server.subscription.active ? Math.round(basePoints * 0.2) : 0; // VIP from server
     const earned = ok ? Math.floor((basePoints + timeBonus + vipBonus) * (boostActive ? 2 : 1)) : 0;
-    let shouldEnd = false;
-
     if(ok){
       State.score += earned;
       State.coins += baseCoins;
@@ -1746,11 +1744,10 @@ function startQuizTimerCountdown(){
       SFX.correct(); vibrate(30);
     } else {
       State.quiz.correctStreak = 0;
-      const remainingKeys = spendKeys(1);
+      spendKeys(1);
       // Use a life from the limit
       useGameResource('lives');
       SFX.wrong(); vibrate([10,30,10]);
-      if(remainingKeys<=0) shouldEnd = true;
     }
 
     State.quiz.results.push({ q:q.q, ok, correct: q.c[correct], you: idx>=0 && q.c[idx] != null ? q.c[idx] : '—' });
@@ -1763,11 +1760,6 @@ function startQuizTimerCountdown(){
       category: State.quiz.cat || q.cat,
       difficulty: State.quiz.diff || q.diff
     });
-
-    if(shouldEnd){
-      endQuiz();
-      return true;
-    }
 
     return false;
   }
