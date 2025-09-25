@@ -503,6 +503,27 @@ function cloneQuestion(question, suffix = '') {
   };
 }
 
+function mergeUniqueQuestions(...lists) {
+  const seen = new Set();
+  const merged = [];
+
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const question of list) {
+      if (!question) continue;
+      const parts = [question.id, question.publicId, question.uid, question.text, question.title]
+        .map((part) => (part == null ? '' : String(part).trim().toLowerCase()))
+        .filter(Boolean);
+      const key = parts.join('::');
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      merged.push(question);
+    }
+  }
+
+  return merged;
+}
+
 function shuffleInPlace(array) {
   for (let i = array.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -535,30 +556,58 @@ function getFallbackQuestions({ categoryId = null, difficulty = null, count = 5 
   const normalizedDifficulty = sanitizeDifficulty(difficulty);
   const slug = resolveFallbackCategorySlug(categoryId);
 
-  let pool = FALLBACK_QUESTION_DATA;
+  const allQuestions = Array.isArray(FALLBACK_QUESTION_DATA) ? [...FALLBACK_QUESTION_DATA] : [];
+
+  let categoryPool = allQuestions;
   if (slug) {
-    pool = pool.filter((question) => question.categorySlug === slug || question.categoryId === slug);
-  }
-  if (normalizedDifficulty) {
-    const difficultyFiltered = pool.filter((question) => question.difficulty === normalizedDifficulty);
-    if (difficultyFiltered.length) {
-      pool = difficultyFiltered;
+    const matchedCategory = allQuestions.filter(
+      (question) => question.categorySlug === slug || question.categoryId === slug
+    );
+    if (matchedCategory.length) {
+      categoryPool = matchedCategory;
     }
   }
-  if (!pool.length) {
-    pool = FALLBACK_QUESTION_DATA;
+
+  let workingPool = mergeUniqueQuestions(categoryPool);
+
+  if (normalizedDifficulty) {
+    const difficultyMatches = workingPool.filter((question) => question.difficulty === normalizedDifficulty);
+    if (difficultyMatches.length) {
+      workingPool = mergeUniqueQuestions(difficultyMatches);
+      if (workingPool.length < normalizedCount) {
+        const alternativePool = categoryPool.filter((question) => question.difficulty !== normalizedDifficulty);
+        workingPool = mergeUniqueQuestions(workingPool, alternativePool);
+      }
+    }
   }
 
-  const shuffled = shuffleInPlace([...pool]);
+  if (workingPool.length < normalizedCount) {
+    workingPool = mergeUniqueQuestions(workingPool, allQuestions);
+  }
+
+  if (!workingPool.length) {
+    workingPool = mergeUniqueQuestions(allQuestions);
+  }
+
+  const shuffled = shuffleInPlace([...workingPool]);
   if (!shuffled.length) return [];
 
   const result = [];
-  let index = 0;
-  while (result.length < normalizedCount) {
-    const question = shuffled[index % shuffled.length];
-    const cloned = cloneQuestion(question, result.length);
+  const uniqueLength = Math.min(shuffled.length, normalizedCount);
+
+  for (let i = 0; i < uniqueLength; i += 1) {
+    const cloned = cloneQuestion(shuffled[i], 0);
     if (cloned) result.push(cloned);
-    index += 1;
+  }
+
+  if (result.length < normalizedCount) {
+    let index = 0;
+    while (result.length < normalizedCount) {
+      const question = shuffled[index % shuffled.length];
+      const cloned = cloneQuestion(question, result.length);
+      if (cloned) result.push(cloned);
+      index += 1;
+    }
   }
 
   return result;
