@@ -67,7 +67,7 @@ const questionSchema = new mongoose.Schema(
     type: { type: String, trim: true, default: 'multiple' },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected', 'draft', 'archived'],
+      enum: ['pending', 'pending_review', 'approved', 'rejected', 'draft', 'archived'],
       default: 'approved'
     },
     isApproved: { type: Boolean, default: true },
@@ -88,7 +88,12 @@ const questionSchema = new mongoose.Schema(
     uid: { type: String, trim: true, index: true, unique: true, sparse: true },
     hash: { type: String, required: true, trim: true },
     checksum: { type: String, trim: true, default: '' },
-    meta: { type: mongoose.Schema.Types.Mixed, default: {} }
+    meta: { type: mongoose.Schema.Types.Mixed, default: {} },
+    usageCount: { type: Number, default: 0, min: 0 },
+    lastServedAt: { type: Date },
+    sha1Canonical: { type: String, trim: true, unique: true, sparse: true },
+    simhash64: { type: String, trim: true },
+    lshBucket: { type: String, trim: true, index: true }
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
@@ -97,6 +102,9 @@ questionSchema.index({ provider: 1, hash: 1 }, { unique: true, sparse: true, nam
 questionSchema.index({ categoryName: 1, difficulty: 1, correctAnswer: 1, createdAt: -1 }, { name: 'idx_category_difficulty_correctAnswer_createdAt' });
 questionSchema.index({ categorySlug: 1, difficulty: 1, createdAt: -1 }, { name: 'idx_categorySlug_difficulty_createdAt' });
 questionSchema.index({ uid: 1 }, { unique: true, sparse: true, name: 'uniq_uid' });
+questionSchema.index({ sha1Canonical: 1 }, { unique: true, sparse: true, name: 'uniq_sha1_canonical' });
+questionSchema.index({ lshBucket: 1 }, { name: 'idx_lsh_bucket' });
+questionSchema.index({ category: 1, difficulty: 1, usageCount: 1, lastServedAt: 1 }, { name: 'idx_pick_strategy' });
 
 questionSchema.pre('validate', function deriveHashesAndAnswers(next) {
   try {

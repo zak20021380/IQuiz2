@@ -5,6 +5,7 @@ const logger = require('../config/logger');
 const Category = require('../models/Category');
 const Question = require('../models/Question');
 const questionsController = require('../controllers/questions.controller');
+const questionPicker = require('../services/QuestionPicker');
 const AdModel = require('../models/Ad');
 const { resolveCategory } = require('../config/categories');
 const {
@@ -62,6 +63,12 @@ function sanitizePlacement(value) {
 
 function sanitizeProvince(value) {
   return sanitizeString(value);
+}
+
+function resolveUserContext(req) {
+  const userId = sanitizeString(req.query.userId || req.headers['x-user-id']) || `anon:${req.ip || 'unknown'}`;
+  const sessionId = sanitizeString(req.query.sessionId || req.headers['x-session-id']) || '';
+  return { userId, sessionId };
 }
 
 function isAdActive(ad, nowTs) {
@@ -275,6 +282,44 @@ router.get('/questions', async (req, res) => {
     match.category = categoryFilter;
   }
 
+  const { userId, sessionId } = resolveUserContext(req);
+  let primaryResults = [];
+
+  if (categoryFilter) {
+    try {
+      const pickedDocs = await questionPicker.pick({
+        userId,
+        categoryId: String(categoryFilter),
+        difficulty,
+        count,
+        sessionId
+      });
+
+      if (Array.isArray(pickedDocs) && pickedDocs.length > 0) {
+        const categoryIds = pickedDocs
+          .map(doc => (doc.category ? String(doc.category) : null))
+          .filter(Boolean);
+        let categoryMap = new Map();
+        if (categoryIds.length > 0) {
+          const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
+          categoryMap = buildCategoryMap(categories.map(mapCategoryDocument));
+        }
+
+        const normalizedDocs = pickedDocs
+          .map(doc => mapQuestionDocument(doc, categoryMap))
+          .filter(Boolean);
+
+        primaryResults = normalizedDocs.slice(0, count);
+
+        if (primaryResults.length >= count) {
+          return res.json(primaryResults);
+        }
+      }
+    } catch (error) {
+      logger.warn(`Question picker failed: ${error.message}`);
+    }
+  }
+
   try {
     const pipeline = [
       { $match: match },
@@ -296,7 +341,7 @@ router.get('/questions', async (req, res) => {
         .map(doc => mapQuestionDocument(doc, categoryMap))
         .filter(Boolean);
 
-      if (normalizedDocs.length > 0) {
+      if (normalizedDocs.length > 0 || (primaryResults && primaryResults.length > 0)) {
         const unique = [];
         const seen = new Set();
         const pushUnique = (question) => {
@@ -315,6 +360,10 @@ router.get('/questions', async (req, res) => {
           seen.add(key);
           unique.push(question);
         };
+
+        if (Array.isArray(primaryResults) && primaryResults.length > 0) {
+          primaryResults.forEach(pushUnique);
+        }
 
         normalizedDocs.forEach(pushUnique);
 
