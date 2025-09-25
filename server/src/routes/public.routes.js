@@ -196,8 +196,16 @@ router.get('/questions', async (req, res) => {
   const categoryIdRaw = typeof req.query.categoryId === 'string' ? req.query.categoryId.trim() : '';
   const categorySlugRaw = typeof req.query.categorySlug === 'string' ? req.query.categorySlug.trim() : '';
 
-  const fallbackResponse = () => {
-    res.json(getFallbackQuestions({ categoryId: categoryIdRaw || null, difficulty, count }));
+  const fallbackResponse = (candidate) => {
+    const directCandidate = typeof candidate === 'string' ? candidate.trim() : '';
+    const preferredCategory = directCandidate || categorySlugRaw || categoryIdRaw || '';
+    res.json(
+      getFallbackQuestions({
+        categoryId: preferredCategory || null,
+        difficulty,
+        count,
+      })
+    );
   };
 
   const match = {
