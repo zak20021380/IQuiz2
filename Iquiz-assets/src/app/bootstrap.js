@@ -3210,7 +3210,6 @@ async function startPurchaseCoins(pkgId){
     sel.disabled = true;
     const currentGroupName = getUserGroup()?.name || State.user.group || '—';
     $('#lbl-group').textContent = currentGroupName || '—';
-    $('#inp-avatar').value = '';
     openModal('#modal-profile');
   });
   $('[data-close="#modal-profile"]')?.addEventListener('click', ()=>closeModal('#modal-profile'));
@@ -3220,22 +3219,11 @@ async function startPurchaseCoins(pkgId){
 
     // استان قابل تغییر نیست، بنابراین مقدار آن ذخیره نمی‌شود
 
-    const file = $('#inp-avatar').files[0];
-    if(file){
-      const reader = new FileReader();
-      reader.onload = () => { State.user.avatar = reader.result; finish(); };
-      reader.readAsDataURL(file);
-    } else {
-      finish();
-    }
-
-    function finish(){
-      saveState();
-      renderHeader();
-      renderDashboard();
-      closeModal('#modal-profile');
-      toast('ذخیره شد ✅');
-    }
+    saveState();
+    renderHeader();
+    renderDashboard();
+    closeModal('#modal-profile');
+    toast('ذخیره شد ✅');
   });
   $('#btn-confirm-province')?.addEventListener('click', () => {
     const p = $('#first-province').value;
