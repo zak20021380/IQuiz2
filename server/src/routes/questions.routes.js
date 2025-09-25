@@ -4,6 +4,7 @@ const ctrl = require('../controllers/questions.controller');
 
 router.use(protect, adminOnly);
 router.get('/duplicates', ctrl.listDuplicates);
+router.get('/search', ctrl.search);
 router.get('/', ctrl.list);
 router.get('/stats/summary', ctrl.statsSummary);
 router.post('/', ctrl.create);
