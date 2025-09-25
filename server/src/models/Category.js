@@ -56,8 +56,9 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+categorySchema.index({ name: 1 }, { unique: true });
+categorySchema.index({ slug: 1 }, { unique: true, sparse: true });
 categorySchema.index({ provider: 1, providerCategoryId: 1 }, { unique: true, sparse: true });
-categorySchema.index({ slug: 1 }, { unique: true });
 categorySchema.index({ order: 1, createdAt: -1 });
 
 categorySchema.pre('validate', async function ensureSlug(next) {

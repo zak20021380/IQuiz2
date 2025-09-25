@@ -1,54 +1,23 @@
 const router = require('express').Router();
-const mongoose = require('mongoose');
 
 const logger = require('../config/logger');
 const Category = require('../models/Category');
-const Question = require('../models/Question');
 const questionsController = require('../controllers/questions.controller');
-const questionPicker = require('../services/QuestionPicker');
 const AdModel = require('../models/Ad');
+const QuestionService = require('../services/questionService');
 const { resolveCategory } = require('../config/categories');
 const {
   getFallbackCategories,
   mapCategoryDocument,
   getFallbackProvinces,
   getFallbackConfig,
-  sanitizeDifficulty,
-  getFallbackQuestions,
-  mapQuestionDocument
+  sanitizeDifficulty
 } = require('../services/publicContent');
 
-const MAX_PUBLIC_QUESTIONS = 20;
+const MAX_PUBLIC_QUESTIONS = 30;
 const AD_PLACEMENTS = new Set(AdModel.AD_PLACEMENTS || ['banner', 'native', 'interstitial', 'rewarded']);
 
 const sanitizeString = (value) => (typeof value === 'string' ? value.trim() : '');
-
-function collectCategoryLookupValues(...inputs) {
-  const values = new Set();
-
-  const push = (candidate) => {
-    if (candidate === undefined || candidate === null) return;
-    const trimmed = String(candidate).trim();
-    if (!trimmed) return;
-    values.add(trimmed);
-  };
-
-  inputs.forEach(push);
-
-  inputs.forEach((input) => {
-    const canonical = resolveCategory(input);
-    if (!canonical) return;
-    push(canonical.slug);
-    push(canonical.providerCategoryId);
-    push(canonical.name);
-    push(canonical.displayName);
-    if (Array.isArray(canonical.aliases)) {
-      canonical.aliases.forEach(push);
-    }
-  });
-
-  return Array.from(values);
-}
 
 function sanitizeCount(raw) {
   const parsed = Number.parseInt(raw, 10);
@@ -63,12 +32,6 @@ function sanitizePlacement(value) {
 
 function sanitizeProvince(value) {
   return sanitizeString(value);
-}
-
-function resolveUserContext(req) {
-  const userId = sanitizeString(req.query.userId || req.headers['x-user-id']) || `anon:${req.ip || 'unknown'}`;
-  const sessionId = sanitizeString(req.query.sessionId || req.headers['x-session-id']) || '';
-  return { userId, sessionId };
 }
 
 function isAdActive(ad, nowTs) {
@@ -162,16 +125,6 @@ function mapAdForPublic(ad) {
   }
 }
 
-function buildCategoryMap(items) {
-  const map = new Map();
-  items.forEach(item => {
-    if (item && item.id) {
-      map.set(String(item.id), item);
-    }
-  });
-  return map;
-}
-
 router.get('/config', (req, res) => {
   res.json(getFallbackConfig());
 });
@@ -197,210 +150,43 @@ router.get('/provinces', (req, res) => {
   res.json(getFallbackProvinces());
 });
 
-router.get('/questions', async (req, res) => {
-  const count = sanitizeCount(req.query.count);
-  const difficulty = sanitizeDifficulty(req.query.difficulty);
-  const categoryIdRaw = typeof req.query.categoryId === 'string' ? req.query.categoryId.trim() : '';
-  const categorySlugRaw = typeof req.query.categorySlug === 'string' ? req.query.categorySlug.trim() : '';
-
-  const fallbackPreference = [categorySlugRaw, categoryIdRaw]
-    .map((value) => (typeof value === 'string' ? value.trim() : ''))
-    .find((value) => value.length > 0) || '';
-
-  const fallbackResponse = (candidate) => {
-    const directCandidate = typeof candidate === 'string' ? candidate.trim() : '';
-    const preferredCategory = directCandidate || fallbackPreference;
-    res.json(
-      getFallbackQuestions({
-        categoryId: preferredCategory || null,
-        difficulty,
-        count,
-      })
-    );
-  };
-
-  const match = {
-    active: true,
-    $or: [
-      { status: { $exists: false } },
-      { status: 'approved' }
-    ]
-  };
-  if (difficulty) {
-    match.difficulty = difficulty;
-  }
-
-  const categoryCandidates = collectCategoryLookupValues(categoryIdRaw, categorySlugRaw);
-  let categoryFilter = null;
-  const fallbackSlugCandidates = [];
-  const fallbackNameCandidates = [];
-
-  if (categoryCandidates.length) {
-    const objectIdCandidate = categoryCandidates.find((candidate) => mongoose.Types.ObjectId.isValid(candidate));
-    if (objectIdCandidate) {
-      categoryFilter = new mongoose.Types.ObjectId(objectIdCandidate);
-    } else {
-      const rawCandidates = Array.from(new Set(categoryCandidates.map((candidate) => String(candidate).trim()).filter(Boolean)));
-      const slugCandidates = Array.from(new Set(rawCandidates.map((candidate) => candidate.toLowerCase())));
-
-      fallbackNameCandidates.push(...rawCandidates);
-      fallbackSlugCandidates.push(...slugCandidates);
-
-      const categoryDoc = await Category.findOne({
-        status: { $ne: 'disabled' },
-        $or: [
-          { slug: { $in: slugCandidates } },
-          { providerCategoryId: { $in: [...slugCandidates, ...rawCandidates] } },
-          { aliases: { $in: rawCandidates } },
-          { name: { $in: rawCandidates } },
-          { displayName: { $in: rawCandidates } }
-        ]
-      }).select({ _id: 1 }).lean();
-
-      if (categoryDoc?._id) {
-        categoryFilter = categoryDoc._id;
-      }
-    }
-  }
-
-  if (!categoryFilter) {
-    const orConditions = [];
-    if (fallbackSlugCandidates.length) {
-      orConditions.push({ categorySlug: { $in: fallbackSlugCandidates } });
-    }
-    if (fallbackNameCandidates.length) {
-      orConditions.push({ categoryName: { $in: fallbackNameCandidates } });
-    }
-
-    if (orConditions.length) {
-      if (!match.$and) match.$and = [];
-      match.$and.push({ $or: orConditions });
-    } else if (categoryCandidates.length) {
-      return fallbackResponse();
-    }
-  }
-
-  if (categoryFilter) {
-    match.category = categoryFilter;
-  }
-
-  const { userId, sessionId } = resolveUserContext(req);
-  let primaryResults = [];
-
-  if (categoryFilter) {
-    try {
-      const pickedDocs = await questionPicker.pick({
-        userId,
-        categoryId: String(categoryFilter),
-        difficulty,
-        count,
-        sessionId
-      });
-
-      if (Array.isArray(pickedDocs) && pickedDocs.length > 0) {
-        const categoryIds = pickedDocs
-          .map(doc => (doc.category ? String(doc.category) : null))
-          .filter(Boolean);
-        let categoryMap = new Map();
-        if (categoryIds.length > 0) {
-          const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
-          categoryMap = buildCategoryMap(categories.map(mapCategoryDocument));
-        }
-
-        const normalizedDocs = pickedDocs
-          .map(doc => mapQuestionDocument(doc, categoryMap))
-          .filter(Boolean);
-
-        primaryResults = normalizedDocs.slice(0, count);
-
-        if (primaryResults.length >= count) {
-          return res.json(primaryResults);
-        }
-      }
-    } catch (error) {
-      logger.warn(`Question picker failed: ${error.message}`);
-    }
-  }
-
+router.get('/questions', async (req, res, next) => {
   try {
-    const pipeline = [
-      { $match: match },
-      { $sample: { size: count } }
-    ];
-    const docs = await Question.aggregate(pipeline);
+    const count = sanitizeCount(req.query.count);
+    const difficulty = sanitizeDifficulty(req.query.difficulty);
+    const categoryInputs = [
+      req.query.categoryId,
+      req.query.categorySlug,
+      req.query.category,
+      req.query.slug
+    ].filter(Boolean);
 
-    if (Array.isArray(docs) && docs.length > 0) {
-      const categoryIds = docs
-        .map(doc => (doc.category ? String(doc.category) : null))
-        .filter(Boolean);
-      let categoryMap = new Map();
-      if (categoryIds.length > 0) {
-        const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
-        categoryMap = buildCategoryMap(categories.map(mapCategoryDocument));
-      }
-
-      const normalizedDocs = docs
-        .map(doc => mapQuestionDocument(doc, categoryMap))
-        .filter(Boolean);
-
-      if (normalizedDocs.length > 0 || (primaryResults && primaryResults.length > 0)) {
-        const unique = [];
-        const seen = new Set();
-        const pushUnique = (question) => {
-          if (!question) return;
-          const keyCandidate = [
-            question.publicId,
-            question.id,
-            question.uid,
-            question.text,
-            question.title,
-          ]
-            .map((value) => (value == null ? '' : String(value).trim().toLowerCase()))
-            .find((value) => value.length > 0);
-          const key = keyCandidate || `anon-${unique.length}`;
-          if (seen.has(key)) return;
-          seen.add(key);
-          unique.push(question);
-        };
-
-        if (Array.isArray(primaryResults) && primaryResults.length > 0) {
-          primaryResults.forEach(pushUnique);
-        }
-
-        normalizedDocs.forEach(pushUnique);
-
-        if (unique.length < count) {
-          const fallbackList = getFallbackQuestions({
-            categoryId:
-              fallbackPreference ||
-              unique[0]?.categorySlug ||
-              unique[0]?.categoryId ||
-              null,
-            difficulty,
-            count,
-          });
-          fallbackList.forEach(pushUnique);
-        }
-
-        if (unique.length < count) {
-          const generalFallback = getFallbackQuestions({
-            categoryId: null,
-            difficulty,
-            count,
-          });
-          generalFallback.forEach(pushUnique);
-        }
-
-        if (unique.length > 0) {
-          return res.json(unique.slice(0, count));
-        }
-      }
+    if (typeof req.query.categoryName === 'string') {
+      categoryInputs.push(req.query.categoryName);
     }
-  } catch (error) {
-    logger.warn(`Failed to load questions from database: ${error.message}`);
-  }
 
-  return fallbackResponse();
+    categoryInputs.forEach((input) => {
+      const resolved = resolveCategory(input);
+      if (resolved) {
+        categoryInputs.push(resolved.slug, resolved.providerCategoryId, resolved.name, resolved.displayName);
+      }
+    });
+
+    const category = categoryInputs
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .find((value) => value.length > 0);
+
+    const result = await QuestionService.getQuestions({
+      count,
+      difficulty,
+      category
+    });
+
+    const status = result.countReturned < result.countRequested ? 206 : 200;
+    res.status(status).json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get('/ads', async (req, res) => {

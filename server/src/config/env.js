@@ -43,7 +43,12 @@ function parseAllowedOrigins(value) {
     .filter(Boolean);
 }
 
-const nodeEnv = process.env.NODE_ENV || DEFAULT_NODE_ENV;
+const nodeEnvRaw = process.env.NODE_ENV || DEFAULT_NODE_ENV;
+if (nodeEnvRaw === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET required');
+}
+
+const nodeEnv = nodeEnvRaw;
 const mongoUri = process.env.MONGO_URI || DEFAULT_MONGO_URI;
 const mongoMaxPool = parseNumber(process.env.MONGO_MAX_POOL, DEFAULT_MONGO_MAX_POOL, { min: 1 });
 const port = parseNumber(process.env.PORT, DEFAULT_PORT, { min: 1 });
@@ -88,11 +93,8 @@ const env = {
 };
 
 if (!env.jwt.secret) {
-  if (env.isProduction) {
-    throw new Error('JWT_SECRET environment variable is required in production');
-  }
   env.jwt.secret = 'development-only-jwt-secret-change-me';
-  logger.warn('JWT_SECRET environment variable is not set. Using an insecure fallback secret for development.');
+  logger.warn('[auth] JWT_SECRET is missing; using an insecure development secret.');
 }
 
 module.exports = Object.freeze(env);
