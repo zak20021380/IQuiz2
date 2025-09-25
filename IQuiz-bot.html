@@ -431,45 +431,57 @@
         </div>
       </div>
       
-      <!-- Lifelines -->
-      <div class="lifelines-grid">
-        <button id="life-5050" class="lifeline-btn" type="button" aria-label="کمک ۵۰–۵۰">
-          <div class="lifeline-icon"><i class="fas fa-percent"></i></div>
-          <div class="lifeline-details">
-            <div class="lifeline-title">۵۰–۵۰</div>
-            <div class="lifeline-sub">حذف دو گزینهٔ نادرست</div>
-          </div>
-          <div class="lifeline-footer">
-            <div class="lifeline-cost"><i class="fas fa-key"></i><span>۳ کلید</span></div>
-            <div class="lifeline-status hidden"><i class="fas fa-check ml-1"></i> ۵۰–۵۰ فعال شد</div>
-          </div>
-        </button>
-        <button id="life-skip" class="lifeline-btn" type="button" aria-label="پرش به سؤال بعدی">
-          <div class="lifeline-icon"><i class="fas fa-forward"></i></div>
-          <div class="lifeline-details">
-            <div class="lifeline-title">پرش به سؤال بعدی</div>
-            <div class="lifeline-sub">یک‌بار می‌توانی سؤال را رد کنی</div>
-          </div>
-          <div class="lifeline-footer">
-            <div class="lifeline-cost"><i class="fas fa-key"></i><span>۳ کلید</span></div>
-            <div class="lifeline-status hidden"><i class="fas fa-check ml-1"></i> سؤال بعدی فعال شد</div>
-          </div>
-        </button>
-        <button id="life-pause" class="lifeline-btn" type="button" aria-label="افزودن زمان">
-          <div class="lifeline-icon"><i class="fas fa-stopwatch"></i></div>
-          <div class="lifeline-details">
-            <div class="lifeline-title">افزودن ۱۰ ثانیه</div>
-            <div class="lifeline-sub">۱۰ ثانیه زمان بیشتر برای این سؤال</div>
-          </div>
-          <div class="lifeline-footer">
-            <div class="lifeline-cost"><i class="fas fa-key"></i><span>۳ کلید</span></div>
-            <div class="lifeline-status hidden"><i class="fas fa-bolt ml-1"></i> ۱۰ ثانیه اضافه شد</div>
-          </div>
-        </button>
-      </div>
-      
       <div id="choices" class="space-y-4"></div>
-      
+
+      <!-- Lifelines -->
+      <section class="lifelines-panel" aria-label="ابزارهای کمکی مسابقه">
+        <div class="lifelines-header">
+          <div class="lifelines-heading">
+            <span class="lifelines-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+            <div>
+              <div class="lifelines-title-text">ابزارهای کمکی</div>
+              <p class="lifelines-subtitle">با استفاده از کلیدها، شانس بردن هر سؤال را بالاتر ببر.</p>
+            </div>
+          </div>
+          <div class="lifelines-balance" id="lifelines-balance" aria-live="polite"></div>
+        </div>
+        <div class="lifelines-grid">
+          <button id="life-5050" class="lifeline-btn" type="button" aria-label="کمک ۵۰–۵۰">
+            <div class="lifeline-icon"><i class="fas fa-percent"></i></div>
+            <div class="lifeline-details">
+              <div class="lifeline-title">۵۰–۵۰</div>
+              <div class="lifeline-sub">حذف دو گزینهٔ نادرست</div>
+            </div>
+            <div class="lifeline-footer">
+              <div class="lifeline-cost"><i class="fas fa-key"></i><span>۳ کلید</span></div>
+              <div class="lifeline-status hidden"><i class="fas fa-check ml-1"></i> ۵۰–۵۰ فعال شد</div>
+            </div>
+          </button>
+          <button id="life-skip" class="lifeline-btn" type="button" aria-label="پرش به سؤال بعدی">
+            <div class="lifeline-icon"><i class="fas fa-forward"></i></div>
+            <div class="lifeline-details">
+              <div class="lifeline-title">پرش به سؤال بعدی</div>
+              <div class="lifeline-sub">یک‌بار می‌توانی سؤال را رد کنی</div>
+            </div>
+            <div class="lifeline-footer">
+              <div class="lifeline-cost"><i class="fas fa-key"></i><span>۳ کلید</span></div>
+              <div class="lifeline-status hidden"><i class="fas fa-check ml-1"></i> سؤال بعدی فعال شد</div>
+            </div>
+          </button>
+          <button id="life-pause" class="lifeline-btn" type="button" aria-label="افزودن زمان">
+            <div class="lifeline-icon"><i class="fas fa-stopwatch"></i></div>
+            <div class="lifeline-details">
+              <div class="lifeline-title">افزودن ۱۰ ثانیه</div>
+              <div class="lifeline-sub">۱۰ ثانیه زمان بیشتر برای این سؤال</div>
+            </div>
+            <div class="lifeline-footer">
+              <div class="lifeline-cost"><i class="fas fa-key"></i><span>۳ کلید</span></div>
+              <div class="lifeline-status hidden"><i class="fas fa-bolt ml-1"></i> ۱۰ ثانیه اضافه شد</div>
+            </div>
+          </button>
+        </div>
+      </section>
+
       <div class="flex flex-col sm:flex-row items-center gap-4">
         <button id="btn-quit" class="w-full sm:flex-1 py-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/20 transition flex items-center justify-center gap-2">
           <i class="fas fa-arrow-right"></i> خروج
