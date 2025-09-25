@@ -182,7 +182,11 @@ router.get('/questions', async (req, res, next) => {
       category
     });
 
-    const status = result.countReturned < result.countRequested ? 206 : 200;
+    const status = !result.ok
+      ? 404
+      : result.countReturned < result.countRequested
+        ? 206
+        : 200;
     res.status(status).json(result);
   } catch (error) {
     next(error);

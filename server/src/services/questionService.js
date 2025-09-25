@@ -205,17 +205,29 @@ async function getQuestions(params = {}) {
   }
 
   const items = normalized.slice(0, countRequested);
+  const countReturned = items.length;
 
   logger.info(
-    `[questions] want=${countRequested} raw=${raw.length} normalized=${normalized.length} returned=${items.length}`
+    `[questions] want=${countRequested} raw=${raw.length} normalized=${normalized.length} returned=${countReturned}`
   );
 
+  if (countReturned === 0) {
+    logger.warn(`[questions] empty response want=${countRequested} totalMatched=${totalMatched}`);
+  } else if (countReturned < countRequested) {
+    logger.warn(
+      `[questions] partial response want=${countRequested} returned=${countReturned} totalMatched=${totalMatched}`
+    );
+  }
+
+  const ok = countReturned > 0;
+
   return {
-    ok: true,
+    ok,
     countRequested,
-    countReturned: items.length,
+    countReturned,
     totalMatched,
-    items
+    items,
+    ...(ok ? {} : { message: 'no questions available' })
   };
 }
 

@@ -101,6 +101,55 @@ function ensureQuestionSupply(list, { count, categoryId, categorySlug, difficult
   return result.slice(0, Math.min(result.length, desired));
 }
 
+function parseQuestionResponse(payload) {
+  if (Array.isArray(payload)) {
+    return {
+      items: payload,
+      meta: {
+        ok: true,
+        countRequested: payload.length,
+        countReturned: payload.length,
+        totalMatched: payload.length,
+        message: ''
+      }
+    };
+  }
+
+  if (payload && typeof payload === 'object') {
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const meta = {
+      ok: payload.ok !== false,
+      countRequested: Number.isFinite(Number(payload.countRequested))
+        ? Number(payload.countRequested)
+        : items.length,
+      countReturned: Number.isFinite(Number(payload.countReturned))
+        ? Number(payload.countReturned)
+        : items.length,
+      totalMatched: Number.isFinite(Number(payload.totalMatched))
+        ? Number(payload.totalMatched)
+        : 0,
+      message: typeof payload.message === 'string' ? payload.message : ''
+    };
+
+    if (meta.countRequested <= 0 && items.length) {
+      meta.countRequested = items.length;
+    }
+
+    return { items, meta };
+  }
+
+  return {
+    items: [],
+    meta: {
+      ok: false,
+      countRequested: 0,
+      countReturned: 0,
+      totalMatched: 0,
+      message: ''
+    }
+  };
+}
+
 function pickDifficulty(diffPool, { requested, stateValue, stateLabel }) {
   let selected = null;
 
@@ -344,26 +393,27 @@ export async function startQuizFromAdmin(arg) {
   if (startBtn) startBtn.disabled = true;
 
   try {
-    let list = [];
+    let initialResponse = null;
     if (typeof Api !== 'undefined' && Api && typeof Api.questions === 'function') {
-      list = (await Api.questions({
+      initialResponse = await Api.questions({
         categoryId,
         categorySlug: catSlug || undefined,
         count,
         difficulty: difficultyValue,
-      })) || [];
+      });
     }
 
-    if (!Array.isArray(list)) {
-      list = [];
-    }
+    const { items: initialItems, meta: initialMeta } = parseQuestionResponse(initialResponse);
+    console.log('[quiz] requested=', count, 'received=', initialItems.length, initialMeta);
 
-    if (!list.length) {
-      toast('سؤال تازه‌ای برای این دسته پیدا نشد؛ از مجموعهٔ پیش‌فرض استفاده می‌کنیم.');
+    if (!initialItems.length) {
+      const fallbackMessage = initialMeta.message || 'سؤال تازه‌ای برای این دسته پیدا نشد؛ از مجموعهٔ پیش‌فرض استفاده می‌کنیم.';
+      toast(fallbackMessage);
     }
 
     const initialSeenKeys = new Set();
-    const uniqueQuestions = mergeUniqueQuestions([], normalizeQuestions(list), initialSeenKeys);
+    const normalizedInitial = normalizeQuestions(initialItems);
+    const uniqueQuestions = mergeUniqueQuestions([], normalizedInitial, initialSeenKeys);
 
     const requestParams = {
       categoryId,
@@ -381,9 +431,18 @@ export async function startQuizFromAdmin(arg) {
       while (working.length < count && attempt < maxAttempts) {
         attempt += 1;
         try {
-          const extraList =
-            (await Api.questions({ ...requestParams, count: requestSize })) || [];
-          const normalizedExtra = normalizeQuestions(extraList);
+          const extraResponse = await Api.questions({ ...requestParams, count: requestSize });
+          const { items: extraItems, meta: extraMeta } = parseQuestionResponse(extraResponse);
+          console.log('[quiz] refill requested=', requestSize, 'received=', extraItems.length, extraMeta);
+          if (!extraItems.length) {
+            if (extraMeta && extraMeta.ok === false) {
+              break;
+            }
+            if (!extraMeta || extraMeta.countReturned === 0) {
+              break;
+            }
+          }
+          const normalizedExtra = normalizeQuestions(extraItems);
           mergeUniqueQuestions(working, normalizedExtra, seen);
         } catch (error) {
           console.warn('Failed to fetch additional questions', error);
@@ -412,6 +471,7 @@ export async function startQuizFromAdmin(arg) {
     });
 
     const finalList = filledList.slice(0, Math.min(filledList.length, count));
+    console.log('[quiz] finalQuestions=', finalList.length);
 
     if (finalList.length === 0) {
       toast('سوال معتبر برای این تنظیمات موجود نیست.');

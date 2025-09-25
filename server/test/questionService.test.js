@@ -95,3 +95,26 @@ test('getQuestions normalises and filters invalid documents', async () => {
     stub.restore();
   }
 });
+
+test('getQuestions fails when no valid questions are available', async () => {
+  const docs = [
+    {
+      _id: 'missing-options',
+      text: 'Invalid question',
+      options: ['only-one'],
+      correctIndex: 0,
+      categorySlug: 'general'
+    }
+  ];
+
+  const stub = stubQuestionModel({ docs, total: 0 });
+
+  try {
+    const result = await QuestionService.getQuestions({ count: 3 });
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.countReturned, 0);
+    assert.ok(typeof result.message === 'string' && result.message.length > 0);
+  } finally {
+    stub.restore();
+  }
+});
