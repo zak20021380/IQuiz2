@@ -16,6 +16,13 @@ function clampCount(value) {
   return parsed;
 }
 
+function resolveGuestId(req) {
+  const header = typeof req.headers['x-guest-id'] === 'string' ? req.headers['x-guest-id'].trim() : '';
+  if (header) return header;
+  const query = typeof req.query?.guestId === 'string' ? req.query.guestId.trim() : '';
+  return query;
+}
+
 function mapQuestionToClue(item) {
   if (!item || !item.options || typeof item.correctIndex !== 'number') return null;
   const answer = item.options[item.correctIndex];
@@ -34,10 +41,15 @@ function mapQuestionToClue(item) {
 router.get('/random', async (req, res, next) => {
   try {
     const count = clampCount(req.query.count);
+    const guestId = resolveGuestId(req);
+    const userId = req.user?._id || req.user?.id;
     const { ok, items, countRequested } = await QuestionService.getQuestions({
       count,
       category: req.query.category,
-      difficulty: req.query.difficulty
+      difficulty: req.query.difficulty,
+      userId,
+      guestId,
+      user: req.user
     });
 
     const clues = Array.isArray(items) ? items.map(mapQuestionToClue).filter(Boolean) : [];

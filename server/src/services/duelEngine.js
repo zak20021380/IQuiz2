@@ -13,11 +13,16 @@ async function loadDuelQuestions(ctx = {}) {
   const requested = sanitizeRequested(ctx.requested ?? ctx.count ?? ctx.rounds);
   const category = typeof ctx.category === 'string' ? ctx.category.trim() : '';
   const difficulty = typeof ctx.difficulty === 'string' ? ctx.difficulty.trim().toLowerCase() : '';
+  const userId = ctx.userId || ctx.user?._id || ctx.user?.id;
+  const guestId = ctx.guestId || ctx.guestKey || ctx.guest;
 
   const { ok, items } = await QuestionService.getQuestions({
     count: requested,
     category,
-    difficulty
+    difficulty,
+    userId,
+    guestId,
+    user: ctx.user
   });
 
   if (!ok || !Array.isArray(items) || items.length === 0) {

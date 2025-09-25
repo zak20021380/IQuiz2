@@ -25,6 +25,14 @@ function sanitizeCount(raw) {
   return Math.min(Math.max(parsed, 1), MAX_PUBLIC_QUESTIONS);
 }
 
+function resolveGuestId(req) {
+  const header = sanitizeString(req.headers['x-guest-id']);
+  if (header) return header;
+  const query = sanitizeString(req.query?.guestId);
+  if (query) return query;
+  return '';
+}
+
 function sanitizePlacement(value) {
   const normalized = sanitizeString(value).toLowerCase();
   return AD_PLACEMENTS.has(normalized) ? normalized : '';
@@ -176,10 +184,16 @@ router.get('/questions', async (req, res, next) => {
       .map((value) => (typeof value === 'string' ? value.trim() : ''))
       .find((value) => value.length > 0);
 
+    const guestId = resolveGuestId(req);
+    const userId = req.user?._id || req.user?.id;
+
     const result = await QuestionService.getQuestions({
       count,
       difficulty,
-      category
+      category,
+      userId,
+      guestId,
+      user: req.user
     });
 
     const status = !result.ok

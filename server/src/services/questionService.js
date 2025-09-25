@@ -1,16 +1,20 @@
 const mongoose = require('mongoose');
 
 const Question = require('../models/Question');
+const UserQuestionEvent = require('../models/UserQuestionEvent');
+const questionConfig = require('../config/questions');
 const logger = require('../config/logger');
 
 const MAX_PER_REQUEST = 30;
 const FETCH_MULTIPLIER = 2;
 const MAX_FETCH_LIMIT = MAX_PER_REQUEST * 3;
+const RECENT_LIMIT = questionConfig.RECENT_QUESTION_LIMIT || 500;
+const SORT_LOGIC = { createdAt: -1 };
 const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 
 function sanitizeCount(value) {
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return 10;
+  if (!Number.isFinite(parsed)) return 5;
   if (parsed <= 0) return 1;
   if (parsed > MAX_PER_REQUEST) return MAX_PER_REQUEST;
   return parsed;
@@ -45,6 +49,90 @@ function buildCategoryFilter(category) {
       { categoryName: regex }
     ]
   };
+}
+
+function cloneQuery(query = {}) {
+  const cloned = { ...query };
+  if (Array.isArray(query.$and)) {
+    cloned.$and = [...query.$and];
+  }
+  if (query._id && typeof query._id === 'object') {
+    cloned._id = { ...query._id };
+  }
+  return cloned;
+}
+
+function normalizeUserId(value) {
+  if (!value) return '';
+  if (value instanceof mongoose.Types.ObjectId) {
+    return value.toHexString();
+  }
+  if (typeof value === 'object' && value._id) {
+    return normalizeUserId(value._id);
+  }
+  const stringValue = String(value).trim();
+  if (!stringValue) return '';
+  if (mongoose.Types.ObjectId.isValid(stringValue)) {
+    return new mongoose.Types.ObjectId(stringValue).toHexString();
+  }
+  return stringValue;
+}
+
+function resolveUserKey({ userId, guestId, user }) {
+  const normalizedUser = normalizeUserId(userId || user?.id || user?._id);
+  if (normalizedUser) {
+    return normalizedUser;
+  }
+  const guestKey = typeof guestId === 'string' ? guestId.trim() : '';
+  if (guestKey) {
+    return `guest:${guestKey}`;
+  }
+  return '';
+}
+
+function toObjectId(value) {
+  if (!value) return null;
+  if (value instanceof mongoose.Types.ObjectId) return value;
+  if (mongoose.Types.ObjectId.isValid(value)) {
+    return new mongoose.Types.ObjectId(value);
+  }
+  return null;
+}
+
+async function collectRecentQuestionIds(userKey) {
+  if (!userKey) return [];
+  try {
+    const docs = await UserQuestionEvent.find({ userId: userKey })
+      .sort({ answeredAt: -1 })
+      .limit(RECENT_LIMIT)
+      .select({ questionId: 1 })
+      .lean();
+    const ids = [];
+    const seen = new Set();
+    for (const doc of docs) {
+      if (!doc?.questionId) continue;
+      const asString = String(doc.questionId);
+      if (!asString || seen.has(asString)) continue;
+      seen.add(asString);
+      ids.push(asString);
+    }
+    return ids;
+  } catch (error) {
+    logger.warn(`[questions] failed to load user history: ${error.message}`);
+    return [];
+  }
+}
+
+function normalizeDocuments(docs, seenIds) {
+  const normalized = [];
+  for (const doc of docs) {
+    const question = normalizeQuestionDocument(doc);
+    if (!isValidQuestion(question)) continue;
+    if (seenIds.has(question.id)) continue;
+    seenIds.add(question.id);
+    normalized.push(question);
+  }
+  return normalized;
 }
 
 function extractOptions(doc) {
@@ -161,7 +249,7 @@ function buildBaseQuery(params) {
 
 async function getQuestions(params = {}) {
   const countRequested = sanitizeCount(params.count);
-  const query = buildBaseQuery(params);
+  const baseQuery = buildBaseQuery(params);
   const fetchLimit = Math.min(
     Math.max(countRequested * FETCH_MULTIPLIER, countRequested),
     MAX_FETCH_LIMIT
@@ -169,15 +257,29 @@ async function getQuestions(params = {}) {
 
   let totalMatched = 0;
   try {
-    totalMatched = await Question.countDocuments(query);
+    totalMatched = await Question.countDocuments(baseQuery);
   } catch (error) {
     logger.warn(`[questions] count failed: ${error.message}`);
   }
 
-  let raw = [];
+  const userKey = resolveUserKey(params);
+  const recentIds = await collectRecentQuestionIds(userKey);
+  const recentObjectIds = recentIds
+    .map((id) => toObjectId(id))
+    .filter((id) => id);
+
+  const primaryQuery = cloneQuery(baseQuery);
+  if (recentObjectIds.length) {
+    primaryQuery._id = {
+      ...(primaryQuery._id || {}),
+      $nin: recentObjectIds
+    };
+  }
+
+  let primaryDocs = [];
   try {
-    raw = await Question.find(query)
-      .sort({ createdAt: -1 })
+    primaryDocs = await Question.find(primaryQuery)
+      .sort(SORT_LOGIC)
       .limit(fetchLimit)
       .lean();
   } catch (error) {
@@ -187,29 +289,52 @@ async function getQuestions(params = {}) {
       countRequested,
       countReturned: 0,
       totalMatched,
-      items: []
+      items: [],
+      avoided: recentIds.length,
+      message: 'no questions available'
     };
   }
 
-  const normalized = [];
-  const seen = new Set();
-  for (const doc of raw) {
-    const question = normalizeQuestionDocument(doc);
-    if (!isValidQuestion(question)) continue;
-    if (seen.has(question.id)) continue;
-    seen.add(question.id);
-    normalized.push(question);
-    if (normalized.length >= countRequested) {
-      break;
+  const seenIds = new Set();
+  const primaryNormalized = normalizeDocuments(primaryDocs, seenIds);
+  let items = primaryNormalized.slice(0, countRequested);
+
+  if (items.length < countRequested) {
+    const missing = countRequested - items.length;
+    const excludeObjectIds = Array.from(seenIds)
+      .map((id) => toObjectId(id))
+      .filter((id) => id);
+    const backfillQuery = cloneQuery(baseQuery);
+    if (excludeObjectIds.length) {
+      backfillQuery._id = {
+        ...(backfillQuery._id || {}),
+        $nin: excludeObjectIds
+      };
     }
+
+    let backfillDocs = [];
+    try {
+      backfillDocs = await Question.find(backfillQuery)
+        .sort(SORT_LOGIC)
+        .limit(missing)
+        .lean();
+    } catch (error) {
+      logger.warn(`[questions] backfill failed: ${error.message}`);
+    }
+
+    const backfillNormalized = normalizeDocuments(backfillDocs, seenIds);
+    items = items.concat(backfillNormalized).slice(0, countRequested);
   }
 
-  const items = normalized.slice(0, countRequested);
   const countReturned = items.length;
 
-  logger.info(
-    `[questions] want=${countRequested} raw=${raw.length} normalized=${normalized.length} returned=${countReturned}`
-  );
+  console.info('[questions]', {
+    userId: userKey || null,
+    want: countRequested,
+    recent: recentIds.length,
+    primary: primaryNormalized.length,
+    returned: countReturned
+  });
 
   if (countReturned === 0) {
     logger.warn(`[questions] empty response want=${countRequested} totalMatched=${totalMatched}`);
@@ -227,6 +352,7 @@ async function getQuestions(params = {}) {
     countReturned,
     totalMatched,
     items,
+    avoided: recentIds.length,
     ...(ok ? {} : { message: 'no questions available' })
   };
 }
