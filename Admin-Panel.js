@@ -544,6 +544,9 @@ const shopKeysToggle = $('#shop-keys-toggle');
 const shopWalletToggle = $('#shop-wallet-toggle');
 const shopVipToggle = $('#shop-vip-toggle');
 const shopPromotionsToggle = $('#shop-promotions-toggle');
+const shopAdvancedToggleBtn = $('#shop-advanced-toggle');
+const shopAdvancedToggleLabel = $('#shop-advanced-toggle-label');
+const shopAdvancedSections = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-advanced]')) : [];
 const settingsSaveButton = $('#settings-save-button');
 const generalAppNameInput = $('#settings-app-name');
 const generalLanguageSelect = $('#settings-language');
@@ -3173,22 +3176,28 @@ function renderDashboardUsersChart(series = [], state = 'success', message = '')
   }
 }
 
-function renderDashboardTopCategories(list = [], { state = 'success', message = '', totalQuestions = 0 } = {}) {
+function renderDashboardTopCategories(list = [], options = {}) {
   if (!dashboardTopCategoriesEl) return;
+  const {
+    state = 'success',
+    message = '',
+    totalQuestions = 0,
+    totalSelections = 0,
+    totalConsumption = 0
+  } = options;
+
   dashboardTopCategoriesEl.innerHTML = '';
-  if (dashboardTopCategoriesTotalEl) {
-    dashboardTopCategoriesTotalEl.textContent = totalQuestions > 0
-      ? `مجموع سوالات: ${formatNumberFa(totalQuestions)}`
-      : 'مجموع سوالات: —';
-  }
 
   if (!Array.isArray(list) || state !== 'success' || list.length === 0) {
     if (dashboardTopCategoriesEmptyEl) {
       dashboardTopCategoriesEmptyEl.textContent = resolveDashboardMessage(state, message, {
-        loading: 'در حال دریافت محبوب‌ترین دسته‌ها...',
-        empty: 'داده‌ای برای نمایش وجود ندارد'
+        loading: 'در حال بارگذاری محبوب‌ترین دسته‌بندی‌ها...',
+        empty: 'هنوز داده‌ای برای تحلیل انتخاب کاربران ثبت نشده است'
       });
       dashboardTopCategoriesEmptyEl.classList.remove('hidden');
+    }
+    if (dashboardTopCategoriesTotalEl) {
+      dashboardTopCategoriesTotalEl.textContent = 'داده‌ای برای دسته‌بندی‌های محبوب در دسترس نیست';
     }
     return;
   }
@@ -3197,29 +3206,104 @@ function renderDashboardTopCategories(list = [], { state = 'success', message = 
     dashboardTopCategoriesEmptyEl.classList.add('hidden');
   }
 
-  const fallbackBase = list.reduce((sum, item) => sum + (Number(item?.questionCount) || 0), 0);
-  const divisor = totalQuestions > 0 ? totalQuestions : (fallbackBase > 0 ? fallbackBase : 1);
+  const computedTotals = list.reduce((acc, item) => {
+    acc.questions += Number(item?.questionCount) || 0;
+    acc.selections += Number(item?.selectionCount) || 0;
+    acc.consumption += Number(item?.consumptionCount) || 0;
+    return acc;
+  }, { questions: 0, selections: 0, consumption: 0 });
 
-  const fragment = document.createDocumentFragment();
-  list.forEach((item) => {
-    const name = escapeHtml(item?.name || 'نامشخص');
-    const count = Number.isFinite(Number(item?.questionCount)) ? Number(item.questionCount) : 0;
-    const percentValue = Math.min(100, Math.max(0, (count / divisor) * 100));
-    const percentLabel = `${formatPercentFa(Math.round(percentValue * 10) / 10)}٪`;
-    const gradient = CATEGORY_COLOR_GRADIENTS[item?.color] || 'from-slate-500 to-slate-400';
+  const selectionTotal = totalSelections || computedTotals.selections;
+  const consumptionTotal = totalConsumption || computedTotals.consumption;
+  const questionTotal = totalQuestions || computedTotals.questions;
 
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = `
-      <div class="flex justify-between mb-1">
-        <span>${name}</span>
-        <span>${percentLabel}</span>
-      </div>
-      <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-        <div class="h-3 bg-gradient-to-r ${gradient} rounded-full" style="width: ${percentValue.toFixed(1)}%"></div>
+  if (dashboardTopCategoriesTotalEl) {
+    const summaryParts = [];
+    if (questionTotal > 0) summaryParts.push(`سوالات تایید شده: ${formatNumberFa(questionTotal)}`);
+    if (selectionTotal > 0) summaryParts.push(`انتخاب کاربران: ${formatNumberFa(selectionTotal)}`);
+    if (consumptionTotal > 0) summaryParts.push(`مصرف سوال: ${formatNumberFa(consumptionTotal)}`);
+    dashboardTopCategoriesTotalEl.textContent = summaryParts.length
+      ? summaryParts.join(' • ')
+      : 'هنوز داده‌ای برای دسته‌بندی‌های محبوب در دسترس نیست';
+  }
+
+  const createMetricRow = (label, count, share, gradient, icon) => {
+    const safeCount = Number.isFinite(Number(count)) ? Number(count) : 0;
+    const safeShare = Number.isFinite(Number(share)) ? Number(share) : 0;
+    const percentLabel = `${formatPercentFa(Math.round(safeShare * 10) / 10)}٪`;
+    const barWidth = Math.min(100, safeShare > 0 ? Math.max(safeShare, 6) : 0);
+    return `
+      <div class="space-y-2">
+        <div class="flex items-center justify-between gap-3 text-white/70">
+          <span class="inline-flex items-center gap-2">
+            <i class="fa-solid ${icon} text-white/50"></i>
+            <span>${label}</span>
+          </span>
+          <span class="inline-flex items-center gap-2 font-bold text-white/80">
+            <span>${formatNumberFa(safeCount)}</span>
+            <span class="text-white/50">•</span>
+            <span>${percentLabel}</span>
+          </span>
+        </div>
+        <div class="h-2.5 bg-white/10 rounded-full overflow-hidden">
+          <div class="h-full bg-gradient-to-r ${gradient} rounded-full" style="width: ${barWidth.toFixed(1)}%"></div>
+        </div>
       </div>
     `;
-    const bar = wrapper.querySelector('.bg-gradient-to-r');
-    if (bar) bar.setAttribute('title', `${formatNumberFa(count)} سوال`);
+  };
+
+  const fragment = document.createDocumentFragment();
+
+  list.forEach((item, index) => {
+    const name = escapeHtml(item?.name || 'نامشخص');
+    const gradient = CATEGORY_COLOR_GRADIENTS[item?.color] || 'from-slate-500 to-slate-400';
+    const questionCount = Number.isFinite(Number(item?.questionCount)) ? Number(item.questionCount) : 0;
+    const selectionCount = Number.isFinite(Number(item?.selectionCount)) ? Number(item.selectionCount) : 0;
+    const consumptionCount = Number.isFinite(Number(item?.consumptionCount)) ? Number(item.consumptionCount) : 0;
+
+    const questionShare = Number.isFinite(Number(item?.percentage))
+      ? Number(item.percentage)
+      : (questionTotal > 0 ? (questionCount / questionTotal) * 100 : 0);
+    const selectionShare = Number.isFinite(Number(item?.selectionShare))
+      ? Number(item.selectionShare)
+      : (selectionTotal > 0 ? (selectionCount / selectionTotal) * 100 : 0);
+    const consumptionShare = Number.isFinite(Number(item?.consumptionShare))
+      ? Number(item.consumptionShare)
+      : (consumptionTotal > 0 ? (consumptionCount / consumptionTotal) * 100 : 0);
+
+    const metricsForHighlight = [
+      { label: 'انتخاب کاربران', value: selectionShare },
+      { label: 'مصرف سوال', value: consumptionShare },
+      { label: 'سهم از بانک سوال', value: questionShare }
+    ];
+    const highlight = metricsForHighlight.reduce((best, current) => (
+      current.value > best.value ? current : best
+    ), metricsForHighlight[0]);
+    const highlightLabel = `${highlight.label} • ${formatPercentFa(Math.round(highlight.value * 10) / 10)}٪`;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'glass-dark rounded-2xl p-5 space-y-4 border border-white/10 shadow-lg/30';
+    wrapper.innerHTML = `
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span class="w-10 h-10 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center font-black text-slate-900/80 shadow-lg">${formatNumberFa(index + 1)}</span>
+          <div>
+            <div class="text-base md:text-lg font-extrabold text-white">${name}</div>
+            <div class="text-xs text-white/60 mt-1">سوالات فعال: ${formatNumberFa(questionCount)}</div>
+          </div>
+        </div>
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-[11px] font-bold text-white/80">
+          <i class="fa-solid fa-arrow-trend-up"></i>
+          <span>${escapeHtml(highlightLabel)}</span>
+        </span>
+      </div>
+      <div class="space-y-3 text-xs">
+        ${createMetricRow('انتخاب کاربران', selectionCount, selectionShare, gradient, 'fa-hand-pointer')}
+        ${createMetricRow('مصرف سوال', consumptionCount, consumptionShare, gradient, 'fa-fire-flame-simple')}
+        ${createMetricRow('سهم از بانک سوال', questionCount, questionShare, gradient, 'fa-layer-group')}
+      </div>
+    `;
+
     fragment.appendChild(wrapper);
   });
 
@@ -3288,13 +3372,24 @@ function renderDashboardOverview(data, options = {}) {
   const categories = data.categories || {};
   const ads = data.ads || {};
   const topCategories = Array.isArray(data.topCategories) ? data.topCategories : [];
+  const topCategoryTotals = topCategories.reduce((acc, item) => {
+    acc.questions += Number(item?.questionCount) || 0;
+    acc.selections += Number(item?.selectionCount) || 0;
+    acc.consumption += Number(item?.consumptionCount) || 0;
+    return acc;
+  }, { questions: 0, selections: 0, consumption: 0 });
   const activity = Array.isArray(data.activity) ? data.activity : [];
 
   renderDashboardUsersCard(users, 'success');
   renderDashboardCategoriesCard(categories, 'success');
   renderDashboardAdsCard(ads, 'success');
   renderDashboardUsersChart(Array.isArray(users.daily) ? users.daily : [], 'success');
-  renderDashboardTopCategories(topCategories, { state: 'success', totalQuestions: Number(data?.questions?.total) || 0 });
+  renderDashboardTopCategories(topCategories, {
+    state: 'success',
+    totalQuestions: Number(data?.questions?.total) || topCategoryTotals.questions,
+    totalSelections: topCategoryTotals.selections,
+    totalConsumption: topCategoryTotals.consumption
+  });
   renderDashboardActivity(activity, 'success');
 }
 
@@ -5527,6 +5622,30 @@ function handleShopInputEvent(event) {
 
 function setupShopControls() {
   if (!shopSettingsPage) return;
+
+  const syncAdvancedVisibility = (expanded) => {
+    shopAdvancedSections.forEach((section) => {
+      section.classList.toggle('hidden', !expanded);
+    });
+    if (shopAdvancedToggleBtn) {
+      shopAdvancedToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+    if (shopAdvancedToggleLabel) {
+      shopAdvancedToggleLabel.textContent = expanded
+        ? 'پنهان‌سازی تنظیمات پیشرفته'
+        : 'نمایش تنظیمات پیشرفته';
+    }
+  };
+
+  let advancedExpanded = false;
+  syncAdvancedVisibility(advancedExpanded);
+
+  if (shopAdvancedToggleBtn) {
+    shopAdvancedToggleBtn.addEventListener('click', () => {
+      advancedExpanded = !advancedExpanded;
+      syncAdvancedVisibility(advancedExpanded);
+    });
+  }
 
   const toggles = Array.from(shopSettingsPage.querySelectorAll('input[type="checkbox"]'));
   toggles.forEach((toggle) => {

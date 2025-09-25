@@ -2943,14 +2943,15 @@
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6" id="shop-settings-sections">
               <div class="space-y-6 xl:col-span-2">
 
+
                 <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 class="text-lg font-bold flex items-center gap-2">
                         <i class="fas fa-sliders text-sky-300"></i>
-                        <span>کنترل‌های عمومی فروشگاه</span>
+                        <span>تنظیمات سریع فروشگاه</span>
                       </h3>
-                      <p class="text-sm text-white/70 mt-1">وضعیت کلی فروشگاه و تجربه خرید را مدیریت کنید.</p>
+                      <p class="text-sm text-white/70 mt-1">وضعیت کلی فروشگاه و حداقل تنظیمات برای شروع فروش.</p>
                     </div>
                     <div class="flex items-center gap-3">
                       <span id="shop-global-status" class="text-xs font-bold tracking-widest text-emerald-300">فعال</span>
@@ -2974,50 +2975,37 @@
                       <input type="number" class="form-input" id="shop-low-balance-threshold" value="200" min="0">
                     </div>
                   </div>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="rounded-2xl border border-white/10 p-4 space-y-3">
                       <div class="flex items-start justify-between gap-3">
                         <div>
-                          <div class="font-semibold text-sm">دکمه شارژ سریع</div>
-                          <p class="text-xs text-white/60 mt-1">نمایش دکمه «شارژ کیف پول».</p>
+                          <div class="font-semibold text-sm">شارژ سریع کیف پول</div>
+                          <p class="text-xs text-white/60 mt-1">نمایش دکمه شارژ در بنر فروشگاه برای کاربران.</p>
                         </div>
                         <label class="toggle text-xs">
                           <input type="checkbox" id="shop-quick-topup" data-toggle-target="#shop-preview-cta" data-toggle-behavior="visibility" data-toggle-on="نمایش" data-toggle-off="مخفی" checked>
                           <span class="toggle-label" data-toggle-text>نمایش</span>
                         </label>
                       </div>
-                      <div class="text-xs text-white/60">متن دکمه از بخش بنر قابل ویرایش است.</div>
+                      <p class="text-xs text-white/50">متن دکمه از طریق فیلد CTA قابل ویرایش است.</p>
                     </div>
                     <div class="rounded-2xl border border-white/10 p-4 space-y-3">
                       <div class="flex items-start justify-between gap-3">
                         <div>
                           <div class="font-semibold text-sm">خرید آنی</div>
-                          <p class="text-xs text-white/60 mt-1">اجازه خرید سریع بدون تایید دوباره.</p>
+                          <p class="text-xs text-white/60 mt-1">اجازه خرید سریع بدون تایید دوباره برای سفارش‌های کوچک.</p>
                         </div>
                         <label class="toggle text-xs">
                           <input type="checkbox" id="shop-quick-purchase" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
                           <span class="toggle-label" data-toggle-text>فعال</span>
                         </label>
                       </div>
-                      <div class="text-xs text-white/60">برای امنیت بیشتر سقف خرید روزانه را تعیین کنید.</div>
-                    </div>
-                    <div class="rounded-2xl border border-white/10 p-4 space-y-3">
-                      <div class="flex items-start justify-between gap-3">
-                        <div>
-                          <div class="font-semibold text-sm">قیمت‌گذاری پویا</div>
-                          <p class="text-xs text-white/60 mt-1">همگام با نرخ روز بازار.</p>
-                        </div>
-                        <label class="toggle text-xs">
-                          <input type="checkbox" id="shop-dynamic-pricing" data-toggle-on="فعال" data-toggle-off="غیرفعال">
-                          <span class="toggle-label" data-toggle-text>غیرفعال</span>
-                        </label>
-                      </div>
-                      <div class="text-xs text-white/60">در صورت فعال‌سازی، قیمت‌ها از سرویس قیمت‌گذاری شما به‌روز می‌شود.</div>
+                      <p class="text-xs text-white/50">در صورت نیاز می‌توانید سقف خرید روزانه را در تنظیمات سرور محدود کنید.</p>
                     </div>
                   </div>
                   <div>
                     <label class="block text-xs mb-1 text-white/70">یادداشت مدیریتی (نمایش در فوتر فروشگاه)</label>
-                    <textarea rows="2" class="form-input" placeholder="مثال: سفارش‌های ویژه از طریق پشتیبانی تلگرام قابل انجام است."></textarea>
+                    <textarea rows="2" class="form-input" placeholder="مثال: سفارش‌های ویژه از طریق پشتیبانی تلگرام انجام می‌شود."></textarea>
                   </div>
                 </div>
 
@@ -3026,20 +3014,20 @@
                     <div>
                       <h3 class="text-lg font-bold flex items-center gap-2">
                         <i class="fas fa-bullhorn text-sky-300"></i>
-                        <span>سربرگ و بنر فروشگاه</span>
+                        <span>پیام خوش‌آمد فروشگاه</span>
                       </h3>
-                      <p class="text-sm text-white/70 mt-1">متن، رنگ و CTA اصلی فروشگاه را شخصی‌سازی کنید.</p>
+                      <p class="text-sm text-white/70 mt-1">عنوان و پیشنهاد ویژه‌ای که کاربران در اولین نگاه مشاهده می‌کنند.</p>
                     </div>
                     <div class="flex items-center gap-3">
                       <span id="shop-hero-status" class="text-xs font-bold tracking-widest text-emerald-300">فعال</span>
                       <label class="toggle text-xs">
-                        <input type="checkbox" id="shop-hero-toggle" data-toggle-target="#shop-hero-fields, #shop-hero-preview" data-toggle-label-target="#shop-hero-status" data-toggle-on="فعال" data-toggle-off="مخفی" data-shop-section-toggle checked>
+                        <input type="checkbox" id="shop-hero-toggle" data-toggle-target="#shop-hero-quick-fields, #shop-hero-preview-card" data-toggle-label-target="#shop-hero-status" data-toggle-on="فعال" data-toggle-off="مخفی" data-shop-section-toggle checked>
                         <span class="toggle-label" data-toggle-text>فعال</span>
                       </label>
                     </div>
                   </div>
-                  <div class="grid grid-cols-1 xl:grid-cols-5 gap-5" id="shop-hero-fields">
-                    <div class="space-y-4 xl:col-span-3">
+                  <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
+                    <div id="shop-hero-quick-fields" class="space-y-4 xl:col-span-3">
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label class="block text-xs mb-1 text-white/70">عنوان اصلی</label>
@@ -3050,47 +3038,18 @@
                           <input type="text" id="shop-hero-subtitle" class="form-input" value="هر روز پیشنهادهای تازه و کلیدهای بیشتر دریافت کنید." data-bind-target="#shop-hero-preview-subtitle">
                         </div>
                       </div>
-                      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label class="block text-xs mb-1 text-white/70">متن دکمه CTA</label>
                           <input type="text" id="shop-hero-cta" class="form-input" value="مشاهده پیشنهادها" data-bind-target="#shop-preview-cta-label">
                         </div>
                         <div>
-                          <label class="block text-xs mb-1 text-white/70">لینک مقصد دکمه</label>
-                          <input type="url" id="shop-hero-cta-link" class="form-input" value="#wallet" placeholder="https://example.com/store">
-                        </div>
-                        <div>
-                          <label class="block text-xs mb-1 text-white/70">رنگ بنر</label>
-                          <select id="shop-hero-theme" class="form-input">
-                            <option value="sky">آبی / آسمانی</option>
-                            <option value="emerald">سبز / آبی</option>
-                            <option value="purple">بنفش / نیلی</option>
-                            <option value="amber">کهربایی / نارنجی</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label class="block text-xs mb-1 text-white/70">نکته یا هایلایت ویژه</label>
+                          <label class="block text-xs mb-1 text-white/70">یادداشت کوتاه</label>
                           <textarea id="shop-hero-note" rows="2" class="form-input" data-bind-target="#shop-preview-note" placeholder="مثال: ۲۰٪ تخفیف ویژه تا پایان امروز">۲۰٪ تخفیف ویژه تا پایان امروز</textarea>
-                        </div>
-                        <div class="space-y-3">
-                          <label class="block text-xs mb-1 text-white/70">نمایش برچسب‌های وضعیت</label>
-                          <div class="flex flex-wrap gap-3">
-                            <label class="toggle text-xs">
-                              <input type="checkbox" id="shop-show-balances" data-toggle-target="[data-preview-badge='coins'], [data-preview-badge='keys']" data-toggle-behavior="visibility" data-toggle-on="نمایش" data-toggle-off="مخفی" checked>
-                              <span class="toggle-label" data-toggle-text>نمایش</span>
-                            </label>
-                            <label class="toggle text-xs">
-                              <input type="checkbox" id="shop-show-tags" data-toggle-target="#shop-preview-tags" data-toggle-behavior="visibility" data-toggle-on="فعال" data-toggle-off="خاموش" checked>
-                              <span class="toggle-label" data-toggle-text>فعال</span>
-                            </label>
-                          </div>
-                          <p class="text-xs text-white/60">نمایش خلاصه کیف پول و برچسب‌های VIP را کنترل کنید.</p>
                         </div>
                       </div>
                     </div>
-                    <div class="xl:col-span-2">
+                    <div class="xl:col-span-2" id="shop-hero-preview-card">
                       <div class="shop-preview" data-shop-hero-preview data-theme="sky" id="shop-hero-preview">
                         <div class="shop-preview-header">
                           <div class="flex items-center gap-3">
@@ -3123,7 +3082,79 @@
                   </div>
                 </div>
 
-                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-lockable" data-shop-lockable id="shop-keys-card">
+                <div class="flex justify-end">
+                  <button type="button" class="btn btn-tertiary w-full md:w-auto px-5" id="shop-advanced-toggle" aria-expanded="false">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span id="shop-advanced-toggle-label">نمایش تنظیمات پیشرفته</span>
+                  </button>
+                </div>
+
+                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 hidden" data-shop-advanced>
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 class="text-lg font-bold flex items-center gap-2">
+                        <i class="fas fa-screwdriver-wrench text-sky-300"></i>
+                        <span>تنظیمات پیشرفته بنر و قیمت‌گذاری</span>
+                      </h3>
+                      <p class="text-sm text-white/70 mt-1">گزینه‌های تکمیلی برای شخصی‌سازی ظاهر فروشگاه.</p>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label class="block text-xs mb-1 text-white/70">لینک مقصد دکمه</label>
+                      <input type="url" id="shop-hero-cta-link" class="form-input" value="#wallet" placeholder="https://example.com/store">
+                    </div>
+                    <div>
+                      <label class="block text-xs mb-1 text-white/70">رنگ بنر</label>
+                      <select id="shop-hero-theme" class="form-input">
+                        <option value="sky">آبی / آسمانی</option>
+                        <option value="emerald">سبز / آبی</option>
+                        <option value="purple">بنفش / نیلی</option>
+                        <option value="amber">کهربایی / نارنجی</option>
+                      </select>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 p-4 space-y-3">
+                      <div class="flex items-start justify-between gap-3">
+                        <div>
+                          <div class="font-semibold text-sm">قیمت‌گذاری پویا</div>
+                          <p class="text-xs text-white/60 mt-1">همگام‌سازی قیمت‌ها با سرویس قیمت‌گذاری شما.</p>
+                        </div>
+                        <label class="toggle text-xs">
+                          <input type="checkbox" id="shop-dynamic-pricing" data-toggle-on="فعال" data-toggle-off="غیرفعال">
+                          <span class="toggle-label" data-toggle-text>غیرفعال</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="rounded-2xl border border-white/10 p-4 space-y-3">
+                      <div class="flex items-start justify-between gap-3">
+                        <div>
+                          <div class="font-semibold text-sm">نمایش خلاصه کیف پول</div>
+                          <p class="text-xs text-white/60 mt-1">کنترل نمایش سکه و کلید در بالای بنر.</p>
+                        </div>
+                        <label class="toggle text-xs">
+                          <input type="checkbox" id="shop-show-balances" data-toggle-target="[data-preview-badge='coins'], [data-preview-badge='keys']" data-toggle-behavior="visibility" data-toggle-on="نمایش" data-toggle-off="مخفی" checked>
+                          <span class="toggle-label" data-toggle-text>نمایش</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 p-4 space-y-3">
+                      <div class="flex items-start justify-between gap-3">
+                        <div>
+                          <div class="font-semibold text-sm">برچسب‌های ویژه</div>
+                          <p class="text-xs text-white/60 mt-1">نشان VIP و بوست‌ها در پیش‌نمایش نمایش داده شوند.</p>
+                        </div>
+                        <label class="toggle text-xs">
+                          <input type="checkbox" id="shop-show-tags" data-toggle-target="#shop-preview-tags" data-toggle-behavior="visibility" data-toggle-on="فعال" data-toggle-off="خاموش" checked>
+                          <span class="toggle-label" data-toggle-text>فعال</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-lockable hidden" data-shop-lockable data-shop-advanced id="shop-keys-card">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 class="text-lg font-bold flex items-center gap-2">
@@ -3211,7 +3242,7 @@
                   </div>
                 </div>
 
-                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-lockable" data-shop-lockable id="shop-wallet-card">
+                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-lockable hidden" data-shop-lockable data-shop-advanced id="shop-wallet-card">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 class="text-lg font-bold flex items-center gap-2">
@@ -3317,7 +3348,7 @@
                   </div>
                 </div>
 
-                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-lockable" data-shop-lockable id="shop-vip-card">
+                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-lockable hidden" data-shop-lockable data-shop-advanced id="shop-vip-card">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 class="text-lg font-bold flex items-center gap-2">
@@ -3413,7 +3444,7 @@
 
               </div>
               <div class="space-y-6">
-                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-5 shop-lockable" data-shop-lockable id="shop-promotions-card">
+                <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-5 shop-lockable hidden" data-shop-lockable data-shop-advanced id="shop-promotions-card">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 class="text-lg font-bold flex items-center gap-2">
