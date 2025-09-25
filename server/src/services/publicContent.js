@@ -484,14 +484,18 @@ function sanitizeDifficulty(input) {
 
 function cloneQuestion(question, suffix = '') {
   if (!question) return null;
-  const baseId = question.id || `fallback-${Math.random().toString(36).slice(2)}`;
-  const id = suffix ? `${baseId}-${suffix}` : baseId;
+  const baseId = question.id || question.publicId || `fallback-${Math.random().toString(36).slice(2)}`;
+  const id = typeof suffix === 'number' && suffix > 0
+    ? `${baseId}-${suffix}`
+    : baseId;
+  const basePublicId = question.publicId || baseId;
+  const publicId = typeof suffix === 'number' && suffix > 0 ? `${basePublicId}-${suffix}` : basePublicId;
   const options = Array.isArray(question.options) ? [...question.options] : [];
   const choices = Array.isArray(question.choices) ? [...question.choices] : [...options];
   return {
     ...question,
     id,
-    publicId: question.publicId || id,
+    publicId,
     options,
     choices,
     answerIndex: typeof question.answerIndex === 'number' ? question.answerIndex : question.correctIdx || 0,
