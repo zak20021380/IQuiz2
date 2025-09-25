@@ -10,7 +10,96 @@ import {
   getEffectiveDiffs,
 } from '../../state/admin.js';
 import { beginQuizSession } from './engine.js';
-import { topUpWithFallbackQuestions } from './fallback.js';
+import { topUpWithFallbackQuestions, getFallbackQuestionPool } from './fallback.js';
+
+function toLowerKey(value) {
+  if (value == null) return '';
+  const str = String(value).trim();
+  return str ? str.toLowerCase() : '';
+}
+
+function decorateVariant(question, variantIndex) {
+  const base = question || {};
+  const baseText = (base.q || base.question || '').toString().trim();
+  const variantSuffix = variantIndex > 0 ? ` — نسخه ${variantIndex + 1}` : '';
+  return {
+    ...base,
+    id: `${base.id || base.uid || base.q || 'fallback'}::${variantIndex + 1}`,
+    q: baseText ? `${baseText}${variantSuffix}` : `سؤال ${variantIndex + 1}`,
+  };
+}
+
+function ensureQuestionSupply(list, { count, categoryId, categorySlug, difficulty }) {
+  const desired = Math.max(1, Number(count) || 1);
+  const poolOptions = { categoryId, categorySlug, difficulty, count: desired };
+  const primaryPool = getFallbackQuestionPool(poolOptions);
+  const secondaryPool = getFallbackQuestionPool({ count: desired });
+  const fallbackPool = primaryPool.length ? primaryPool : secondaryPool;
+  const result = Array.isArray(list) ? list.slice() : [];
+  const seenIds = new Set();
+  const seenTexts = new Set();
+
+  result.forEach((question, index) => {
+    const idKey = toLowerKey(question?.id || question?.uid || `client-${index}`);
+    const textKey = toLowerKey(question?.q || question?.question || '');
+    if (idKey) seenIds.add(idKey);
+    if (textKey) seenTexts.add(textKey);
+  });
+
+  if (result.length >= desired) {
+    return result.slice(0, desired);
+  }
+
+  if (!fallbackPool.length) {
+    return result;
+  }
+
+  let variantIndex = 0;
+  const safetyCap = desired * 4;
+
+  while (result.length < desired && variantIndex < safetyCap) {
+    const base = fallbackPool[variantIndex % fallbackPool.length];
+    if (!base) break;
+
+    let candidate = decorateVariant(base, variantIndex);
+    let candidateId = toLowerKey(candidate.id || candidate.uid);
+    let candidateText = toLowerKey(candidate.q || candidate.question || '');
+
+    if (candidateId && seenIds.has(candidateId)) {
+      candidateId = `${candidateId}-v${variantIndex + 1}`;
+      candidate = { ...candidate, id: candidateId };
+    }
+
+    if (candidateText && seenTexts.has(candidateText)) {
+      const baseText = (candidate.q || candidate.question || '').toString().trim();
+      const suffix = variantIndex + 1;
+      const revised = baseText ? `${baseText} (سری ${suffix})` : `سؤال ${suffix}`;
+      candidateText = revised.toLowerCase();
+      candidate = { ...candidate, q: revised };
+    }
+
+    if (!candidateText && (candidate.q || candidate.question)) {
+      candidateText = toLowerKey(candidate.q || candidate.question);
+    }
+
+    if (candidateId && seenIds.has(candidateId)) {
+      variantIndex += 1;
+      continue;
+    }
+
+    if (candidateText && seenTexts.has(candidateText)) {
+      variantIndex += 1;
+      continue;
+    }
+
+    result.push(candidate);
+    if (candidateId) seenIds.add(candidateId);
+    if (candidateText) seenTexts.add(candidateText);
+    variantIndex += 1;
+  }
+
+  return result.slice(0, Math.min(result.length, desired));
+}
 
 function pickDifficulty(diffPool, { requested, stateValue, stateLabel }) {
   let selected = null;
@@ -265,9 +354,12 @@ export async function startQuizFromAdmin(arg) {
       })) || [];
     }
 
-    if (!Array.isArray(list) || list.length === 0) {
-      toast('برای این دسته هنوز سوالی ثبت نشده 😕');
-      return false;
+    if (!Array.isArray(list)) {
+      list = [];
+    }
+
+    if (!list.length) {
+      toast('سؤال تازه‌ای برای این دسته پیدا نشد؛ از مجموعهٔ پیش‌فرض استفاده می‌کنیم.');
     }
 
     const initialSeenKeys = new Set();
@@ -312,7 +404,14 @@ export async function startQuizFromAdmin(arg) {
 
     uniqueQuestions.splice(0, uniqueQuestions.length, ...supplemented);
 
-    const finalList = uniqueQuestions.slice(0, Math.min(uniqueQuestions.length, count));
+    const filledList = ensureQuestionSupply(uniqueQuestions, {
+      count,
+      categoryId,
+      categorySlug: catSlug || undefined,
+      difficulty: difficultyValue,
+    });
+
+    const finalList = filledList.slice(0, Math.min(filledList.length, count));
 
     if (finalList.length === 0) {
       toast('سوال معتبر برای این تنظیمات موجود نیست.');
