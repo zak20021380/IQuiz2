@@ -55,6 +55,8 @@ const openAiApiKey = process.env.OPENAI_API_KEY || '';
 const openAiOrganization = process.env.OPENAI_ORG || process.env.OPENAI_ORGANIZATION || '';
 const openAiProject = process.env.OPENAI_PROJECT || '';
 
+const allowReviewModeAll = parseBoolean(process.env.ALLOW_REVIEW_MODE_ALL, true);
+
 const env = {
   nodeEnv,
   isProduction: nodeEnv === 'production',
@@ -79,6 +81,9 @@ const env = {
       organization: openAiOrganization,
       project: openAiProject
     }
+  },
+  features: {
+    allowReviewModeAll
   }
 };
 

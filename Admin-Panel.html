@@ -959,6 +959,16 @@
       background: linear-gradient(135deg, rgba(129,140,248,0.16), rgba(165,180,252,0.1));
       color: #a5b4fc;
     }
+    .meta-chip.moderation-active {
+      border-color: rgba(34, 197, 94, 0.35);
+      background: linear-gradient(135deg, rgba(34,197,94,0.18), rgba(22,163,74,0.12));
+      color: #4ade80;
+    }
+    .meta-chip.moderation-inactive {
+      border-color: rgba(248, 113, 113, 0.4);
+      background: linear-gradient(135deg, rgba(248,113,113,0.2), rgba(220,38,38,0.12));
+      color: #f87171;
+    }
     .meta-chip.author {
       border-color: rgba(251, 191, 36, 0.35);
       background: linear-gradient(135deg, rgba(251,191,36,0.18), rgba(253,224,71,0.12));
@@ -2327,12 +2337,12 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm mb-1">فیلتر تایید</label>
+              <label class="block text-sm mb-1">حالت بازبینی</label>
               <label class="toggle text-xs">
                 <input type="checkbox" id="filter-approved-only">
-                <span class="toggle-label">فقط تایید شده</span>
+                <span class="toggle-label">نمایش همه (تایید نشده و غیرفعال)</span>
               </label>
-              <p class="text-[11px] text-white/50 mt-2" id="filter-approved-helper">غیرفعال کردن این گزینه، سوالات تایید نشده را نیز نمایش می‌دهد.</p>
+              <p class="text-[11px] text-white/50 mt-2" id="filter-approved-helper">با فعال شدن حالت بازبینی، تمام سوالات از جمله موارد تایید نشده یا غیرفعال نمایش داده می‌شوند.</p>
             </div>
           </div>
         </div>

@@ -59,15 +59,21 @@ const decodeHtmlEntities = (value = '') => {
 };
 
 const STATUS_META = {
-  active:    { label: 'فعال', class: 'meta-chip status-active', dot: 'active' },
-  pending:   { label: 'در انتظار بررسی', class: 'meta-chip status-pending', dot: 'pending' },
-  approved:  { label: 'تایید شده', class: 'meta-chip status-approved', dot: 'active' },
-  rejected:  { label: 'رد شده', class: 'meta-chip status-rejected', dot: 'inactive' },
-  review:    { label: 'در حال بررسی', class: 'meta-chip status-pending', dot: 'pending' },
-  draft:     { label: 'پیش‌نویس', class: 'meta-chip status-pending', dot: 'pending' },
-  inactive:  { label: 'غیرفعال', class: 'meta-chip status-inactive', dot: 'inactive' },
-  disabled:  { label: 'غیرفعال', class: 'meta-chip status-inactive', dot: 'inactive' },
-  archived:  { label: 'آرشیو شده', class: 'meta-chip status-archived', dot: 'archived' }
+  active:          { label: 'فعال', class: 'meta-chip status-active', dot: 'active' },
+  pending:         { label: 'در انتظار بررسی', class: 'meta-chip status-pending', dot: 'pending' },
+  pending_review:  { label: 'در انتظار بررسی', class: 'meta-chip status-pending', dot: 'pending' },
+  approved:        { label: 'تایید شده', class: 'meta-chip status-approved', dot: 'active' },
+  rejected:        { label: 'رد شده', class: 'meta-chip status-rejected', dot: 'inactive' },
+  review:          { label: 'در حال بررسی', class: 'meta-chip status-pending', dot: 'pending' },
+  draft:           { label: 'پیش‌نویس', class: 'meta-chip status-pending', dot: 'pending' },
+  inactive:        { label: 'غیرفعال', class: 'meta-chip status-inactive', dot: 'inactive' },
+  disabled:        { label: 'غیرفعال', class: 'meta-chip status-inactive', dot: 'inactive' },
+  archived:        { label: 'آرشیو شده', class: 'meta-chip status-archived', dot: 'archived' }
+};
+
+const ACTIVE_STATE_META = {
+  on:  { label: 'فعال', class: 'meta-chip moderation-active', icon: 'fa-toggle-on' },
+  off: { label: 'غیرفعال', class: 'meta-chip moderation-inactive', icon: 'fa-toggle-off' }
 };
 
 const CATEGORY_STATUS_SUFFIX = {
@@ -580,7 +586,8 @@ const questionFilters = {
   sort: 'newest',
   type: undefined,
   approvedOnly: undefined,
-  duplicates: 'all'
+  duplicates: 'all',
+  reviewMode: 'default'
 };
 
 const questionsState = {
@@ -4054,12 +4061,28 @@ function normalizeQuestion(raw = {}) {
   const normalizedProvider = providerKey || normalizedSource;
   const authorRaw = typeof raw.authorName === 'string' ? raw.authorName.trim() : '';
   const normalizedAuthor = authorRaw || (normalizedSource === 'community' ? 'کاربر آیکوئیز' : 'تیم آیکوئیز');
-  const statusRaw = typeof raw.status === 'string' ? raw.status.trim().toLowerCase() : '';
+  const moderationSource = raw && typeof raw.moderation === 'object' && raw.moderation
+    ? raw.moderation
+    : {};
+  const statusSource = typeof moderationSource.status === 'string'
+    ? moderationSource.status
+    : typeof raw.status === 'string'
+      ? raw.status
+      : '';
+  const statusRaw = statusSource.trim().toLowerCase();
   let normalizedStatus = statusRaw;
   if (!normalizedStatus) {
     normalizedStatus = raw.active === false ? 'inactive' : 'active';
   } else if (!Object.prototype.hasOwnProperty.call(STATUS_META, normalizedStatus)) {
     normalizedStatus = raw.active === false ? 'inactive' : 'active';
+  }
+  let normalizedActive;
+  if (typeof moderationSource.active === 'boolean') {
+    normalizedActive = moderationSource.active;
+  } else if (typeof raw.active === 'boolean') {
+    normalizedActive = raw.active;
+  } else {
+    normalizedActive = normalizedStatus === 'approved' || normalizedStatus === 'active';
   }
   const reviewNotes = typeof raw.reviewNotes === 'string' ? raw.reviewNotes.trim() : '';
   const publicIdRaw = typeof raw.publicId === 'string' ? raw.publicId.trim() : '';
@@ -4077,12 +4100,17 @@ function normalizeQuestion(raw = {}) {
     provider: normalizedProvider,
     authorName: normalizedAuthor,
     status: normalizedStatus,
+    active: normalizedActive,
     duplicateCount: Number.isFinite(Number(raw?.duplicateCount)) ? Number(raw.duplicateCount) : 0,
     reviewNotes,
     publicId: publicIdRaw,
     uid: uidRaw,
     legacyId,
-    displayId
+    displayId,
+    moderation: {
+      status: normalizedStatus,
+      active: normalizedActive
+    }
   };
 }
 
@@ -4657,6 +4685,18 @@ async function loadQuestions(overrides = {}) {
         }
         if (previous !== questionFilters.approvedOnly) shouldResetPage = true;
       }
+      if (hasOwn.call(overrides, 'reviewMode')) {
+        const nextMode = overrides.reviewMode === 'all' ? 'all' : 'default';
+        if (questionFilters.reviewMode !== nextMode) {
+          shouldResetPage = true;
+        }
+        questionFilters.reviewMode = nextMode;
+        if (nextMode === 'all') {
+          questionFilters.approvedOnly = false;
+        } else if (questionFilters.approvedOnly === false && !hasOwn.call(overrides, 'approvedOnly')) {
+          questionFilters.approvedOnly = undefined;
+        }
+      }
       if (hasOwn.call(overrides, 'duplicates')) {
         const nextDuplicates = overrides.duplicates === 'duplicates' ? 'duplicates' : 'all';
         if (questionFilters.duplicates !== nextDuplicates) shouldResetPage = true;
@@ -4667,6 +4707,10 @@ async function loadQuestions(overrides = {}) {
     renderQuestionCategoryStats();
 
     if (questionFilters.status && questionFilters.status !== 'approved') {
+      if (questionFilters.reviewMode !== 'all') {
+        questionFilters.reviewMode = 'all';
+        shouldResetPage = true;
+      }
       if (questionFilters.approvedOnly !== false) {
         questionFilters.approvedOnly = false;
         shouldResetPage = true;
@@ -4689,7 +4733,7 @@ async function loadQuestions(overrides = {}) {
       }
     }
     if (filterApprovedOnlyToggle) {
-      const shouldCheck = questionFilters.approvedOnly === true;
+      const shouldCheck = questionFilters.reviewMode === 'all';
       if (filterApprovedOnlyToggle.checked !== shouldCheck) {
         filterApprovedOnlyToggle.checked = shouldCheck;
       }
@@ -4704,9 +4748,9 @@ async function loadQuestions(overrides = {}) {
       filterTypeHelper.textContent = 'با فعال کردن این گزینه تنها سوالات چهارگزینه‌ای نمایش داده می‌شوند.';
     }
     if (filterApprovedHelper) {
-      filterApprovedHelper.textContent = questionFilters.approvedOnly === false
-        ? 'سوالات تایید نشده نیز در نتایج نمایش داده می‌شوند.'
-        : 'در صورت فعال بودن، فقط سوالات تایید شده نمایش داده خواهند شد.';
+      filterApprovedHelper.textContent = questionFilters.reviewMode === 'all'
+        ? 'در حالت بازبینی، همه سوالات حتی موارد تایید نشده یا غیرفعال نمایش داده می‌شوند.'
+        : 'در حالت عادی فقط سوالات تایید شده و فعال نمایش داده می‌شوند.';
     }
 
     if (explicitLimit != null) {
@@ -4750,6 +4794,7 @@ async function loadQuestions(overrides = {}) {
     if (questionFilters.sort) params.append('sort', questionFilters.sort);
     if (questionFilters.type) params.append('type', questionFilters.type);
     if (questionFilters.approvedOnly === false) params.append('includeUnapproved', '1');
+    if (questionFilters.reviewMode === 'all') params.append('reviewMode', 'all');
     if (questionFilters.duplicates === 'duplicates') params.append('duplicatesOnly', '1');
 
     const response = await api(`/questions?${params.toString()}`);
@@ -4809,6 +4854,7 @@ async function loadQuestions(overrides = {}) {
         || questionFilters.search
         || questionFilters.type
         || questionFilters.approvedOnly === false
+        || questionFilters.reviewMode === 'all'
         || questionFilters.duplicates === 'duplicates'
       );
       let emptyMessage;
@@ -4849,8 +4895,29 @@ async function loadQuestions(overrides = {}) {
       const categoryName = escapeHtml(item.categoryName || 'بدون دسته‌بندی');
       const difficulty = DIFFICULTY_META[item.difficulty] || DIFFICULTY_META.medium;
       const authorSafe = escapeHtml(item.authorName || 'IQuiz Team');
-      const statusKey = item.status || (item.active === false ? 'inactive' : 'active');
-      const status = STATUS_META[statusKey] || STATUS_META.active;
+      const rawStatusKey = typeof item.status === 'string' ? item.status.trim().toLowerCase() : '';
+      const moderationStatusKey = typeof item?.moderation?.status === 'string'
+        ? item.moderation.status.trim().toLowerCase()
+        : rawStatusKey;
+      const fallbackStatusKey = item.active === false ? 'inactive' : 'active';
+      const resolvedStatusKey = moderationStatusKey || rawStatusKey || fallbackStatusKey;
+      const status = STATUS_META[resolvedStatusKey] || STATUS_META[fallbackStatusKey] || STATUS_META.active;
+      const moderationActiveValue = typeof item?.moderation?.active === 'boolean'
+        ? item.moderation.active
+        : typeof item.active === 'boolean'
+          ? item.active
+          : null;
+      const activeMeta = moderationActiveValue === true
+        ? ACTIVE_STATE_META.on
+        : moderationActiveValue === false
+          ? ACTIVE_STATE_META.off
+          : null;
+      const statusChip = status
+        ? `<span class="${status.class}" title="وضعیت تایید"><span class="status-dot ${status.dot || 'active'}"></span>${status.label}</span>`
+        : '';
+      const activeChip = activeMeta
+        ? `<span class="${activeMeta.class}" title="وضعیت فعال بودن"><i class="fas ${activeMeta.icon}"></i>${activeMeta.label}</span>`
+        : '';
       const sourceMeta = SOURCE_META[item.source] || SOURCE_META.manual;
       const derivedAnswerRaw = item.options[item.correctIdx] || item.correctAnswer || '---';
       const answerText = escapeHtml(decodeHtmlEntities(derivedAnswerRaw));
@@ -4878,9 +4945,8 @@ async function loadQuestions(overrides = {}) {
               <span class="${sourceMeta.class}" title="منبع سوال">
                 <i class="fas ${sourceMeta.icon}"></i>${sourceMeta.label}
               </span>
-              <span class="${status.class}" title="وضعیت سوال">
-                <span class="status-dot ${status.dot}"></span>${status.label}
-              </span>
+              ${statusChip}
+              ${activeChip}
               ${duplicateBadge}
             </div>
           </td>
@@ -5381,7 +5447,10 @@ if (filterApprovedOnlyToggle) {
   filterApprovedOnlyToggle.addEventListener('change', () => {
     if (!getToken()) return;
     const nextValue = filterApprovedOnlyToggle.checked;
-    loadQuestions({ approvedOnly: nextValue });
+    loadQuestions({
+      approvedOnly: nextValue ? false : undefined,
+      reviewMode: nextValue ? 'all' : 'default'
+    });
   });
 }
 

@@ -1,11 +1,14 @@
 const Question = require('../models/Question');
 const Category = require('../models/Category');
+const env = require('../config/env');
 const { evaluateDuplicate } = require('../services/questionIngest');
 const ALLOWED_STATUSES = ['pending', 'pending_review', 'approved', 'rejected', 'draft', 'archived'];
 const ALLOWED_SOURCES = ['manual', 'ai-gen', 'community', 'ai', 'AI'];
 const ALLOWED_PROVIDERS = ['manual', 'ai-gen', 'community'];
 const TRUTHY_QUERY_VALUES = new Set(['1', 'true', 'yes', 'y', 'on']);
 const FALSY_QUERY_VALUES = new Set(['0', 'false', 'no', 'n', 'off']);
+
+const ALLOW_REVIEW_MODE_ALL = env?.features?.allowReviewModeAll !== false;
 
 function normalizeStatus(status, fallback = 'approved') {
   if (typeof status !== 'string') return fallback;
@@ -81,6 +84,57 @@ function parseBooleanQuery(value, fallback = false) {
   if (TRUTHY_QUERY_VALUES.has(normalized)) return true;
   if (FALSY_QUERY_VALUES.has(normalized)) return false;
   return fallback;
+}
+
+function extractOptionList(doc) {
+  if (!doc || typeof doc !== 'object') return [];
+  if (Array.isArray(doc.options)) return doc.options;
+  if (Array.isArray(doc.choices)) return doc.choices;
+  return [];
+}
+
+function isValidQuestionStructure(doc) {
+  const text = typeof doc?.text === 'string' ? doc.text.trim() : '';
+  if (!text) return false;
+
+  const optionSource = extractOptionList(doc);
+  if (!Array.isArray(optionSource) || optionSource.length < 2) return false;
+
+  const normalizedOptions = optionSource.map((choice) => {
+    if (typeof choice === 'string') return choice.trim();
+    if (choice == null) return '';
+    return String(choice).trim();
+  });
+
+  if (normalizedOptions.filter((choice) => choice.length > 0).length < 2) {
+    return false;
+  }
+
+  const idxCandidate = doc?.correctIdx ?? doc?.correctIndex;
+  const idx = Number(idxCandidate);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= optionSource.length) {
+    return false;
+  }
+
+  return true;
+}
+
+function attachModerationMeta(doc) {
+  const status = typeof doc?.status === 'string' ? doc.status : null;
+  let active = null;
+  if (typeof doc?.active === 'boolean') {
+    active = doc.active;
+  } else if (doc?.active === 1 || doc?.active === 0) {
+    active = Boolean(doc.active);
+  }
+
+  return {
+    ...doc,
+    moderation: {
+      status,
+      active
+    }
+  };
 }
 
 exports.create = async (req, res, next) => {
@@ -234,6 +288,8 @@ exports.create = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+exports.search = async (req, res, next) => exports.list(req, res, next);
+
 exports.listDuplicateSuspects = async (req, res, next) => {
   try {
     const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
@@ -357,10 +413,27 @@ exports.list = async (req, res, next) => {
       provider,
       type,
       includeUnapproved: includeUnapprovedRaw,
-      duplicatesOnly: duplicatesOnlyRaw
+      duplicatesOnly: duplicatesOnlyRaw,
+      reviewMode: reviewModeRaw
     } = req.query;
 
-    const includeUnapproved = parseBooleanQuery(includeUnapprovedRaw, false);
+    const requestedReviewModeAll = typeof reviewModeRaw === 'string'
+      && reviewModeRaw.trim().toLowerCase() === 'all';
+    let useReviewModeAll = false;
+
+    if (requestedReviewModeAll) {
+      if (!ALLOW_REVIEW_MODE_ALL) {
+        useReviewModeAll = false;
+      } else if (req.user?.role !== 'admin') {
+        return res.status(403).json({ ok: false, message: 'Forbidden' });
+      } else {
+        useReviewModeAll = true;
+      }
+    }
+
+    const includeUnapproved = useReviewModeAll
+      ? true
+      : parseBooleanQuery(includeUnapprovedRaw, false);
     const duplicatesOnly = parseBooleanQuery(duplicatesOnlyRaw, false);
     const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
     const safeLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 20, 1), 200);
@@ -446,7 +519,7 @@ exports.list = async (req, res, next) => {
       where.uid = { $in: duplicateFilterUids };
     }
 
-    if (!includeUnapproved && !where.status) {
+    if (!includeUnapproved && !where.status && !useReviewModeAll) {
       where.isApproved = { $ne: false };
     }
 
@@ -466,7 +539,11 @@ exports.list = async (req, res, next) => {
       Question.countDocuments({ status: 'pending' })
     ]);
 
-    const itemUids = items
+    const sanitizedItems = items
+      .filter((item) => isValidQuestionStructure(item))
+      .map((item) => attachModerationMeta(item));
+
+    const itemUids = sanitizedItems
       .map((item) => (item && typeof item.uid === 'string' ? item.uid : ''))
       .filter(Boolean);
 
@@ -485,7 +562,7 @@ exports.list = async (req, res, next) => {
       }, {});
     }
 
-    const dataWithDuplicates = items.map((item) => ({
+    const dataWithDuplicates = sanitizedItems.map((item) => ({
       ...item,
       duplicateCount: item && item.uid ? (duplicateCounts[item.uid] || 0) : 0
     }));
