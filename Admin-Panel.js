@@ -723,10 +723,13 @@ const importQuestionsState = {
   questions: [],
   errors: [],
   total: 0,
-  importing: false
+  importing: false,
+  parsing: false,
+  parseProgress: null
 };
 
 let importQuestionsDebounce = null;
+let importQuestionsProcessingToken = 0;
 
 let filterSearchDebounce;
 let latestQuestionStats = null;
@@ -1280,7 +1283,7 @@ function normalizeImportedQuestion(raw, index) {
 function parseImportPayload(raw) {
   const text = typeof raw === 'string' ? raw.trim() : '';
   if (!text) {
-    return { questions: [], errors: [], total: 0 };
+    return { list: [], errors: [], total: 0, aborted: true };
   }
 
   let data;
@@ -1288,26 +1291,97 @@ function parseImportPayload(raw) {
     data = JSON.parse(text);
   } catch (error) {
     const message = error && error.message ? error.message : 'JSON معتبر نیست.';
-    return { questions: [], errors: [{ index: null, message: `فرمت JSON معتبر نیست: ${message}` }], total: 0 };
+    return {
+      list: [],
+      errors: [{ index: null, message: `فرمت JSON معتبر نیست: ${message}` }],
+      total: 0,
+      aborted: true
+    };
   }
 
   const list = Array.isArray(data) ? data : [data];
   if (!list.length) {
-    return { questions: [], errors: [{ index: null, message: 'آرایه سوالات خالی است.' }], total: 0 };
+    return {
+      list: [],
+      errors: [{ index: null, message: 'آرایه سوالات خالی است.' }],
+      total: 0,
+      aborted: true
+    };
   }
 
+  return {
+    list,
+    errors: [],
+    total: list.length,
+    aborted: false
+  };
+}
+
+function waitForImportIdle() {
+  return new Promise((resolve) => {
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => resolve(), { timeout: 120 });
+    } else {
+      setTimeout(resolve, 16);
+    }
+  });
+}
+
+function computeImportChunkSize(total) {
+  const safeTotal = Number.isFinite(Number(total)) ? Number(total) : 0;
+  if (safeTotal <= 20) return 5;
+  if (safeTotal <= 80) return 12;
+  if (safeTotal <= 160) return 18;
+  return 24;
+}
+
+async function scheduleImportPayloadProcessing(raw, token) {
+  const parsed = parseImportPayload(raw);
+  if (parsed.aborted) {
+    return { questions: [], errors: parsed.errors || [], total: parsed.total || 0 };
+  }
+
+  const { list, errors: initialErrors, total } = parsed;
+  const errors = Array.isArray(initialErrors) ? [...initialErrors] : [];
   const questions = [];
-  const errors = [];
-  list.forEach((entry, idx) => {
-    const result = normalizeImportedQuestion(entry, idx);
+
+  const progress = importQuestionsState.parseProgress || { processed: 0, total: total || list.length, message: '' };
+  progress.total = Number.isFinite(Number(total)) ? Number(total) : list.length;
+  progress.message = progress.total > 1
+    ? 'در حال پردازش گروهی سوالات...'
+    : 'در حال پردازش سوال...';
+  importQuestionsState.parseProgress = progress;
+  renderImportQuestionsState();
+
+  const chunkSize = computeImportChunkSize(progress.total);
+
+  for (let idx = 0; idx < list.length; idx += 1) {
+    if (token !== importQuestionsProcessingToken) {
+      return null;
+    }
+
+    const result = normalizeImportedQuestion(list[idx], idx);
     if (result?.question) {
-      questions.push(result.question);
+      const question = {
+        ...result.question,
+        status: 'idle',
+        errorMessage: '',
+        warnings: Array.isArray(result.question.warnings) ? result.question.warnings : []
+      };
+      questions.push(question);
     } else if (result?.error) {
       errors.push(result.error);
     }
-  });
 
-  return { questions, errors, total: list.length };
+    if ((idx + 1) % chunkSize === 0 || idx === list.length - 1) {
+      progress.processed = idx + 1;
+      importQuestionsState.parseProgress = progress;
+      renderImportQuestionsState();
+      await waitForImportIdle();
+    }
+  }
+
+  return { questions, errors, total: progress.total };
 }
 
 function renderImportQuestionsState() {
@@ -1322,42 +1396,68 @@ function renderImportQuestionsState() {
 
   const summaryContainer = importQuestionsSummaryEl;
   if (summaryContainer) {
-    const readyCount = importQuestionsState.questions.filter((question) => question.status === 'idle').length;
-    const successCount = importQuestionsState.questions.filter((question) => question.status === 'success').length;
-    const failedCount = importQuestionsState.questions.filter((question) => question.status === 'error').length + importQuestionsState.errors.length;
-    const total = importQuestionsState.total || (importQuestionsState.questions.length + importQuestionsState.errors.length);
+    if (importQuestionsState.parsing) {
+      const progress = importQuestionsState.parseProgress || { processed: 0, total: 0, message: '' };
+      const processed = Number.isFinite(Number(progress.processed)) ? Number(progress.processed) : 0;
+      const total = Number.isFinite(Number(progress.total)) ? Number(progress.total) : 0;
+      const ratio = total > 0 ? Math.min(100, Math.max(0, Math.round((processed / total) * 100))) : 5;
+      const message = progress.message ? escapeHtml(progress.message) : 'در حال پردازش ورودی‌ها...';
+      const counter = total > 0
+        ? `${formatNumberFa(Math.min(processed, total))} / ${formatNumberFa(total)}`
+        : '';
 
-    if (!total) {
       summaryContainer.innerHTML = `
-        <div class="text-sm text-white/70">
-          برای شروع، محتوای JSON سوالات را وارد یا فایل مربوطه را آپلود کنید.
+        <div class="import-progress-card">
+          <div class="import-progress-header">
+            <div class="import-progress-message">
+              <span class="import-progress-spinner"></span>
+              <span>${message}</span>
+            </div>
+            <div class="import-progress-counter">${counter}</div>
+          </div>
+          <div class="import-progress-bar">
+            <span style="width: ${ratio}%;"></span>
+          </div>
         </div>
       `;
     } else {
-      summaryContainer.innerHTML = `
-        <div class="import-summary-cards">
-          <div class="import-summary-card">
-            <span>${formatNumberFa(readyCount)}</span>
-            <p class="text-xs text-white/60">سوالات آماده ثبت</p>
+      const readyCount = importQuestionsState.questions.filter((question) => question.status === 'idle').length;
+      const successCount = importQuestionsState.questions.filter((question) => question.status === 'success').length;
+      const failedCount = importQuestionsState.questions.filter((question) => question.status === 'error').length + importQuestionsState.errors.length;
+      const total = importQuestionsState.total || (importQuestionsState.questions.length + importQuestionsState.errors.length);
+
+      if (!total) {
+        summaryContainer.innerHTML = `
+          <div class="text-sm text-white/70">
+            برای شروع، محتوای JSON سوالات را وارد یا فایل مربوطه را آپلود کنید.
           </div>
-          <div class="import-summary-card">
-            <span class="text-emerald-200">${formatNumberFa(successCount)}</span>
-            <p class="text-xs text-white/60">ثبت موفق</p>
+        `;
+      } else {
+        summaryContainer.innerHTML = `
+          <div class="import-summary-cards">
+            <div class="import-summary-card">
+              <span>${formatNumberFa(readyCount)}</span>
+              <p class="text-xs text-white/60">سوالات آماده ثبت</p>
+            </div>
+            <div class="import-summary-card">
+              <span class="text-emerald-200">${formatNumberFa(successCount)}</span>
+              <p class="text-xs text-white/60">ثبت موفق</p>
+            </div>
+            <div class="import-summary-card">
+              <span class="text-rose-200">${formatNumberFa(failedCount)}</span>
+              <p class="text-xs text-white/60">موارد دارای خطا</p>
+            </div>
           </div>
-          <div class="import-summary-card">
-            <span class="text-rose-200">${formatNumberFa(failedCount)}</span>
-            <p class="text-xs text-white/60">موارد دارای خطا</p>
-          </div>
-        </div>
-        <p class="text-[11px] text-white/50 mt-3">
-          مجموع ورودی‌ها: ${formatNumberFa(total)} مورد
-        </p>
-      `;
+          <p class="text-[11px] text-white/50 mt-3">
+            مجموع ورودی‌ها: ${formatNumberFa(total)} مورد
+          </p>
+        `;
+      }
     }
   }
 
   if (importQuestionsErrorsEl) {
-    if (!importQuestionsState.errors.length) {
+    if (importQuestionsState.parsing || !importQuestionsState.errors.length) {
       importQuestionsErrorsEl.classList.add('hidden');
       importQuestionsErrorsEl.innerHTML = '';
     } else {
@@ -1374,7 +1474,14 @@ function renderImportQuestionsState() {
   }
 
   if (importQuestionsPreviewEl) {
-    if (!importQuestionsState.questions.length) {
+    if (importQuestionsState.parsing) {
+      importQuestionsPreviewEl.innerHTML = `
+        <div class="import-preview-loading">
+          <span class="import-progress-spinner"></span>
+          <span>در حال آماده‌سازی پیش‌نمایش سوالات...</span>
+        </div>
+      `;
+    } else if (!importQuestionsState.questions.length) {
       importQuestionsPreviewEl.innerHTML = `
         <div class="empty-preview">
           هنوز سوال معتبری شناسایی نشده است. پس از وارد کردن JSON صحیح، پیش‌نمایش اینجا نمایش داده می‌شود.
@@ -1389,7 +1496,7 @@ function renderImportQuestionsState() {
 
   if (importQuestionsSubmitBtn) {
     const hasValid = importQuestionsState.questions.some((question) => question.status === 'idle' || question.status === 'error');
-    const disabled = !hasValid || importQuestionsState.importing;
+    const disabled = importQuestionsState.parsing || !hasValid || importQuestionsState.importing;
     importQuestionsSubmitBtn.disabled = disabled;
     importQuestionsSubmitBtn.classList.toggle('opacity-70', disabled);
     importQuestionsSubmitBtn.classList.toggle('cursor-not-allowed', disabled);
@@ -1495,30 +1602,61 @@ function resolveImportConcurrency(total = 1) {
 }
 
 function resetImportQuestionsModal() {
+  importQuestionsProcessingToken += 1;
   importQuestionsState.raw = '';
   importQuestionsState.questions = [];
   importQuestionsState.errors = [];
   importQuestionsState.fileName = '';
   importQuestionsState.total = 0;
   importQuestionsState.importing = false;
+  importQuestionsState.parsing = false;
+  importQuestionsState.parseProgress = null;
   if (importQuestionsTextarea) importQuestionsTextarea.value = '';
   if (importQuestionsFileInput) importQuestionsFileInput.value = '';
   renderImportQuestionsState();
 }
 
 function applyImportPayload(raw) {
-  importQuestionsState.raw = raw;
-  const parsed = parseImportPayload(raw);
-  importQuestionsState.questions = parsed.questions.map((question) => ({
-    ...question,
-    status: 'idle',
-    errorMessage: '',
-    warnings: Array.isArray(question.warnings) ? question.warnings : []
-  }));
-  importQuestionsState.errors = parsed.errors;
-  importQuestionsState.total = parsed.total || 0;
+  const token = ++importQuestionsProcessingToken;
+  const text = typeof raw === 'string' ? raw : '';
+  importQuestionsState.raw = text;
+  importQuestionsState.questions = [];
+  importQuestionsState.errors = [];
+  importQuestionsState.total = 0;
   importQuestionsState.importing = false;
+  importQuestionsState.parsing = Boolean(text.trim());
+  importQuestionsState.parseProgress = text.trim()
+    ? { processed: 0, total: 0, message: 'در حال آماده‌سازی داده‌ها...' }
+    : null;
   renderImportQuestionsState();
+
+  if (!text.trim()) {
+    importQuestionsState.parsing = false;
+    importQuestionsState.parseProgress = null;
+    renderImportQuestionsState();
+    return;
+  }
+
+  scheduleImportPayloadProcessing(text, token)
+    .then((result) => {
+      if (!result || token !== importQuestionsProcessingToken) return;
+      importQuestionsState.questions = result.questions;
+      importQuestionsState.errors = result.errors;
+      importQuestionsState.total = result.total || 0;
+    })
+    .catch((error) => {
+      if (token !== importQuestionsProcessingToken) return;
+      const message = error?.message ? String(error.message) : 'پردازش JSON با خطا مواجه شد.';
+      importQuestionsState.errors = [{ index: null, message }];
+      importQuestionsState.questions = [];
+      importQuestionsState.total = 0;
+    })
+    .finally(() => {
+      if (token !== importQuestionsProcessingToken) return;
+      importQuestionsState.parsing = false;
+      importQuestionsState.parseProgress = null;
+      renderImportQuestionsState();
+    });
 }
 
 async function handleImportQuestionsSubmit() {
