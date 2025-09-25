@@ -1678,9 +1678,11 @@
   <div id="modal-province-select" class="modal">
     <div class="glass rounded-3xl p-5 w-full max-w-md text-center">
       <div class="text-xl font-extrabold mb-4">انتخاب استان</div>
-      <select id="first-province" class="w-full p-3 rounded-xl bg-white/10 border border-white/20 mb-4">
-        <option value="" disabled selected>استان خود را انتخاب کنید</option>
-      </select>
+      <div class="select-wrapper mb-4">
+        <select id="first-province" class="modern-select">
+          <option value="" disabled selected>استان خود را انتخاب کنید</option>
+        </select>
+      </div>
       <button id="btn-confirm-province" class="btn btn-province">تایید</button>
     </div>
   </div>
@@ -1708,7 +1710,9 @@
         <label class="block text-sm opacity-90">نام</label>
         <input id="inp-name" class="w-full p-3 rounded-xl bg-white/10 border border-white/20" placeholder="نام شما">
         <label class="block text-sm opacity-90">استان</label>
-        <select id="sel-province" class="w-full p-3 rounded-xl bg-white/10 border border-white/20" disabled></select>
+        <div class="select-wrapper">
+          <select id="sel-province" class="modern-select" disabled></select>
+        </div>
         <label class="block text-sm opacity-90">گروه شما</label>
         <div id="lbl-group" class="w-full p-3 rounded-xl bg-white/10 border border-white/20"></div>
         <label class="block text-sm opacity-90">عکس پروفایل</label>
