@@ -33,20 +33,60 @@ function buildDailySeries(raw = [], startDate, days = 7) {
 }
 
 function mapTopCategories(list, totalQuestions) {
+  const totals = list.reduce((acc, item) => {
+    acc.questions += Number(item?.questionCount) || 0;
+    acc.selections += Number(item?.selectionCount) || 0;
+    acc.consumption += Number(item?.consumptionCount) || 0;
+    return acc;
+  }, { questions: 0, selections: 0, consumption: 0 });
+
   return list.map((item) => {
     const questionCount = Number(item?.questionCount) || 0;
+    const selectionCount = Number(item?.selectionCount) || 0;
+    const consumptionCount = Number(item?.consumptionCount) || 0;
     const categoryDoc = item?.category || {};
     const categoryId = item?._id ? String(item._id) : null;
+
+    const questionShare = totalQuestions > 0
+      ? Math.round((questionCount / totalQuestions) * 1000) / 10
+      : 0;
+    const selectionShare = totals.selections > 0
+      ? Math.round((selectionCount / totals.selections) * 1000) / 10
+      : 0;
+    const consumptionShare = totals.consumption > 0
+      ? Math.round((consumptionCount / totals.consumption) * 1000) / 10
+      : 0;
+
     return {
       id: categoryId,
       name: categoryDoc.displayName || categoryDoc.name || 'نامشخص',
       color: categoryDoc.color || 'blue',
       questionCount,
-      percentage: totalQuestions > 0
-        ? Math.round((questionCount / totalQuestions) * 1000) / 10
-        : 0
+      selectionCount,
+      consumptionCount,
+      percentage: questionShare,
+      selectionShare,
+      consumptionShare
     };
   });
+}
+
+function buildCoalesceExpression(paths, fallback = 0) {
+  if (!Array.isArray(paths) || paths.length === 0) return fallback;
+  return paths.reduceRight((acc, path) => ({ $ifNull: [path, acc] }), fallback);
+}
+
+function buildNumericAccumulator(paths) {
+  return {
+    $sum: {
+      $convert: {
+        input: buildCoalesceExpression(paths),
+        to: 'double',
+        onError: 0,
+        onNull: 0
+      }
+    }
+  };
 }
 
 function buildActivityStream(users = [], questions = [], ads = []) {
@@ -168,10 +208,40 @@ exports.dashboard = async (req, res, next) => {
         {
           $group: {
             _id: '$category',
-            questionCount: { $sum: 1 }
+            questionCount: { $sum: 1 },
+            selectionCount: buildNumericAccumulator([
+              '$meta.analytics.selectionCount',
+              '$meta.analytics.selections',
+              '$meta.stats.selectionCount',
+              '$meta.stats.selections',
+              '$meta.usage.selectionCount',
+              '$meta.usage.selections'
+            ]),
+            consumptionCount: buildNumericAccumulator([
+              '$meta.analytics.consumptionCount',
+              '$meta.analytics.playedCount',
+              '$meta.analytics.consumed',
+              '$meta.stats.consumptionCount',
+              '$meta.stats.playedCount',
+              '$meta.stats.consumed',
+              '$meta.usage.consumptionCount',
+              '$meta.usage.played',
+              '$meta.usage.consumed'
+            ])
           }
         },
-        { $sort: { questionCount: -1 } },
+        {
+          $addFields: {
+            engagementScore: {
+              $add: [
+                { $multiply: [{ $ifNull: ['$selectionCount', 0] }, 1.5] },
+                { $ifNull: ['$consumptionCount', 0] },
+                { $multiply: [{ $ifNull: ['$questionCount', 0] }, 0.35] }
+              ]
+            }
+          }
+        },
+        { $sort: { engagementScore: -1, selectionCount: -1, questionCount: -1 } },
         { $limit: 5 },
         {
           $lookup: {
