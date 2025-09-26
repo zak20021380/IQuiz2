@@ -98,6 +98,7 @@ app.use('/api/group-battles', require('./routes/group-battles.routes'));
 app.use('/api/duels', require('./routes/duels.routes'));
 app.use('/api/admin/questions', require('./routes/admin/questions'));
 app.use('/api/admin/metrics', require('./routes/admin/metrics'));
+app.use('/api/admin/shop', require('./routes/admin/shop'));
 app.use('/api/public', require('./routes/public.routes'));
 app.use('/api/jservice', jserviceRoutes);
 app.use('/api', aiRoutes);
