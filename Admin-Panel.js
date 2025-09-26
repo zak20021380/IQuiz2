@@ -618,7 +618,7 @@ const shopRevenueMetricElements = shopRevenueSection
       }
     }
   : {};
-const shopRevenueState = { range: 'weekly', dataset: null };
+const shopRevenueState = { range: 'weekly', dataset: null, loading: false, error: null };
 const shopState = {
   initialized: false,
   lastUpdated: null
@@ -4055,140 +4055,6 @@ function renderDashboardActivity(list = [], state = 'success', message = '') {
   dashboardActivityListEl.appendChild(fragment);
 }
 
-const SHOP_REVENUE_SAMPLE = (() => {
-  const now = new Date();
-  const roundPercent = (value) => Math.round(value * 10) / 10;
-
-  const weeklyTimeline = [];
-  for (let i = 6; i >= 0; i -= 1) {
-    const date = new Date(now);
-    date.setDate(now.getDate() - i);
-    const progress = 6 - i;
-    const revenue = 920000 + progress * 98000 + (i % 2 === 0 ? 62000 : 48000);
-    const orders = 38 + progress * 6 + (i % 3 === 0 ? 4 : 0);
-    weeklyTimeline.push({
-      date: date.toISOString().slice(0, 10),
-      revenue,
-      orders
-    });
-  }
-
-  const weeklyTotal = weeklyTimeline.reduce((sum, point) => sum + point.revenue, 0);
-  const weeklyOrders = weeklyTimeline.reduce((sum, point) => sum + point.orders, 0);
-
-  const monthlyTimeline = [];
-  for (let i = 5; i >= 0; i -= 1) {
-    const date = new Date(now);
-    date.setDate(now.getDate() - i * 5);
-    const progress = 5 - i;
-    const revenue = 4200000 + progress * 340000 + (i % 2 === 0 ? 190000 : 0);
-    const orders = 182 + progress * 26 + (i % 2 === 0 ? 6 : 0);
-    monthlyTimeline.push({
-      date: date.toISOString().slice(0, 10),
-      revenue,
-      orders,
-      label: `هفته ${formatNumberFa(progress + 1)}`
-    });
-  }
-
-  const monthlyTotal = monthlyTimeline.reduce((sum, point) => sum + point.revenue, 0);
-  const monthlyOrders = monthlyTimeline.reduce((sum, point) => sum + point.orders, 0);
-
-  const quarterTimeline = [];
-  for (let i = 11; i >= 0; i -= 1) {
-    const date = new Date(now);
-    date.setDate(now.getDate() - i * 7);
-    const progress = 11 - i;
-    const baseRevenue = 3100000 + progress * 230000 + (i % 3 === 0 ? 210000 : 0);
-    const revenue = i === 0 ? weeklyTotal : baseRevenue;
-    const orders = i === 0 ? weeklyOrders : 160 + progress * 17 + (i % 2 === 0 ? 6 : 0);
-    quarterTimeline.push({
-      date: date.toISOString().slice(0, 10),
-      revenue,
-      orders,
-      label: `هفته ${formatNumberFa(progress + 1)}`
-    });
-  }
-
-  const quarterTotal = quarterTimeline.reduce((sum, point) => sum + point.revenue, 0);
-  const quarterOrders = quarterTimeline.reduce((sum, point) => sum + point.orders, 0);
-
-  const todayPoint = weeklyTimeline[weeklyTimeline.length - 1];
-  const yesterdayPoint = weeklyTimeline[weeklyTimeline.length - 2] || weeklyTimeline[weeklyTimeline.length - 1];
-  const previousWeekRevenue = quarterTimeline.length > 1
-    ? quarterTimeline[quarterTimeline.length - 2].revenue
-    : weeklyTotal;
-  const previousMonthRevenue = monthlyTotal * 1.045;
-  const previousAverage = (monthlyTotal / Math.max(monthlyOrders, 1)) / 1.065;
-  const averageValue = Math.round(monthlyTotal / Math.max(monthlyOrders, 1));
-
-  const topItems = [
-    { id: 'pkg-gold-250', name: 'بسته کلید طلایی ۲۵۰ تایی', category: 'پکیج کلید', revenue: 12850000, orders: 185, share: 34.2 },
-    { id: 'vip-monthly', name: 'اشتراک VIP ماهانه', category: 'اشتراک ویژه', revenue: 8450000, orders: 112, share: 22.5 },
-    { id: 'pkg-silver-120', name: 'بسته کلید نقره‌ای ۱۲۰ تایی', category: 'پکیج کلید', revenue: 6420000, orders: 210, share: 17.4 },
-    { id: 'pkg-bronze-45', name: 'بسته کلید برنزی ۴۵ تایی', category: 'پکیج کلید', revenue: 4180000, orders: 310, share: 11.8 },
-    { id: 'boost-weekly', name: 'بوستر امتیاز هفتگی', category: 'افزودنی', revenue: 2930000, orders: 158, share: 8.6 }
-  ];
-
-  const freeze = (value) => Object.freeze(value);
-  const freezeTimeline = (list) => freeze(list.map((item) => freeze({ ...item })));
-
-  const weeklySeries = freezeTimeline(weeklyTimeline);
-  const monthlySeries = freezeTimeline(monthlyTimeline);
-  const quarterSeries = freezeTimeline(quarterTimeline);
-
-  return freeze({
-    currency: 'rial',
-    updatedAt: new Date(now.getTime() - 11 * 60 * 1000).toISOString(),
-    metrics: freeze({
-      today: freeze({
-        revenue: todayPoint.revenue,
-        orders: todayPoint.orders,
-        delta: roundPercent(((todayPoint.revenue - yesterdayPoint.revenue) / Math.max(yesterdayPoint.revenue, 1)) * 100),
-        compareTo: 'در مقایسه با دیروز',
-        trend: todayPoint.revenue >= yesterdayPoint.revenue ? 'positive' : 'negative',
-        context: `${formatNumberFa(todayPoint.orders)} سفارش موفق`
-      }),
-      week: freeze({
-        revenue: weeklyTotal,
-        orders: weeklyOrders,
-        delta: roundPercent(((weeklyTotal - previousWeekRevenue) / Math.max(previousWeekRevenue, 1)) * 100),
-        compareTo: 'نسبت به هفته قبل',
-        trend: weeklyTotal >= previousWeekRevenue ? 'positive' : 'negative',
-        context: `${formatNumberFa(weeklyOrders)} سفارش این هفته`
-      }),
-      month: freeze({
-        revenue: monthlyTotal,
-        orders: monthlyOrders,
-        delta: roundPercent(((monthlyTotal - previousMonthRevenue) / Math.max(previousMonthRevenue, 1)) * 100),
-        compareTo: 'نسبت به ماه قبل',
-        trend: monthlyTotal >= previousMonthRevenue ? 'positive' : 'negative',
-        context: `${formatNumberFa(monthlyOrders)} سفارش این ماه`
-      }),
-      average: freeze({
-        revenue: averageValue,
-        orders: monthlyOrders,
-        delta: roundPercent(((averageValue - previousAverage) / Math.max(previousAverage, 1)) * 100),
-        compareTo: 'میانگین ماه قبل',
-        trend: averageValue >= previousAverage ? 'positive' : 'negative',
-        context: 'میانگین ارزش هر سفارش'
-      })
-    }),
-    highlight: freeze({
-      name: topItems[0].name,
-      revenue: topItems[0].revenue,
-      orders: topItems[0].orders,
-      share: topItems[0].share
-    }),
-    ranges: freeze({
-      weekly: freeze({ label: '۷ روز اخیر', totalRevenue: weeklyTotal, totalOrders: weeklyOrders, timeline: weeklySeries }),
-      monthly: freeze({ label: '۳۰ روز اخیر', totalRevenue: monthlyTotal, totalOrders: monthlyOrders, timeline: monthlySeries }),
-      quarter: freeze({ label: '۹۰ روز اخیر', totalRevenue: quarterTotal, totalOrders: quarterOrders, timeline: quarterSeries })
-    }),
-    topItems: freeze(topItems.map((item) => freeze({ ...item })))
-  });
-})();
-
 function getEffectiveShopCurrency(datasetCurrency) {
   if (shopPricingCurrencySelect && shopPricingCurrencySelect.value) {
     const selected = shopPricingCurrencySelect.value;
@@ -4433,6 +4299,42 @@ function renderShopRevenue(dataset, rangeKey = shopRevenueState.range || 'weekly
 
   renderShopRevenueTrend(activeRangeData, currency);
   renderShopRevenueTopItems(dataset.topItems, currency);
+}
+
+async function loadShopRevenue(force = false) {
+  if (!shopRevenueSection) return null;
+  if (!getToken()) {
+    shopRevenueState.dataset = null;
+    shopRevenueState.error = null;
+    renderShopRevenue(null, shopRevenueState.range || 'weekly');
+    return null;
+  }
+
+  if (shopRevenueState.loading && !force) {
+    return null;
+  }
+
+  shopRevenueState.loading = true;
+  shopRevenueState.error = null;
+  shopRevenueSection.setAttribute('aria-busy', 'true');
+
+  try {
+    const response = await api('/admin/shop/revenue');
+    const dataset = response?.data || null;
+    shopRevenueState.dataset = dataset;
+    renderShopRevenue(dataset, shopRevenueState.range || 'weekly');
+    return dataset;
+  } catch (error) {
+    console.error('Failed to load shop revenue overview', error);
+    shopRevenueState.dataset = null;
+    shopRevenueState.error = error;
+    renderShopRevenue(null, shopRevenueState.range || 'weekly');
+    showToast('امکان دریافت درآمد فروشگاه نبود', 'error');
+    return null;
+  } finally {
+    shopRevenueState.loading = false;
+    shopRevenueSection.removeAttribute('aria-busy');
+  }
 }
 
 function renderDashboardOverview(data, options = {}) {
@@ -6866,7 +6768,7 @@ function setupShopControls() {
       }
       if (input === shopPricingCurrencySelect) {
         updateVipPreview();
-        renderShopRevenue(shopRevenueState.dataset || SHOP_REVENUE_SAMPLE, shopRevenueState.range || 'weekly');
+        renderShopRevenue(shopRevenueState.dataset, shopRevenueState.range || 'weekly');
       }
       if (shopState.initialized) {
         markShopUpdated();
@@ -6910,8 +6812,7 @@ function setupShopControls() {
     shopRevenueRangeButtons.forEach((button) => {
       button.addEventListener('click', () => {
         const range = button.dataset.shopRevenueRange || 'weekly';
-        const dataset = shopRevenueState.dataset || SHOP_REVENUE_SAMPLE;
-        renderShopRevenue(dataset, range);
+        renderShopRevenue(shopRevenueState.dataset, range);
       });
     });
   }
@@ -6946,7 +6847,7 @@ function setupShopControls() {
   updateVipPreview();
   updateShopSummary();
   if (shopRevenueSection) {
-    renderShopRevenue(SHOP_REVENUE_SAMPLE, shopRevenueState.range || 'weekly');
+    renderShopRevenue(shopRevenueState.dataset, shopRevenueState.range || 'weekly');
   }
 
   shopState.initialized = true;
@@ -6960,7 +6861,8 @@ async function loadAllData() {
     loadCategoryFilterOptions(),
     loadQuestions(),
     loadUsers(),
-    loadAds()
+    loadAds(),
+    loadShopRevenue()
   ]);
 }
 
