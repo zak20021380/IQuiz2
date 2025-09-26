@@ -3239,7 +3239,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-1">
                 <span class="text-xs text-white/60 block">وضعیت فروشگاه</span>
                 <span class="text-lg font-bold" data-shop-summary="status">فعال</span>
@@ -3254,6 +3254,11 @@
                 <span class="text-xs text-white/60 block">میانبرهای سریع</span>
                 <span class="text-lg font-bold" data-shop-summary="shortcuts">۲ میانبر فعال</span>
                 <p class="text-xs text-white/50">کنترل وضعیت دکمه شارژ و خرید آنی.</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-1">
+                <span class="text-xs text-white/60 block">اشتراک VIP</span>
+                <span class="text-lg font-bold" data-shop-summary="vip">فعال • ۳ مزیت</span>
+                <p class="text-xs text-white/50">وضعیت فروش و مزایای اشتراک ویژه.</p>
               </div>
             </div>
 
@@ -3368,6 +3373,150 @@
                 </div>
               </section>
             </div>
+
+            <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6" data-shop-vip-section>
+              <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div class="space-y-1">
+                  <h3 class="text-lg font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-crown text-amber-300"></i>
+                    <span>مدیریت عضویت VIP</span>
+                  </h3>
+                  <p class="text-sm text-white/70">اشتراک ویژه را با کنترل کامل قیمت‌گذاری، مزایا و اتوماسیون پرداخت هدایت کنید.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs font-bold tracking-widest text-emerald-300" data-vip-status-label>فعال</span>
+                  <label class="toggle text-xs">
+                    <input type="checkbox" id="shop-vip-enable" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                    <span class="toggle-label" data-toggle-text>فعال</span>
+                  </label>
+                </div>
+              </div>
+              <div class="grid gap-6 lg:grid-cols-5">
+                <div class="space-y-5 lg:col-span-3">
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/70 mb-1">دوره صورتحساب</label>
+                      <select id="shop-vip-billing" class="form-input">
+                        <option value="weekly">هفتگی</option>
+                        <option value="monthly" selected>ماهانه</option>
+                        <option value="quarterly">سه‌ماهه</option>
+                        <option value="yearly">سالانه</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/70 mb-1">قیمت پایه</label>
+                      <input type="number" id="shop-vip-price" min="0" class="form-input" value="120">
+                      <p class="text-xs text-white/50 mt-1">بر اساس واحد قیمت‌گذاری فروشگاه نمایش داده می‌شود.</p>
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/70 mb-1">دوره آزمایشی (روز)</label>
+                      <input type="number" id="shop-vip-trial-days" min="0" class="form-input" value="3">
+                      <p class="text-xs text-white/50 mt-1">برای حذف دوره آزمایشی مقدار صفر را قرار دهید.</p>
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/70 mb-1">حداکثر ظرفیت همزمان</label>
+                      <input type="number" id="shop-vip-slots" min="0" class="form-input" value="150">
+                      <p class="text-xs text-white/50 mt-1">صفر به معنی ظرفیت نامحدود برای مشترکین است.</p>
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-2">
+                      <div class="flex items-start justify-between gap-3">
+                        <div>
+                          <div class="font-semibold text-sm">تمدید خودکار</div>
+                          <p class="text-xs text-white/60 mt-1">تمدید عضویت پس از پایان دوره بدون نیاز به تایید دستی.</p>
+                        </div>
+                        <label class="toggle text-xs">
+                          <input type="checkbox" id="shop-vip-auto-renew" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                          <span class="toggle-label" data-toggle-text>فعال</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-2">
+                      <div class="flex items-start justify-between gap-3">
+                        <div>
+                          <div class="font-semibold text-sm">تایید خودکار سفارش</div>
+                          <p class="text-xs text-white/60 mt-1">فعال‌سازی فوری اشتراک پس از پرداخت کاربران VIP.</p>
+                        </div>
+                        <label class="toggle text-xs">
+                          <input type="checkbox" id="shop-vip-auto-approve" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                          <span class="toggle-label" data-toggle-text>فعال</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-white/70 mb-1">مزایای اصلی</label>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                      <label class="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 hover:border-white/20 transition">
+                        <input type="checkbox" class="mt-1 accent-sky-400" data-vip-perk value="daily-boost" data-perk-label="پاداش روزانه بیشتر" checked>
+                        <span class="text-sm leading-6 text-white/80">پاداش روزانه بیشتر</span>
+                      </label>
+                      <label class="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 hover:border-white/20 transition">
+                        <input type="checkbox" class="mt-1 accent-sky-400" data-vip-perk value="double-xp" data-perk-label="دو برابر شدن XP" checked>
+                        <span class="text-sm leading-6 text-white/80">دو برابر شدن XP</span>
+                      </label>
+                      <label class="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 hover:border-white/20 transition">
+                        <input type="checkbox" class="mt-1 accent-sky-400" data-vip-perk value="priority-support" data-perk-label="پشتیبانی اولویت‌دار" checked>
+                        <span class="text-sm leading-6 text-white/80">پشتیبانی اولویت‌دار</span>
+                      </label>
+                      <label class="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 hover:border-white/20 transition">
+                        <input type="checkbox" class="mt-1 accent-sky-400" data-vip-perk value="exclusive-events" data-perk-label="دسترسی به رویدادهای اختصاصی">
+                        <span class="text-sm leading-6 text-white/80">دسترسی به رویدادهای اختصاصی</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-white/70 mb-1">توضیحات اختصاصی VIP</label>
+                    <textarea id="shop-vip-benefits" rows="2" class="form-input text-sm" placeholder="مثال: تحلیل اختصاصی عملکرد و مسابقات هفتگی">دسترسی به رویدادهای اختصاصی و تحلیل عملکرد هفتگی.</textarea>
+                    <p class="text-xs text-white/50 mt-1">این متن در معرفی اشتراک VIP به کاربران نمایش داده می‌شود.</p>
+                  </div>
+                </div>
+                <div class="space-y-5 lg:col-span-2">
+                  <div class="rounded-2xl border border-amber-200/20 bg-gradient-to-br from-amber-500/30 via-rose-500/20 to-purple-600/40 p-5 space-y-4 shadow-lg transition" data-vip-preview>
+                    <div class="flex items-center justify-between gap-3">
+                      <div class="flex items-center gap-3">
+                        <span class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white text-xl">
+                          <i class="fa-solid fa-crown"></i>
+                        </span>
+                        <div>
+                          <div class="text-sm font-semibold text-white/80">اشتراک VIP</div>
+                          <div class="text-lg font-extrabold text-white" data-vip-preview-price>۱۲۰ سکه</div>
+                        </div>
+                      </div>
+                      <span class="text-xs font-bold text-white" data-vip-preview-state>فعال</span>
+                    </div>
+                    <div class="rounded-2xl bg-white/10 border border-white/10 px-4 py-3 flex items-center justify-between">
+                      <span class="text-xs text-white/70">دوره صورتحساب</span>
+                      <span class="text-sm font-bold text-white" data-vip-preview-cycle>ماهانه</span>
+                    </div>
+                    <div class="space-y-2">
+                      <div class="text-xs text-white/60">مزایای فعال</div>
+                      <p class="text-xs text-white/80 leading-6" data-vip-preview-perks>پاداش روزانه بیشتر • دو برابر شدن XP • پشتیبانی اولویت‌دار</p>
+                    </div>
+                    <p class="text-xs text-white/70 leading-6" data-vip-preview-note>دسترسی به رویدادهای اختصاصی و تحلیل عملکرد هفتگی.</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+                    <div class="flex items-center justify-between text-xs text-white/60">
+                      <span>مزایای فعال</span>
+                      <span class="text-sm font-bold text-white" data-vip-metric="perks">۳</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-white/60">
+                      <span>دوره آزمایشی</span>
+                      <span class="text-sm font-bold text-white" data-vip-metric="trial">۳ روز</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-white/60">
+                      <span>ظرفیت همزمان</span>
+                      <span class="text-sm font-bold text-white" data-vip-metric="slots">۱۵۰ نفر</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-white/60">
+                      <span>اتوماسیون</span>
+                      <span class="text-xs font-bold text-white" data-vip-metric="automation">تمدید خودکار + تایید فوری</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
 
             <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6">
               <div>

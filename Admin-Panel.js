@@ -543,7 +543,8 @@ const shopLastUpdateEl = shopSettingsPage ? shopSettingsPage.querySelector('#sho
 const shopSummaryElements = {
   status: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-summary="status"]') : null,
   packages: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-summary="packages"]') : null,
-  shortcuts: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-summary="shortcuts"]') : null
+  shortcuts: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-summary="shortcuts"]') : null,
+  vip: shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-summary="vip"]') : null
 };
 const shopGlobalStatusLabel = shopSettingsPage ? shopSettingsPage.querySelector('#shop-global-status') : null;
 const shopHeroPreview = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-hero-preview]') : null;
@@ -563,9 +564,32 @@ const shopQuickPurchaseToggle = $('#shop-quick-purchase');
 const shopSupportMessageInput = $('#shop-support-message');
 const shopSupportLinkInput = $('#shop-support-link');
 const shopPackageCards = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-package]')) : [];
+const shopVipSection = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-vip-section]') : null;
+const shopVipToggle = $('#shop-vip-enable');
+const shopVipAutoRenewToggle = $('#shop-vip-auto-renew');
+const shopVipAutoApproveToggle = $('#shop-vip-auto-approve');
+const shopVipBillingSelect = $('#shop-vip-billing');
+const shopVipPriceInput = $('#shop-vip-price');
+const shopVipTrialDaysInput = $('#shop-vip-trial-days');
+const shopVipSlotsInput = $('#shop-vip-slots');
+const shopVipBenefitsInput = $('#shop-vip-benefits');
+const shopVipStatusLabel = shopVipSection ? shopVipSection.querySelector('[data-vip-status-label]') : null;
+const shopVipPreviewCard = shopVipSection ? shopVipSection.querySelector('[data-vip-preview]') : null;
+const shopVipPreviewPrice = shopVipSection ? shopVipSection.querySelector('[data-vip-preview-price]') : null;
+const shopVipPreviewCycle = shopVipSection ? shopVipSection.querySelector('[data-vip-preview-cycle]') : null;
+const shopVipPreviewState = shopVipSection ? shopVipSection.querySelector('[data-vip-preview-state]') : null;
+const shopVipPreviewPerks = shopVipSection ? shopVipSection.querySelector('[data-vip-preview-perks]') : null;
+const shopVipPreviewNote = shopVipSection ? shopVipSection.querySelector('[data-vip-preview-note]') : null;
+const shopVipMetricElements = shopVipSection ? Array.from(shopVipSection.querySelectorAll('[data-vip-metric]')) : [];
+const shopVipPerkCheckboxes = shopVipSection ? Array.from(shopVipSection.querySelectorAll('input[data-vip-perk]')) : [];
 const shopState = {
   initialized: false,
   lastUpdated: null
+};
+const SHOP_CURRENCY_LABELS = {
+  coin: 'سکه بازی',
+  wallet: 'سکه کیف پول',
+  rial: 'تومان'
 };
 const settingsSaveButton = $('#settings-save-button');
 const generalAppNameInput = $('#settings-app-name');
@@ -5862,6 +5886,23 @@ function applySettingsSnapshot(snapshot) {
   const packagesData = shop.packages != null ? shop.packages : snapshot.packages;
   applyPackageSnapshots(packagesData);
 
+  const vip = shop.vip || {};
+  if (shopVipToggle && vip.enabled != null) shopVipToggle.checked = !!vip.enabled;
+  if (shopVipAutoRenewToggle && vip.autoRenew != null) shopVipAutoRenewToggle.checked = !!vip.autoRenew;
+  if (shopVipAutoApproveToggle && vip.autoApprove != null) shopVipAutoApproveToggle.checked = !!vip.autoApprove;
+  if (shopVipBillingSelect && vip.billingCycle != null) setSelectValue(shopVipBillingSelect, vip.billingCycle);
+  if (shopVipPriceInput && vip.price != null) shopVipPriceInput.value = vip.price;
+  if (shopVipTrialDaysInput && vip.trialDays != null) shopVipTrialDaysInput.value = vip.trialDays;
+  if (shopVipSlotsInput && vip.slots != null) shopVipSlotsInput.value = vip.slots;
+  if (shopVipBenefitsInput && vip.customNote != null) shopVipBenefitsInput.value = vip.customNote;
+  if (Array.isArray(vip.perks)) {
+    const perks = vip.perks.map((perk) => safeString(perk, ''));
+    shopVipPerkCheckboxes.forEach((checkbox) => {
+      const value = safeString(checkbox.value || checkbox.dataset.vipPerk || '', '');
+      checkbox.checked = perks.includes(value);
+    });
+  }
+
   const support = shop.support || {};
   if (shopSupportMessageInput && support.message != null) shopSupportMessageInput.value = support.message;
   if (shopSupportLinkInput && support.link != null) shopSupportLinkInput.value = support.link;
@@ -5880,8 +5921,12 @@ function applySettingsSnapshot(snapshot) {
   syncToggleLabel(shopGlobalToggle);
   syncToggleLabel(shopQuickTopupToggle);
   syncToggleLabel(shopQuickPurchaseToggle);
+  syncToggleLabel(shopVipToggle);
+  syncToggleLabel(shopVipAutoRenewToggle);
+  syncToggleLabel(shopVipAutoApproveToggle);
 
   updateHeroPreview();
+  updateVipPreview();
   updateShopSummary();
 }
 
@@ -5993,6 +6038,22 @@ function collectShopPackagesByType() {
   return result;
 }
 
+function collectVipSettings() {
+  const state = computeVipState();
+  if (!state) return {};
+  return {
+    enabled: state.enabled,
+    autoRenew: state.autoRenew,
+    autoApprove: state.autoApprove,
+    billingCycle: state.billingValue,
+    price: state.price,
+    trialDays: state.trialDays,
+    slots: state.slots,
+    perks: state.perksValues,
+    customNote: state.note
+  };
+}
+
 function collectShopSettingsSnapshot() {
   return {
     enabled: getCheckboxValue(shopGlobalToggle, true),
@@ -6007,6 +6068,7 @@ function collectShopSettingsSnapshot() {
       ctaLink: safeString(shopHeroLinkInput ? shopHeroLinkInput.value : '', '')
     },
     packages: collectShopPackagesByType(),
+    vip: collectVipSettings(),
     support: {
       message: safeString(shopSupportMessageInput ? shopSupportMessageInput.value : '', ''),
       link: safeString(shopSupportLinkInput ? shopSupportLinkInput.value : '', '')
@@ -6167,6 +6229,126 @@ function updateHeroPreview() {
   }
 }
 
+function getShopCurrencyLabel(value) {
+  const key = safeString(value, '');
+  return SHOP_CURRENCY_LABELS[key] || 'واحد';
+}
+
+function computeVipState() {
+  if (!shopVipSection) return null;
+
+  const billingValue = safeString(shopVipBillingSelect ? shopVipBillingSelect.value : 'monthly', 'monthly') || 'monthly';
+  let billingLabel = '';
+  if (shopVipBillingSelect) {
+    const option = shopVipBillingSelect.options[shopVipBillingSelect.selectedIndex];
+    if (option) {
+      billingLabel = safeString(option.textContent, '');
+    }
+  }
+
+  const currencyValue = safeString(shopPricingCurrencySelect ? shopPricingCurrencySelect.value : 'coin', 'coin') || 'coin';
+  const currencyLabel = getShopCurrencyLabel(currencyValue);
+
+  const perks = shopVipPerkCheckboxes.map((checkbox) => {
+    const value = safeString(checkbox.value || checkbox.dataset.vipPerk || '', '');
+    const label = safeString(checkbox.dataset.perkLabel || checkbox.nextElementSibling?.textContent, '');
+    return {
+      value,
+      label,
+      checked: getCheckboxValue(checkbox)
+    };
+  });
+
+  const perksSelected = perks.filter((perk) => perk.checked);
+
+  return {
+    enabled: getCheckboxValue(shopVipToggle),
+    autoRenew: getCheckboxValue(shopVipAutoRenewToggle),
+    autoApprove: getCheckboxValue(shopVipAutoApproveToggle),
+    billingValue,
+    billingLabel,
+    price: safeNumber(shopVipPriceInput ? shopVipPriceInput.value : 0, 0),
+    trialDays: safeNumber(shopVipTrialDaysInput ? shopVipTrialDaysInput.value : 0, 0),
+    slots: safeNumber(shopVipSlotsInput ? shopVipSlotsInput.value : 0, 0),
+    perks,
+    perksSelected,
+    perksLabels: perksSelected.map((perk) => perk.label).filter(Boolean),
+    perksValues: perksSelected.map((perk) => perk.value).filter(Boolean),
+    perksCount: perksSelected.length,
+    note: safeString(shopVipBenefitsInput ? shopVipBenefitsInput.value : '', ''),
+    currencyValue,
+    currencyLabel
+  };
+}
+
+function updateVipPreview() {
+  if (!shopVipSection) return;
+  const state = computeVipState();
+  if (!state) return;
+
+  if (shopVipStatusLabel) {
+    shopVipStatusLabel.textContent = state.enabled ? 'فعال' : 'غیرفعال';
+    shopVipStatusLabel.classList.toggle('text-emerald-300', state.enabled);
+    shopVipStatusLabel.classList.toggle('text-rose-300', !state.enabled);
+  }
+
+  if (shopVipPreviewCard) {
+    shopVipPreviewCard.classList.toggle('opacity-60', !state.enabled);
+  }
+
+  if (shopVipPreviewState) {
+    shopVipPreviewState.textContent = state.enabled ? 'فعال' : 'غیرفعال';
+  }
+
+  if (shopVipPreviewPrice) {
+    shopVipPreviewPrice.textContent = state.price > 0
+      ? `${formatNumberFa(state.price)} ${state.currencyLabel}`
+      : `قیمت ${state.currencyLabel}`;
+  }
+
+  if (shopVipPreviewCycle) {
+    shopVipPreviewCycle.textContent = state.billingLabel || 'دوره نامشخص';
+  }
+
+  if (shopVipPreviewPerks) {
+    shopVipPreviewPerks.textContent = state.perksLabels.length
+      ? state.perksLabels.join(' • ')
+      : 'مزیتی انتخاب نشده است';
+  }
+
+  if (shopVipPreviewNote) {
+    shopVipPreviewNote.textContent = state.note || 'توضیحات VIP را برای کاربران بنویسید.';
+    shopVipPreviewNote.classList.toggle('opacity-70', !state.note);
+  }
+
+  if (shopVipMetricElements.length) {
+    shopVipMetricElements.forEach((metric) => {
+      if (!metric || !metric.dataset) return;
+      const key = metric.dataset.vipMetric;
+      switch (key) {
+        case 'perks':
+          metric.textContent = state.perksCount ? formatNumberFa(state.perksCount) : '۰';
+          break;
+        case 'trial':
+          metric.textContent = state.trialDays > 0 ? `${formatNumberFa(state.trialDays)} روز` : 'بدون دوره';
+          break;
+        case 'slots':
+          metric.textContent = state.slots > 0 ? `${formatNumberFa(state.slots)} نفر` : 'نامحدود';
+          break;
+        case 'automation': {
+          const parts = [];
+          parts.push(state.autoRenew ? 'تمدید خودکار' : 'تمدید دستی');
+          parts.push(state.autoApprove ? 'تایید فوری' : 'نیاز به تایید');
+          metric.textContent = parts.join(' + ');
+          break;
+        }
+        default:
+          break;
+      }
+    });
+  }
+}
+
 function updateShopSummary() {
   const totalPackages = shopPackageCards.length;
   const activePackages = shopPackageCards.filter((card) => {
@@ -6187,6 +6369,21 @@ function updateShopSummary() {
       ? `${formatNumberFa(shortcutsActive)} / ${formatNumberFa(shortcutToggles.length)} فعال`
       : '—';
   }
+
+  if (shopSummaryElements.vip) {
+    const vipState = computeVipState();
+    if (!vipState) {
+      shopSummaryElements.vip.textContent = '—';
+    } else if (!vipState.enabled) {
+      shopSummaryElements.vip.textContent = 'غیرفعال';
+    } else {
+      const perksLabel = vipState.perksCount
+        ? `${formatNumberFa(vipState.perksCount)} مزیت`
+        : 'بدون مزیت';
+      const cycleLabel = vipState.billingLabel || 'دوره نامشخص';
+      shopSummaryElements.vip.textContent = `${perksLabel} • ${cycleLabel}`;
+    }
+  }
 }
 
 function markShopUpdated() {
@@ -6204,8 +6401,10 @@ function markShopUpdated() {
 function setupShopControls() {
   if (!shopSettingsPage) return;
 
-  const registerToggle = (toggle) => {
+  const registerToggle = (toggle, options) => {
     if (!toggle) return;
+    const extra = options && typeof options === 'object' ? options : {};
+    const { onChange } = extra;
     syncToggleLabel(toggle);
     toggle.addEventListener('change', () => {
       if (toggle === shopGlobalToggle) {
@@ -6214,6 +6413,9 @@ function setupShopControls() {
       if (toggle === shopQuickTopupToggle) {
         updateHeroPreview();
       }
+      if (typeof onChange === 'function') {
+        onChange(toggle);
+      }
       updateShopSummary();
       if (shopState.initialized) {
         markShopUpdated();
@@ -6221,7 +6423,10 @@ function setupShopControls() {
     });
   };
 
-  [shopGlobalToggle, shopQuickTopupToggle, shopQuickPurchaseToggle].forEach(registerToggle);
+  [shopGlobalToggle, shopQuickTopupToggle, shopQuickPurchaseToggle].forEach((toggle) => registerToggle(toggle));
+  [shopVipToggle, shopVipAutoRenewToggle, shopVipAutoApproveToggle].forEach((toggle) => {
+    registerToggle(toggle, { onChange: updateVipPreview });
+  });
 
   const heroInputs = [shopHeroTitleInput, shopHeroSubtitleInput, shopHeroCtaInput, shopHeroLinkInput];
   heroInputs.forEach((input) => {
@@ -6242,6 +6447,41 @@ function setupShopControls() {
       if (input === shopPricingCurrencySelect || input === shopLowBalanceThresholdInput) {
         updateShopSummary();
       }
+      if (input === shopPricingCurrencySelect) {
+        updateVipPreview();
+      }
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+    });
+  });
+
+  const vipValueInputs = [shopVipPriceInput, shopVipTrialDaysInput, shopVipSlotsInput, shopVipBenefitsInput];
+  vipValueInputs.forEach((input) => {
+    if (!input) return;
+    input.addEventListener('input', () => {
+      updateVipPreview();
+      updateShopSummary();
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+    });
+  });
+
+  if (shopVipBillingSelect) {
+    shopVipBillingSelect.addEventListener('change', () => {
+      updateVipPreview();
+      updateShopSummary();
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+    });
+  }
+
+  shopVipPerkCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      updateVipPreview();
+      updateShopSummary();
       if (shopState.initialized) {
         markShopUpdated();
       }
@@ -6275,6 +6515,7 @@ function setupShopControls() {
 
   updateShopStatus(getCheckboxValue(shopGlobalToggle, true));
   updateHeroPreview();
+  updateVipPreview();
   updateShopSummary();
 
   shopState.initialized = true;
