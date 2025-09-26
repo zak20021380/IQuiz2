@@ -69,8 +69,51 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
   const HERO_THEMES = ['sky', 'emerald', 'purple', 'amber'];
   const FALLBACK_APP_NAME = 'Quiz WebApp Pro';
   const APP_TITLE_SUFFIX = ' — نسخه فارسی';
+  const PAYMENT_SESSION_STORAGE_KEY = 'quiz_payment_session_id_v1';
+  const PENDING_PAYMENT_STORAGE_KEY = 'quiz_pending_payment_v1';
 
   const enNum = n => Number(n).toLocaleString('en-US');
+
+  function generateClientId(prefix = 'pay_'){
+    if (typeof crypto !== 'undefined' && crypto.randomUUID){
+      return prefix + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    }
+    return prefix + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  function ensurePaymentSessionId(){
+    try {
+      const existing = localStorage.getItem(PAYMENT_SESSION_STORAGE_KEY);
+      if (existing) return existing;
+      const fresh = generateClientId('ps_');
+      localStorage.setItem(PAYMENT_SESSION_STORAGE_KEY, fresh);
+      return fresh;
+    } catch (err) {
+      return '';
+    }
+  }
+
+  function storePendingPayment(payload){
+    try {
+      sessionStorage.setItem(PENDING_PAYMENT_STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {}
+  }
+
+  function readPendingPayment(){
+    try {
+      const raw = sessionStorage.getItem(PENDING_PAYMENT_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function clearPendingPayment(){
+    try { sessionStorage.removeItem(PENDING_PAYMENT_STORAGE_KEY); } catch (err) {}
+  }
 
   function getBaseQuestionDuration(){
     return Math.max(5, Number(generalSettings?.questionTime) || DEFAULT_QUESTION_TIME);
@@ -242,6 +285,21 @@ function populateProvinceOptions(selectEl, placeholder){
   const duelInviter = qs.get('duel_invite');
   if(duelInviter && !State.settings.blockDuels){
     toast(`${duelInviter} شما را به نبرد دعوت کرده است!`);
+  }
+
+  const paymentStatusParam = qs.get('payment_status');
+  const paymentIdParam = qs.get('payment_id');
+  if (paymentIdParam){
+    handleGatewayReturn(paymentStatusParam, paymentIdParam, {
+      refId: qs.get('ref_id'),
+      message: qs.get('payment_message'),
+      session: qs.get('payment_session')
+    }).finally(() => {
+      ['payment_status','payment_id','ref_id','payment_message','payment_session'].forEach(key => qs.delete(key));
+      const newQuery = qs.toString();
+      const newUrl = newQuery ? `${location.pathname}?${newQuery}` : location.pathname;
+      history.replaceState({}, '', newUrl);
+    });
   }
 
   // Telegram WebApp (optional)
@@ -2584,27 +2642,117 @@ function closePaymentModal() {
 
 async function handlePaymentConfirm(packageId, priceToman, needsPayment) {
   if (needsPayment) {
-    // Redirect to payment gateway
     closePaymentModal();
-    
-    // Show loading toast
     toast('<i class="fas fa-spinner fa-spin ml-2"></i> در حال انتقال به درگاه پرداخت...');
-    
-    // Log analytics
-    await logEvent('payment_gateway_redirect', { 
-      packageId, 
-      priceToman,
-      reason: 'insufficient_balance' 
-    });
-    
-    // Simulate redirect (in real app, this would be actual payment gateway URL)
-    setTimeout(() => {
-      window.location.href = '/payment?package=' + packageId + '&amount=' + priceToman;
-    }, 1000);
+    await startExternalPayment(packageId, priceToman);
   } else {
     // Process payment with wallet balance
     closePaymentModal();
     startPurchaseCoins(packageId);
+  }
+}
+
+async function startExternalPayment(packageId, priceToman){
+  try {
+    const sessionId = ensurePaymentSessionId();
+    const returnUrl = `${location.origin}${location.pathname}`;
+    const payload = {
+      packageId,
+      sessionId,
+      returnUrl,
+      userId: State.user?.id && State.user.id !== 'guest' ? State.user.id : ''
+    };
+
+    await logEvent('payment_gateway_redirect', {
+      packageId,
+      priceToman,
+      reason: 'insufficient_balance',
+      sessionId
+    });
+
+    const res = await Net.jpost('/api/payments/zarinpal/create', payload);
+    if (!res || res.ok === false || !res.data){
+      toast('<i class="fas fa-triangle-exclamation ml-2"></i> ایجاد تراکنش ناموفق بود.');
+      return;
+    }
+
+    const { paymentId, paymentUrl, authority } = res.data;
+    if (!paymentId || !paymentUrl){
+      toast('<i class="fas fa-triangle-exclamation ml-2"></i> پاسخ درگاه نامعتبر است.');
+      return;
+    }
+
+    storePendingPayment({ paymentId, packageId, sessionId, authority, priceToman });
+    window.location.href = paymentUrl;
+  } catch (err) {
+    toast('<i class="fas fa-triangle-exclamation ml-2"></i> اتصال به درگاه پرداخت ممکن نشد.');
+  }
+}
+
+async function handleGatewayReturn(statusParam, paymentId, extra = {}){
+  try {
+    const pending = readPendingPayment();
+    const sessionId = pending?.sessionId || extra.session || ensurePaymentSessionId();
+    const endpoint = new URL(`/api/payments/${paymentId}/status`, location.origin);
+    if (sessionId) endpoint.searchParams.set('sessionId', sessionId);
+
+    const res = await Net.jget(endpoint.toString());
+    if (!res || res.ok === false || !res.data){
+      toast('<i class="fas fa-triangle-exclamation ml-2"></i> بررسی وضعیت پرداخت ناموفق بود.');
+      clearPendingPayment();
+      await logEvent('payment_status_failed', { paymentId, status: statusParam || 'unknown' });
+      return;
+    }
+
+    const data = res.data;
+    const packageId = data.package?.id || pending?.packageId || null;
+    const packageSnapshot = (data.package && typeof data.package === 'object' && Object.keys(data.package).length)
+      ? data.package
+      : ((RemoteConfig.pricing.coins || []).find(p => p.id === packageId) || null);
+    const packageTitle = packageSnapshot?.displayName
+      || packageSnapshot?.label
+      || (packageSnapshot?.amount ? `بسته ${faNum(packageSnapshot.amount)} سکه` : 'بسته سکه');
+    const refId = data.refId || extra.refId || '';
+
+    if (data.status === 'paid') {
+      if (Number.isFinite(data.walletBalance)) {
+        Server.wallet.coins = Number(data.walletBalance);
+      } else if (Number.isFinite(data.coins)) {
+        const current = Number(Server.wallet.coins) || 0;
+        Server.wallet.coins = current + Number(data.coins);
+      }
+
+      renderHeader();
+      renderDashboard();
+      renderShop();
+      renderWallet();
+
+      const coinsAwarded = Number.isFinite(data.coins) ? Number(data.coins) : (packageSnapshot?.totalCoins || packageSnapshot?.amount || 0);
+
+      openReceipt({
+        title: 'پرداخت با موفقیت انجام شد',
+        rows: [
+          ['کد پیگیری', refId || '—'],
+          ['آیتم', packageTitle],
+          ['سکه دریافتی', faNum(coinsAwarded)],
+          ['موجودی کیف پول', faNum(Server.wallet.coins || 0)]
+        ]
+      });
+      shootConfetti();
+      toast('<i class="fas fa-check-circle ml-2"></i> پرداخت با موفقیت تایید شد!');
+      await logEvent('payment_status_success', { paymentId, refId, packageId });
+    } else if (data.status === 'canceled') {
+      toast('<i class="fas fa-circle-xmark ml-2"></i> پرداخت توسط کاربر لغو شد.');
+      await logEvent('payment_status_canceled', { paymentId });
+    } else {
+      const message = data.message || extra.message || 'پرداخت ناموفق بود.';
+      toast(`<i class="fas fa-triangle-exclamation ml-2"></i> ${message}`);
+      await logEvent('payment_status_failed', { paymentId, status: data.status, message });
+    }
+  } catch (err) {
+    toast('<i class="fas fa-triangle-exclamation ml-2"></i> خطا در پردازش نتیجه پرداخت.');
+  } finally {
+    clearPendingPayment();
   }
 }
 
