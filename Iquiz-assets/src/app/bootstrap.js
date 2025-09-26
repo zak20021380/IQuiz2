@@ -783,15 +783,6 @@ function populateProvinceOptions(selectEl, placeholder){
     return invites.length;
   }
 
-  function removeDuelInvite(inviteId){
-    if (!Array.isArray(State.duelInvites)) return null;
-    const index = State.duelInvites.findIndex(invite => invite && invite.id === inviteId);
-    if (index === -1) return null;
-    const [invite] = State.duelInvites.splice(index, 1);
-    saveState();
-    return invite;
-  }
-
   async function handleDuelInviteAccept(inviteId, triggerBtn){
     if (State.duelOpponent) {
       toast('ابتدا نبرد در حال اجرا را به پایان برسان سپس دعوت جدید را بپذیر.');
@@ -807,81 +798,76 @@ function populateProvinceOptions(selectEl, placeholder){
       triggerBtn.textContent = 'در حال شروع...';
     }
 
-    const invite = removeDuelInvite(inviteId);
-    if (!invite){
-      toast('درخواست نبرد یافت نشد');
-      if (triggerBtn) {
-        triggerBtn.disabled = false;
-        triggerBtn.textContent = originalText || 'پذیرفتن';
-        triggerBtn.classList.remove('is-disabled');
-      }
-      renderDuelInvites({ skipPrune: true, silent: true });
-      return;
-    }
+    const categoryPool = getDuelCategories().map(cat => ({
+      id: cat.id,
+      title: cat.title || cat.name || 'دسته‌بندی',
+      description: cat.description || ''
+    }));
 
-    toast(`<i class="fas fa-handshake ml-2"></i>درخواست نبرد ${invite.opponent} پذیرفته شد`);
-    logEvent('duel_invite_accepted', { inviteId, opponent: invite.opponent });
-
-    const fallbackAvatar = `https://i.pravatar.cc/100?u=${encodeURIComponent(`${invite.id}-${invite.opponent}`)}`;
-    const opponent = {
-      id: invite.opponentId ?? invite.userId ?? invite.id,
-      name: invite.opponent || 'حریف',
-      avatar: invite.avatar || fallbackAvatar,
-      source: invite.source || 'invite',
-      inviteId
-    };
-
-    State.duelOpponent = opponent;
-    saveState();
-    renderDuelInvites({ skipPrune: true, silent: true });
-
-    let started = false;
     try {
-      started = await startDuelMatch(opponent);
-    } catch (error) {
-      console.error('Failed to start duel from invite', error);
-      started = false;
-    }
-
-    if (!started) {
-      State.duelOpponent = null;
-      if (!Array.isArray(State.duelInvites)) State.duelInvites = [];
-      State.duelInvites.push(invite);
-      State.duelInvites.sort((a, b) => {
-        const aDeadline = getDuelInviteDeadline(a);
-        const bDeadline = getDuelInviteDeadline(b);
-        const safeA = Number.isFinite(aDeadline) ? aDeadline : 0;
-        const safeB = Number.isFinite(bDeadline) ? bDeadline : 0;
-        return safeA - safeB;
+      const res = await Api.duelAcceptInvite(inviteId, {
+        userId: State.user?.id,
+        userName: State.user?.name,
+        avatar: State.user?.avatar,
+        rounds: DUEL_ROUNDS,
+        questionsPerRound: DUEL_QUESTIONS_PER_ROUND,
+        categoryPool
       });
-      saveState();
-      renderDuelInvites({ skipPrune: true, silent: true });
-      toast('<i class="fas fa-triangle-exclamation ml-2"></i>شروع نبرد ممکن نشد یا لغو شد.');
-      logEvent('duel_invite_accept_failed', { inviteId, opponent: invite.opponent });
+
+      const data = res?.data || {};
+      const duel = data.duel || null;
+      const overview = res?.meta?.overview || data.overview;
+
+      if (!duel) {
+        toast('شروع نبرد ممکن نشد');
+        if (triggerBtn) {
+          triggerBtn.disabled = false;
+          triggerBtn.textContent = originalText || 'پذیرفتن';
+          triggerBtn.classList.remove('is-disabled');
+        }
+        renderDuelInvites({ skipPrune: true, silent: true });
+        return;
+      }
+
+      toast(`<i class="fas fa-handshake ml-2"></i>درخواست نبرد ${duel.opponent?.name || 'حریف'} پذیرفته شد`);
+      logEvent('duel_invite_accepted', { inviteId, opponent: duel.opponent?.name });
+
+      const started = await startDuelMatch(duel.opponent, { duel, overview });
+
+      if (!started) {
+        toast('<i class="fas fa-triangle-exclamation ml-2"></i>شروع نبرد ممکن نشد یا لغو شد.');
+        logEvent('duel_invite_accept_failed', { inviteId, opponent: duel.opponent?.name });
+      } else {
+        logEvent('duel_invite_match_started', { inviteId, opponent: duel.opponent?.name });
+      }
+    } catch (error) {
+      console.error('Failed to accept duel invite', error);
+      toast('پذیرش دعوت نبرد با مشکل مواجه شد');
+    } finally {
       if (triggerBtn) {
         triggerBtn.disabled = false;
         triggerBtn.textContent = originalText || 'پذیرفتن';
         triggerBtn.classList.remove('is-disabled');
       }
-      return;
-    }
-
-    logEvent('duel_invite_match_started', { inviteId, opponent: invite.opponent });
-    if (triggerBtn) {
-      triggerBtn.textContent = originalText || 'پذیرفتن';
+      renderDuelInvites({ skipPrune: true, silent: true });
     }
   }
 
   function handleDuelInviteDecline(inviteId){
-    const invite = removeDuelInvite(inviteId);
-    if (!invite){
-      toast('درخواست نبرد یافت نشد');
+    Api.duelDeclineInvite(inviteId, {
+      userId: State.user?.id,
+      userName: State.user?.name
+    }).then(res => {
+      const overview = res?.meta?.overview || res?.data?.overview;
+      if (overview) applyDuelOverviewData(overview, { skipRenderDashboard: true });
+      toast(`<i class="fas fa-circle-xmark ml-2"></i>درخواست نبرد رد شد`);
+      logEvent('duel_invite_declined', { inviteId });
+    }).catch(error => {
+      console.error('Failed to decline duel invite', error);
+      toast('رد کردن دعوت نبرد با مشکل مواجه شد');
+    }).finally(() => {
       renderDuelInvites({ skipPrune: true, silent: true });
-      return;
-    }
-    toast(`<i class="fas fa-circle-xmark ml-2"></i>درخواست نبرد ${invite.opponent} رد شد`);
-    logEvent('duel_invite_declined', { inviteId, opponent: invite.opponent });
-    renderDuelInvites({ skipPrune: true, silent: true });
+    });
   }
 
   function renderDashboard(){
@@ -2011,13 +1997,19 @@ function startQuizTimerCountdown(){
     });
     const duelActive = !!(DuelSession && State.duelOpponent);
     if (duelActive) {
-      const status = completeDuelRound(correctCount, State.quiz.sessionEarned);
+      const status = await completeDuelRound(correctCount, State.quiz.sessionEarned);
       if (status === 'next') {
         saveState();
         return;
       }
       if (status === 'finished') {
-        finalizeDuelResults();
+        finalizeDuelResults(DuelSession?.lastSummary);
+        saveState();
+        navTo('results');
+        AdManager.maybeShowInterstitial('post_quiz');
+        return;
+      }
+      if (status === 'error') {
         saveState();
         navTo('results');
         AdManager.maybeShowInterstitial('post_quiz');
@@ -3609,11 +3601,38 @@ async function startPurchaseCoins(pkgId){
   const duelFriends = normalizeDuelFriendsList(State.duelFriends);
   State.duelFriends = duelFriends;
 
-  const randomPool = [
-    { id: 5, name: 'حسین کریمی', score: 13200, avatar: 'https://i.pravatar.cc/60?img=12' },
-    { id: 6, name: 'نگار موسوی', score: 9100, avatar: 'https://i.pravatar.cc/60?img=13' },
-    { id: 7, name: 'کامران علیپور', score: 10100, avatar: 'https://i.pravatar.cc/60?img=14' }
-  ];
+  function applyDuelOverviewData(overview = {}, options = {}) {
+    const invites = Array.isArray(overview.invites) ? overview.invites : [];
+    const pending = Array.isArray(overview.pending) ? overview.pending : [];
+    const history = Array.isArray(overview.history) ? overview.history : [];
+    const stats = overview.stats || {};
+
+    State.duelInvites = invites.map((invite) => ({ ...invite }));
+    State.pendingDuels = pending.map((duel) => ({ ...duel }));
+    State.duelHistory = history.map((entry) => ({ ...entry }));
+    State.duelWins = Number.isFinite(stats.wins) ? Math.max(0, Math.round(stats.wins)) : 0;
+    State.duelLosses = Number.isFinite(stats.losses) ? Math.max(0, Math.round(stats.losses)) : 0;
+    State.duelDraws = Number.isFinite(stats.draws) ? Math.max(0, Math.round(stats.draws)) : 0;
+
+    if (!options.skipSave) saveState();
+    renderDuelInvites({ skipPrune: true, silent: true });
+    if (!options.skipRenderDashboard) renderDashboard();
+  }
+
+  async function refreshDuelOverview(options = {}) {
+    try {
+      const res = await Api.duelOverview({
+        userId: State.user?.id,
+        userName: State.user?.name,
+        avatar: State.user?.avatar
+      });
+      if (res?.ok && res.data) {
+        applyDuelOverviewData(res.data, { skipRenderDashboard: options.skipRenderDashboard });
+      }
+    } catch (error) {
+      console.warn('Failed to refresh duel overview', error);
+    }
+  }
 
   const duelFriendThemes = [
     { start: 'rgba(59,130,246,0.85)', end: 'rgba(236,72,153,0.85)' },
@@ -3634,6 +3653,14 @@ async function startPurchaseCoins(pkgId){
   }
 
   function pickOpponentCategory(roundIndex){
+    if (!DuelSession) return null;
+    const round = DuelSession.rounds?.[roundIndex];
+    if (round && round.categoryId) {
+      return {
+        id: round.categoryId,
+        title: round.categoryTitle || 'دسته‌بندی'
+      };
+    }
     const categories = getDuelCategories();
     if (categories.length === 0) return null;
     const usedIds = new Set((DuelSession?.rounds || []).map(r => r?.categoryId).filter(Boolean));
@@ -3649,13 +3676,29 @@ async function startPurchaseCoins(pkgId){
 
   function promptDuelRoundCategory(roundIndex){
     if (!DuelSession) return;
-    const categories = getDuelCategories();
+    const round = DuelSession.rounds?.[roundIndex];
+    const serverOptions = Array.isArray(round?.categoryOptions) ? round.categoryOptions.filter(Boolean) : [];
+    let categories = [];
+    if (serverOptions.length) {
+      categories = serverOptions.map((opt, idx) => ({
+        id: opt.id,
+        title: opt.title || opt.name || `دسته ${faNum(idx + 1)}`,
+        description: opt.description || ''
+      }));
+    } else {
+      const available = getDuelCategories();
+      categories = available.map((cat, idx) => ({
+        id: cat.id,
+        title: cat.title || cat.name || `دسته ${faNum(idx + 1)}`,
+        description: cat.description || ''
+      }));
+    }
+
     if (categories.length === 0){
       cancelDuelSession('no_category');
       return;
     }
 
-    const round = DuelSession.rounds?.[roundIndex];
     if (!round){
       cancelDuelSession('no_category');
       return;
@@ -3669,7 +3712,7 @@ async function startPurchaseCoins(pkgId){
       DuelSession.awaitingSelection = true;
       DuelSession.selectionResolved = false;
       const optionsHtml = categories.map((cat, idx) => {
-        const title = cat.title || cat.name || `دسته ${faNum(idx+1)}`;
+        const title = cat.title || `دسته ${faNum(idx+1)}`;
         const desc = cat.description ? `<span class="text-xs opacity-70">${cat.description}</span>` : '';
         return `<button class="duel-category-option" data-cat="${cat.id}" data-title="${title}">
           <div class="duel-category-icon">${faNum(idx+1)}</div>
@@ -3770,6 +3813,28 @@ async function startPurchaseCoins(pkgId){
     }
     DuelSession.difficulty = { value: difficultyValue, label: difficultyLabel };
 
+    if (round.chooser === 'you' && !round.serverCategoryConfirmed) {
+      try {
+        const res = await Api.duelAssignCategory(DuelSession.id, roundIndex, {
+          userId: State.user?.id,
+          userName: State.user?.name,
+          categoryId,
+          categoryTitle: catTitle
+        });
+        if (res?.meta?.overview) applyDuelOverviewData(res.meta.overview, { skipRenderDashboard: true });
+        if (res?.data?.round) {
+          round.categoryId = res.data.round.categoryId || round.categoryId;
+          round.categoryTitle = res.data.round.categoryTitle || round.categoryTitle;
+          round.totalQuestions = res.data.round.totalQuestions || round.totalQuestions;
+        }
+        round.serverCategoryConfirmed = true;
+      } catch (error) {
+        console.error('Failed to assign duel category', error);
+        toast('برای این دسته‌بندی سؤال کافی موجود نیست');
+        return false;
+      }
+    }
+
     const started = await startQuizFromAdmin({
       count: DUEL_QUESTIONS_PER_ROUND,
       difficulty: difficultyValue,
@@ -3825,65 +3890,90 @@ async function startPurchaseCoins(pkgId){
     return true;
   }
 
-  function simulateOpponentRound(round, totalQuestions, yourCorrect, yourEarned){
-    const advantage = round.chooser === 'opponent' ? 1 : 0;
-    const min = Math.max(0, Math.min(totalQuestions, yourCorrect - 2));
-    const max = Math.min(totalQuestions, Math.max(min, yourCorrect + 2 + advantage));
-    const correct = Math.round(min + Math.random() * (max - min));
-    const boundedCorrect = Math.max(0, Math.min(totalQuestions, correct));
-    const wrong = totalQuestions - boundedCorrect;
-    let perQuestionEarned = getCorrectAnswerBasePoints();
-    if (yourCorrect > 0 && Number.isFinite(yourEarned)) {
-      perQuestionEarned = Math.max(0, Math.round(yourEarned / yourCorrect));
-    }
-    const earned = boundedCorrect * perQuestionEarned;
-    return { correct: boundedCorrect, wrong, earned };
-  }
-
-  function completeDuelRound(correctCount, earnedPoints){
+  async function completeDuelRound(correctCount, earnedPoints){
     if (!DuelSession || !State.duelOpponent) return 'none';
     const roundIdx = DuelSession.currentRoundIndex || 0;
     const round = DuelSession.rounds?.[roundIdx];
     if (!round) return 'none';
 
-    const totalQuestions = State.quiz.results.length || State.quiz.list.length || DUEL_QUESTIONS_PER_ROUND;
+    const totalQuestions = State.quiz.results.length || State.quiz.list.length || round.totalQuestions || DUEL_QUESTIONS_PER_ROUND;
     const yourCorrect = correctCount;
     const yourWrong = Math.max(0, totalQuestions - yourCorrect);
     const yourEarned = Number.isFinite(earnedPoints) ? earnedPoints : State.quiz.sessionEarned;
 
     round.player = { correct: yourCorrect, wrong: yourWrong, earned: yourEarned };
     round.totalQuestions = totalQuestions;
-    const opponentStats = simulateOpponentRound(round, totalQuestions, yourCorrect, yourEarned);
-    round.opponent = opponentStats;
 
-    DuelSession.totalYourScore += yourEarned;
-    DuelSession.totalOpponentScore += opponentStats.earned;
+    try {
+      const res = await Api.duelSubmitRound(DuelSession.id, roundIdx, {
+        userId: State.user?.id,
+        userName: State.user?.name,
+        categoryId: round.categoryId,
+        categoryTitle: round.categoryTitle,
+        correct: yourCorrect,
+        wrong: yourWrong,
+        earned: yourEarned,
+        totalQuestions
+      });
 
-    logEvent('duel_round_end', {
-      opponent: DuelSession.opponent?.name,
-      round: roundIdx + 1,
-      your_correct: yourCorrect,
-      opponent_correct: opponentStats.correct
-    });
+      if (res?.meta?.overview) applyDuelOverviewData(res.meta.overview, { skipRenderDashboard: true });
 
-    toast(`راند ${faNum(roundIdx + 1)} به پایان رسید: ${faNum(yourCorrect)} درست در برابر ${faNum(opponentStats.correct)}`);
+      const result = res?.data || {};
+      if (result.round) {
+        round.player = result.round.player || round.player;
+        round.opponent = result.round.opponent || round.opponent;
+        round.totalQuestions = result.round.totalQuestions || round.totalQuestions;
+      }
 
-    const hasMore = roundIdx + 1 < DuelSession.rounds.length;
-    if (hasMore) {
-      DuelSession.currentRoundIndex = roundIdx + 1;
-      setTimeout(() => promptDuelRoundCategory(roundIdx + 1), 1200);
-      return 'next';
+      const opponentStats = round.opponent || { correct: 0, wrong: 0, earned: 0 };
+
+      if (result.totals) {
+        DuelSession.totalYourScore = Number(result.totals.you?.earned) || yourEarned;
+        DuelSession.totalOpponentScore = Number(result.totals.opponent?.earned) || opponentStats.earned;
+      } else {
+        DuelSession.totalYourScore += yourEarned;
+        DuelSession.totalOpponentScore += opponentStats.earned || 0;
+      }
+
+      logEvent('duel_round_end', {
+        opponent: DuelSession.opponent?.name,
+        round: roundIdx + 1,
+        your_correct: yourCorrect,
+        opponent_correct: opponentStats.correct
+      });
+
+      toast(`راند ${faNum(roundIdx + 1)} به پایان رسید: ${faNum(round.player?.correct || 0)} درست در برابر ${faNum(opponentStats.correct || 0)}`);
+
+      if (result.summary && result.status === 'finished') {
+        DuelSession.lastSummary = result.summary;
+        return 'finished';
+      }
+
+      if (result.status === 'next') {
+        const nextIndex = roundIdx + 1;
+        if (nextIndex < DuelSession.rounds.length) {
+          DuelSession.currentRoundIndex = nextIndex;
+          setTimeout(() => promptDuelRoundCategory(nextIndex), 1200);
+        }
+        return 'next';
+      }
+
+      return result.status || 'next';
+    } catch (error) {
+      console.error('Failed to submit duel round', error);
+      toast('ثبت نتیجه نبرد ممکن نشد، دوباره تلاش کن');
+      return 'error';
     }
-    return 'finished';
   }
 
-  function finalizeDuelResults(){
+  function finalizeDuelResults(summary){
     if (!DuelSession) return;
-    const opponent = DuelSession.opponent || {};
+    const summaryData = summary || DuelSession.lastSummary || null;
+    const opponent = summaryData?.opponent || DuelSession.opponent || {};
     const youName = State.user?.name || 'شما';
     const oppName = opponent.name || 'حریف';
 
-    const totals = DuelSession.rounds.reduce((acc, round) => {
+    const totals = summaryData?.totals || DuelSession.rounds.reduce((acc, round) => {
       const questions = round.totalQuestions || (round.player?.correct || 0) + (round.player?.wrong || 0);
       acc.you.correct += round.player?.correct || 0;
       acc.you.wrong += round.player?.wrong || 0;
@@ -3899,26 +3989,10 @@ async function startPurchaseCoins(pkgId){
     let winnerText = 'مسابقه مساوی شد!';
     if (totals.you.earned > totals.opp.earned) {
       winnerText = `${youName} با مجموع ${faNum(totals.you.earned)} امتیاز برنده شد!`;
-      State.duelWins++;
     } else if (totals.you.earned < totals.opp.earned) {
       winnerText = `${oppName} با مجموع ${faNum(totals.opp.earned)} امتیاز پیروز شد!`;
-      State.duelLosses++;
     }
 
-    const outcome = totals.you.earned > totals.opp.earned ? 'win' : totals.you.earned < totals.opp.earned ? 'loss' : 'draw';
-    State.duelHistory = Array.isArray(State.duelHistory) ? State.duelHistory : [];
-    State.duelHistory.unshift({
-      id: DuelSession?.id || `duel-${Date.now()}`,
-      opponent: oppName,
-      yourScore: totals.you.earned,
-      opponentScore: totals.opp.earned,
-      outcome,
-      reason: outcome === 'loss' ? 'score' : (outcome === 'win' ? 'score' : 'draw'),
-      resolvedAt: Date.now(),
-      startedAt: DuelSession?.startedAt,
-      deadline: DuelSession?.deadline
-    });
-    State.duelHistory = State.duelHistory.slice(0, 20);
     if (Array.isArray(State.pendingDuels)) {
       State.pendingDuels = State.pendingDuels.filter(duel => duel.id !== DuelSession?.id);
     }
@@ -3931,9 +4005,10 @@ async function startPurchaseCoins(pkgId){
     $('#duel-stats').innerHTML = `${youName}: ${faNum(totals.you.correct)} درست، ${faNum(totals.you.wrong)} نادرست، ${faNum(totals.you.earned)} امتیاز<br>${oppName}: ${faNum(totals.opp.correct)} درست، ${faNum(totals.opp.wrong)} نادرست، ${faNum(totals.opp.earned)} امتیاز`;
     $('#duel-result').classList.remove('hidden');
 
+    const summaryRounds = summaryData?.rounds || DuelSession.rounds;
     const summaryEl = $('#duel-rounds-summary');
     if (summaryEl) {
-      const summaryHtml = DuelSession.rounds.map((round, idx) => {
+      const summaryHtml = summaryRounds.map((round, idx) => {
         const chooserLabel = round.chooser === 'you' ? 'انتخاب شما' : 'انتخاب حریف';
         const youEarned = round.player?.earned || 0;
         const oppEarned = round.opponent?.earned || 0;
@@ -4169,7 +4244,7 @@ async function startPurchaseCoins(pkgId){
     });
   }
 
-  async function startDuelMatch(opponent){
+  async function startDuelMatch(opponent, options = {}){
     hideDuelAddFriendCTA();
     const limitCfg = RemoteConfig?.gameLimits?.duels;
     const vipMultiplier = Server.subscription.active ? (Server.subscription.tier === 'pro' ? 3 : 2) : 1;
@@ -4231,29 +4306,75 @@ async function startPurchaseCoins(pkgId){
       return false;
     }
 
-    const duelId = `duel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const startedAt = Date.now();
-    const deadline = startedAt + DUEL_TIMEOUT_MS;
-    const opponentNameLabel = opponent?.name || 'حریف';
-    if (!Array.isArray(State.pendingDuels)) State.pendingDuels = [];
-    State.pendingDuels.push({ id: duelId, opponent: opponentNameLabel, startedAt, deadline });
-    saveState();
-    logEvent('duel_rule_acknowledged', { opponent: opponent?.name, deadlineHours: 24 });
+    const categoryPool = categories.slice(0, 12).map(cat => ({
+      id: cat.id,
+      title: cat.title || cat.name || 'دسته‌بندی',
+      description: cat.description || ''
+    }));
 
-    DuelSession = {
-      id: duelId,
-      startedAt,
-      deadline,
+    const payload = {
+      userId: State.user?.id,
+      userName: State.user?.name,
+      avatar: State.user?.avatar,
       opponent,
       difficulty: difficultyInfo,
-      rounds: Array.from({ length: DUEL_ROUNDS }, (_, idx) => ({
-        index: idx,
-        chooser: idx === 0 ? 'you' : 'opponent',
-        categoryId: null,
-        categoryTitle: '',
-        player: { correct: 0, wrong: 0, earned: 0 },
-        opponent: { correct: 0, wrong: 0, earned: 0 }
-      })),
+      categoryPool,
+      rounds: DUEL_ROUNDS,
+      questionsPerRound: DUEL_QUESTIONS_PER_ROUND
+    };
+
+    const existingDuel = options?.duel || null;
+    let duel = existingDuel;
+    if (!existingDuel) {
+      let response;
+      try {
+        if (opponent && opponent.inviteId) {
+          response = await Api.duelAcceptInvite(opponent.inviteId, payload);
+        } else {
+          response = await Api.duelMatchmaking(payload);
+        }
+      } catch (error) {
+        console.error('Failed to start duel', error);
+        toast('شروع نبرد ممکن نشد، بعداً دوباره تلاش کن');
+        return false;
+      }
+
+      const data = response?.data || {};
+      const overview = response?.meta?.overview || data.overview;
+      if (overview) applyDuelOverviewData(overview, { skipRenderDashboard: true });
+
+      duel = data.duel || null;
+      if (!duel) {
+        toast('پاسخ سرور برای شروع نبرد نامعتبر بود');
+        return false;
+      }
+    } else if (options?.overview) {
+      applyDuelOverviewData(options.overview, { skipRenderDashboard: true });
+    }
+
+    const startedAt = duel.startedAt || Date.now();
+    const deadline = duel.deadline || startedAt + DUEL_TIMEOUT_MS;
+    const opponentInfo = duel.opponent || opponent || { name: 'حریف' };
+
+    DuelSession = {
+      id: duel.id,
+      startedAt,
+      deadline,
+      opponent: opponentInfo,
+      difficulty: duel.difficulty || difficultyInfo,
+      rounds: Array.isArray(duel.rounds)
+        ? duel.rounds.map((round) => ({
+            index: round.index,
+            chooser: round.chooser,
+            categoryId: round.categoryId || null,
+            categoryTitle: round.categoryTitle || '',
+            categoryOptions: Array.isArray(round.categoryOptions) ? round.categoryOptions : [],
+            player: round.player || { correct: 0, wrong: 0, earned: 0 },
+            opponent: round.opponent || { correct: 0, wrong: 0, earned: 0 },
+            totalQuestions: round.totalQuestions || 0,
+            serverCategoryConfirmed: round.chooser !== 'you' || !!round.categoryId
+          }))
+        : [],
       currentRoundIndex: 0,
       totalYourScore: 0,
       totalOpponentScore: 0,
@@ -4261,13 +4382,29 @@ async function startPurchaseCoins(pkgId){
       awaitingSelection: false,
       selectionResolved: false,
       started: false,
-      resolveStart: null
+      resolveStart: null,
+      lastSummary: null
     };
 
-    if (opponent && typeof opponent === 'object') {
-      opponent.duelId = duelId;
-      opponent.acceptedAt = startedAt;
+    if (!DuelSession.rounds.length) {
+      DuelSession.rounds = Array.from({ length: DUEL_ROUNDS }, (_, idx) => ({
+        index: idx,
+        chooser: idx === 0 ? 'you' : 'opponent',
+        categoryId: null,
+        categoryTitle: '',
+        categoryOptions: categoryPool,
+        player: { correct: 0, wrong: 0, earned: 0 },
+        opponent: { correct: 0, wrong: 0, earned: 0 },
+        totalQuestions: 0,
+        serverCategoryConfirmed: false
+      }));
     }
+
+    State.duelOpponent = opponentInfo;
+    saveState();
+    logEvent('duel_rule_acknowledged', { opponent: opponentInfo?.name, deadlineHours: 24 });
+    toast(`حریف ${opponentInfo?.name || 'جدید'} پیدا شد!`);
+    logEvent('duel_random_found', { opponent: opponentInfo?.name });
 
     return await new Promise(resolve => {
       DuelSession.resolveStart = resolve;
@@ -4305,12 +4442,16 @@ async function startPurchaseCoins(pkgId){
     btn.disabled = true;
     vibrate(30);
     toast('در حال جستجوی حریف تصادفی...');
-    await new Promise(res => setTimeout(res, 1500));
-    const opponent = randomPool[Math.floor(Math.random()*randomPool.length)];
-    toast(`حریف ${opponent.name} پیدا شد!`);
-    logEvent('duel_random_found', { opponent: opponent.name });
-    await startDuelMatch(opponent);
-    btn.disabled = false;
+    try {
+      const started = await startDuelMatch({ source: 'matchmaking' });
+      if (!started) btn.disabled = false;
+    } catch (error) {
+      console.error('Random duel failed', error);
+      btn.disabled = false;
+    }
+    if (btn.disabled) {
+      setTimeout(() => { btn.disabled = false; }, 2000);
+    }
   });
 
   // Invite Link Copy
@@ -4340,6 +4481,11 @@ async function startPurchaseCoins(pkgId){
       }
     }
     logEvent('duel_invite_link');
+  });
+
+  refreshDuelOverview({ skipRenderDashboard: true }).then(() => {
+    renderDuelInvites({ skipPrune: true, silent: true });
+    renderDashboard();
   });
 
   function handleProvinceJoin(province) {
