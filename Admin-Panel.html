@@ -3213,6 +3213,119 @@
           </div>
 
 
+          <!-- Shop Revenue Overview -->
+          <div class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 lg:col-span-2" id="shop-revenue-section">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h2 class="text-xl font-extrabold flex items-center gap-2">
+                  <span class="w-10 h-10 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-300">
+                    <i class="fa-solid fa-sack-dollar"></i>
+                  </span>
+                  <span>تحلیل درآمد فروشگاه IQuiz-bot</span>
+                </h2>
+                <p class="text-sm text-white/70 mt-1">
+                  نمای کلی از فروش امروز، این هفته و این ماه به‌همراه محصولات پرفروش برای تصمیم‌گیری سریع مدیریتی.
+                </p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap" role="tablist">
+                <button type="button" class="chip-toggle active" data-shop-revenue-range="weekly" aria-pressed="true">
+                  <i class="fa-solid fa-calendar-week ml-2"></i>
+                  ۷ روز اخیر
+                </button>
+                <button type="button" class="chip-toggle" data-shop-revenue-range="monthly" aria-pressed="false">
+                  <i class="fa-solid fa-calendar-days ml-2"></i>
+                  ۳۰ روز اخیر
+                </button>
+                <button type="button" class="chip-toggle" data-shop-revenue-range="quarter" aria-pressed="false">
+                  <i class="fa-solid fa-chart-line ml-2"></i>
+                  ۹۰ روز اخیر
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <div class="shop-metric-card" data-metric="today">
+                <span class="shop-metric-label">درآمد امروز</span>
+                <div class="flex items-end justify-between gap-3">
+                  <span class="shop-metric-value" data-shop-revenue-value="today">۰</span>
+                  <span class="text-xs text-white/60" data-shop-revenue-secondary="today">— سفارش</span>
+                </div>
+                <span class="shop-metric-delta" data-shop-revenue-delta="today">در انتظار داده</span>
+              </div>
+              <div class="shop-metric-card" data-metric="week">
+                <span class="shop-metric-label">درآمد این هفته</span>
+                <div class="flex items-end justify-between gap-3">
+                  <span class="shop-metric-value" data-shop-revenue-value="week">۰</span>
+                  <span class="text-xs text-white/60" data-shop-revenue-secondary="week">— سفارش</span>
+                </div>
+                <span class="shop-metric-delta" data-shop-revenue-delta="week">در انتظار داده</span>
+              </div>
+              <div class="shop-metric-card" data-metric="month">
+                <span class="shop-metric-label">درآمد این ماه</span>
+                <div class="flex items-end justify-between gap-3">
+                  <span class="shop-metric-value" data-shop-revenue-value="month">۰</span>
+                  <span class="text-xs text-white/60" data-shop-revenue-secondary="month">— سفارش</span>
+                </div>
+                <span class="shop-metric-delta" data-shop-revenue-delta="month">در انتظار داده</span>
+              </div>
+              <div class="shop-metric-card" data-metric="average">
+                <span class="shop-metric-label">میانگین ارزش سفارش</span>
+                <div class="flex items-end justify-between gap-3">
+                  <span class="shop-metric-value" data-shop-revenue-value="average">۰</span>
+                  <span class="text-xs text-white/60" data-shop-revenue-secondary="average">—</span>
+                </div>
+                <span class="shop-metric-delta" data-shop-revenue-delta="average">در انتظار داده</span>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex items-center gap-3">
+                <span class="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-200 text-xl">
+                  <i class="fa-solid fa-trophy"></i>
+                </span>
+                <div>
+                  <p class="text-sm font-semibold text-emerald-200" data-shop-revenue-highlight>پرفروش‌ترین آیتم: —</p>
+                  <p class="text-xs text-white/70 mt-1" data-shop-revenue-highlight-sub>جزئیات فروش پس از ورود نمایش داده می‌شود.</p>
+                </div>
+              </div>
+              <div class="text-xs text-white/60 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>آخرین بروزرسانی: <span class="font-semibold text-white/80" data-shop-revenue-updated>—</span></span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4 xl:col-span-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-lg font-bold">روند درآمد</h3>
+                  <span class="text-sm text-white/60">بازه: <span class="font-semibold text-white/80" data-shop-revenue-range-label>۷ روز اخیر</span></span>
+                </div>
+                <div class="h-56 flex items-end gap-3" id="shop-revenue-trend"></div>
+                <p class="text-sm text-white/60 hidden" id="shop-revenue-trend-empty">برای این بازه داده‌ای ثبت نشده است.</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4 xl:col-span-2">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-lg font-bold">پرفروش‌ترین آیتم‌ها</h3>
+                  <span class="text-sm text-white/60">مجموع درآمد بازه: <span class="font-semibold text-white/80" data-shop-revenue-total>—</span></span>
+                </div>
+                <div class="table-container">
+                  <table class="table text-sm">
+                    <thead class="text-xs uppercase tracking-wider text-white/50">
+                      <tr>
+                        <th class="text-right">آیتم</th>
+                        <th class="text-right">درآمد</th>
+                        <th class="text-right">تعداد سفارش</th>
+                        <th class="text-right">سهم</th>
+                      </tr>
+                    </thead>
+                    <tbody id="shop-revenue-items-body"></tbody>
+                  </table>
+                </div>
+                <p class="text-sm text-white/60 hidden" id="shop-revenue-top-items-empty">هیچ فروشی برای این بازه زمانی ثبت نشده است.</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Shop Settings -->
           <div class="glass rounded-2xl p-6 space-y-8" id="shop-settings-card">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
