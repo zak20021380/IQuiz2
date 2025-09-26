@@ -33,6 +33,15 @@ function loadState(){
       }
     }
 
+    if (!Array.isArray(State.quiz.recentQuestions)) {
+      State.quiz.recentQuestions = [];
+    } else {
+      State.quiz.recentQuestions = State.quiz.recentQuestions
+        .map((key) => (typeof key === 'string' ? key.trim().toLowerCase() : ''))
+        .filter((key) => key.length > 0)
+        .slice(-40);
+    }
+
     const serverState = JSON.parse(localStorage.getItem(SERVER_STORAGE_KEY) || '{}');
     if (serverState.limits) Object.assign(Server.limits, serverState.limits);
     if (!Server.limits.duels) {

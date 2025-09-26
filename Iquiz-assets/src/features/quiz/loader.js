@@ -2,6 +2,7 @@ import Api from '../../services/api.js';
 import { toast } from '../../utils/feedback.js';
 import { faNum } from '../../utils/format.js';
 import { State, DEFAULT_MAX_QUESTIONS } from '../../state/state.js';
+import { saveState } from '../../state/persistence.js';
 import {
   getActiveCategories,
   getFirstCategory,
@@ -16,6 +17,51 @@ function toLowerKey(value) {
   if (value == null) return '';
   const str = String(value).trim();
   return str ? str.toLowerCase() : '';
+}
+
+const RECENT_HISTORY_LIMIT = 40;
+
+function shuffleList(list) {
+  if (!Array.isArray(list)) return [];
+  const shuffled = list.slice();
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    if (i === j) continue;
+    const tmp = shuffled[i];
+    shuffled[i] = shuffled[j];
+    shuffled[j] = tmp;
+  }
+  return shuffled;
+}
+
+function randomizeQuestionChoices(question) {
+  if (!question || typeof question !== 'object') return question;
+  const choices = Array.isArray(question.c) ? question.c.slice() : [];
+  if (choices.length < 2 || !Number.isInteger(question.a)) {
+    return question;
+  }
+
+  const entries = choices.map((choice, index) => ({ choice, index }));
+  const shuffledEntries = shuffleList(entries);
+  const randomizedChoices = new Array(shuffledEntries.length);
+  let answerIndex = -1;
+
+  shuffledEntries.forEach((entry, newIdx) => {
+    randomizedChoices[newIdx] = entry.choice;
+    if (entry.index === question.a) {
+      answerIndex = newIdx;
+    }
+  });
+
+  if (answerIndex === -1) {
+    return question;
+  }
+
+  return {
+    ...question,
+    c: randomizedChoices,
+    a: answerIndex,
+  };
 }
 
 function decorateVariant(question, variantIndex) {
@@ -319,6 +365,53 @@ function createQuestionKey(question) {
   return '';
 }
 
+function getHistoryKey(question) {
+  return createQuestionKey(question) || toLowerKey(question?.q || question?.question || question?.text || '');
+}
+
+function prioritizeFreshQuestions(list, desiredCount) {
+  const history = Array.isArray(State.quiz?.recentQuestions) ? State.quiz.recentQuestions : [];
+  const historySet = new Set(history);
+  const fresh = [];
+  const reused = [];
+
+  (Array.isArray(list) ? list : []).forEach((question) => {
+    const key = getHistoryKey(question);
+    if (key && historySet.has(key)) {
+      reused.push(question);
+    } else {
+      fresh.push(question);
+    }
+  });
+
+  const result = fresh.concat(reused);
+  if (!Number.isInteger(desiredCount) || desiredCount <= 0) {
+    return result;
+  }
+  return result.slice(0, desiredCount);
+}
+
+function updateRecentQuestionHistory(questions) {
+  if (!Array.isArray(State.quiz.recentQuestions)) {
+    State.quiz.recentQuestions = [];
+  }
+
+  const history = State.quiz.recentQuestions.slice();
+
+  (Array.isArray(questions) ? questions : []).forEach((question) => {
+    const key = getHistoryKey(question);
+    if (!key) return;
+    const idx = history.indexOf(key);
+    if (idx !== -1) {
+      history.splice(idx, 1);
+    }
+    history.push(key);
+  });
+
+  State.quiz.recentQuestions = history.slice(-RECENT_HISTORY_LIMIT);
+  saveState();
+}
+
 function mergeUniqueQuestions(target, incoming, seenKeys) {
   if (!Array.isArray(incoming)) return target;
 
@@ -455,12 +548,8 @@ export async function startQuizFromAdmin(arg) {
     }
 
     const { items: initialItems, meta: initialMeta } = parseQuestionResponse(initialResponse);
+    const fallbackMessage = initialMeta.message || 'سؤال تازه‌ای برای این دسته پیدا نشد؛ از مجموعهٔ پیش‌فرض استفاده می‌کنیم.';
     console.log('[quiz] requested=', count, 'received=', initialItems.length, initialMeta);
-
-    if (!initialItems.length) {
-      const fallbackMessage = initialMeta.message || 'سؤال تازه‌ای برای این دسته پیدا نشد؛ از مجموعهٔ پیش‌فرض استفاده می‌کنیم.';
-      toast(fallbackMessage);
-    }
 
     const initialSeenKeys = new Set();
     const normalizedInitial = normalizeQuestions(initialItems);
@@ -522,16 +611,20 @@ export async function startQuizFromAdmin(arg) {
     });
 
     let finalList = filledList.slice(0, Math.min(filledList.length, count));
+    finalList = prioritizeFreshQuestions(finalList, count);
+    finalList = shuffleList(finalList);
     finalList = preventConsecutiveRepeats(finalList);
-    console.log('[quiz] finalQuestions=', finalList.length);
+    finalList = finalList.slice(0, Math.min(finalList.length, count));
+    const preparedQuestions = finalList.map((question) => randomizeQuestionChoices(question));
+    console.log('[quiz] finalQuestions=', preparedQuestions.length);
 
-    if (finalList.length === 0) {
-      toast('سوال معتبر برای این تنظیمات موجود نیست.');
+    if (preparedQuestions.length === 0) {
+      toast(fallbackMessage);
       return false;
     }
 
-    if (finalList.length < count) {
-      toast(`تنها ${faNum(finalList.length)} سوال معتبر برای این تنظیمات یافت شد.`);
+    if (preparedQuestions.length < count) {
+      toast(`تنها ${faNum(preparedQuestions.length)} سوال معتبر برای این تنظیمات یافت شد.`);
     }
 
     const stateQuizCat = State.quiz?.cat;
@@ -542,12 +635,14 @@ export async function startQuizFromAdmin(arg) {
       State.quiz.cat = catTitle;
     }
 
+    updateRecentQuestionHistory(preparedQuestions);
+
     const started = beginQuizSession({
       cat: catTitle,
       diff: difficultyLabel,
       diffValue: difficultyValue,
-      questions: finalList,
-      count: finalList.length,
+      questions: preparedQuestions,
+      count: preparedQuestions.length,
       source: opts.source != null ? opts.source : 'setup',
     });
 
