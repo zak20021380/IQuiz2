@@ -5390,7 +5390,12 @@ function leaveGroup(groupId) {
       toast('<i class="fas fa-check-circle ml-2"></i>لینک کپی شد!');
     }
   });
-  
+
+  const referralDuelBtn = document.getElementById('btn-referral-duel');
+  if (referralDuelBtn) {
+    referralDuelBtn.addEventListener('click', () => navTo('duel'));
+  }
+
   // Support & Advertisers Tabs
   $$('.support-tab').forEach(tab => {
     tab.addEventListener('click', () => {
