@@ -101,6 +101,8 @@ app.use('/api/admin/metrics', require('./routes/admin/metrics'));
 app.use('/api/public', require('./routes/public.routes'));
 app.use('/api/jservice', jserviceRoutes);
 app.use('/api', aiRoutes);
+app.use('/api/wallet', require('./routes/wallet.routes'));
+app.use('/api/subscription', require('./routes/subscription.routes'));
 app.use('/api/payments', require('./routes/payments.routes'));
 app.use('/payments', require('./routes/payments-public.routes'));
 
