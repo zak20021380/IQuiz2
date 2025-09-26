@@ -4277,6 +4277,40 @@ function getGroupBattleLimitInfo() {
   return { limit, used, remaining, reached, multiplier };
 }
 
+function normalizeGroupFromServer(group) {
+  if (!group || typeof group !== 'object') return null;
+  const id = group.id || group.groupId || group._id;
+  if (!id) return null;
+  return {
+    ...group,
+    id,
+    groupId: group.groupId || id,
+    roster: Array.isArray(group.roster) ? group.roster.map(player => ({ ...player })) : [],
+    memberList: Array.isArray(group.memberList) ? [...group.memberList] : [],
+    matches: Array.isArray(group.matches) ? group.matches.map(match => ({ ...match })) : [],
+    requests: Array.isArray(group.requests) ? [...group.requests] : [],
+  };
+}
+
+async function syncGroupsFromServer({ silent = false } = {}) {
+  try {
+    const res = await Api.groups();
+    if (!res?.ok || !Array.isArray(res.data)) {
+      if (!silent) toast('خطا در دریافت گروه‌ها از سرور');
+      return null;
+    }
+    const normalized = res.data.map(normalizeGroupFromServer).filter(Boolean);
+    State.groups = normalized;
+    ensureGroupRosters();
+    saveState();
+    return normalized;
+  } catch (err) {
+    console.warn('Failed to sync groups', err);
+    if (!silent) toast('خطا در همگام‌سازی گروه‌ها با سرور');
+    return null;
+  }
+}
+
 const GROUP_BATTLE_REWARD_CONFIG = {
   winner: { coins: 70, score: 220 },
   loser: { coins: 30, score: 90 },
@@ -4328,259 +4362,6 @@ function createBattlePlaceholder({ icon = 'fa-people-group', title = '', descrip
       <div class="text-lg font-bold">${title}</div>
       ${description ? `<p class="text-sm leading-7 opacity-80">${description}</p>` : ''}
       ${action ? `<div>${action}</div>` : ''}
-    </div>`;
-}
-
-function calculateBattlePerformance(hostPlayer, opponentPlayer, index, baseSeed) {
-  const scoreFrom = (player, seedOffset, boostRange = [0.92, 1.12]) => {
-    if (!player) return 0;
-    const avgScore = Number(player.avgScore) || 0;
-    const power = Number(player.power) || 0;
-    const accuracy = Number(player.accuracy) || 0;
-    const speed = Number(player.speed) || 0;
-    const control = 1 + Math.max(0, (95 - speed * 10)) / 520;
-    const baseline = (avgScore * 0.58) + (power * 7.1) + (accuracy * 5.6) + (control * 120);
-    const randomFactor = seededFloat(baseSeed + seedOffset, boostRange[0], boostRange[1]);
-    return Math.round(Math.max(0, baseline * randomFactor));
-  };
-
-  if (!hostPlayer && !opponentPlayer) {
-    return { hostScore: 0, opponentScore: 0, winner: 'none' };
-  }
-
-  if (hostPlayer && !opponentPlayer) {
-    const soloScore = scoreFrom(hostPlayer, index * 11, [1.05, 1.18]);
-    return { hostScore: soloScore, opponentScore: 0, winner: 'host' };
-  }
-
-  if (!hostPlayer && opponentPlayer) {
-    const soloScore = scoreFrom(opponentPlayer, index * 13, [1.05, 1.18]);
-    return { hostScore: 0, opponentScore: soloScore, winner: 'opponent' };
-  }
-
-  const hostScore = scoreFrom(hostPlayer, index * 17);
-  const opponentScore = scoreFrom(opponentPlayer, index * 23);
-  const diff = hostScore - opponentScore;
-  if (Math.abs(diff) <= 5) {
-    return { hostScore, opponentScore, winner: diff >= 0 ? 'host' : 'opponent' };
-  }
-  return { hostScore, opponentScore, winner: diff > 0 ? 'host' : 'opponent' };
-}
-
-function simulateGroupBattle(hostGroup, opponentGroup) {
-  if (!hostGroup || !opponentGroup) return null;
-
-  const { hostPlayers, opponentPlayers } = getBattleParticipants(hostGroup, opponentGroup);
-  const duelCount = 10;
-  const baseSeed = Date.now();
-  const rounds = [];
-  let hostTotal = 0;
-  let opponentTotal = 0;
-
-  for (let i = 0; i < duelCount; i++) {
-    const hostPlayer = hostPlayers[i] || null;
-    const opponentPlayer = opponentPlayers[i] || null;
-    const performance = calculateBattlePerformance(hostPlayer, opponentPlayer, i, baseSeed);
-    hostTotal += performance.hostScore;
-    opponentTotal += performance.opponentScore;
-    rounds.push({
-      index: i + 1,
-      hostPlayer,
-      opponentPlayer,
-      hostScore: performance.hostScore,
-      opponentScore: performance.opponentScore,
-      winner: performance.winner
-    });
-  }
-
-  const normalizedHostTotal = Math.round(hostTotal);
-  const normalizedOpponentTotal = Math.round(opponentTotal);
-  let winnerGroupId;
-
-  if (normalizedHostTotal === normalizedOpponentTotal) {
-    const hostMax = Math.max(...rounds.map(r => r.hostScore || 0));
-    const opponentMax = Math.max(...rounds.map(r => r.opponentScore || 0));
-    winnerGroupId = hostMax >= opponentMax ? hostGroup.id : opponentGroup.id;
-  } else {
-    winnerGroupId = normalizedHostTotal > normalizedOpponentTotal ? hostGroup.id : opponentGroup.id;
-  }
-
-  return {
-    id: `gb-${baseSeed}`,
-    playedAt: new Date().toISOString(),
-    host: { id: hostGroup.id, name: hostGroup.name, total: normalizedHostTotal, players: hostPlayers.map(p => p ? { ...p } : null) },
-    opponent: { id: opponentGroup.id, name: opponentGroup.name, total: normalizedOpponentTotal, players: opponentPlayers.map(p => p ? { ...p } : null) },
-    rounds,
-    winnerGroupId,
-    diff: normalizedHostTotal - normalizedOpponentTotal
-  };
-}
-
-function applyGroupBattleRewards(result) {
-  if (!result) return null;
-
-  const hostGroup = State.groups.find(g => g.id === result.host?.id);
-  const opponentGroup = State.groups.find(g => g.id === result.opponent?.id);
-  const winnerGroup = result.winnerGroupId === hostGroup?.id ? hostGroup : opponentGroup;
-  const loserGroup = winnerGroup === hostGroup ? opponentGroup : hostGroup;
-
-  if (winnerGroup) {
-    const currentScore = Number(winnerGroup.score) || 0;
-    winnerGroup.score = Math.max(0, Math.round(currentScore + GROUP_BATTLE_REWARD_CONFIG.groupScore));
-  }
-
-  const ensureMatchLog = (group) => {
-    if (!group) return;
-    if (!Array.isArray(group.matches)) group.matches = [];
-  };
-
-  ensureMatchLog(hostGroup);
-  ensureMatchLog(opponentGroup);
-
-  const hostRecord = {
-    opponentId: opponentGroup?.id || '',
-    opponent: opponentGroup?.name || '',
-    result: result.winnerGroupId === hostGroup?.id ? 'win' : 'loss',
-    score: { self: result.host?.total || 0, opponent: result.opponent?.total || 0 },
-    playedAt: result.playedAt
-  };
-
-  const opponentRecord = {
-    opponentId: hostGroup?.id || '',
-    opponent: hostGroup?.name || '',
-    result: result.winnerGroupId === opponentGroup?.id ? 'win' : 'loss',
-    score: { self: result.opponent?.total || 0, opponent: result.host?.total || 0 },
-    playedAt: result.playedAt
-  };
-
-  if (hostGroup) {
-    hostGroup.matches.unshift(hostRecord);
-    hostGroup.matches = hostGroup.matches.slice(0, 10);
-  }
-
-  if (opponentGroup) {
-    opponentGroup.matches.unshift(opponentRecord);
-    opponentGroup.matches = opponentGroup.matches.slice(0, 10);
-  }
-
-  const userGroup = getUserGroup();
-  const userGroupId = userGroup?.id;
-  const userSide = userGroupId === hostGroup?.id ? 'host' : (userGroupId === opponentGroup?.id ? 'opponent' : null);
-  let userReward = { coins: 0, score: 0, applied: false, type: 'none' };
-
-  if (userSide) {
-    const isWinner = result.winnerGroupId === (userSide === 'host' ? hostGroup?.id : opponentGroup?.id);
-    const reward = isWinner ? GROUP_BATTLE_REWARD_CONFIG.winner : GROUP_BATTLE_REWARD_CONFIG.loser;
-    State.coins += reward.coins;
-    State.score += reward.score;
-    userReward = { coins: reward.coins, score: reward.score, applied: true, type: isWinner ? 'winner' : 'loser' };
-  }
-
-  const summary = {
-    winnerGroupId: result.winnerGroupId,
-    winnerName: winnerGroup?.name || '',
-    loserName: loserGroup?.name || '',
-    config: GROUP_BATTLE_REWARD_CONFIG,
-    userReward
-  };
-
-  result.rewards = summary;
-  return summary;
-}
-
-function formatBattleTimestamp(value) {
-  if (!value) return '';
-  try {
-    const date = value instanceof Date ? value : new Date(value);
-    if (!Number.isFinite(date.getTime())) return '';
-    return date.toLocaleString('fa-IR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch {
-    return '';
-  }
-}
-
-function buildBattlePlayerMarkup(player, { side = 'host', roundIndex = 1, score = null, opponentScore = null, winner = null, preview = false } = {}) {
-  const diffBadge = (!preview && Number.isFinite(score) && Number.isFinite(opponentScore))
-    ? `<span class="text-xs font-bold ${score >= opponentScore ? 'text-green-200' : 'text-rose-200'}">${score >= opponentScore ? '+' : ''}${faNum(score - opponentScore)}</span>`
-    : '';
-
-  if (!player) {
-    return `
-      <div class="battle-player battle-player-empty">
-        <div class="battle-player-header">
-          <div class="battle-player-info">
-            <div class="battle-player-avatar placeholder"><i class="fas fa-user"></i></div>
-            <div>
-              <div class="battle-player-name opacity-70">جایگاه خالی</div>
-              <div class="battle-player-role">بازیکن رزرو</div>
-            </div>
-          </div>
-          <div class="battle-player-score">
-            <span>امتیاز</span>
-            <span>—</span>
-          </div>
-        </div>
-        <div class="battle-player-meta">
-          <span><i class="fas fa-bolt"></i>—</span>
-          <span><i class="fas fa-crosshairs"></i>—</span>
-          <span><i class="fas fa-star"></i>—</span>
-          <span><i class="fas fa-stopwatch"></i>—</span>
-        </div>
-        <div class="flex items-center justify-between text-xs opacity-80">
-          <span class="chip px-3 py-1 bg-white/10 border-white/20 text-[0.7rem]">نفر ${faNum(roundIndex)}</span>
-          ${diffBadge}
-        </div>
-      </div>`;
-  }
-
-  const classes = ['battle-player'];
-  if (!preview && winner && winner !== 'none') {
-    const isWinner = (winner === 'host' && side === 'host') || (winner === 'opponent' && side === 'opponent');
-    classes.push(isWinner ? 'battle-player-winner' : 'battle-player-loser');
-  }
-
-  const avatar = player.avatar
-    ? `<img src="${player.avatar}" alt="${player.name}" class="battle-player-avatar">`
-    : `<div class="battle-player-avatar placeholder"><i class="fas fa-user"></i></div>`;
-
-  const scoreLabel = preview ? 'قدرت ترکیبی' : 'امتیاز نبرد';
-  const projectedScore = Number.isFinite(score)
-    ? faNum(score)
-    : preview
-      ? faNum(Math.round((Number(player.avgScore) || 0) * 0.65 + (Number(player.power) || 0) * 5))
-      : '—';
-
-  return `
-    <div class="${classes.join(' ')}">
-      <div class="battle-player-header">
-        <div class="battle-player-info">
-          ${avatar}
-          <div>
-            <div class="battle-player-name">${player.name}</div>
-            <div class="battle-player-role"><i class="fas fa-graduation-cap"></i>${player.role || 'بازیکن گروه'}</div>
-          </div>
-        </div>
-        <div class="battle-player-score">
-          <span>${scoreLabel}</span>
-          <span>${projectedScore}</span>
-        </div>
-      </div>
-      <div class="battle-player-meta">
-        <span><i class="fas fa-star"></i>${faNum(player.avgScore || 0)}</span>
-        <span><i class="fas fa-bolt"></i>${faNum(player.power || 0)}</span>
-        <span><i class="fas fa-crosshairs"></i>${faNum(player.accuracy || 0)}%</span>
-        <span><i class="fas fa-stopwatch"></i>${faNum(player.speed || 0)}</span>
-      </div>
-      <div class="flex items-center justify-between text-xs opacity-80">
-        <span class="chip px-3 py-1 bg-white/10 border-white/20 text-[0.7rem]">نفر ${faNum(roundIndex)}</span>
-        ${diffBadge}
-      </div>
     </div>`;
 }
 
@@ -4807,12 +4588,13 @@ function renderGroupBattleCard(list, userGroup) {
     }
 
     if (limitHint) {
+      const rewardConfig = State.groupBattle?.lastResult?.rewards?.config || GROUP_BATTLE_REWARD_CONFIG;
       if (!userGroup) {
         limitHint.textContent = 'برای شروع نبرد باید ابتدا عضو یک گروه شوید.';
       } else if (info.reached) {
         limitHint.textContent = 'به سقف نبردهای امروز رسیدید؛ فردا دوباره تلاش کنید یا با خرید VIP محدودیت را افزایش دهید.';
       } else {
-        limitHint.innerHTML = `پاداش پیروزی: <span class="text-green-200 font-bold">${faNum(GROUP_BATTLE_REWARD_CONFIG.winner.coins)}💰</span> و <span class="text-green-200 font-bold">${faNum(GROUP_BATTLE_REWARD_CONFIG.winner.score)}</span> امتیاز برای هر بازیکن.`;
+        limitHint.innerHTML = `پاداش پیروزی: <span class="text-green-200 font-bold">${faNum(rewardConfig?.winner?.coins ?? 0)}💰</span> و <span class="text-green-200 font-bold">${faNum(rewardConfig?.winner?.score ?? 0)}</span> امتیاز برای هر بازیکن.`;
       }
     }
 
@@ -4839,9 +4621,10 @@ function renderGroupBattleCard(list, userGroup) {
     if (lastOpponentEl) lastOpponentEl.innerHTML = `<i class="fas fa-dragon text-rose-200"></i><span>${last.opponent?.name || '---'}</span>`;
     if (lastScoreEl) lastScoreEl.innerHTML = `${faNum(last.host?.total || 0)} <span class="text-xs opacity-70">در مقابل</span> ${faNum(last.opponent?.total || 0)}`;
     if (lastSummaryEl) {
+      const rewardConfig = last.rewards?.config || GROUP_BATTLE_REWARD_CONFIG;
       const winnerName = last.rewards?.winnerName || (last.winnerGroupId === last.host?.id ? last.host?.name : last.opponent?.name) || '';
       const diff = Math.abs((last.host?.total || 0) - (last.opponent?.total || 0));
-      lastSummaryEl.innerHTML = `پیروز نبرد: <span class="text-green-300 font-bold">${winnerName}</span> • اختلاف امتیاز ${faNum(diff)} • پاداش تیم برنده: ${faNum(GROUP_BATTLE_REWARD_CONFIG.winner.coins)}💰 و ${faNum(GROUP_BATTLE_REWARD_CONFIG.winner.score)} امتیاز.`;
+      lastSummaryEl.innerHTML = `پیروز نبرد: <span class="text-green-300 font-bold">${winnerName}</span> • اختلاف امتیاز ${faNum(diff)} • پاداش تیم برنده: ${faNum(rewardConfig?.winner?.coins ?? 0)}💰 و ${faNum(rewardConfig?.winner?.score ?? 0)} امتیاز.`;
     }
   };
 
@@ -4958,48 +4741,87 @@ function renderGroupBattleCard(list, userGroup) {
 
     const originalLabel = startBtn.innerHTML;
     startBtn.disabled = true;
-    startBtn.innerHTML = '<span class="flex items-center gap-2 justify-center"><span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span><span>در حال شبیه‌سازی...</span></span>';
+    startBtn.innerHTML = '<span class="flex items-center gap-2 justify-center"><span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span><span>در حال ثبت نبرد...</span></span>';
 
-    await wait(800);
+    try {
+      const payload = {
+        hostGroupId: hostGroup.id,
+        opponentGroupId: opponentGroup.id,
+        user: {
+          id: State.user.id || '',
+          name: State.user.name || '',
+          groupId: userGroup?.id || State.user.group || '',
+          group: State.user.group || '',
+        },
+      };
 
-    const result = simulateGroupBattle(hostGroup, opponentGroup);
-    const rewardSummary = applyGroupBattleRewards(result);
+      const response = await Api.startGroupBattle(payload);
+      if (!response?.ok || !response?.data) {
+        toast(response?.message || 'خطا در ثبت نبرد گروهی. لطفاً دوباره تلاش کن.');
+        return;
+      }
 
-    State.groupBattle = State.groupBattle || { selectedHostId: '', selectedOpponentId: '', lastResult: null };
-    State.groupBattle.lastResult = result;
-    State.groupBattle.selectedHostId = hostGroup.id;
-    State.groupBattle.selectedOpponentId = opponentGroup.id;
+      const result = response.data;
+      const rewardSummary = result.rewards || null;
 
-    Server.limits.groupBattles.used = Number(Server.limits.groupBattles.used || 0) + 1;
-    Server.limits.groupBattles.lastRecovery = Date.now();
+      if (Array.isArray(response.meta?.groups)) {
+        const normalizedGroups = response.meta.groups.map(normalizeGroupFromServer).filter(Boolean);
+        if (normalizedGroups.length) {
+          State.groups = normalizedGroups;
+          ensureGroupRosters();
+          groups.length = 0;
+          groups.push(...State.groups);
+          setOptions();
+        }
+      }
 
-    saveState();
+      State.groupBattle = State.groupBattle || { selectedHostId: '', selectedOpponentId: '', lastResult: null };
+      State.groupBattle.lastResult = result;
+      State.groupBattle.selectedHostId = hostGroup.id;
+      State.groupBattle.selectedOpponentId = opponentGroup.id;
 
-    renderHeader();
-    renderDashboard();
-    updateLimitsUI();
+      if (rewardSummary?.userReward?.applied) {
+        State.coins += Number(rewardSummary.userReward.coins || 0);
+        State.score += Number(rewardSummary.userReward.score || 0);
+      }
 
-    startBtn.disabled = false;
-    startBtn.innerHTML = originalLabel;
+      if (response.meta?.limits?.groupBattles) {
+        Server.limits.groupBattles = { ...Server.limits.groupBattles, ...response.meta.limits.groupBattles };
+      } else {
+        Server.limits.groupBattles.used = Number(Server.limits.groupBattles.used || 0) + 1;
+        Server.limits.groupBattles.lastRecovery = Date.now();
+      }
 
-    renderTopBars();
-    updateBattleView({ saveSelection: false });
-    refreshLastResult();
+      saveState();
 
-    const diff = Math.abs(result.diff || 0);
-    const winnerName = rewardSummary?.winnerName || (result.winnerGroupId === result.host.id ? result.host.name : result.opponent.name);
-    const userReward = rewardSummary?.userReward?.applied
-      ? ` • پاداش شما: ${faNum(rewardSummary.userReward.coins)}💰 و ${faNum(rewardSummary.userReward.score)} امتیاز`
-      : '';
-    toast(`<i class="fas fa-trophy ml-2"></i>${winnerName} با اختلاف ${faNum(diff)} امتیاز پیروز شد${userReward}`);
+      renderHeader();
+      renderDashboard();
+      updateLimitsUI();
+      renderTopBars();
+      updateBattleView({ saveSelection: false });
+      refreshLastResult();
 
-    logEvent('group_battle_simulated', {
-      host: hostGroup.name,
-      opponent: opponentGroup.name,
-      winner: winnerName,
-      diff,
-      timestamp: result.playedAt
-    });
+      const diff = Math.abs(result.diff || 0);
+      const winnerName = rewardSummary?.winnerName || (result.winnerGroupId === result.host?.id ? result.host?.name : result.opponent?.name) || '';
+      const userRewardText = rewardSummary?.userReward?.applied
+        ? ` • پاداش شما: ${faNum(rewardSummary.userReward.coins)}💰 و ${faNum(rewardSummary.userReward.score)} امتیاز`
+        : '';
+      toast(`<i class="fas fa-trophy ml-2"></i>${winnerName} با اختلاف ${faNum(diff)} امتیاز پیروز شد${userRewardText}`);
+
+      logEvent('group_battle_recorded', {
+        host: hostGroup.name,
+        opponent: opponentGroup.name,
+        winner: winnerName,
+        diff,
+        timestamp: result.playedAt,
+      });
+    } catch (err) {
+      console.warn('Failed to record group battle', err);
+      toast('خطا در ثبت نبرد گروهی. لطفاً دوباره تلاش کن.');
+    } finally {
+      startBtn.disabled = false;
+      startBtn.innerHTML = originalLabel;
+    }
   });
 }
 
@@ -5564,6 +5386,7 @@ export async function bootstrap() {
     buildSetupFromAdmin();
     buildCommunityQuestionForm();
     applyConfigToUI({ checkDailyReset });
+    await syncGroupsFromServer({ silent: true });
   }
   catch (e) {
     console.warn('Admin bootstrap failed', e);
