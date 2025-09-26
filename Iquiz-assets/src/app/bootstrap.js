@@ -74,6 +74,13 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
 
   const enNum = n => Number(n).toLocaleString('en-US');
 
+  const escapeHtml = (value = '') => String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
   function generateClientId(prefix = 'pay_'){
     if (typeof crypto !== 'undefined' && crypto.randomUUID){
       return prefix + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
@@ -4746,6 +4753,101 @@ function createBattlePlaceholder({ icon = 'fa-people-group', title = '', descrip
       <div class="text-lg font-bold">${title}</div>
       ${description ? `<p class="text-sm leading-7 opacity-80">${description}</p>` : ''}
       ${action ? `<div>${action}</div>` : ''}
+    </div>`;
+}
+
+function buildBattlePlayerMarkup(player, options = {}) {
+  const {
+    side = 'host',
+    roundIndex = 1,
+    score = null,
+    opponentScore = null,
+    winner = null,
+    preview = false
+  } = options;
+
+  const hasPlayer = player && typeof player === 'object';
+  const defaultName = `بازیکن ${faNum(roundIndex)}`;
+  const name = hasPlayer && player.name ? player.name : defaultName;
+  const role = hasPlayer && player.role ? player.role : (hasPlayer ? 'نقش نامشخص' : 'جایگاه خالی');
+  const avatarUrl = hasPlayer && player.avatar ? player.avatar : '';
+  const toNumber = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+  const power = hasPlayer ? toNumber(player.power) : null;
+  const accuracy = hasPlayer ? toNumber(player.accuracy) : null;
+  const avgScore = hasPlayer ? toNumber(player.avgScore) : null;
+  const speed = hasPlayer ? toNumber(player.speed) : null;
+
+  const classes = ['battle-player'];
+  if (!hasPlayer) {
+    classes.push('battle-player-empty');
+  } else if (!preview && (winner === 'host' || winner === 'opponent')) {
+    if (winner === side) {
+      classes.push('battle-player-winner');
+    } else {
+      classes.push('battle-player-loser');
+    }
+  }
+
+  const roundLabel = `راند ${faNum(roundIndex)}`;
+  const scoreLabel = preview ? 'پیش‌بینی نبرد' : 'امتیاز راند';
+  const roundLabelSafe = escapeHtml(roundLabel);
+  const scoreLabelSafe = escapeHtml(scoreLabel);
+  const scoreValueNum = toNumber(score);
+  const opponentScoreNum = toNumber(opponentScore);
+  const scoreValue = scoreValueNum !== null ? faNum(scoreValueNum) : '—';
+
+  let diffBadge = '';
+  if (!preview && scoreValueNum !== null && opponentScoreNum !== null) {
+    const diff = scoreValueNum - opponentScoreNum;
+    if (diff === 0) {
+      diffBadge = '<span class="text-xs font-semibold opacity-80">مساوی</span>';
+    } else if (diff > 0) {
+      diffBadge = `<span class="text-xs font-semibold text-green-200">+${faNum(Math.abs(diff))}</span>`;
+    } else {
+      diffBadge = `<span class="text-xs font-semibold text-rose-200">-${faNum(Math.abs(diff))}</span>`;
+    }
+  }
+
+  const meta = [];
+  if (power !== null) meta.push(`<span><i class="fas fa-bolt"></i>${faNum(power)}</span>`);
+  if (accuracy !== null) meta.push(`<span><i class="fas fa-bullseye"></i>${faNum(accuracy)}٪</span>`);
+  if (avgScore !== null) meta.push(`<span><i class="fas fa-star"></i>${faNum(avgScore)}</span>`);
+  if (speed !== null) meta.push(`<span><i class="fas fa-gauge-high"></i>${faDecimal(speed, 1)}</span>`);
+
+  const roleIcon = side === 'host' ? 'fa-shield-halved' : 'fa-dragon';
+
+  const avatarMarkup = hasPlayer && avatarUrl
+    ? `<img class="battle-player-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}">`
+    : `<div class="battle-player-avatar placeholder"><i class="fas fa-user"></i></div>`;
+
+  const metaMarkup = hasPlayer && meta.length
+    ? `<div class="battle-player-meta">${meta.join('')}</div>`
+    : (hasPlayer
+        ? '<div class="text-xs opacity-70 leading-6">آمار بازیکن در دسترس نیست.</div>'
+        : '<div class="text-xs opacity-70 leading-6">بازیکنی برای این ردیف معرفی نشده است.</div>');
+
+  return `
+    <div class="${classes.join(' ')}" data-battle-round="${roundIndex}">
+      <div class="battle-player-header">
+        <div class="battle-player-info">
+          ${avatarMarkup}
+          <div class="flex flex-col gap-1">
+            <div class="battle-player-name">${escapeHtml(name)}</div>
+            <div class="battle-player-role"><i class="fas ${roleIcon}"></i><span>${escapeHtml(role)}</span></div>
+          </div>
+        </div>
+        <span class="chip px-3 py-1 text-xs font-bold">${roundLabelSafe}</span>
+      </div>
+      <div class="battle-player-score">
+        <span>${scoreValue}</span>
+        <span class="text-xs opacity-75">${scoreLabelSafe}</span>
+        ${diffBadge}
+      </div>
+      ${metaMarkup}
     </div>`;
 }
 
