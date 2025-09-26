@@ -1,8 +1,4 @@
-const GROUP_BATTLE_REWARD_CONFIG = {
-  winner: { coins: 70, score: 220 },
-  loser: { coins: 30, score: 90 },
-  groupScore: 420,
-};
+const { getGroupBattleRewardConfig } = require('../config/adminSettings');
 
 const ROSTER_ROLES = ['دانش عمومی','رهبر استراتژی','متخصص علوم','استاد ادبیات','تحلیل‌گر داده','هوش تاریخی','ریاضی‌دان','کارشناس فناوری','حل مسئله سریع','هوش مصنوعی'];
 const ROSTER_FIRST_NAMES = ['آرمان','نیلوفر','شروین','فرناز','پارسا','یاسمن','کاوه','مینا','هومن','هستی','رامتین','سولماز','آرین','بهاره','پریسا','بردیا','کیانا','مانی','ترانه','هانیه'];
@@ -237,12 +233,13 @@ function simulateGroupBattle(hostGroup, opponentGroup, user) {
 
 function applyBattleRewards(result, hostGroup, opponentGroup, user) {
   if (!result) return null;
+  const rewardConfig = getGroupBattleRewardConfig();
   const winnerGroup = result.winnerGroupId === hostGroup.groupId ? hostGroup : opponentGroup;
   const loserGroup = winnerGroup === hostGroup ? opponentGroup : hostGroup;
 
   if (winnerGroup) {
     const currentScore = Number(winnerGroup.score) || 0;
-    winnerGroup.score = Math.max(0, Math.round(currentScore + GROUP_BATTLE_REWARD_CONFIG.groupScore));
+    winnerGroup.score = Math.max(0, Math.round(currentScore + rewardConfig.groupScore));
     winnerGroup.wins = Math.max(0, Math.round((winnerGroup.wins || 0) + 1));
   }
 
@@ -290,7 +287,7 @@ function applyBattleRewards(result, hostGroup, opponentGroup, user) {
   if (userGroupId && (userGroupId === hostGroup?.groupId || userGroupId === opponentGroup?.groupId)) {
     const isHost = userGroupId === hostGroup?.groupId;
     const isWinner = result.winnerGroupId === (isHost ? hostGroup?.groupId : opponentGroup?.groupId);
-    const reward = isWinner ? GROUP_BATTLE_REWARD_CONFIG.winner : GROUP_BATTLE_REWARD_CONFIG.loser;
+    const reward = isWinner ? rewardConfig.winner : rewardConfig.loser;
     userReward.coins = reward.coins;
     userReward.score = reward.score;
     userReward.applied = true;
@@ -301,7 +298,7 @@ function applyBattleRewards(result, hostGroup, opponentGroup, user) {
     winnerGroupId: result.winnerGroupId,
     winnerName: winnerGroup?.name || '',
     loserName: loserGroup?.name || '',
-    config: GROUP_BATTLE_REWARD_CONFIG,
+    config: rewardConfig,
     userReward,
   };
 
@@ -310,7 +307,6 @@ function applyBattleRewards(result, hostGroup, opponentGroup, user) {
 }
 
 module.exports = {
-  GROUP_BATTLE_REWARD_CONFIG,
   getBattleParticipants,
   simulateGroupBattle,
   applyBattleRewards,

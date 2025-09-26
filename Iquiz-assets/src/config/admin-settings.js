@@ -7,11 +7,18 @@ const DEFAULT_GENERAL = Object.freeze({
   maxQuestions: 10,
 });
 
+const DEFAULT_GROUP_BATTLE_REWARDS = Object.freeze({
+  winner: Object.freeze({ coins: 70, score: 220 }),
+  loser: Object.freeze({ coins: 30, score: 90 }),
+  groupScore: 420,
+});
+
 const DEFAULT_REWARDS = Object.freeze({
   pointsCorrect: 100,
   coinsCorrect: 5,
   pointsStreak: 50,
   coinsStreak: 10,
+  groupBattleRewards: DEFAULT_GROUP_BATTLE_REWARDS,
 });
 
 const DEFAULT_SHOP = Object.freeze({
@@ -101,11 +108,32 @@ function normalizeGeneral(raw) {
 
 function normalizeRewards(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
+  const groupBattle = source.groupBattleRewards || source.groupBattle;
   return {
     pointsCorrect: Math.max(0, toNumber(source.pointsCorrect, DEFAULT_REWARDS.pointsCorrect)),
     coinsCorrect: Math.max(0, toNumber(source.coinsCorrect, DEFAULT_REWARDS.coinsCorrect)),
     pointsStreak: Math.max(0, toNumber(source.pointsStreak, DEFAULT_REWARDS.pointsStreak)),
     coinsStreak: Math.max(0, toNumber(source.coinsStreak, DEFAULT_REWARDS.coinsStreak)),
+    groupBattleRewards: normalizeGroupBattleRewards(groupBattle),
+  };
+}
+
+function normalizeGroupBattleRewards(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const winnerSource = source.winner && typeof source.winner === 'object' ? source.winner : {};
+  const loserSource = source.loser && typeof source.loser === 'object' ? source.loser : {};
+  const fallback = DEFAULT_GROUP_BATTLE_REWARDS;
+  const sanitize = (value, fallbackValue) => Math.max(0, toNumber(value, fallbackValue));
+  return {
+    winner: {
+      coins: sanitize(winnerSource.coins, fallback.winner.coins),
+      score: sanitize(winnerSource.score, fallback.winner.score),
+    },
+    loser: {
+      coins: sanitize(loserSource.coins, fallback.loser.coins),
+      score: sanitize(loserSource.score, fallback.loser.score),
+    },
+    groupScore: sanitize(source.groupScore, fallback.groupScore),
   };
 }
 
@@ -334,6 +362,7 @@ export {
   ADMIN_SETTINGS_STORAGE_KEY,
   DEFAULT_GENERAL,
   DEFAULT_REWARDS,
+  DEFAULT_GROUP_BATTLE_REWARDS,
   DEFAULT_SHOP,
   DEFAULT_SETTINGS,
 };
