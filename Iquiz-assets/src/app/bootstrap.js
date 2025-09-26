@@ -3008,7 +3008,9 @@ async function startPurchaseCoins(pkgId){
     packageId: pkgId
   });
 
-  if(!res || !res.txnId){
+  const txnId = res?.data?.txnId || null;
+
+  if(!txnId){
     btn.disabled = false;
     btn.innerHTML = normalLabel;
     toast('<i class="fas fa-triangle-exclamation ml-2"></i> ایجاد تراکنش ناموفق');
@@ -3016,14 +3018,32 @@ async function startPurchaseCoins(pkgId){
     return;
   }
 
-  const txnId = res.txnId;
   // Poll wallet until updated or timeout
   const before = Server.wallet.coins;
   let ok=false;
-  for(let i=0;i<20;i++){
-    await wait(1000);
-    await refreshWallet();
-    if(Server.wallet.coins!=null && (before==null || Server.wallet.coins>before)){ ok=true; break; }
+  const walletData = res?.data?.wallet;
+  if(walletData && typeof walletData === 'object'){
+    const walletCoins = Number(walletData.coins);
+    if(Number.isFinite(walletCoins)){
+      Server.wallet.coins = walletCoins;
+      const hdrWallet = $('#hdr-wallet');
+      if(hdrWallet) hdrWallet.textContent = faNum(Server.wallet.coins);
+      const statWallet = $('#stat-wallet');
+      if(statWallet) statWallet.textContent = faNum(Server.wallet.coins);
+      const balanceEl = $('#wallet-balance');
+      if(balanceEl) balanceEl.textContent = faNum(Server.wallet.coins);
+      if(before==null || walletCoins>before){ ok=true; }
+    }
+    if(walletData.lastTxnId){
+      Server.wallet.lastTxnId = walletData.lastTxnId;
+    }
+  }
+  if(!ok){
+    for(let i=0;i<20;i++){
+      await wait(1000);
+      await refreshWallet();
+      if(Server.wallet.coins!=null && (before==null || Server.wallet.coins>before)){ ok=true; break; }
+    }
   }
 
   btn.disabled = false;
@@ -3069,13 +3089,29 @@ async function startPurchaseCoins(pkgId){
     btn.disabled = true; const prevHTML = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> ایجاد تراکنش...';
     await logEvent('purchase_initiated', { kind:'vip', tier, priceCents:pricing.priceCents, idem });
     const res = await Net.jpost('/api/payments/create', { idempotencyKey: idem, type:'vip', tier });
-    if(!res || !res.txnId){
-      btn.disabled=false; btn.innerHTML = prevHTML; 
-      toast('<i class="fas fa-triangle-exclamation ml-2"></i> ایجاد تراکنش VIP ناموفق'); 
-      await logEvent('purchase_failed', { kind:'vip', tier, reason:'create_failed' }); 
+    const txnId = res?.data?.txnId || null;
+    if(!txnId){
+      btn.disabled=false; btn.innerHTML = prevHTML;
+      toast('<i class="fas fa-triangle-exclamation ml-2"></i> ایجاد تراکنش VIP ناموفق');
+      await logEvent('purchase_failed', { kind:'vip', tier, reason:'create_failed' });
       return;
     }
-    const txnId = res.txnId;
+    const walletData = res?.data?.wallet;
+    if(walletData && typeof walletData === 'object'){
+      const walletCoins = Number(walletData.coins);
+      if(Number.isFinite(walletCoins)){
+        Server.wallet.coins = walletCoins;
+        const hdrWallet = $('#hdr-wallet');
+        if(hdrWallet) hdrWallet.textContent = faNum(Server.wallet.coins);
+        const statWallet = $('#stat-wallet');
+        if(statWallet) statWallet.textContent = faNum(Server.wallet.coins);
+        const balanceEl = $('#wallet-balance');
+        if(balanceEl) balanceEl.textContent = faNum(Server.wallet.coins);
+      }
+      if(walletData.lastTxnId){
+        Server.wallet.lastTxnId = walletData.lastTxnId;
+      }
+    }
     // Poll subscription
     let ok=false;
     for(let i=0;i<20;i++){ await wait(1200); await refreshSubscription(); if(Server.subscription.active){ ok=true; break; } }
