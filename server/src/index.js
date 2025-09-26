@@ -97,6 +97,7 @@ app.use('/api/ads', require('./routes/ads.routes'));
 app.use('/api/analytics', require('./routes/analytics.routes'));
 app.use('/api/group-battles', require('./routes/group-battles.routes'));
 app.use('/api/duels', require('./routes/duels.routes'));
+app.use('/api/limits', require('./routes/limits.routes'));
 app.use('/api/admin/questions', require('./routes/admin/questions'));
 app.use('/api/admin/metrics', require('./routes/admin/metrics'));
 app.use('/api/admin/shop', require('./routes/admin/shop'));
