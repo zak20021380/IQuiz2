@@ -65,7 +65,7 @@ export function updateLifelineStates() {
     const keys = Number.isFinite(State.lives) ? Math.max(0, State.lives) : 0;
     balanceEl.innerHTML = `<i class="fas fa-key"></i><span>${faNum(keys)} کلید در دسترس</span>`;
   }
-  ['life-5050', 'life-skip', 'life-pause'].forEach((id) => {
+  ['life-5050', 'life-pause'].forEach((id) => {
     const btn = $('#' + id);
     if (!btn) return;
     if (btn.disabled) {
@@ -110,7 +110,7 @@ export function markLifelineUsed(id) {
 }
 
 export function resetLifelinesUI() {
-  ['life-5050', 'life-skip', 'life-pause'].forEach((id) => {
+  ['life-5050', 'life-pause'].forEach((id) => {
     const btn = $('#' + id);
     if (!btn) return;
     btn.disabled = false;
@@ -129,12 +129,10 @@ export function resetLifelinesUI() {
 }
 
 let used5050 = false;
-let usedSkip = false;
 let usedTimeBoost = false;
 
 function resetLifelineUsage() {
   used5050 = false;
-  usedSkip = false;
   usedTimeBoost = false;
 }
 
@@ -165,28 +163,6 @@ export function life5050() {
     }
   });
   toast('<i class="fas fa-percent ml-1"></i> دو گزینه حذف شد');
-  SFX.coin();
-}
-
-export function lifeSkip() {
-  if (usedSkip) {
-    toast('پرش فقط یک‌بار مجازه');
-    return;
-  }
-  const cur = State.quiz.list[State.quiz.idx];
-  if (!isValidQuestion(cur)) {
-    toast('سؤال فعلی معتبر نبود و رد شد.');
-    callDependency('nextQuestion');
-    return;
-  }
-  if (!spendLifelineCost()) return;
-  usedSkip = true;
-  markLifelineUsed('life-skip');
-  clearInterval(State.quiz.timer);
-  State.quiz.results.push({ q: cur.q, ok: false, correct: cur.c[cur.a], you: '— (پرش)' });
-  saveState();
-  toast('<i class="fas fa-forward ml-1"></i> به سؤال بعدی رفتی');
-  callDependency('nextQuestion');
   SFX.coin();
 }
 
