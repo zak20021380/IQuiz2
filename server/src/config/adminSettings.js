@@ -12,6 +12,12 @@ const DEFAULT_GROUP_BATTLE_REWARDS = Object.freeze({
   groupScore: 420,
 });
 
+const DEFAULT_DUEL_REWARDS = Object.freeze({
+  winner: Object.freeze({ coins: 60, score: 180 }),
+  loser: Object.freeze({ coins: 20, score: 60 }),
+  draw: Object.freeze({ coins: 35, score: 120 }),
+});
+
 const DEFAULT_SETTINGS = Object.freeze({
   general: {},
   rewards: Object.freeze({
@@ -20,6 +26,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     pointsStreak: 50,
     coinsStreak: 10,
     groupBattleRewards: DEFAULT_GROUP_BATTLE_REWARDS,
+    duelRewards: DEFAULT_DUEL_REWARDS,
   }),
   shop: {},
   updatedAt: 0,
@@ -49,6 +56,25 @@ function normalizeGroupBattleRewards(raw, fallback = DEFAULT_GROUP_BATTLE_REWARD
   };
 }
 
+function normalizeDuelRewards(raw, fallback = DEFAULT_DUEL_REWARDS) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const base = fallback || DEFAULT_DUEL_REWARDS;
+  const sanitize = (value, fallbackValue) => Math.max(0, toNumber(value, fallbackValue));
+  const buildOutcome = (key) => {
+    const outcomeSource = source[key] && typeof source[key] === 'object' ? source[key] : {};
+    const baseOutcome = base[key] || { coins: 0, score: 0 };
+    return {
+      coins: sanitize(outcomeSource.coins, baseOutcome.coins),
+      score: sanitize(outcomeSource.score, baseOutcome.score),
+    };
+  };
+  return {
+    winner: buildOutcome('winner'),
+    loser: buildOutcome('loser'),
+    draw: buildOutcome('draw'),
+  };
+}
+
 function normalizeRewards(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
   const normalized = { ...source };
@@ -57,7 +83,9 @@ function normalizeRewards(raw) {
   normalized.pointsStreak = Math.max(0, toNumber(source.pointsStreak, DEFAULT_SETTINGS.rewards.pointsStreak));
   normalized.coinsStreak = Math.max(0, toNumber(source.coinsStreak, DEFAULT_SETTINGS.rewards.coinsStreak));
   normalized.groupBattleRewards = normalizeGroupBattleRewards(source.groupBattleRewards || source.groupBattle);
+  normalized.duelRewards = normalizeDuelRewards(source.duelRewards || source.duel);
   delete normalized.groupBattle;
+  delete normalized.duel;
   return normalized;
 }
 
@@ -115,6 +143,11 @@ function getGroupBattleRewardConfig() {
   return normalizeGroupBattleRewards(settings.rewards?.groupBattleRewards);
 }
 
+function getDuelRewardConfig() {
+  const settings = loadAdminSettings();
+  return normalizeDuelRewards(settings.rewards?.duelRewards);
+}
+
 async function saveAdminSettings(next) {
   const current = loadAdminSettings();
   const incoming = next && typeof next === 'object' ? next : {};
@@ -146,8 +179,10 @@ function __resetAdminSettingsCache(next) {
 
 module.exports = {
   DEFAULT_GROUP_BATTLE_REWARDS,
+  DEFAULT_DUEL_REWARDS,
   getAdminSettingsSnapshot,
   getGroupBattleRewardConfig,
+  getDuelRewardConfig,
   loadAdminSettings,
   saveAdminSettings,
   __resetAdminSettingsCache,
