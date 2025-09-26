@@ -5,6 +5,7 @@ const Category = require('../models/Category');
 const questionsController = require('../controllers/questions.controller');
 const AdModel = require('../models/Ad');
 const QuestionService = require('../services/questionService');
+const telegramController = require('../controllers/telegram.controller');
 const { resolveCategory } = require('../config/categories');
 const { recordAnswerEvent } = require('../controllers/answers');
 const {
@@ -139,6 +140,7 @@ router.get('/config', (req, res) => {
 });
 
 router.post('/questions/submit', questionsController.submitPublic);
+router.post('/telegram/session', telegramController.createSession);
 
 router.post('/answers', async (req, res, next) => {
   try {

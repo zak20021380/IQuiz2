@@ -26,6 +26,7 @@ const app = express();
 // یادآوری: برای اینکه HTML استاتیک (که اسکریپت‌های درون‌خطی دارد) درست کار کند، باید
 // علاوه بر script-src، دستورهای script-src-elem و script-src-attr را هم بازتعریف کنیم؛
 // در غیر اینصورت Helmet برای آن‌ها مقدار «'none'» قرار می‌دهد و اجرای اسکریپت‌ها متوقف می‌شود.
+const telegramOrigins = Array.from(new Set((env.telegram.allowedOrigins || []).filter(Boolean)));
 app.use(helmet({
   contentSecurityPolicy: {
     useDefaults: true,
@@ -36,8 +37,8 @@ app.use(helmet({
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com", "data:"],
-      imgSrc: ["'self'", "data:", "https://i.pravatar.cc"],
-      connectSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https://i.pravatar.cc", ...telegramOrigins],
+      connectSrc: ["'self'", ...telegramOrigins],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: []
     }

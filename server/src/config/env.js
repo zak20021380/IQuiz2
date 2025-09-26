@@ -62,7 +62,37 @@ const nodeEnv = nodeEnvRaw;
 const mongoUri = process.env.MONGO_URI || DEFAULT_MONGO_URI;
 const mongoMaxPool = parseNumber(process.env.MONGO_MAX_POOL, DEFAULT_MONGO_MAX_POOL, { min: 1 });
 const port = parseNumber(process.env.PORT, DEFAULT_PORT, { min: 1 });
-const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+function extractOrigin(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(String(url));
+    return parsed.origin;
+  } catch (error) {
+    return '';
+  }
+}
+
+const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN ? String(process.env.TELEGRAM_BOT_TOKEN).trim() : '';
+const telegramWebAppUrl = process.env.TELEGRAM_WEBAPP_URL ? String(process.env.TELEGRAM_WEBAPP_URL).trim() : '';
+const telegramAllowedOriginsExtra = parseAllowedOrigins(process.env.TELEGRAM_ALLOWED_ORIGINS);
+
+const allowedOriginsSet = new Set(parseAllowedOrigins(process.env.ALLOWED_ORIGINS));
+const telegramAllowedOrigins = [];
+
+for (const origin of telegramAllowedOriginsExtra) {
+  if (!origin) continue;
+  telegramAllowedOrigins.push(origin);
+  allowedOriginsSet.add(origin);
+}
+
+const telegramWebAppOrigin = extractOrigin(telegramWebAppUrl);
+if (telegramWebAppOrigin) {
+  telegramAllowedOrigins.push(telegramWebAppOrigin);
+  allowedOriginsSet.add(telegramWebAppOrigin);
+}
+
+const allowedOrigins = Array.from(allowedOriginsSet);
+const telegramAllowedOriginsUnique = Array.from(new Set(telegramAllowedOrigins));
 const defaultTemperature = parseNumber(process.env.AI_DEFAULT_TEMPERATURE, 0.35, { min: 0, max: 1 });
 const openAiBaseUrl = (process.env.OPENAI_BASE_URL || DEFAULT_OPENAI_BASE_URL).trim().replace(/\/+$/, '');
 const openAiModel = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
@@ -102,6 +132,11 @@ const env = {
   },
   cors: {
     allowedOrigins
+  },
+  telegram: {
+    botToken: telegramBotToken,
+    webAppUrl: telegramWebAppUrl,
+    allowedOrigins: telegramAllowedOriginsUnique
   },
   jwt: {
     secret: process.env.JWT_SECRET,
