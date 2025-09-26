@@ -26,8 +26,35 @@ function findCoinPackage(packageId) {
   return packages.find((pkg) => pkg.id === normalized) || null;
 }
 
+function getVipTiers() {
+  const config = getShopConfig();
+  const raw = config?.pricing?.vip || {};
+  return Object.entries(raw).map(([key, value]) => {
+    const tier = String(key || '').trim();
+    const durationDaysDefault = tier === 'pro' ? 90 : 30;
+    return {
+      key: tier,
+      id: String(value?.id || tier || ''),
+      tier,
+      priceCents: Number(value?.priceCents) || 0,
+      priceToman: Number(value?.priceToman || value?.price || 0),
+      durationDays: Number(value?.durationDays) || durationDaysDefault,
+    };
+  }).filter((item) => item.id);
+}
+
+function findVipTier(tier) {
+  if (!tier) return null;
+  const normalized = String(tier).trim().toLowerCase();
+  if (!normalized) return null;
+  const tiers = getVipTiers();
+  return tiers.find((item) => item.tier === normalized || item.id === normalized) || null;
+}
+
 module.exports = {
   getShopConfig,
   getCoinPackages,
   findCoinPackage,
+  getVipTiers,
+  findVipTier,
 };

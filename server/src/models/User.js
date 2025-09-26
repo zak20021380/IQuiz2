@@ -13,7 +13,15 @@ const userSchema = new mongoose.Schema(
     score:    { type: Number, default: 0 },
     status:   { type: String, enum: ['active', 'blocked', 'pending'], default: 'active' },
     province: { type: String, trim: true, default: '' },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    subscription: {
+      active: { type: Boolean, default: false },
+      tier: { type: String, default: null },
+      plan: { type: String, default: null },
+      expiry: { type: Date, default: null },
+      autoRenew: { type: Boolean, default: false },
+      lastTransaction: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment', default: null }
+    }
   },
   { timestamps: true }
 );
