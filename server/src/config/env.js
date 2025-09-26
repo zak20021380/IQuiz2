@@ -69,6 +69,15 @@ const openAiModel = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
 const openAiApiKey = process.env.OPENAI_API_KEY || '';
 const openAiOrganization = process.env.OPENAI_ORG || process.env.OPENAI_ORGANIZATION || '';
 const openAiProject = process.env.OPENAI_PROJECT || '';
+const appBaseUrl = process.env.APP_BASE_URL ? String(process.env.APP_BASE_URL).trim().replace(/\/+$/, '') : '';
+const paymentReturnUrlRaw = process.env.PAYMENT_RETURN_URL ? String(process.env.PAYMENT_RETURN_URL).trim() : '';
+const zarinpalMerchantId = process.env.ZARINPAL_MERCHANT_ID ? String(process.env.ZARINPAL_MERCHANT_ID).trim() : '';
+const zarinpalSandbox = parseBoolean(process.env.ZARINPAL_SANDBOX, false);
+const zarinpalCallbackBaseRaw = process.env.ZARINPAL_CALLBACK_BASE_URL
+  ? String(process.env.ZARINPAL_CALLBACK_BASE_URL).trim()
+  : appBaseUrl;
+const paymentReturnUrl = paymentReturnUrlRaw;
+const zarinpalCallbackBase = zarinpalCallbackBaseRaw ? zarinpalCallbackBaseRaw.replace(/\/+$/, '') : '';
 
 const allowReviewModeAll = parseBoolean(process.env.ALLOW_REVIEW_MODE_ALL, true);
 const groupPairingMode = parsePairingMode(process.env.GROUP_PAIRING_MODE, DEFAULT_GROUP_PAIRING_MODE);
@@ -106,6 +115,14 @@ const env = {
       apiKey: openAiApiKey,
       organization: openAiOrganization,
       project: openAiProject
+    }
+  },
+  payments: {
+    defaultReturnUrl: paymentReturnUrl,
+    zarinpal: {
+      merchantId: zarinpalMerchantId,
+      sandbox: zarinpalSandbox,
+      callbackBase: zarinpalCallbackBase
     }
   },
   features: {
