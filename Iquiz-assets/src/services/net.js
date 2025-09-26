@@ -1,10 +1,19 @@
 import { getGuestId } from '../utils/guest.js';
 
+let authToken = '';
+
+export function setAuthToken(token = '') {
+  authToken = token ? String(token) : '';
+}
+
 function buildHeaders(extra = {}) {
   const headers = { ...extra };
   const guestId = getGuestId();
   if (guestId) {
     headers['x-guest-id'] = guestId;
+  }
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
   }
   return headers;
 }
@@ -56,5 +65,5 @@ export async function jpost(url, data, timeoutMs = 12000) {
   }
 }
 
-const Net = { jget, jpost };
+const Net = { jget, jpost, setAuthToken };
 export default Net;

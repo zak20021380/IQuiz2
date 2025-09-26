@@ -36,6 +36,7 @@ import {
   getCategoryDifficultyPool
 } from '../state/admin.js';
 import { loadState, saveState } from '../state/persistence.js';
+import { setGuestId } from '../utils/guest.js';
 import {
   initFromAdmin,
   buildSetupFromAdmin,
@@ -440,17 +441,85 @@ function populateProvinceOptions(selectEl, placeholder){
   }
 
   // Telegram WebApp (optional)
-  try{
-    if(window.Telegram && Telegram.WebApp){
-      Telegram.WebApp.ready();
-      const u = Telegram.WebApp.initDataUnsafe?.user;
-      if(u){
-        State.user.id = String(u.id);
-        State.user.name = [u.first_name,u.last_name].filter(Boolean).join(' ');
-        if(u.username) State.user.name += ` (@${u.username})`;
-      }
+  const initialTelegramUserSnapshot = { ...State.user };
+  (async () => {
+    if (!window.Telegram || !Telegram.WebApp) {
+      return;
     }
-    }catch{}
+
+    try {
+      Telegram.WebApp.ready();
+      const initDataUnsafe = Telegram.WebApp.initDataUnsafe || {};
+      const rawInitData = Telegram.WebApp.initData || '';
+      const u = initDataUnsafe.user;
+
+      if (u) {
+        State.user.id = String(u.id);
+        State.user.name = [u.first_name, u.last_name].filter(Boolean).join(' ');
+        if (!State.user.name && u.username) {
+          State.user.name = `@${u.username}`;
+        } else if (u.username) {
+          State.user.name += ` (@${u.username})`;
+        }
+        if (u.photo_url) {
+          State.user.avatar = u.photo_url;
+        }
+      }
+
+      if (!rawInitData) {
+        saveState();
+        return;
+      }
+
+      const sessionPayload = {
+        initData: rawInitData,
+        hash: initDataUnsafe.hash || '',
+        auth_date: initDataUnsafe.auth_date || initDataUnsafe.authDate || '',
+        fallbackId: String(u?.id || State.user.id || ''),
+        fallbackName: State.user.name || u?.username || '',
+      };
+
+      const sessionResponse = await Net.jpost('/api/public/telegram/session', sessionPayload);
+
+      if (!sessionResponse || sessionResponse.error) {
+        throw new Error(sessionResponse?.error || 'telegram_session_failed');
+      }
+
+      const resolvedUser = sessionResponse.user || sessionResponse.profile || null;
+      if (resolvedUser && typeof resolvedUser === 'object') {
+        if (resolvedUser.id !== undefined) {
+          State.user.id = String(resolvedUser.id);
+        }
+        if (resolvedUser.name) {
+          State.user.name = String(resolvedUser.name);
+        }
+        if (resolvedUser.avatar) {
+          State.user.avatar = String(resolvedUser.avatar);
+        }
+      }
+
+      if (sessionResponse.token) {
+        Net.setAuthToken(sessionResponse.token);
+      } else {
+        Net.setAuthToken('');
+      }
+
+      if (sessionResponse.guestId) {
+        setGuestId(sessionResponse.guestId);
+      }
+
+      if (sessionResponse.permanentUserId && resolvedUser && resolvedUser.id === undefined) {
+        State.user.id = String(sessionResponse.permanentUserId);
+      }
+
+      saveState();
+    } catch (err) {
+      console.error('Telegram session verification failed', err);
+      Object.assign(State.user, initialTelegramUserSnapshot);
+      Net.setAuthToken('');
+      saveState();
+    }
+  })();
 
     (function setupProvinceSelect(){
     function openModal(sel){ document.querySelector(sel).classList.add('show'); }
