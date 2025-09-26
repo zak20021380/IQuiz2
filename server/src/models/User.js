@@ -6,14 +6,34 @@ const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, trim: true },
     name:     { type: String, trim: true, default: function () { return this.username; } },
-    email:    { type: String, required: true, unique: true, lowercase: true, validate: [isEmail, 'Invalid email'] },
-    password: { type: String, required: true, minlength: 6, select: false },
+    email:    {
+      type: String,
+      required: function requiredEmail() {
+        return !this.telegramId;
+      },
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      validate: [isEmail, 'Invalid email']
+    },
+    password: {
+      type: String,
+      required: function requiredPassword() {
+        return !this.telegramId;
+      },
+      minlength: 6,
+      select: false
+    },
     role:     { type: String, enum: ['user', 'vip', 'admin'], default: 'user' },
     coins:    { type: Number, default: 0 },
     score:    { type: Number, default: 0 },
     status:   { type: String, enum: ['active', 'blocked', 'pending'], default: 'active' },
     province: { type: String, trim: true, default: '' },
     isActive: { type: Boolean, default: true },
+    telegramId: { type: String, unique: true, sparse: true, index: true },
+    telegramUsername: { type: String, trim: true, default: '' },
+    avatar: { type: String, trim: true, default: '' },
+    lastTelegramAuthAt: { type: Date },
     subscription: {
       active: { type: Boolean, default: false },
       tier: { type: String, default: null },
@@ -27,6 +47,7 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.pre('save', async function (next) {
+  if (!this.password) return next();
   if (!this.isModified('password')) return next();
 
   try {
@@ -42,6 +63,7 @@ userSchema.pre('save', async function (next) {
 });
 
 userSchema.methods.comparePassword = function (candidate) {
+  if (!this.password) return false;
   return bcrypt.compare(candidate, this.password);
 };
 
