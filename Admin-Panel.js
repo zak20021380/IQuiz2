@@ -642,6 +642,12 @@ const groupBattleWinnerScoreInput = $('#settings-group-battle-winner-score');
 const groupBattleLoserCoinsInput = $('#settings-group-battle-loser-coins');
 const groupBattleLoserScoreInput = $('#settings-group-battle-loser-score');
 const groupBattleGroupScoreInput = $('#settings-group-battle-group-score');
+const duelWinnerCoinsInput = $('#settings-duel-winner-coins');
+const duelWinnerScoreInput = $('#settings-duel-winner-score');
+const duelLoserCoinsInput = $('#settings-duel-loser-coins');
+const duelLoserScoreInput = $('#settings-duel-loser-score');
+const duelDrawCoinsInput = $('#settings-duel-draw-coins');
+const duelDrawScoreInput = $('#settings-duel-draw-score');
 
 const questionFilters = {
   category: '',
@@ -6130,6 +6136,12 @@ const DEFAULT_GROUP_BATTLE_REWARDS = {
   groupScore: 420
 };
 
+const DEFAULT_DUEL_REWARDS = {
+  winner: { coins: 60, score: 180 },
+  loser: { coins: 20, score: 60 },
+  draw: { coins: 35, score: 120 }
+};
+
 function safeNumber(value, fallback = 0) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
@@ -6204,6 +6216,17 @@ function applySettingsSnapshot(snapshot) {
   if (groupBattleLoserCoinsInput && loserReward.coins != null) groupBattleLoserCoinsInput.value = loserReward.coins;
   if (groupBattleLoserScoreInput && loserReward.score != null) groupBattleLoserScoreInput.value = loserReward.score;
   if (groupBattleGroupScoreInput && groupBattle.groupScore != null) groupBattleGroupScoreInput.value = groupBattle.groupScore;
+
+  const duelRewards = rewards.duelRewards || rewards.duel || {};
+  const duelWinner = duelRewards.winner || {};
+  const duelLoser = duelRewards.loser || {};
+  const duelDraw = duelRewards.draw || {};
+  if (duelWinnerCoinsInput && duelWinner.coins != null) duelWinnerCoinsInput.value = duelWinner.coins;
+  if (duelWinnerScoreInput && duelWinner.score != null) duelWinnerScoreInput.value = duelWinner.score;
+  if (duelLoserCoinsInput && duelLoser.coins != null) duelLoserCoinsInput.value = duelLoser.coins;
+  if (duelLoserScoreInput && duelLoser.score != null) duelLoserScoreInput.value = duelLoser.score;
+  if (duelDrawCoinsInput && duelDraw.coins != null) duelDrawCoinsInput.value = duelDraw.coins;
+  if (duelDrawScoreInput && duelDraw.score != null) duelDrawScoreInput.value = duelDraw.score;
 
   const shop = snapshot.shop || {};
   if (shopGlobalToggle && shop.enabled != null) shopGlobalToggle.checked = !!shop.enabled;
@@ -6283,6 +6306,12 @@ function collectRewardSettings() {
   const loserCoins = sanitize(groupBattleLoserCoinsInput ? groupBattleLoserCoinsInput.value : DEFAULT_GROUP_BATTLE_REWARDS.loser.coins, DEFAULT_GROUP_BATTLE_REWARDS.loser.coins);
   const loserScore = sanitize(groupBattleLoserScoreInput ? groupBattleLoserScoreInput.value : DEFAULT_GROUP_BATTLE_REWARDS.loser.score, DEFAULT_GROUP_BATTLE_REWARDS.loser.score);
   const groupScore = sanitize(groupBattleGroupScoreInput ? groupBattleGroupScoreInput.value : DEFAULT_GROUP_BATTLE_REWARDS.groupScore, DEFAULT_GROUP_BATTLE_REWARDS.groupScore);
+  const duelWinnerCoins = sanitize(duelWinnerCoinsInput ? duelWinnerCoinsInput.value : DEFAULT_DUEL_REWARDS.winner.coins, DEFAULT_DUEL_REWARDS.winner.coins);
+  const duelWinnerScore = sanitize(duelWinnerScoreInput ? duelWinnerScoreInput.value : DEFAULT_DUEL_REWARDS.winner.score, DEFAULT_DUEL_REWARDS.winner.score);
+  const duelLoserCoins = sanitize(duelLoserCoinsInput ? duelLoserCoinsInput.value : DEFAULT_DUEL_REWARDS.loser.coins, DEFAULT_DUEL_REWARDS.loser.coins);
+  const duelLoserScore = sanitize(duelLoserScoreInput ? duelLoserScoreInput.value : DEFAULT_DUEL_REWARDS.loser.score, DEFAULT_DUEL_REWARDS.loser.score);
+  const duelDrawCoins = sanitize(duelDrawCoinsInput ? duelDrawCoinsInput.value : DEFAULT_DUEL_REWARDS.draw.coins, DEFAULT_DUEL_REWARDS.draw.coins);
+  const duelDrawScore = sanitize(duelDrawScoreInput ? duelDrawScoreInput.value : DEFAULT_DUEL_REWARDS.draw.score, DEFAULT_DUEL_REWARDS.draw.score);
   return {
     pointsCorrect: safeNumber(rewardPointsCorrectInput ? rewardPointsCorrectInput.value : 100, 100),
     coinsCorrect: safeNumber(rewardCoinsCorrectInput ? rewardCoinsCorrectInput.value : 5, 5),
@@ -6292,6 +6321,11 @@ function collectRewardSettings() {
       winner: { coins: winnerCoins, score: winnerScore },
       loser: { coins: loserCoins, score: loserScore },
       groupScore
+    },
+    duelRewards: {
+      winner: { coins: duelWinnerCoins, score: duelWinnerScore },
+      loser: { coins: duelLoserCoins, score: duelLoserScore },
+      draw: { coins: duelDrawCoins, score: duelDrawScore }
     }
   };
 }

@@ -2,7 +2,12 @@ import { $, $$ } from '../utils/dom.js';
 import { clamp, faNum, faDecimal, formatDuration, formatRelativeTime } from '../utils/format.js';
 import { configureFeedback, vibrate, toast, wait, SFX, shootConfetti } from '../utils/feedback.js';
 import { RemoteConfig } from '../config/remote-config.js';
-import { getAdminSettings, subscribeToAdminSettings, DEFAULT_GROUP_BATTLE_REWARDS } from '../config/admin-settings.js';
+import {
+  getAdminSettings,
+  subscribeToAdminSettings,
+  DEFAULT_GROUP_BATTLE_REWARDS,
+  DEFAULT_DUEL_REWARDS,
+} from '../config/admin-settings.js';
 import Net from '../services/net.js';
 import Api from '../services/api.js';
 import {
@@ -45,6 +50,7 @@ import {
   updateLifelineStates,
   isValidQuestion,
 } from '../features/quiz/engine.js';
+import { normalizeDuelRewardsConfig, applyDuelOutcomeRewards } from '../features/duel/rewards.js';
 import { startQuizFromAdmin } from '../features/quiz/loader.js';
 
   // Anti-cheating: Detect devtools
@@ -80,6 +86,12 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     groupScore: DEFAULT_GROUP_BATTLE_REWARDS.groupScore,
   };
 
+  const FALLBACK_DUEL_REWARD_CONFIG = {
+    winner: { coins: DEFAULT_DUEL_REWARDS.winner.coins, score: DEFAULT_DUEL_REWARDS.winner.score },
+    loser: { coins: DEFAULT_DUEL_REWARDS.loser.coins, score: DEFAULT_DUEL_REWARDS.loser.score },
+    draw: { coins: DEFAULT_DUEL_REWARDS.draw.coins, score: DEFAULT_DUEL_REWARDS.draw.score },
+  };
+
   const sanitizeBattleRewardValue = (value, fallback) => {
     const num = Number(value);
     if (!Number.isFinite(num)) return fallback;
@@ -110,6 +122,15 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     );
     const current = rewardSettings?.groupBattleRewards || rewardSettings?.groupBattle;
     return normalizeGroupBattleRewardsConfig(current, defaults);
+  }
+
+  function getDuelRewardConfig() {
+    const defaults = normalizeDuelRewardsConfig(
+      adminSettings?.rewards?.duelRewards || ADMIN_DEFAULTS?.rewards?.duelRewards || DEFAULT_DUEL_REWARDS,
+      FALLBACK_DUEL_REWARD_CONFIG,
+    );
+    const current = rewardSettings?.duelRewards || rewardSettings?.duel;
+    return normalizeDuelRewardsConfig(current, defaults);
   }
 
   const escapeHtml = (value = '') => String(value)
@@ -4148,6 +4169,39 @@ async function startPurchaseCoins(pkgId){
       winnerText = `${oppName} با مجموع ${faNum(totals.opp.earned)} امتیاز پیروز شد!`;
     }
 
+    const rewardSummary = summaryData?.rewards && typeof summaryData.rewards === 'object' ? summaryData.rewards : {};
+    const duelOutcome = summaryData?.outcome || (totals.you.earned > totals.opp.earned
+      ? 'win'
+      : totals.you.earned < totals.opp.earned
+        ? 'loss'
+        : 'draw');
+    const duelRewardConfig = normalizeDuelRewardsConfig(rewardSummary.config || getDuelRewardConfig());
+    const alreadyApplied = rewardSummary?.userReward?.applied === true;
+    const rewardResult = applyDuelOutcomeRewards(
+      duelOutcome,
+      duelRewardConfig,
+      State,
+      {
+        apply: !alreadyApplied,
+        opponentOutcome: rewardSummary?.opponentOutcome,
+      }
+    );
+
+    rewardSummary.config = rewardResult.config;
+    rewardSummary.userOutcome = rewardResult.outcome;
+    rewardSummary.opponentOutcome = rewardResult.opponentOutcome;
+    rewardSummary.userReward = { ...rewardResult.userReward, applied: true };
+    rewardSummary.opponentReward = { ...rewardResult.opponentReward };
+    if (summaryData) {
+      summaryData.rewards = rewardSummary;
+    }
+
+    if (!alreadyApplied && rewardResult.userReward.coins + rewardResult.userReward.score > 0) {
+      renderHeader();
+      renderTopBars();
+      saveState();
+    }
+
     if (Array.isArray(State.pendingDuels)) {
       State.pendingDuels = State.pendingDuels.filter(duel => duel.id !== DuelSession?.id);
     }
@@ -4158,6 +4212,15 @@ async function startPurchaseCoins(pkgId){
     $('#duel-name-opponent').textContent = oppName;
     $('#duel-winner').textContent = winnerText;
     $('#duel-stats').innerHTML = `${youName}: ${faNum(totals.you.correct)} درست، ${faNum(totals.you.wrong)} نادرست، ${faNum(totals.you.earned)} امتیاز<br>${oppName}: ${faNum(totals.opp.correct)} درست، ${faNum(totals.opp.wrong)} نادرست، ${faNum(totals.opp.earned)} امتیاز`;
+    const rewardDetailsEl = $('#duel-reward-breakdown');
+    if (rewardDetailsEl) {
+      const labels = { win: 'برنده', loss: 'بازنده', draw: 'مساوی' };
+      const youLabel = labels[rewardResult.outcome] || 'برنده';
+      const oppLabel = labels[rewardResult.opponentOutcome] || 'بازنده';
+      rewardDetailsEl.innerHTML = `${youName} (${youLabel}): +${faNum(rewardResult.userReward.coins)}💰 • +${faNum(rewardResult.userReward.score)} امتیاز<br>${oppName} (${oppLabel}): +${faNum(rewardResult.opponentReward.coins)}💰 • +${faNum(rewardResult.opponentReward.score)} امتیاز`;
+      rewardDetailsEl.classList.remove('hidden');
+    }
+
     $('#duel-result').classList.remove('hidden');
 
     const summaryRounds = summaryData?.rounds || DuelSession.rounds;

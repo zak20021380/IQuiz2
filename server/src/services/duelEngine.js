@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const logger = require('../config/logger');
 const QuestionService = require('./questionService');
+const { getDuelRewardConfig } = require('../config/adminSettings');
 
 const MAX_DUEL_QUESTIONS = 20;
 const DEFAULT_ROUNDS = 2;
@@ -206,6 +207,35 @@ function getTotalsForDuel(duel, userId, opponentId) {
   return totals;
 }
 
+function sanitizeRewardEntry(entry = {}) {
+  const coins = Number(entry.coins);
+  const score = Number(entry.score);
+  return {
+    coins: Number.isFinite(coins) ? Math.max(0, Math.round(coins)) : 0,
+    score: Number.isFinite(score) ? Math.max(0, Math.round(score)) : 0,
+  };
+}
+
+function buildDuelRewardSummary(outcome = 'draw') {
+  const rawConfig = getDuelRewardConfig() || {};
+  const normalizedConfig = {
+    winner: sanitizeRewardEntry(rawConfig.winner),
+    loser: sanitizeRewardEntry(rawConfig.loser),
+    draw: sanitizeRewardEntry(rawConfig.draw),
+  };
+  const outcomeMap = { win: 'winner', loss: 'loser', draw: 'draw' };
+  const userKey = outcomeMap[outcome] || 'draw';
+  const opponentOutcome = outcome === 'win' ? 'loss' : outcome === 'loss' ? 'win' : 'draw';
+  const opponentKey = outcomeMap[opponentOutcome] || 'draw';
+  return {
+    config: normalizedConfig,
+    outcome,
+    opponentOutcome,
+    userReward: { ...normalizedConfig[userKey], outcome, applied: false },
+    opponentReward: { ...normalizedConfig[opponentKey], outcome: opponentOutcome, applied: false },
+  };
+}
+
 function pushHistory(userId, entry) {
   if (!userId) return;
   const list = store.history.get(userId) || [];
@@ -351,12 +381,15 @@ function finalizeDuel(duel, userId) {
     });
   }
 
+  const rewards = buildDuelRewardSummary(outcome);
+
   return {
     duelId: duel.id,
     opponent,
     totals,
     outcome,
     resolvedAt,
+    rewards,
     rounds: duel.rounds.map((round) => ({
       index: round.index,
       chooser: round.chooser,

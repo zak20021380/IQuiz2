@@ -13,12 +13,19 @@ const DEFAULT_GROUP_BATTLE_REWARDS = Object.freeze({
   groupScore: 420,
 });
 
+const DEFAULT_DUEL_REWARDS = Object.freeze({
+  winner: Object.freeze({ coins: 60, score: 180 }),
+  loser: Object.freeze({ coins: 20, score: 60 }),
+  draw: Object.freeze({ coins: 35, score: 120 }),
+});
+
 const DEFAULT_REWARDS = Object.freeze({
   pointsCorrect: 100,
   coinsCorrect: 5,
   pointsStreak: 50,
   coinsStreak: 10,
   groupBattleRewards: DEFAULT_GROUP_BATTLE_REWARDS,
+  duelRewards: DEFAULT_DUEL_REWARDS,
 });
 
 const DEFAULT_SHOP = Object.freeze({
@@ -115,6 +122,7 @@ function normalizeRewards(raw) {
     pointsStreak: Math.max(0, toNumber(source.pointsStreak, DEFAULT_REWARDS.pointsStreak)),
     coinsStreak: Math.max(0, toNumber(source.coinsStreak, DEFAULT_REWARDS.coinsStreak)),
     groupBattleRewards: normalizeGroupBattleRewards(groupBattle),
+    duelRewards: normalizeDuelRewards(source.duelRewards || source.duel),
   };
 }
 
@@ -134,6 +142,25 @@ function normalizeGroupBattleRewards(raw) {
       score: sanitize(loserSource.score, fallback.loser.score),
     },
     groupScore: sanitize(source.groupScore, fallback.groupScore),
+  };
+}
+
+function normalizeDuelRewards(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const fallback = DEFAULT_DUEL_REWARDS;
+  const sanitize = (value, fallbackValue) => Math.max(0, toNumber(value, fallbackValue));
+  const buildOutcome = (key) => {
+    const outcomeSource = source[key] && typeof source[key] === 'object' ? source[key] : {};
+    const fallbackOutcome = fallback[key] || { coins: 0, score: 0 };
+    return {
+      coins: sanitize(outcomeSource.coins, fallbackOutcome.coins),
+      score: sanitize(outcomeSource.score, fallbackOutcome.score),
+    };
+  };
+  return {
+    winner: buildOutcome('winner'),
+    loser: buildOutcome('loser'),
+    draw: buildOutcome('draw'),
   };
 }
 
@@ -363,6 +390,7 @@ export {
   DEFAULT_GENERAL,
   DEFAULT_REWARDS,
   DEFAULT_GROUP_BATTLE_REWARDS,
+  DEFAULT_DUEL_REWARDS,
   DEFAULT_SHOP,
   DEFAULT_SETTINGS,
 };
