@@ -39,3 +39,19 @@ export function refreshGuestId() {
   return getGuestId();
 }
 
+export function setGuestId(nextId = '') {
+  if (!nextId) {
+    return cachedGuestId;
+  }
+
+  cachedGuestId = String(nextId);
+
+  try {
+    localStorage.setItem(STORAGE_KEY, cachedGuestId);
+  } catch (_) {
+    // Ignore write errors.
+  }
+
+  return cachedGuestId;
+}
+
