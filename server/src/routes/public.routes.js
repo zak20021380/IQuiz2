@@ -6,6 +6,7 @@ const questionsController = require('../controllers/questions.controller');
 const AdModel = require('../models/Ad');
 const QuestionService = require('../services/questionService');
 const { resolveCategory } = require('../config/categories');
+const { recordAnswerEvent } = require('../controllers/answers');
 const {
   getFallbackCategories,
   mapCategoryDocument,
@@ -138,6 +139,52 @@ router.get('/config', (req, res) => {
 });
 
 router.post('/questions/submit', questionsController.submitPublic);
+
+router.post('/answers', async (req, res, next) => {
+  try {
+    const rawIds = Array.isArray(req.body?.questionIds)
+      ? req.body.questionIds
+      : Array.isArray(req.body?.questions)
+        ? req.body.questions
+        : [];
+
+    const normalized = [];
+    const seen = new Set();
+    for (const entry of rawIds) {
+      const value = typeof entry === 'string'
+        ? entry.trim()
+        : entry && typeof entry === 'object' && entry.id
+          ? String(entry.id).trim()
+          : '';
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      normalized.push(value);
+      if (normalized.length >= 120) break;
+    }
+
+    if (!normalized.length) {
+      return res.status(400).json({ ok: false, message: 'questionIds array is required' });
+    }
+
+    const guestId = resolveGuestId(req);
+    const userId = req.user?._id || req.user?.id;
+    let recorded = 0;
+
+    for (const questionId of normalized) {
+      const success = await recordAnswerEvent({
+        userId,
+        user: req.user,
+        guestId,
+        questionId,
+      });
+      if (success) recorded += 1;
+    }
+
+    res.json({ ok: true, recorded, total: normalized.length });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get('/categories', async (req, res) => {
   try {

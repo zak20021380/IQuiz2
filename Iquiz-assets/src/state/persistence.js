@@ -42,6 +42,14 @@ function loadState(){
         .slice(-40);
     }
 
+    if (!Array.isArray(State.quiz.pendingAnswerIds)) {
+      State.quiz.pendingAnswerIds = [];
+    } else {
+      State.quiz.pendingAnswerIds = State.quiz.pendingAnswerIds
+        .map((id) => (typeof id === 'string' ? id.trim() : ''))
+        .filter((id) => id.length > 0);
+    }
+
     const serverState = JSON.parse(localStorage.getItem(SERVER_STORAGE_KEY) || '{}');
     if (serverState.limits) Object.assign(Server.limits, serverState.limits);
     if (!Server.limits.duels) {
