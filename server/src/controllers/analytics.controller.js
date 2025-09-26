@@ -1,7 +1,10 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Question = require('../models/Question');
 const Category = require('../models/Category');
 const Ad = require('../models/Ad');
+const AnalyticsEvent = require('../models/AnalyticsEvent');
+const logger = require('../config/logger');
 
 const weekdayFormatter = new Intl.DateTimeFormat('fa-IR', { weekday: 'short' });
 const dateFormatter = new Intl.DateTimeFormat('fa-IR', { month: '2-digit', day: '2-digit' });
@@ -150,6 +153,22 @@ function buildActivityStream(users = [], questions = [], ads = []) {
       accent: item.accent,
       createdAt: item.createdAt.toISOString()
     }));
+}
+
+function isPlainObject(value) {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseDateInput(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function normalizeString(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim();
 }
 
 exports.dashboard = async (req, res, next) => {
@@ -321,5 +340,82 @@ exports.dashboard = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+exports.recordEvent = async (req, res, next) => {
+  try {
+    const payload = isPlainObject(req.body) ? req.body : {};
+
+    const rawName = normalizeString(payload.eventName || payload.name || payload.event || '');
+    if (!rawName) {
+      return res.status(400).json({ ok: false, message: 'eventName is required' });
+    }
+
+    const occurredAt = parseDateInput(
+      payload.occurredAt
+      || payload.timestamp
+      || payload.time
+      || payload.eventTime
+    );
+
+    if (!occurredAt) {
+      return res.status(400).json({ ok: false, message: 'A valid timestamp is required' });
+    }
+
+    const rawUserId = normalizeString(payload.userId || payload.accountId || '');
+    let userId = null;
+    if (rawUserId) {
+      if (!mongoose.Types.ObjectId.isValid(rawUserId)) {
+        return res.status(400).json({ ok: false, message: 'userId must be a valid ObjectId' });
+      }
+      userId = rawUserId;
+    }
+
+    const guestId = normalizeString(payload.guestId || payload.sessionId || payload.deviceId || '');
+    if (!userId && !guestId) {
+      return res.status(400).json({ ok: false, message: 'guestId or userId is required' });
+    }
+
+    let metadata = null;
+    if (payload.metadata !== undefined) {
+      if (!isPlainObject(payload.metadata)) {
+        return res.status(400).json({ ok: false, message: 'metadata must be an object' });
+      }
+      metadata = payload.metadata;
+    }
+
+    const eventToPersist = {
+      name: rawName,
+      occurredAt,
+      userId,
+      guestId: guestId || null,
+      metadata,
+      userAgent: normalizeString(req.get?.('user-agent') || ''),
+      clientIp: normalizeString(req.ip || (req.connection && req.connection.remoteAddress) || ''),
+      receivedAt: new Date()
+    };
+
+    let persisted = false;
+    const readyState = mongoose.connection.readyState;
+    if (readyState === 1 || readyState === 2) {
+      try {
+        await AnalyticsEvent.create(eventToPersist);
+        persisted = true;
+      } catch (error) {
+        logger.warn(`[analytics] Failed to persist event "${rawName}": ${error.message}`);
+      }
+    }
+
+    if (!persisted) {
+      logger.info(`[analytics] ${rawName}`, {
+        event: eventToPersist
+      });
+    }
+
+    return res.status(201).json({ ok: true });
+  } catch (error) {
+    logger.error(`[analytics] Failed to record event: ${error.message}`);
+    return next(error);
   }
 };
