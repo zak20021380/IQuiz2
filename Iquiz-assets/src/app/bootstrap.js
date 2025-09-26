@@ -709,6 +709,7 @@ function populateProvinceOptions(selectEl, placeholder){
       return 0;
     }
     const now = Date.now();
+    const duelActive = !!State.duelOpponent;
     invites.forEach(invite => {
       if (!invite || typeof invite !== 'object') return;
       const item = document.createElement('div');
@@ -744,6 +745,11 @@ function populateProvinceOptions(selectEl, placeholder){
           ? `ارسال شده ${requestedLabel} • ${duration} تا پایان مهلت`
           : `${duration} تا پایان مهلت`;
       }
+      if (duelActive) {
+        statusText += ' • نبردی در حال برگزاری است';
+        item.classList.add('active-match-item--disabled');
+        item.setAttribute('aria-disabled', 'true');
+      }
       statusEl.textContent = statusText;
       details.append(nameEl, statusEl);
       info.append(avatar, details);
@@ -755,12 +761,21 @@ function populateProvinceOptions(selectEl, placeholder){
       acceptBtn.dataset.duelAction = 'accept';
       acceptBtn.dataset.inviteId = invite.id;
       acceptBtn.textContent = 'پذیرفتن';
+      if (duelActive) {
+        acceptBtn.disabled = true;
+        acceptBtn.classList.add('is-disabled');
+        acceptBtn.textContent = 'در حال نبرد';
+      }
       const declineBtn = document.createElement('button');
       declineBtn.className = 'match-action match-action--decline';
       declineBtn.type = 'button';
       declineBtn.dataset.duelAction = 'decline';
       declineBtn.dataset.inviteId = invite.id;
       declineBtn.textContent = 'رد کردن';
+      if (duelActive) {
+        declineBtn.disabled = true;
+        declineBtn.classList.add('is-disabled');
+      }
       actions.append(acceptBtn, declineBtn);
       item.append(info, actions);
       container.appendChild(item);
@@ -777,16 +792,84 @@ function populateProvinceOptions(selectEl, placeholder){
     return invite;
   }
 
-  function handleDuelInviteAccept(inviteId){
-    const invite = removeDuelInvite(inviteId);
-    if (!invite){
-      toast('درخواست نبرد یافت نشد');
+  async function handleDuelInviteAccept(inviteId, triggerBtn){
+    if (State.duelOpponent) {
+      toast('ابتدا نبرد در حال اجرا را به پایان برسان سپس دعوت جدید را بپذیر.');
       renderDuelInvites({ skipPrune: true, silent: true });
       return;
     }
+
+    let originalText = '';
+    if (triggerBtn) {
+      originalText = triggerBtn.textContent || '';
+      triggerBtn.disabled = true;
+      triggerBtn.classList.add('is-disabled');
+      triggerBtn.textContent = 'در حال شروع...';
+    }
+
+    const invite = removeDuelInvite(inviteId);
+    if (!invite){
+      toast('درخواست نبرد یافت نشد');
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.textContent = originalText || 'پذیرفتن';
+        triggerBtn.classList.remove('is-disabled');
+      }
+      renderDuelInvites({ skipPrune: true, silent: true });
+      return;
+    }
+
     toast(`<i class="fas fa-handshake ml-2"></i>درخواست نبرد ${invite.opponent} پذیرفته شد`);
     logEvent('duel_invite_accepted', { inviteId, opponent: invite.opponent });
+
+    const fallbackAvatar = `https://i.pravatar.cc/100?u=${encodeURIComponent(`${invite.id}-${invite.opponent}`)}`;
+    const opponent = {
+      id: invite.opponentId ?? invite.userId ?? invite.id,
+      name: invite.opponent || 'حریف',
+      avatar: invite.avatar || fallbackAvatar,
+      source: invite.source || 'invite',
+      inviteId
+    };
+
+    State.duelOpponent = opponent;
+    saveState();
     renderDuelInvites({ skipPrune: true, silent: true });
+
+    let started = false;
+    try {
+      started = await startDuelMatch(opponent);
+    } catch (error) {
+      console.error('Failed to start duel from invite', error);
+      started = false;
+    }
+
+    if (!started) {
+      State.duelOpponent = null;
+      if (!Array.isArray(State.duelInvites)) State.duelInvites = [];
+      State.duelInvites.push(invite);
+      State.duelInvites.sort((a, b) => {
+        const aDeadline = getDuelInviteDeadline(a);
+        const bDeadline = getDuelInviteDeadline(b);
+        const safeA = Number.isFinite(aDeadline) ? aDeadline : 0;
+        const safeB = Number.isFinite(bDeadline) ? bDeadline : 0;
+        return safeA - safeB;
+      });
+      saveState();
+      renderDuelInvites({ skipPrune: true, silent: true });
+      toast('<i class="fas fa-triangle-exclamation ml-2"></i>شروع نبرد ممکن نشد یا لغو شد.');
+      logEvent('duel_invite_accept_failed', { inviteId, opponent: invite.opponent });
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.textContent = originalText || 'پذیرفتن';
+        triggerBtn.classList.remove('is-disabled');
+      }
+      return;
+    }
+
+    logEvent('duel_invite_match_started', { inviteId, opponent: invite.opponent });
+    if (triggerBtn) {
+      triggerBtn.textContent = originalText || 'پذیرفتن';
+    }
   }
 
   function handleDuelInviteDecline(inviteId){
@@ -1189,6 +1272,7 @@ function populateProvinceOptions(selectEl, placeholder){
     State.duelOpponent = null;
     $('#duel-banner')?.classList.add('hidden');
     hideDuelAddFriendCTA();
+    saveState();
     if (reason === 'selection_cancelled' || reason === 'user_cancelled') {
       toast('نبرد لغو شد');
     } else if (reason === 'no_category') {
@@ -3726,6 +3810,7 @@ async function startPurchaseCoins(pkgId){
     State.duelOpponent = DuelSession.opponent;
     $('#duel-opponent-name').textContent = opponentName;
     $('#duel-banner').classList.remove('hidden');
+    saveState();
 
     const toastMsg = roundIndex === 0
       ? `راند اول با دسته «${catTitle}» شروع شد`
@@ -4178,6 +4263,11 @@ async function startPurchaseCoins(pkgId){
       started: false,
       resolveStart: null
     };
+
+    if (opponent && typeof opponent === 'object') {
+      opponent.duelId = duelId;
+      opponent.acceptedAt = startedAt;
+    }
 
     return await new Promise(resolve => {
       DuelSession.resolveStart = resolve;
@@ -5499,7 +5589,7 @@ function leaveGroup(groupId) {
     event.preventDefault();
     vibrate(15);
     if (actionBtn.dataset.duelAction === 'accept') {
-      handleDuelInviteAccept(inviteId);
+      handleDuelInviteAccept(inviteId, actionBtn);
     } else if (actionBtn.dataset.duelAction === 'decline') {
       handleDuelInviteDecline(inviteId);
     }

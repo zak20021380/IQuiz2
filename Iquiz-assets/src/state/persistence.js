@@ -113,7 +113,44 @@ function loadState(){
       ? normalizedFriends
       : DEFAULT_DUEL_FRIENDS.map(friend => ({ ...friend }));
   }
-  State.duelOpponent = null;
+  if (State.duelOpponent && typeof State.duelOpponent === 'object') {
+    const rawOpponent = State.duelOpponent;
+    const name = typeof rawOpponent.name === 'string' ? rawOpponent.name.trim() : '';
+    let avatar = typeof rawOpponent.avatar === 'string' ? rawOpponent.avatar : '';
+    let duelId = typeof rawOpponent.duelId === 'string' ? rawOpponent.duelId : '';
+    if (!duelId && Array.isArray(State.pendingDuels)) {
+      const matched = State.pendingDuels.find(duel => duel && duel.opponent === name);
+      if (matched) duelId = matched.id;
+      else if (State.pendingDuels.length === 1 && State.pendingDuels[0]?.id) {
+        duelId = State.pendingDuels[0].id;
+      }
+    }
+    const hasPending = duelId
+      ? Array.isArray(State.pendingDuels) && State.pendingDuels.some(duel => duel && duel.id === duelId)
+      : Array.isArray(State.pendingDuels) && State.pendingDuels.length > 0;
+    if (!name || !hasPending) {
+      State.duelOpponent = null;
+    } else {
+      if (!avatar) {
+        avatar = `https://i.pravatar.cc/100?u=${encodeURIComponent(name)}`;
+      }
+      const normalizedOpponent = {
+        name,
+        avatar,
+        source: rawOpponent.source || 'invite'
+      };
+      if (rawOpponent.id != null) normalizedOpponent.id = rawOpponent.id;
+      if (rawOpponent.inviteId != null) normalizedOpponent.inviteId = rawOpponent.inviteId;
+      if (duelId) normalizedOpponent.duelId = duelId;
+      const acceptedAt = Number(rawOpponent.acceptedAt);
+      if (Number.isFinite(acceptedAt) && acceptedAt > 0) {
+        normalizedOpponent.acceptedAt = Math.round(acceptedAt);
+      }
+      State.duelOpponent = normalizedOpponent;
+    }
+  } else {
+    State.duelOpponent = null;
+  }
   ensureGroupRosters();
 }
 
