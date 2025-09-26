@@ -9,7 +9,6 @@ const MAX_PER_REQUEST = 30;
 const FETCH_MULTIPLIER = 2;
 const MAX_FETCH_LIMIT = MAX_PER_REQUEST * 3;
 const RECENT_LIMIT = questionConfig.RECENT_QUESTION_LIMIT || 500;
-const SORT_LOGIC = { createdAt: -1 };
 const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 
 function sanitizeCount(value) {
@@ -60,6 +59,17 @@ function cloneQuery(query = {}) {
     cloned._id = { ...query._id };
   }
   return cloned;
+}
+
+function shuffleInPlace(list) {
+  for (let i = list.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    if (i === j) continue;
+    const tmp = list[i];
+    list[i] = list[j];
+    list[j] = tmp;
+  }
+  return list;
 }
 
 function normalizeUserId(value) {
@@ -279,9 +289,9 @@ async function getQuestions(params = {}) {
   let primaryDocs = [];
   try {
     primaryDocs = await Question.find(primaryQuery)
-      .sort(SORT_LOGIC)
       .limit(fetchLimit)
       .lean();
+    shuffleInPlace(primaryDocs);
   } catch (error) {
     logger.error(`[questions] query failed: ${error.message}`);
     return {
@@ -312,12 +322,17 @@ async function getQuestions(params = {}) {
       };
     }
 
+    const backfillLimit = Math.min(
+      Math.max(missing * FETCH_MULTIPLIER, missing),
+      MAX_FETCH_LIMIT
+    );
+
     let backfillDocs = [];
     try {
       backfillDocs = await Question.find(backfillQuery)
-        .sort(SORT_LOGIC)
-        .limit(missing)
+        .limit(backfillLimit)
         .lean();
+      shuffleInPlace(backfillDocs);
     } catch (error) {
       logger.warn(`[questions] backfill failed: ${error.message}`);
     }
