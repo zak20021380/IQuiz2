@@ -252,7 +252,8 @@ const State = {
     sessionEarned:0, results:[],
     baseDuration: DEFAULT_QUESTION_TIME,
     maxQuestions: DEFAULT_MAX_QUESTIONS,
-    correctStreak: 0
+    correctStreak: 0,
+    recentQuestions: []
   },
   notifications:[
     { id:'n1', text:'جام هفتگی از ساعت ۲۰:۰۰ شروع می‌شود. آماده‌ای؟', time:'امروز' },
