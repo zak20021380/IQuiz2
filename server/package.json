@@ -9,6 +9,7 @@
     "seed:admin": "node src/seed/createAdmin.js",
     "fix:provider": "node scripts/backfill-jservice-provider.js",
     "cleanup:questions": "node src/scripts/cleanupQuestions.js",
+    "bot:telegram": "node src/scripts/telegramBot.js",
     "test": "node --test",
     "test:jservice": "curl -sf http://localhost:4000/api/jservice/random?count=1 | node -e \"const fs=require('fs');function fail(msg){console.error(msg);process.exit(1);}let raw='';try{raw=fs.readFileSync(0,'utf8');}catch(err){fail('Failed to read response');}if(!raw){fail('Empty response');}let payload;try{payload=JSON.parse(raw);}catch(err){fail('Invalid JSON');}const data=Array.isArray(payload?.data)?payload.data:[];if(!data.length){fail('Missing data');}const clue=data[0];const id=clue?.id;if(!(typeof id==='string'?id.trim().length>0:Number.isFinite(id))){fail('Invalid id');}if(typeof clue.question!=='string'||!clue.question.trim()){fail('Invalid question');}if(typeof clue.answer!=='string'||!clue.answer.trim()){fail('Invalid answer');}if(!clue.category||typeof clue.category.title!=='string'||!clue.category.title.trim()){fail('Invalid category.title');}\""
   },
@@ -25,6 +26,7 @@
     "mongoose": "^7.6.3",
     "morgan": "^1.10.1",
     "openai": "^4.56.0",
+    "telegraf": "file:src/vendor/telegraf",
     "node-fetch": "^2.6.7",
     "validator": "^13.11.0",
     "winston": "^3.13.0",
