@@ -5617,6 +5617,10 @@ async function init(){
         }
       });
 
+      $('#payment-cancel-btn')?.addEventListener('click', () => {
+        closePaymentModal();
+      });
+
       logEvent('session_start', {
         screen_width: window.screen.width,
         screen_height: window.screen.height,
