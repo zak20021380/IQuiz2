@@ -149,6 +149,7 @@ const State = {
   duelOpponent:null,
   duelWins:0,
   duelLosses:0,
+  duelDraws:0,
   pendingDuels:[],
   duelInvites: DEFAULT_DUEL_INVITES.map(invite => ({ ...invite })),
   duelFriends: DEFAULT_DUEL_FRIENDS.map(friend => ({ ...friend })),
