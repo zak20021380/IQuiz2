@@ -2,7 +2,7 @@ import { $, $$ } from '../utils/dom.js';
 import { clamp, faNum, faDecimal, formatDuration, formatRelativeTime } from '../utils/format.js';
 import { configureFeedback, vibrate, toast, wait, SFX, shootConfetti } from '../utils/feedback.js';
 import { RemoteConfig } from '../config/remote-config.js';
-import { getAdminSettings, subscribeToAdminSettings } from '../config/admin-settings.js';
+import { getAdminSettings, subscribeToAdminSettings, DEFAULT_GROUP_BATTLE_REWARDS } from '../config/admin-settings.js';
 import Net from '../services/net.js';
 import Api from '../services/api.js';
 import {
@@ -73,6 +73,44 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
   const PENDING_PAYMENT_STORAGE_KEY = 'quiz_pending_payment_v1';
 
   const enNum = n => Number(n).toLocaleString('en-US');
+
+  const FALLBACK_GROUP_BATTLE_REWARD_CONFIG = {
+    winner: { coins: DEFAULT_GROUP_BATTLE_REWARDS.winner.coins, score: DEFAULT_GROUP_BATTLE_REWARDS.winner.score },
+    loser: { coins: DEFAULT_GROUP_BATTLE_REWARDS.loser.coins, score: DEFAULT_GROUP_BATTLE_REWARDS.loser.score },
+    groupScore: DEFAULT_GROUP_BATTLE_REWARDS.groupScore,
+  };
+
+  const sanitizeBattleRewardValue = (value, fallback) => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.max(0, Math.round(num));
+  };
+
+  function normalizeGroupBattleRewardsConfig(source, fallback = FALLBACK_GROUP_BATTLE_REWARD_CONFIG) {
+    const base = fallback || FALLBACK_GROUP_BATTLE_REWARD_CONFIG;
+    const config = source && typeof source === 'object' ? source : {};
+    const winnerSource = config.winner && typeof config.winner === 'object' ? config.winner : {};
+    const loserSource = config.loser && typeof config.loser === 'object' ? config.loser : {};
+    return {
+      winner: {
+        coins: sanitizeBattleRewardValue(winnerSource.coins, base.winner.coins),
+        score: sanitizeBattleRewardValue(winnerSource.score, base.winner.score),
+      },
+      loser: {
+        coins: sanitizeBattleRewardValue(loserSource.coins, base.loser.coins),
+        score: sanitizeBattleRewardValue(loserSource.score, base.loser.score),
+      },
+      groupScore: sanitizeBattleRewardValue(config.groupScore, base.groupScore),
+    };
+  }
+
+  function getGroupBattleRewardConfig() {
+    const defaults = normalizeGroupBattleRewardsConfig(
+      adminSettings?.rewards?.groupBattleRewards || ADMIN_DEFAULTS?.rewards?.groupBattleRewards || DEFAULT_GROUP_BATTLE_REWARDS
+    );
+    const current = rewardSettings?.groupBattleRewards || rewardSettings?.groupBattle;
+    return normalizeGroupBattleRewardsConfig(current, defaults);
+  }
 
   const escapeHtml = (value = '') => String(value)
     .replace(/&/g, '&amp;')
@@ -4812,12 +4850,6 @@ async function syncGroupsFromServer({ silent = false } = {}) {
   }
 }
 
-const GROUP_BATTLE_REWARD_CONFIG = {
-  winner: { coins: 70, score: 220 },
-  loser: { coins: 30, score: 90 },
-  groupScore: 420
-};
-
 function getBattleParticipants(hostGroup, opponentGroup) {
   ensureGroupRosters();
 
@@ -5184,7 +5216,7 @@ function renderGroupBattleCard(list, userGroup) {
     }
 
     if (limitHint) {
-      const rewardConfig = State.groupBattle?.lastResult?.rewards?.config || GROUP_BATTLE_REWARD_CONFIG;
+      const rewardConfig = State.groupBattle?.lastResult?.rewards?.config || getGroupBattleRewardConfig();
       if (!userGroup) {
         limitHint.textContent = 'برای شروع نبرد باید ابتدا عضو یک گروه شوید.';
       } else if (info.reached) {
@@ -5217,7 +5249,7 @@ function renderGroupBattleCard(list, userGroup) {
     if (lastOpponentEl) lastOpponentEl.innerHTML = `<i class="fas fa-dragon text-rose-200"></i><span>${last.opponent?.name || '---'}</span>`;
     if (lastScoreEl) lastScoreEl.innerHTML = `${faNum(last.host?.total || 0)} <span class="text-xs opacity-70">در مقابل</span> ${faNum(last.opponent?.total || 0)}`;
     if (lastSummaryEl) {
-      const rewardConfig = last.rewards?.config || GROUP_BATTLE_REWARD_CONFIG;
+      const rewardConfig = last.rewards?.config || getGroupBattleRewardConfig();
       const winnerName = last.rewards?.winnerName || (last.winnerGroupId === last.host?.id ? last.host?.name : last.opponent?.name) || '';
       const diff = Math.abs((last.host?.total || 0) - (last.opponent?.total || 0));
       lastSummaryEl.innerHTML = `پیروز نبرد: <span class="text-green-300 font-bold">${winnerName}</span> • اختلاف امتیاز ${faNum(diff)} • پاداش تیم برنده: ${faNum(rewardConfig?.winner?.coins ?? 0)}💰 و ${faNum(rewardConfig?.winner?.score ?? 0)} امتیاز.`;

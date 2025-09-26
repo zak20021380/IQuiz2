@@ -637,6 +637,11 @@ const rewardPointsCorrectInput = $('#settings-points-correct');
 const rewardCoinsCorrectInput = $('#settings-coins-correct');
 const rewardPointsStreakInput = $('#settings-points-streak');
 const rewardCoinsStreakInput = $('#settings-coins-streak');
+const groupBattleWinnerCoinsInput = $('#settings-group-battle-winner-coins');
+const groupBattleWinnerScoreInput = $('#settings-group-battle-winner-score');
+const groupBattleLoserCoinsInput = $('#settings-group-battle-loser-coins');
+const groupBattleLoserScoreInput = $('#settings-group-battle-loser-score');
+const groupBattleGroupScoreInput = $('#settings-group-battle-group-score');
 
 const questionFilters = {
   category: '',
@@ -6119,6 +6124,11 @@ $('#save-achievement-btn').addEventListener('click', async () => {
 });
 
 const settingsSaveButtonDefault = settingsSaveButton ? settingsSaveButton.innerHTML : '';
+const DEFAULT_GROUP_BATTLE_REWARDS = {
+  winner: { coins: 70, score: 220 },
+  loser: { coins: 30, score: 90 },
+  groupScore: 420
+};
 
 function safeNumber(value, fallback = 0) {
   const num = Number(value);
@@ -6186,6 +6196,14 @@ function applySettingsSnapshot(snapshot) {
   if (rewardCoinsCorrectInput && rewards.coinsCorrect != null) rewardCoinsCorrectInput.value = rewards.coinsCorrect;
   if (rewardPointsStreakInput && rewards.pointsStreak != null) rewardPointsStreakInput.value = rewards.pointsStreak;
   if (rewardCoinsStreakInput && rewards.coinsStreak != null) rewardCoinsStreakInput.value = rewards.coinsStreak;
+  const groupBattle = rewards.groupBattleRewards || rewards.groupBattle || {};
+  const winnerReward = groupBattle.winner || {};
+  const loserReward = groupBattle.loser || {};
+  if (groupBattleWinnerCoinsInput && winnerReward.coins != null) groupBattleWinnerCoinsInput.value = winnerReward.coins;
+  if (groupBattleWinnerScoreInput && winnerReward.score != null) groupBattleWinnerScoreInput.value = winnerReward.score;
+  if (groupBattleLoserCoinsInput && loserReward.coins != null) groupBattleLoserCoinsInput.value = loserReward.coins;
+  if (groupBattleLoserScoreInput && loserReward.score != null) groupBattleLoserScoreInput.value = loserReward.score;
+  if (groupBattleGroupScoreInput && groupBattle.groupScore != null) groupBattleGroupScoreInput.value = groupBattle.groupScore;
 
   const shop = snapshot.shop || {};
   if (shopGlobalToggle && shop.enabled != null) shopGlobalToggle.checked = !!shop.enabled;
@@ -6259,11 +6277,22 @@ function collectGeneralSettings() {
 }
 
 function collectRewardSettings() {
+  const sanitize = (value, fallback) => Math.max(0, safeNumber(value, fallback));
+  const winnerCoins = sanitize(groupBattleWinnerCoinsInput ? groupBattleWinnerCoinsInput.value : DEFAULT_GROUP_BATTLE_REWARDS.winner.coins, DEFAULT_GROUP_BATTLE_REWARDS.winner.coins);
+  const winnerScore = sanitize(groupBattleWinnerScoreInput ? groupBattleWinnerScoreInput.value : DEFAULT_GROUP_BATTLE_REWARDS.winner.score, DEFAULT_GROUP_BATTLE_REWARDS.winner.score);
+  const loserCoins = sanitize(groupBattleLoserCoinsInput ? groupBattleLoserCoinsInput.value : DEFAULT_GROUP_BATTLE_REWARDS.loser.coins, DEFAULT_GROUP_BATTLE_REWARDS.loser.coins);
+  const loserScore = sanitize(groupBattleLoserScoreInput ? groupBattleLoserScoreInput.value : DEFAULT_GROUP_BATTLE_REWARDS.loser.score, DEFAULT_GROUP_BATTLE_REWARDS.loser.score);
+  const groupScore = sanitize(groupBattleGroupScoreInput ? groupBattleGroupScoreInput.value : DEFAULT_GROUP_BATTLE_REWARDS.groupScore, DEFAULT_GROUP_BATTLE_REWARDS.groupScore);
   return {
     pointsCorrect: safeNumber(rewardPointsCorrectInput ? rewardPointsCorrectInput.value : 100, 100),
     coinsCorrect: safeNumber(rewardCoinsCorrectInput ? rewardCoinsCorrectInput.value : 5, 5),
     pointsStreak: safeNumber(rewardPointsStreakInput ? rewardPointsStreakInput.value : 50, 50),
-    coinsStreak: safeNumber(rewardCoinsStreakInput ? rewardCoinsStreakInput.value : 10, 10)
+    coinsStreak: safeNumber(rewardCoinsStreakInput ? rewardCoinsStreakInput.value : 10, 10),
+    groupBattleRewards: {
+      winner: { coins: winnerCoins, score: winnerScore },
+      loser: { coins: loserCoins, score: loserScore },
+      groupScore
+    }
   };
 }
 
@@ -6413,12 +6442,30 @@ function persistSettings(snapshot) {
   }
 }
 
-function initializeSettingsFromStorage() {
+async function fetchServerSettings() {
+  try {
+    const response = await api('/admin/settings');
+    if (response && response.ok && response.data && typeof response.data === 'object') {
+      return response.data;
+    }
+  } catch (error) {
+    console.warn('Failed to load admin settings from server', error);
+  }
+  return null;
+}
+
+async function initializeSettingsFromStorage() {
+  const serverSettings = await fetchServerSettings();
+  if (serverSettings) {
+    applySettingsSnapshot(serverSettings);
+    persistSettings(serverSettings);
+    return;
+  }
   const saved = readStoredSettings();
   if (saved) applySettingsSnapshot(saved);
 }
 
-function handleSettingsSave() {
+async function handleSettingsSave() {
   if (!settingsSaveButton) return;
 
   const general = collectGeneralSettings();
@@ -6443,6 +6490,22 @@ function handleSettingsSave() {
     showToast('مقادیر پاداش نمی‌تواند منفی باشد', 'warning');
     return;
   }
+  const groupRewards = rewards.groupBattleRewards;
+  const invalidGroupRewards = !groupRewards
+    || !Number.isFinite(groupRewards.winner?.coins)
+    || !Number.isFinite(groupRewards.winner?.score)
+    || !Number.isFinite(groupRewards.loser?.coins)
+    || !Number.isFinite(groupRewards.loser?.score)
+    || !Number.isFinite(groupRewards.groupScore)
+    || groupRewards.winner.coins < 0
+    || groupRewards.winner.score < 0
+    || groupRewards.loser.coins < 0
+    || groupRewards.loser.score < 0
+    || groupRewards.groupScore < 0;
+  if (invalidGroupRewards) {
+    showToast('مقادیر پاداش نبرد گروهی باید صفر یا بیشتر باشند', 'warning');
+    return;
+  }
 
   const snapshot = {
     general,
@@ -6460,16 +6523,23 @@ function handleSettingsSave() {
   `;
 
   try {
-    persistSettings(snapshot);
-    applySettingsSnapshot(snapshot);
+    const response = await api('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify(snapshot)
+    });
+    const persisted = response && response.data && typeof response.data === 'object' ? response.data : snapshot;
+    persistSettings(persisted);
+    applySettingsSnapshot(persisted);
     showToast('تنظیمات ذخیره شد و اعمال شد', 'success');
     markShopUpdated();
     updateShopSummary();
     try {
-      window.dispatchEvent(new CustomEvent('iquiz-admin-settings-updated', { detail: snapshot }));
+      window.dispatchEvent(new CustomEvent('iquiz-admin-settings-updated', { detail: persisted }));
     } catch (_) {}
   } catch (error) {
-    showToast('ذخیره تنظیمات با خطا مواجه شد', 'error');
+    console.error('Failed to save admin settings to server', error);
+    showToast('ذخیره تنظیمات روی سرور با خطا مواجه شد', 'error');
+    return;
   } finally {
     settingsSaveButton.disabled = false;
     settingsSaveButton.innerHTML = settingsSaveButtonDefault;
@@ -6477,10 +6547,15 @@ function handleSettingsSave() {
 }
 
 if (settingsSaveButton) {
-  settingsSaveButton.addEventListener('click', handleSettingsSave);
+  settingsSaveButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    handleSettingsSave();
+  });
 }
 
-initializeSettingsFromStorage();
+initializeSettingsFromStorage().catch((error) => {
+  console.warn('Failed to initialize admin settings', error);
+});
 
 // --------------- SHOP SETTINGS ---------------
 function syncToggleLabel(toggle) {
