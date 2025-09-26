@@ -1002,7 +1002,9 @@ function populateProvinceOptions(selectEl, placeholder){
   // ===== Leaderboard / Details (unchanged + detail popups) =====
   function renderLeaderboard(){
     const me = { id: State.user.id, name: State.user.name, score: State.score };
-    const arr = [...State.leaderboard.filter(x=>x.id!==me.id), me].sort((a,b)=>b.score-a.score).slice(0,50);
+    const withMe = [...State.leaderboard.filter(x=>x.id!==me.id), me].sort((a,b)=>b.score-a.score);
+    const myRank = withMe.findIndex(x=>x.id===me.id) + 1;
+    const arr = withMe.slice(0,50);
     const wrap = $('#lb-list'); wrap.innerHTML='';
     arr.forEach((u,i)=>{
       const row=document.createElement('div');
@@ -1016,10 +1018,36 @@ function populateProvinceOptions(selectEl, placeholder){
       row.innerHTML=`<div class="flex items-center gap-3">${rankBadge}
         <div><div class="font-bold">${u.name}</div>
         <div class="text-xs opacity-80 flex items-center gap-1"><i class="fas fa-star text-yellow-300"></i><span>${faNum(u.score)}</span></div></div></div>`;
+      if(u.id===me.id) row.classList.add('ring-2','ring-yellow-300/80');
       row.addEventListener('click', () => showUserDetail({...u, nationalRank:rank}));
       wrap.appendChild(row);
     });
-    
+
+    const myRankCard = $('#my-rank-card');
+    if(myRankCard){
+      if(myRank>0){
+        myRankCard.classList.remove('hidden');
+        const badgeClass = myRank===1 ? 'bg-gradient-to-br from-yellow-200 to-yellow-400 text-gray-900'
+          : myRank===2 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-900'
+          : myRank===3 ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-gray-900'
+          : 'bg-white/20';
+        myRankCard.innerHTML = `
+          <div class="glass rounded-2xl p-4 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="rank-badge ${badgeClass}">${faNum(myRank)}</span>
+              <div>
+                <div class="font-bold">رتبه شما</div>
+                <div class="text-xs opacity-80">در لیدربورد هفتگی افراد</div>
+              </div>
+            </div>
+            <div class="text-sm font-bold text-yellow-300 flex items-center gap-1"><i class="fas fa-star"></i><span>${faNum(me.score)}</span></div>
+          </div>`;
+      }else{
+        myRankCard.classList.add('hidden');
+        myRankCard.innerHTML='';
+      }
+    }
+
     // provinces
     const provinceList = $('#province-list'); provinceList.innerHTML='';
     const provincesSorted = [...State.provinces].sort((a,b)=>b.score-a.score);
