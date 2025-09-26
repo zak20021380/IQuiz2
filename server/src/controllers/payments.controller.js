@@ -3,7 +3,7 @@ const env = require('../config/env');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const logger = require('../config/logger');
-const { findCoinPackage } = require('../services/shopConfig');
+const { findCoinPackage, findVipTier } = require('../services/shopConfig');
 const { requestPayment, verifyPayment, generateCallbackToken } = require('../services/zarinpal');
 
 function sanitizeString(value) {
@@ -86,6 +86,7 @@ exports.createZarinpalPayment = async (req, res, next) => {
     const amountRial = amountToman * 10;
 
     const payment = await Payment.create({
+      type: 'external',
       sessionId: sessionId || null,
       user: userId || null,
       packageId: pkg.id,
@@ -164,6 +165,150 @@ exports.getPaymentStatus = async (req, res, next) => {
     };
 
     return res.json({ ok: true, data: response });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createInternalPayment = async (req, res, next) => {
+  try {
+    const idempotencyKey = sanitizeString(req.body?.idempotencyKey);
+    const typeRaw = sanitizeString(req.body?.type);
+    const type = typeRaw.toLowerCase();
+
+    if (!idempotencyKey) {
+      return res.status(400).json({ ok: false, error: 'missing_idempotency_key' });
+    }
+
+    if (!['coins', 'vip'].includes(type)) {
+      return res.status(400).json({ ok: false, error: 'invalid_payment_type' });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ ok: false, error: 'unauthorized' });
+    }
+
+    const existing = await Payment.findOne({ idempotencyKey });
+    if (existing) {
+      if (existing.status === 'paid') {
+        return res.json({ ok: true, data: { txnId: String(existing._id) } });
+      }
+      return res.status(409).json({ ok: false, error: 'payment_in_progress', status: existing.status });
+    }
+
+    if (type === 'coins') {
+      const packageId = sanitizeString(req.body?.packageId);
+      if (!packageId) {
+        return res.status(400).json({ ok: false, error: 'missing_package_id' });
+      }
+
+      const pkg = findCoinPackage(packageId);
+      if (!pkg) {
+        return res.status(404).json({ ok: false, error: 'package_not_found' });
+      }
+
+      if (!pkg.priceToman || pkg.priceToman <= 0) {
+        return res.status(400).json({ ok: false, error: 'invalid_package_price' });
+      }
+
+      const totalCoins = computeTotalCoins(pkg);
+      const newBalance = (req.user.coins || 0) + totalCoins;
+
+      req.user.coins = newBalance;
+
+      const paymentData = {
+        idempotencyKey,
+        type: 'coins',
+        user: req.user._id,
+        packageId: pkg.id,
+        packageSnapshot: pkg,
+        amountToman: pkg.priceToman,
+        amountRial: pkg.priceToman * 10,
+        coins: pkg.amount,
+        bonusPercent: pkg.bonus,
+        totalCoins,
+        description: `خرید بسته ${pkg.displayName || pkg.amount} سکه`,
+        status: 'paid',
+        awardedCoins: totalCoins,
+        walletBalanceAfter: newBalance,
+        metadata: {
+          internal: true,
+          source: 'wallet_topup',
+        },
+      };
+
+      const payment = await Payment.create(paymentData);
+      if (typeof req.user.save === 'function') {
+        await req.user.save();
+      }
+
+      return res.json({ ok: true, data: { txnId: String(payment._id), wallet: { coins: newBalance } } });
+    }
+
+    const tierInput = sanitizeString(req.body?.tier);
+    if (!tierInput) {
+      return res.status(400).json({ ok: false, error: 'missing_vip_tier' });
+    }
+
+    const tier = tierInput.toLowerCase();
+    const vipTier = findVipTier(tier);
+    if (!vipTier) {
+      return res.status(404).json({ ok: false, error: 'vip_tier_not_found' });
+    }
+
+    const now = new Date();
+    const currentExpiry = req.user.subscription?.expiry ? new Date(req.user.subscription.expiry) : null;
+    const baseDate = currentExpiry && currentExpiry > now ? currentExpiry : now;
+    const durationMs = Math.max(1, vipTier.durationDays || 0) * 24 * 60 * 60 * 1000;
+    const expiry = new Date(baseDate.getTime() + durationMs);
+
+    const payment = await Payment.create({
+      idempotencyKey,
+      type: 'vip',
+      user: req.user._id,
+      packageId: vipTier.id,
+      packageSnapshot: vipTier,
+      amountToman: vipTier.priceToman || 0,
+      amountRial: (vipTier.priceToman || 0) * 10,
+      coins: 0,
+      bonusPercent: 0,
+      totalCoins: 0,
+      description: `خرید اشتراک ${vipTier.tier || tier}`,
+      status: 'paid',
+      metadata: {
+        internal: true,
+        source: 'vip_subscription',
+        tier: vipTier.tier,
+        durationDays: vipTier.durationDays,
+      },
+    });
+
+    req.user.subscription = req.user.subscription || {};
+    req.user.subscription.active = true;
+    req.user.subscription.tier = vipTier.tier;
+    req.user.subscription.plan = vipTier.id;
+    req.user.subscription.expiry = expiry;
+    req.user.subscription.autoRenew = false;
+    req.user.subscription.lastTransaction = payment._id;
+    if (req.user.role === 'user') {
+      req.user.role = 'vip';
+    }
+
+    if (typeof req.user.save === 'function') {
+      await req.user.save();
+    }
+
+    return res.json({
+      ok: true,
+      data: {
+        txnId: String(payment._id),
+        subscription: {
+          active: true,
+          tier: vipTier.tier,
+          expiry: expiry.toISOString(),
+        },
+      },
+    });
   } catch (error) {
     next(error);
   }

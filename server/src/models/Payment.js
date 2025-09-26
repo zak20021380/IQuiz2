@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
+  idempotencyKey: { type: String, trim: true, unique: true, sparse: true },
+  type: {
+    type: String,
+    enum: ['external', 'coins', 'vip'],
+    default: 'external'
+  },
   sessionId: { type: String, trim: true, default: null },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   packageId: { type: String, required: true, trim: true },
@@ -24,10 +30,12 @@ const paymentSchema = new mongoose.Schema({
   failReason: { type: String, trim: true, default: null },
   awardedCoins: { type: Number, default: 0 },
   walletBalanceAfter: { type: Number, default: null },
-  verifiedAt: { type: Date, default: null }
+  verifiedAt: { type: Date, default: null },
+  metadata: { type: Object, default: {} }
 }, { timestamps: true });
 
 paymentSchema.index({ authority: 1 });
 paymentSchema.index({ sessionId: 1, createdAt: -1 });
+paymentSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Payment', paymentSchema);
