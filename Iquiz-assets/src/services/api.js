@@ -1,4 +1,5 @@
 import Net from './net.js';
+import { getGuestId } from '../utils/guest.js';
 
 export const API_BASE = '/api/public';
 const GROUP_BATTLES_BASE = '/api/group-battles';
@@ -18,9 +19,18 @@ export async function questions({ categoryId, categorySlug, count, difficulty } 
   if (categorySlug) qs.set('categorySlug', categorySlug);
   if (count) qs.set('count', count);
   if (difficulty) qs.set('difficulty', difficulty);
+  const guestId = getGuestId();
+  if (guestId) qs.set('guestId', guestId);
   const query = qs.toString();
   const url = query ? `${API_BASE}/questions?${query}` : `${API_BASE}/questions`;
   return await Net.jget(url);
+}
+
+export async function recordAnswers(questionIds = []) {
+  if (!Array.isArray(questionIds) || questionIds.length === 0) {
+    return null;
+  }
+  return await Net.jpost(`${API_BASE}/answers`, { questionIds });
 }
 
 export async function provinces() {
@@ -86,6 +96,7 @@ const Api = {
   duelAcceptInvite,
   duelDeclineInvite,
   duelAssignCategory,
-  duelSubmitRound
+  duelSubmitRound,
+  recordAnswers
 };
 export default Api;

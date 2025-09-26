@@ -161,6 +161,73 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     return Math.max(0, Math.round(raw));
   }
 
+  function normalizeQuestionId(raw){
+    if (raw == null) return '';
+    const str = String(raw).trim();
+    return str.length ? str : '';
+  }
+
+  function getPendingAnswerQueue(){
+    if (!Array.isArray(State.quiz?.pendingAnswerIds)) {
+      State.quiz.pendingAnswerIds = [];
+    }
+    return State.quiz.pendingAnswerIds;
+  }
+
+  function trackQuestionConsumption(question){
+    if (!question || typeof question !== 'object') return;
+    const id = normalizeQuestionId(question.id || question.uid || question.publicId);
+    if (!id) return;
+    const queue = getPendingAnswerQueue();
+    if (!queue.includes(id)) {
+      queue.push(id);
+    }
+  }
+
+  let flushAnswersInFlight = null;
+  let flushAnswersScheduled = false;
+
+  async function flushAnsweredQuestionQueue(){
+    if (flushAnswersInFlight) {
+      return flushAnswersInFlight;
+    }
+    const queue = getPendingAnswerQueue();
+    if (!queue.length) return null;
+    const normalized = Array.from(new Set(queue.map(normalizeQuestionId).filter(Boolean)));
+    if (!normalized.length) {
+      State.quiz.pendingAnswerIds = [];
+      saveState();
+      return null;
+    }
+    const payloadSet = new Set(normalized);
+    const task = (async () => {
+      try {
+        const res = await Api.recordAnswers(normalized);
+        if (res && res.ok !== false) {
+          State.quiz.pendingAnswerIds = getPendingAnswerQueue()
+            .map(normalizeQuestionId)
+            .filter((id) => id && !payloadSet.has(id));
+          saveState();
+        }
+      } catch (err) {
+        console.warn('[quiz] Failed to sync answered questions', err);
+      } finally {
+        flushAnswersInFlight = null;
+      }
+    })();
+    flushAnswersInFlight = task;
+    return task;
+  }
+
+  function scheduleFlushAnsweredQuestions(){
+    if (flushAnswersScheduled) return;
+    flushAnswersScheduled = true;
+    setTimeout(() => {
+      flushAnswersScheduled = false;
+      flushAnsweredQuestionQueue();
+    }, 500);
+  }
+
   function getAppName(){
     const raw = generalSettings?.appName;
     if (raw == null) return FALLBACK_APP_NAME;
@@ -282,8 +349,12 @@ function populateProvinceOptions(selectEl, placeholder){
   let PendingDuelFriend = null;
   let quizTimerPausedForQuit = false;
   let quitModalKeyHandler = null;
-  
+
   loadState();
+  const pendingFlush = flushAnsweredQuestionQueue();
+  if (pendingFlush && typeof pendingFlush.catch === 'function') {
+    pendingFlush.catch(() => {});
+  }
   applyGeneralSettingsToUI();
   applyShopSettingsToUI();
   document.documentElement.setAttribute('data-theme', State.theme || 'ocean');
@@ -1900,6 +1971,7 @@ function startQuizTimerCountdown(){
       console.warn('[quiz] Invalid question encountered, skipping.');
       return moveToNextValidQuestion(State.quiz.idx + 1);
     }
+    trackQuestionConsumption(q);
     const correct = q.a;
     const hasAnswer = Number.isInteger(idx) && idx >= 0;
     const ok = hasAnswer && (idx===correct);
@@ -1939,6 +2011,7 @@ function startQuizTimerCountdown(){
       timedOut,
     });
     saveState(); renderHeader(); renderTopBars();
+    scheduleFlushAnsweredQuestions();
 
     // Log analytics
     logEvent('question_answered', {
@@ -1984,6 +2057,7 @@ function startQuizTimerCountdown(){
 
   async function endQuiz(){
     State.quiz.inProgress=false;
+    await flushAnsweredQuestionQueue();
     const correctCount = State.quiz.results.filter(r=>r.ok).length;
     if(correctCount>0 && !State.achievements.firstWin){ 
       State.achievements.firstWin=true; 

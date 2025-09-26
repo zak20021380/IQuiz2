@@ -291,7 +291,9 @@ async function getQuestions(params = {}) {
     primaryDocs = await Question.find(primaryQuery)
       .limit(fetchLimit)
       .lean();
-    shuffleInPlace(primaryDocs);
+    if (primaryDocs.length > countRequested) {
+      shuffleInPlace(primaryDocs);
+    }
   } catch (error) {
     logger.error(`[questions] query failed: ${error.message}`);
     return {
