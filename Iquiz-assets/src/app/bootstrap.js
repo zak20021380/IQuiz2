@@ -2544,6 +2544,7 @@ function startQuizTimerCountdown(){
       detailBtn.innerHTML = hasPlan
         ? '<i class="fas fa-crown ml-1"></i> جزئیات اشتراک'
         : '<i class="fas fa-crown ml-1"></i> به زودی';
+      detailBtn.title = hasPlan ? 'مشاهده جزئیات کامل اشتراک VIP' : 'پلن فعال برای نمایش وجود ندارد';
     }
 
     if (buyBtn){
@@ -2552,7 +2553,7 @@ function startQuizTimerCountdown(){
       if (hasPlan){
         buyBtn.dataset.vipPlanButton = primaryPlan.tier || primaryPlan.id || 'vip';
         buyBtn.innerHTML = '<i class="fas fa-check ml-1"></i> خرید اشتراک';
-        buyBtn.onclick = () => startPurchaseVip(primaryPlan.tier || primaryPlan.id);
+        buyBtn.onclick = () => startPurchaseVip(primaryPlan.tier || primaryPlan.id, buyBtn);
       } else {
         delete buyBtn.dataset.vipPlanButton;
         buyBtn.innerHTML = '<i class="fas fa-hourglass-half ml-1"></i> به زودی';
@@ -2579,6 +2580,153 @@ function startQuizTimerCountdown(){
         benefitsEl.textContent = 'حذف تبلیغات • محدودیت‌های بیشتر • پشتیبانی ویژه';
       }
     }
+  }
+
+  function getVipBillingLabel(value){
+    if (!value) return '';
+    const map = {
+      weekly: 'هفتگی',
+      monthly: 'ماهانه',
+      quarterly: 'سه‌ماهه',
+      yearly: 'سالانه'
+    };
+    return map[value] || '';
+  }
+
+  function buildVipModalPlan(plan){
+    const card = document.createElement('article');
+    card.className = 'vip-modal-plan';
+    if (plan.featured) card.classList.add('is-featured');
+    card.dataset.vipPlanCard = plan.tier || '';
+
+    const header = document.createElement('div');
+    header.className = 'vip-modal-plan-header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'vip-modal-plan-title';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'vip-modal-plan-name';
+    nameEl.textContent = plan.displayName || plan.tier || 'اشتراک VIP';
+    titleWrap.appendChild(nameEl);
+    if (plan.period){
+      const periodEl = document.createElement('div');
+      periodEl.className = 'vip-modal-plan-period';
+      periodEl.textContent = plan.period;
+      titleWrap.appendChild(periodEl);
+    }
+    header.appendChild(titleWrap);
+
+    const priceWrap = document.createElement('div');
+    priceWrap.className = 'vip-modal-plan-price';
+    const priceEl = document.createElement('span');
+    priceEl.textContent = formatVipPrice(plan);
+    priceWrap.appendChild(priceEl);
+    if (plan.badge){
+      const badgeEl = document.createElement('span');
+      badgeEl.className = 'vip-badge';
+      badgeEl.textContent = plan.badge;
+      priceWrap.appendChild(badgeEl);
+    }
+    header.appendChild(priceWrap);
+    card.appendChild(header);
+
+    const benefitsList = document.createElement('ul');
+    benefitsList.className = 'vip-modal-benefits';
+    const benefits = Array.isArray(plan.benefits) ? plan.benefits.filter(Boolean) : [];
+    if (benefits.length){
+      benefits.forEach((benefit) => {
+        const li = document.createElement('li');
+        li.textContent = benefit;
+        benefitsList.appendChild(li);
+      });
+    } else {
+      const li = document.createElement('li');
+      li.textContent = 'جزئیات مزایا به زودی اعلام می‌شود.';
+      benefitsList.appendChild(li);
+    }
+    card.appendChild(benefitsList);
+
+    const ctaWrap = document.createElement('div');
+    ctaWrap.className = 'vip-modal-cta';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.vipPlanButton = plan.tier || '';
+    const label = plan.buttonText || 'خرید اشتراک';
+    btn.innerHTML = `<i class="fas fa-check"></i><span>${label}</span>`;
+    btn.setAttribute('aria-label', `${label} ${plan.displayName || plan.tier || ''}`.trim());
+    btn.addEventListener('click', () => startPurchaseVip(plan.tier, btn));
+    ctaWrap.appendChild(btn);
+    card.appendChild(ctaWrap);
+
+    return card;
+  }
+
+  function openVipDetailsModal(){
+    const modal = $('#modal-vip-details');
+    const plans = getActiveVipPlans();
+    if (!modal || !plans.length){
+      return false;
+    }
+    const planWrap = modal.querySelector('[data-vip-modal-plans]');
+    const summaryEl = modal.querySelector('[data-vip-modal-summary]');
+    const tagsWrap = modal.querySelector('[data-vip-modal-tags]');
+    if (!planWrap){
+      return false;
+    }
+
+    planWrap.innerHTML = '';
+    const shop = getShopConfig();
+    const vipConfig = shop.vip || {};
+    const primaryPlan = getPrimaryVipPlan();
+    const summaryText = vipConfig.customNote
+      || (Array.isArray(primaryPlan?.benefits) && primaryPlan.benefits.length
+        ? primaryPlan.benefits.slice(0, 3).join(' • ')
+        : 'با اشتراک VIP از امکانات ویژه و پشتیبانی اختصاصی بهره‌مند شوید.');
+    if (summaryEl){
+      summaryEl.textContent = summaryText;
+    }
+
+    if (tagsWrap){
+      const tags = [];
+      const billingLabel = getVipBillingLabel(vipConfig.billingCycle);
+      if (billingLabel){
+        tags.push({ icon: 'fa-rotate', text: `دوره ${billingLabel}` });
+      }
+      if (Number(vipConfig.trialDays) > 0){
+        tags.push({ icon: 'fa-gift', text: `${faNum(Math.round(Number(vipConfig.trialDays)))} روز دوره آزمایشی` });
+      }
+      if (Number(vipConfig.slots) > 0){
+        tags.push({ icon: 'fa-users', text: `ظرفیت محدود به ${faNum(Math.round(Number(vipConfig.slots)))} نفر` });
+      }
+      if (vipConfig.autoRenew){
+        tags.push({ icon: 'fa-arrows-rotate', text: 'تمدید خودکار فعال است' });
+      }
+      if (vipConfig.autoApprove){
+        tags.push({ icon: 'fa-bolt', text: 'تایید فوری پس از پرداخت' });
+      }
+      tagsWrap.innerHTML = '';
+      if (tags.length){
+        tags.forEach((tag) => {
+          const span = document.createElement('span');
+          span.className = 'vip-modal-tag';
+          span.innerHTML = `<i class="fas ${tag.icon}"></i><span>${tag.text}</span>`;
+          tagsWrap.appendChild(span);
+        });
+        tagsWrap.classList.remove('hidden');
+      } else {
+        tagsWrap.classList.add('hidden');
+      }
+    }
+
+    plans.forEach((plan) => {
+      planWrap.appendChild(buildVipModalPlan(plan));
+    });
+
+    openModal('#modal-vip-details');
+    setTimeout(() => {
+      modal.querySelector('[data-close="#modal-vip-details"]')?.focus({ preventScroll: true });
+    }, 60);
+    return true;
   }
 
   function renderShopBalances(){
@@ -2748,13 +2896,13 @@ function startQuizTimerCountdown(){
         btn.setAttribute('aria-label', `${label} ${plan.displayName || plan.tier}`);
         btn.classList.remove('btn-primary', 'btn-secondary');
         btn.classList.add(plan.featured ? 'btn-primary' : 'btn-secondary');
-        btn.addEventListener('click', () => startPurchaseVip(plan.tier));
+        btn.addEventListener('click', () => startPurchaseVip(plan.tier, btn));
       }
       container.appendChild(node);
     });
 
     if (meta) {
-      const summary = RemoteConfig?.shop?.vipSummary || {};
+      const summary = getShopConfig().vip || {};
       meta.innerHTML = '';
       if (summary.customNote) {
         const note = document.createElement('div');
@@ -2762,10 +2910,12 @@ function startQuizTimerCountdown(){
         meta.appendChild(note);
       }
       const tags = [];
-      if (Number(summary.trialDays) > 0) tags.push(`دوره آزمایشی ${faNum(summary.trialDays)} روز`);
-      if (Number(summary.slots) > 0) tags.push(`ظرفیت ${faNum(summary.slots)} نفر`);
+      if (Number(summary.trialDays) > 0) tags.push(`دوره آزمایشی ${faNum(Math.round(Number(summary.trialDays)))} روز`);
+      if (Number(summary.slots) > 0) tags.push(`ظرفیت ${faNum(Math.round(Number(summary.slots)))} نفر`);
       if (summary.autoRenew) tags.push('تمدید خودکار فعال');
       if (summary.autoApprove) tags.push('تایید فوری پس از پرداخت');
+      const billingLabel = getVipBillingLabel(summary.billingCycle);
+      if (billingLabel) tags.push(`صورتحساب ${billingLabel}`);
       if (tags.length) {
         const wrap = document.createElement('div');
         wrap.className = 'flex flex-wrap gap-2 mt-3 text-xs opacity-80 justify-end sm:justify-start';
@@ -3346,12 +3496,12 @@ async function startPurchaseCoins(pkgId){
     openModal('#modal-receipt');
   }
   
-  async function startPurchaseVip(tier){
+  async function startPurchaseVip(tier, sourceButton){
     if(!online()){ toast('<i class="fas fa-wifi-slash ml-2"></i> آفلاین هستی'); return; }
     const pricing = RemoteConfig.pricing.vip[tier];
     if(!pricing){ toast('پلن یافت نشد'); return; }
     const idem = genIdemKey();
-    const btn = document.querySelector(`[data-vip-plan-button="${tier}"]`);
+    const btn = sourceButton || document.querySelector(`[data-vip-plan-button="${tier}"]`);
     const planName = pricing.displayName || pricing.name || tier;
     const prevHTML = btn ? btn.innerHTML : null;
     const prevDisabled = btn ? btn.disabled : false;
@@ -5816,7 +5966,13 @@ function leaveGroup(groupId) {
   // Wallet/VIP navigation
   $('#btn-open-wallet')?.addEventListener('click', ()=>navTo('wallet'));
   $('#btn-open-wallet-2')?.addEventListener('click', ()=>navTo('wallet'));
-  $('#btn-open-vip')?.addEventListener('click', ()=>navTo('vip'));
+  $('#btn-open-vip')?.addEventListener('click', (event)=>{
+    event.preventDefault();
+    const opened = openVipDetailsModal();
+    if (!opened){
+      navTo('vip');
+    }
+  });
   $('#go-wallet')?.addEventListener('click', ()=>navTo('wallet'));
   $('#go-vip')?.addEventListener('click', ()=>navTo('vip'));
   $('#btn-back-wallet')?.addEventListener('click', ()=>navTo('shop'));
@@ -5838,6 +5994,7 @@ function leaveGroup(groupId) {
   $$('[data-close="#modal-pay-confirm"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-pay-confirm')));
   $$('[data-close="#modal-province-soon"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-province-soon')));
   $$('[data-close="#modal-invite"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-invite')));
+  $$('[data-close="#modal-vip-details"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-vip-details')));
 
   // Game Limits CTAs
   $('#btn-buy-vip-limit')?.addEventListener('click', () => {
