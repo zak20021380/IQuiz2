@@ -40,9 +40,6 @@ import { setGuestId } from '../utils/guest.js';
 import {
   initFromAdmin,
   buildSetupFromAdmin,
-  buildCommunityQuestionForm,
-  prefillCommunityAuthor,
-  syncCommunityOptionStates,
   applyConfigToUI
 } from '../features/admin/setup.js';
 import {
@@ -1312,7 +1309,7 @@ function populateProvinceOptions(selectEl, placeholder){
 
   updateLifelineStates();
   
-  const NAV_PAGES=['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support','question-lab'];
+  const NAV_PAGES=['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support'];
   const NAV_PAGE_SET=new Set(NAV_PAGES);
 
   function navTo(page){
@@ -1329,7 +1326,6 @@ function populateProvinceOptions(selectEl, placeholder){
     if(page==='wallet'){ renderWallet(); }
     if(page==='vip'){ renderVipPlans(); updateVipUI(); }
     if(page==='referral'){ renderReferral(); }
-    if(page==='question-lab'){ buildCommunityQuestionForm(); prefillCommunityAuthor(); syncCommunityOptionStates(); }
   }
   
   // ===== Leaderboard / Details (unchanged + detail popups) =====
@@ -5650,142 +5646,6 @@ function leaveGroup(groupId) {
     logEvent('cta_group_create');
   });
 
-  const communityForm = $('#community-question-form');
-  const communityOptionsEl = $('#community-options');
-  const communityResetBtn = $('#community-reset');
-
-  if (communityOptionsEl) {
-    communityOptionsEl.addEventListener('change', (e) => {
-      if (e.target.matches('input[type="radio"][name="community-correct"]')) {
-        syncCommunityOptionStates();
-      }
-    });
-    communityOptionsEl.addEventListener('click', (e) => {
-      const row = e.target.closest('[data-community-option]');
-      if (!row) return;
-      if (e.target.matches('input[type="text"]')) return;
-      const radio = row.querySelector('input[type="radio"]');
-      if (radio && !radio.checked) {
-        radio.checked = true;
-        syncCommunityOptionStates();
-      }
-    });
-    communityOptionsEl.addEventListener('input', (e) => {
-      if (e.target.matches('[data-option-index]')) {
-        const row = e.target.closest('[data-community-option]');
-        if (row?.querySelector('input[type="radio"]').checked) {
-          syncCommunityOptionStates();
-        }
-      }
-    });
-  }
-
-  $('#community-author')?.addEventListener('focus', () => prefillCommunityAuthor());
-
-  if (communityResetBtn) {
-    communityResetBtn.addEventListener('click', () => {
-      if (!communityForm) return;
-      communityForm.reset();
-      buildCommunityQuestionForm();
-      prefillCommunityAuthor(true);
-      syncCommunityOptionStates();
-      toast('<i class="fas fa-broom ml-2"></i>فرم خالی شد');
-    });
-  }
-
-  if (communityForm) {
-    communityForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const authorInput = $('#community-author');
-      const categorySelect = $('#community-category');
-      const difficultySelect = $('#community-difficulty');
-      const questionInput = $('#community-question');
-      const authorName = authorInput ? authorInput.value.trim() : '';
-      const categoryId = categorySelect ? categorySelect.value : '';
-      const difficultyValue = difficultySelect ? difficultySelect.value : 'medium';
-      const questionText = questionInput ? questionInput.value.trim() : '';
-      const optionInputs = communityOptionsEl
-        ? Array.from(communityOptionsEl.querySelectorAll('[data-option-index]'))
-        : [];
-      const options = optionInputs.map(input => input.value.trim());
-      const radios = communityOptionsEl
-        ? Array.from(communityOptionsEl.querySelectorAll('input[type="radio"][name="community-correct"]'))
-        : [];
-      const selectedRadio = radios.find(radio => radio.checked);
-      const correctIdx = selectedRadio ? Number(selectedRadio.value) : -1;
-
-      if (!authorName) {
-        toast('<i class="fas fa-exclamation-circle ml-2"></i>لطفاً نام خود را وارد کنید');
-        authorInput?.focus();
-        return;
-      }
-      if (!categoryId) {
-        toast('<i class="fas fa-exclamation-circle ml-2"></i>دسته‌بندی سوال را انتخاب کنید');
-        categorySelect?.focus();
-        return;
-      }
-      if (!questionText) {
-        toast('<i class="fas fa-exclamation-circle ml-2"></i>متن سوال را بنویسید');
-        questionInput?.focus();
-        return;
-      }
-      if (options.length !== 4 || options.some(opt => !opt)) {
-        toast('<i class="fas fa-exclamation-circle ml-2"></i>تمام گزینه‌ها باید تکمیل شوند');
-        return;
-      }
-      if (!Number.isInteger(correctIdx) || correctIdx < 0 || correctIdx >= options.length) {
-        toast('<i class="fas fa-exclamation-circle ml-2"></i>گزینه صحیح را مشخص کنید');
-        return;
-      }
-
-      const payload = {
-        authorName,
-        text: questionText,
-        options,
-        correctIdx,
-        categoryId,
-        difficulty: difficultyValue,
-        submittedBy: State?.user?.id || undefined
-      };
-
-      const submitBtn = communityForm.querySelector('button[type="submit"]');
-      const submitDefault = submitBtn ? submitBtn.innerHTML : '';
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="flex items-center gap-2"><span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span><span>در حال ارسال...</span></span>';
-      }
-
-      try {
-        const res = await fetch('/api/public/questions/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        let data = null;
-        try { data = await res.json(); } catch { data = null; }
-        if (!res.ok) {
-          throw new Error(data?.message || 'خطا در ارسال سوال');
-        }
-        toast(`<i class="fas fa-check-circle ml-2"></i>${data?.message || 'سوال شما برای بررسی ارسال شد'}`);
-        logEvent('community_question_submitted', {
-          category: categoryId,
-          difficulty: difficultyValue
-        });
-        communityForm.reset();
-        buildCommunityQuestionForm();
-        prefillCommunityAuthor(true);
-        syncCommunityOptionStates();
-      } catch (err) {
-        toast(`<i class="fas fa-exclamation-circle ml-2"></i>${err.message || 'ارسال سوال با خطا مواجه شد'}`);
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = submitDefault;
-        }
-      }
-    });
-  }
-
   // Back Buttons for New Pages
   $('#btn-back-duel')?.addEventListener('click', () => navTo('dashboard'));
   $('#btn-back-province')?.addEventListener('click', () => navTo('dashboard'));
@@ -6144,7 +6004,6 @@ export async function bootstrap() {
     await initFromAdmin();
     renderProvinceSelect();
     buildSetupFromAdmin();
-    buildCommunityQuestionForm();
     applyConfigToUI({ checkDailyReset });
     await syncGroupsFromServer({ silent: true });
   }
