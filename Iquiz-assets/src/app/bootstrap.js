@@ -5627,8 +5627,6 @@ function renderGroupSelect() {
       list.appendChild(card);
     });
   }
-
-  renderGroupBattleCard(list, userGroup);
 }
 
 
