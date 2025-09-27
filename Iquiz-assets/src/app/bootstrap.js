@@ -75,6 +75,9 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
   const APP_TITLE_SUFFIX = ' — نسخه فارسی';
   const PAYMENT_SESSION_STORAGE_KEY = 'quiz_payment_session_id_v1';
   const PENDING_PAYMENT_STORAGE_KEY = 'quiz_pending_payment_v1';
+  const TELEGRAM_BOT_USERNAME = (document.body?.dataset?.telegramBot || 'IQuizBot').replace(/^@+/, '').trim() || 'IQuizBot';
+  const TELEGRAM_BOT_WEB_LINK = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
+  const TELEGRAM_BOT_APP_LINK = `tg://resolve?domain=${TELEGRAM_BOT_USERNAME}`;
 
   const WALLET_TOPUP_DEFAULTS = {
     min: 50_000,
@@ -157,6 +160,54 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
       return prefix + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
     }
     return prefix + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  function buildTelegramStartLinks(payload = '') {
+    const sanitized = typeof payload === 'string' ? payload.trim() : String(payload || '').trim();
+    if (!sanitized) {
+      return { web: TELEGRAM_BOT_WEB_LINK, app: TELEGRAM_BOT_APP_LINK };
+    }
+    const encoded = encodeURIComponent(sanitized);
+    return {
+      web: `${TELEGRAM_BOT_WEB_LINK}?start=${encoded}`,
+      app: `${TELEGRAM_BOT_APP_LINK}&start=${encoded}`,
+    };
+  }
+
+  function buildTelegramShareUrl(link, text = '') {
+    const target = link || TELEGRAM_BOT_WEB_LINK;
+    const message = text || '';
+    return `https://t.me/share/url?url=${encodeURIComponent(target)}&text=${encodeURIComponent(message)}`;
+  }
+
+  function openTelegramLink(url) {
+    if (!url) return false;
+    try {
+      if (window.Telegram?.WebApp?.openTelegramLink) {
+        window.Telegram.WebApp.openTelegramLink(url);
+        return true;
+      }
+    } catch (error) {
+      console.warn('openTelegramLink failed', error);
+    }
+    const opened = window.open(url, '_blank', 'noopener');
+    return !!opened;
+  }
+
+  async function shareOnTelegram(link, text) {
+    const shareUrl = buildTelegramShareUrl(link, text);
+    const opened = openTelegramLink(shareUrl);
+    if (opened) {
+      toast('<i class="fab fa-telegram-plane ml-2"></i>تلگرام برای اشتراک‌گذاری باز شد');
+      return;
+    }
+    const fallbackText = text ? `${text}\n${link}` : link;
+    const copied = await copyToClipboard(fallbackText);
+    if (copied) {
+      toast('<i class="fas fa-copy ml-2"></i>لینک برای اشتراک‌گذاری کپی شد');
+    } else {
+      prompt('این پیام را برای دوستانت بفرست:', fallbackText);
+    }
   }
 
   function ensurePaymentSessionId(){
@@ -1744,7 +1795,10 @@ function populateProvinceOptions(selectEl, placeholder){
 
     content += recordSection;
 
-    const inviteLink = `${location.origin}${location.pathname}?join=${encodeURIComponent(group.id)}`;
+    const joinPayload = `group_${group.id}`;
+    const inviteLinks = buildTelegramStartLinks(joinPayload);
+    const inviteLink = inviteLinks.web;
+    const inviteFallback = `${location.origin}${location.pathname}?join=${encodeURIComponent(group.id)}`;
     const membersHtml = (group.memberList || []).map(m=>`<div class="glass rounded-xl p-2 text-sm flex items-center gap-2"><i class="fas fa-user text-blue-200"></i>${m}</div>`).join('');
     content += `
       <div class="mt-4">
@@ -1808,24 +1862,25 @@ function populateProvinceOptions(selectEl, placeholder){
       const ok = await copyToClipboard(inviteLink);
       toast(ok ? '<i class="fas fa-check-circle ml-2"></i>لینک گروه کپی شد' : 'کپی لینک با خطا مواجه شد');
     });
-    $('#btn-share-group-link')?.addEventListener('click', () => {
+    $('#btn-share-group-link')?.addEventListener('click', async () => {
+      vibrate(10);
       const appName = getAppName();
       const text = `به گروه ${group.name} در ${appName} بپیوندید!`;
-      try {
-        if (navigator.share) {
-          navigator.share({
+      const shareMessage = `${text} اگر تلگرام به‌طور خودکار باز نشد از این لینک استفاده کن: ${inviteFallback}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({
             title: `دعوت به گروه ${group.name}`,
-            text,
+            text: shareMessage,
             url: inviteLink
           });
-        } else {
-          window.open(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(text)}`, '_blank');
-          toast('<i class="fas fa-share-nodes ml-2"></i>لینک برای اشتراک باز شد');
+          toast('<i class="fas fa-check-circle ml-2"></i>لینک گروه ارسال شد');
+          return;
+        } catch (error) {
+          console.warn('navigator.share group link failed', error);
         }
-      } catch {
-        copyToClipboard(inviteLink);
-        toast('<i class="fas fa-check-circle ml-2"></i>لینک گروه کپی شد');
       }
+      await shareOnTelegram(inviteLink, shareMessage);
     });
     $('#btn-request-duel')?.addEventListener('click', () => openDuelRequest(group));
     $('#btn-delete-group-detail')?.addEventListener('click', () => {
@@ -4213,22 +4268,26 @@ async function startPurchaseCoins(pkgId){
   }
   
   // ===== Share =====
-  function shareResult(){
+  async function shareResult(){
     const ok = State.quiz.results.filter(r=>r.ok).length, total=State.quiz.results.length;
     const appName = getAppName();
     const text = `من در ${appName} ${faNum(ok)}/${faNum(total)} پاسخ درست دادم و ${faNum(State.quiz.sessionEarned)} امتیاز گرفتم!`;
-    const url = `https://t.me/share/url?url=${encodeURIComponent('https://t.me/your_bot')}&text=${encodeURIComponent(text)}`;
-    try{ 
+    const payload = `res_${State.user.id || 'guest'}`;
+    const { web } = buildTelegramStartLinks(payload);
+    try{
       if (navigator.share) {
-        navigator.share({
+        await navigator.share({
           title: 'نتیجه مسابقه',
           text: text,
-          url: 'https://t.me/your_bot'
+          url: web
         });
+        toast('<i class="fas fa-check-circle ml-2"></i>نتیجه ارسال شد');
       } else {
-        window.open(url,'_blank'); 
+        await shareOnTelegram(web, text);
       }
-    }catch{ navigator.clipboard.writeText(text); toast('نتیجه کپی شد'); }
+    }catch{
+      await shareOnTelegram(web, text);
+    }
   }
   
   // ===== Support & Advertisers =====
@@ -4262,7 +4321,13 @@ async function startPurchaseCoins(pkgId){
   function prepareInviteModal(){
     const reward = Number(State.referral?.rewardPerFriend ?? 5);
     const rewardLabel = faNum(reward);
-    const link = `https://t.me/your_bot?start=ref_${State.user.id}`;
+    const payload = `ref_${State.user.id || 'guest'}`;
+    const { web, app } = buildTelegramStartLinks(payload);
+    const appName = getAppName();
+    const codeValue = State.referral?.code || '';
+    const shareText = codeValue
+      ? `با لینک من در ${appName} ثبت‌نام کن و کد ${codeValue} را وارد کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم.`
+      : `با لینک من در ${appName} ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم.`;
     const referred = Array.isArray(State.referral?.referred) ? State.referral.referred : [];
     const completed = referred.filter(friend => friend?.status === 'completed').length;
 
@@ -4277,8 +4342,15 @@ async function startPurchaseCoins(pkgId){
 
     const linkEl = $('#invite-link');
     if (linkEl) {
-      linkEl.value = link;
-      linkEl.dataset.value = link;
+      linkEl.value = web;
+      linkEl.dataset.value = web;
+      linkEl.dataset.appLink = app;
+    }
+
+    const shareBtn = $('#invite-share-telegram');
+    if (shareBtn) {
+      shareBtn.dataset.link = web;
+      shareBtn.dataset.text = shareText;
     }
 
     openModal('#modal-invite');
@@ -4445,6 +4517,17 @@ async function startPurchaseCoins(pkgId){
         toast('امکان کپی کردن وجود ندارد');
       }
     });
+  });
+  $('#invite-share-telegram')?.addEventListener('click', async (event) => {
+    event.preventDefault();
+    const btn = event.currentTarget;
+    const link = btn?.dataset?.link || $('#invite-link')?.value || '';
+    const text = btn?.dataset?.text || '';
+    if (!link) {
+      toast('لینک دعوت آماده نیست');
+      return;
+    }
+    await shareOnTelegram(link, text);
   });
   $('#btn-advertisers')?.addEventListener('click', ()=>{
     navTo('support');
@@ -5439,30 +5522,13 @@ async function startPurchaseCoins(pkgId){
 
   // Invite Link Copy
   $('#btn-duel-link')?.addEventListener('click', async () => {
-    const inviter = State?.user?.name || 'guest';
-    const link = `${location.origin}${location.pathname}?duel_invite=${encodeURIComponent(inviter)}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: 'دعوت به نبرد',
-          text: `${inviter} شما را به نبرد دعوت کرده است!`,
-          url: link
-        });
-        toast('دعوت ارسال شد ✅');
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(link);
-        toast('لینک دعوت کپی شد ✅');
-      } else {
-        prompt('این لینک را کپی کنید:', link);
-      }
-    } catch {
-      try {
-        await navigator.clipboard.writeText(link);
-        toast('لینک دعوت کپی شد ✅');
-      } catch {
-        prompt('این لینک را کپی کنید:', link);
-      }
-    }
+    vibrate(20);
+    const inviter = State?.user?.name || 'کاربر آیکوئیز';
+    const payload = `duel_${State.user.id || 'guest'}_${Date.now()}`;
+    const { web } = buildTelegramStartLinks(payload);
+    const appName = getAppName();
+    const message = `${inviter} تو را به نبرد تن‌به‌تن در ${appName} دعوت کرده است! روی لینک زیر بزن و ربات را استارت کن.`;
+    await shareOnTelegram(web, message);
     logEvent('duel_invite_link');
   });
 
@@ -6512,28 +6578,33 @@ function leaveGroup(groupId) {
     toast('<i class="fas fa-check-circle ml-2"></i>کد دعوت کپی شد!');
   });
 
-  $('#btn-share-referral')?.addEventListener('click', () => {
+  $('#btn-share-referral')?.addEventListener('click', async () => {
+    vibrate(20);
     const reward = Number(State.referral?.rewardPerFriend ?? 5);
     const code = State.referral?.code || '';
-    const link = `https://t.me/your_bot?start=ref_${State.user.id}`;
+    const payload = `ref_${State.user.id || 'guest'}`;
+    const { web } = buildTelegramStartLinks(payload);
     const rewardLabel = faNum(reward);
     const appName = getAppName();
-    const text = `با کد دعوت من در ${appName} ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم! کد: ${code}`;
+    const text = code
+      ? `با لینک من در ${appName} ثبت‌نام کن و کد ${code} را وارد کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم!`
+      : `با لینک من در ${appName} ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم!`;
 
-    try {
-      if (navigator.share) {
-        navigator.share({
+    if (navigator.share) {
+      try {
+        await navigator.share({
           title: `دعوت به ${appName}`,
-          text: text,
-          url: link
+          text,
+          url: web
         });
-      } else {
-        window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`, '_blank');
+        toast('<i class="fas fa-check-circle ml-2"></i>دعوت ارسال شد');
+        return;
+      } catch (error) {
+        console.warn('navigator.share failed', error);
       }
-    } catch {
-      navigator.clipboard.writeText(link);
-      toast('<i class="fas fa-check-circle ml-2"></i>لینک کپی شد!');
     }
+
+    await shareOnTelegram(web, text);
   });
 
   const referralDuelBtn = document.getElementById('btn-referral-duel');

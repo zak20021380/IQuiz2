@@ -204,6 +204,27 @@
     .invite-share-input input:focus{ outline:none; }
     .invite-copy-btn{ padding:.55rem 1rem; border-radius:.9rem; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#0f172a; font-weight:800; font-size:.85rem; box-shadow:0 12px 28px rgba(59,130,246,0.35); display:inline-flex; align-items:center; gap:.4rem; transition:transform .2s ease; white-space:nowrap; }
     .invite-copy-btn:active{ transform:scale(.97); }
+    .invite-share-actions{ display:flex; flex-direction:column; gap:.75rem; }
+    .telegram-share-btn{ position:relative; display:inline-flex; align-items:center; justify-content:space-between; gap:.85rem; width:100%; padding:.85rem 1.15rem; border-radius:1.15rem; background:linear-gradient(135deg,#2AABEE,#229ED9); border:1px solid rgba(56,189,248,0.38); color:#f8fafc; font-weight:800; font-size:.92rem; text-align:right; box-shadow:0 18px 42px rgba(34,158,217,0.38); transition:transform .2s ease, box-shadow .2s ease, background .2s ease; }
+    .telegram-share-btn .telegram-share-icon{ width:2.6rem; height:2.6rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; background:rgba(15,23,42,0.18); font-size:1.3rem; color:#0f172a; }
+    .telegram-share-btn .telegram-share-content{ display:flex; flex-direction:column; gap:.2rem; align-items:flex-end; text-align:right; }
+    .telegram-share-btn .telegram-share-content strong{ font-size:.96rem; font-weight:900; color:inherit; }
+    .telegram-share-btn .telegram-share-content span{ font-size:.74rem; font-weight:500; opacity:.85; color:inherit; }
+    .telegram-share-btn:hover{ transform:translateY(-2px); box-shadow:0 22px 48px rgba(34,158,217,0.45); }
+    .telegram-share-btn:active{ transform:translateY(1px); }
+    .telegram-share-btn-outline{ background:rgba(34,158,217,0.08); border:1px solid rgba(56,189,248,0.55); color:#38bdf8; box-shadow:none; padding:.75rem 1.05rem; }
+    .telegram-share-btn-outline .telegram-share-icon{ background:rgba(56,189,248,0.12); color:#38bdf8; }
+    .telegram-share-btn-outline .telegram-share-content strong{ font-size:.88rem; color:#e0f2fe; }
+    .telegram-share-btn-outline .telegram-share-content span{ font-size:.72rem; color:#bae6fd; }
+    .telegram-share-btn-outline:hover{ box-shadow:0 16px 36px rgba(56,189,248,0.32); }
+    .invite-telegram-cta{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:1.2rem; padding:1rem 1.3rem; border-radius:1.7rem; background:linear-gradient(135deg,rgba(45,212,191,0.22),rgba(14,165,233,0.3)); border:1px solid rgba(125,211,252,0.32); backdrop-filter:blur(18px); color:#f8fafc; box-shadow:0 18px 48px rgba(14,165,233,0.3); transition:transform .2s ease, box-shadow .2s ease, background .2s ease; }
+    .invite-telegram-cta:hover{ transform:translateY(-2px); box-shadow:0 24px 54px rgba(14,165,233,0.38); }
+    .invite-telegram-cta:active{ transform:translateY(1px); }
+    .invite-telegram-icon{ width:3.1rem; height:3.1rem; border-radius:1.1rem; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#2AABEE,#229ED9); color:#0f172a; font-size:1.45rem; box-shadow:0 16px 34px rgba(34,158,217,0.42); flex-shrink:0; }
+    .invite-telegram-body{ flex:1; display:flex; flex-direction:column; gap:.35rem; text-align:right; }
+    .invite-telegram-title{ font-size:1.1rem; font-weight:900; letter-spacing:-0.01em; }
+    .invite-telegram-sub{ font-size:.8rem; font-weight:600; opacity:.85; }
+    .invite-telegram-arrow{ width:2.5rem; height:2.5rem; border-radius:999px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.12); color:#e0f2fe; font-size:.85rem; flex-shrink:0; }
     .invite-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:.75rem; }
     .invite-stat{ display:flex; align-items:center; gap:.5rem; padding:.55rem .9rem; border-radius:999px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); font-size:.8rem; font-weight:700; }
     .invite-stat i{ color:#38bdf8; }
@@ -212,6 +233,10 @@
       .invite-modal-header{ flex-direction:column; text-align:center; align-items:center; gap:.85rem; }
       .invite-modal-close{ top:.9rem; left:.9rem; }
       .invite-stats{ grid-template-columns:1fr; gap:.65rem; }
+      .invite-share-actions{ align-items:stretch; }
+      .telegram-share-btn{ font-size:.9rem; }
+      .telegram-share-btn .telegram-share-content strong{ font-size:.9rem; }
+      .telegram-share-btn .telegram-share-content span{ font-size:.72rem; }
       .vip-modal-card{ padding:1.4rem 1.15rem; border-radius:1.7rem; }
       .vip-modal-header{ flex-direction:column; text-align:center; align-items:center; }
       .vip-modal-close{ top:.85rem; left:.85rem; }
@@ -226,6 +251,13 @@
       .invite-modal-card{ padding:1.35rem 1.05rem; border-radius:1.55rem; }
       .invite-modal-sub{ font-size:.88rem; line-height:1.7; }
       .invite-share-box{ padding:1.05rem; gap:.95rem; }
+      .telegram-share-btn{ padding:.8rem 1rem; border-radius:1.05rem; }
+      .telegram-share-btn .telegram-share-icon{ width:2.4rem; height:2.4rem; font-size:1.15rem; }
+      .invite-telegram-cta{ padding:.95rem 1.1rem; gap:1rem; border-radius:1.55rem; }
+      .invite-telegram-icon{ width:2.85rem; height:2.85rem; font-size:1.32rem; }
+      .invite-telegram-title{ font-size:1.05rem; }
+      .invite-telegram-sub{ font-size:.76rem; }
+      .invite-telegram-arrow{ width:2.3rem; height:2.3rem; font-size:.78rem; }
       .vip-modal-card{ padding:1.25rem 1rem; border-radius:1.55rem; }
       .vip-modal-title{ font-size:1.22rem; }
       .vip-modal-plan-name{ font-size:clamp(.98rem, 4.2vw, 1.02rem); }
@@ -244,6 +276,16 @@
       .invite-share-input{ flex-direction:column; align-items:stretch; gap:.6rem; padding:.7rem; }
       .invite-share-input input{ background:rgba(15,23,42,0.45); border:1px solid rgba(255,255,255,0.16); border-radius:.9rem; padding:.55rem .75rem; text-align:center; font-size:.88rem; }
       .invite-copy-btn{ justify-content:center; width:100%; padding:.68rem; font-size:.86rem; }
+      .invite-share-actions{ gap:.65rem; }
+      .telegram-share-btn{ flex-direction:row-reverse; padding:.82rem .95rem; font-size:.88rem; }
+      .telegram-share-btn .telegram-share-content{ align-items:center; text-align:center; }
+      .telegram-share-btn .telegram-share-content strong{ font-size:.88rem; }
+      .telegram-share-btn .telegram-share-content span{ font-size:.7rem; }
+      .invite-telegram-cta{ padding:.9rem .95rem; }
+      .invite-telegram-body{ gap:.3rem; }
+      .invite-telegram-title{ font-size:1rem; }
+      .invite-telegram-sub{ font-size:.72rem; }
+      .invite-telegram-arrow{ width:2.1rem; height:2.1rem; }
       .invite-stat{ justify-content:center; width:100%; font-size:.82rem; }
       .vip-modal-plan{ border-radius:1.15rem; }
       .vip-modal-plan-price{ justify-content:flex-start; text-align:right; }
@@ -251,6 +293,11 @@
     @media(max-width:380px){
       .invite-modal-card{ padding:1.15rem .85rem; border-radius:1.4rem; }
       .invite-modal-title{ font-size:1.08rem; }
+      .telegram-share-btn{ padding:.78rem .9rem; }
+      .telegram-share-btn .telegram-share-icon{ width:2.25rem; height:2.25rem; font-size:1.05rem; }
+      .telegram-share-btn .telegram-share-content strong{ font-size:.85rem; }
+      .invite-telegram-cta{ padding:.85rem .9rem; gap:.85rem; }
+      .invite-telegram-icon{ width:2.6rem; height:2.6rem; font-size:1.2rem; }
       .vip-modal-plan{ padding:clamp(.85rem, 6vw, 1rem); }
       .vip-modal-plan-price{ gap:.35rem; }
     }

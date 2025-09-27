@@ -13,7 +13,7 @@
   <meta name="theme-color" content="#3b82f6" />
 
 </head>
-<body class="min-h-screen text-white flex flex-col">
+<body class="min-h-screen text-white flex flex-col" data-telegram-bot="IQuizBot">
 
   <!-- Loading Screen -->
   <div id="loading">
@@ -361,9 +361,13 @@
             <i class="fas fa-chart-line ml-2"></i> لیدربورد
           </button>
         </div>
-        <button class="w-full py-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/20 transition flex items-center justify-center gap-2" id="btn-invite">
-          <i class="fas fa-user-plus"></i>
-          <span>دعوت دوستان (+سکه)</span>
+        <button class="invite-telegram-cta" id="btn-invite" type="button">
+          <span class="invite-telegram-icon"><i class="fab fa-telegram-plane"></i></span>
+          <span class="invite-telegram-body">
+            <span class="invite-telegram-title">دعوت دوستان</span>
+            <span class="invite-telegram-sub">۵ سکه برای هر شروع موفق</span>
+          </span>
+          <span class="invite-telegram-arrow" aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
         </button>
       </div>
       
@@ -876,8 +880,12 @@
               <button id="btn-duel-random" class="btn btn-duel btn-inline flex items-center gap-2">
                 <i class="fas fa-shuffle"></i><span>حریف تصادفی</span>
               </button>
-              <button id="btn-duel-link" class="btn btn-tertiary btn-inline flex items-center gap-2">
-                <i class="fas fa-link"></i><span>لینک دعوت</span>
+              <button id="btn-duel-link" class="telegram-share-btn telegram-share-btn-outline" type="button">
+                <span class="telegram-share-icon"><i class="fab fa-telegram-plane"></i></span>
+                <span class="telegram-share-content">
+                  <strong>ارسال لینک تلگرامی</strong>
+                  <span>دعوت مستقیم به نبرد</span>
+                </span>
               </button>
             </div>
           </div>
@@ -1521,6 +1529,15 @@
               <button type="button" class="invite-copy-btn" data-copy-target="invite-link">
                 <i class="fas fa-copy"></i>
                 کپی لینک
+              </button>
+            </div>
+            <div class="invite-share-actions">
+              <button type="button" class="telegram-share-btn" id="invite-share-telegram">
+                <span class="telegram-share-icon"><i class="fab fa-telegram-plane"></i></span>
+                <span class="telegram-share-content">
+                  <strong>ارسال مستقیم در تلگرام</strong>
+                  <span>اشتراک‌گذاری فوری لینک اختصاصی</span>
+                </span>
               </button>
             </div>
           </div>
