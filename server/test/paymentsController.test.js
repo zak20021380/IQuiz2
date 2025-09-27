@@ -170,8 +170,8 @@ test('createInternalPayment activates VIP subscription and records payment', asy
     return { ...data, _id: 'txn_vip_success' };
   };
 
-  const vipTier = findVipTier('lite');
-  assert.ok(vipTier, 'expected lite tier to be defined in fallback config');
+  const vipTier = findVipTier('standard');
+  assert.ok(vipTier, 'expected standard tier to be defined in fallback config');
 
   const currentExpiry = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
   const user = {
@@ -185,7 +185,7 @@ test('createInternalPayment activates VIP subscription and records payment', asy
   };
 
   const req = {
-    body: { idempotencyKey: 'idem-5', type: 'vip', tier: 'lite' },
+    body: { idempotencyKey: 'idem-5', type: 'vip', tier: 'standard' },
     user,
   };
   const res = createMockRes();

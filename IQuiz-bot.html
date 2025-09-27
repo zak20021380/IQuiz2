@@ -646,16 +646,24 @@
       <!-- VIP -->
       <div class="glass-dark rounded-2xl p-5 card-hover" data-shop-section="vip-intro">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-center sm:text-right">
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-4 text-right">
             <div class="w-14 h-14 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
               <i class="fas fa-crown text-white text-xl"></i>
             </div>
-            <div>
+            <div class="space-y-2">
               <div class="font-bold text-lg">اشتراک VIP</div>
-              <div class="text-sm opacity-80 mt-1">حذف تبلیغات • سقف روزانه بیشتر • امتیاز اضافه</div>
+              <div class="text-sm opacity-80" data-shop-vip-benefits>حذف تبلیغات • محدودیت‌های بیشتر • پشتیبانی ویژه</div>
+              <div class="text-xs opacity-70" data-shop-vip-price>شروع از —</div>
             </div>
           </div>
-          <button id="btn-open-vip" class="btn btn-tertiary w-full sm:w-auto px-4 text-sm"><i class="fas fa-crown ml-1"></i> مشاهده پلن‌ها</button>
+          <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button id="btn-buy-vip" class="btn btn-primary w-full sm:w-auto px-4 text-sm" data-vip-plan-button>
+              <i class="fas fa-check ml-1"></i> خرید اشتراک
+            </button>
+            <button id="btn-open-vip" class="btn btn-tertiary w-full sm:w-auto px-4 text-sm">
+              <i class="fas fa-crown ml-1"></i> جزئیات اشتراک
+            </button>
+          </div>
         </div>
       </div>
 

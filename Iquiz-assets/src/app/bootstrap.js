@@ -2408,6 +2408,12 @@ function startQuizTimerCountdown(){
     return plans.slice().sort((a, b) => normalizeVipPrice(a) - normalizeVipPrice(b))[0];
   }
 
+  function getPrimaryVipPlan(){
+    const plans = getActiveVipPlans();
+    if (!plans.length) return null;
+    return plans.find((plan) => plan && plan.featured) || plans[0];
+  }
+
   function renderShopSectionsVisibility(){
     const shop = getShopConfig();
     const enabled = shop.enabled !== false;
@@ -2522,24 +2528,56 @@ function startQuizTimerCountdown(){
   }
 
   function renderShopVipIntro(){
-    const btn = $('#btn-open-vip');
-    if (!btn) return;
+    const detailBtn = $('#btn-open-vip');
+    const buyBtn = $('#btn-buy-vip');
+    const priceEl = $('[data-shop-vip-price]');
+    const benefitsEl = $('[data-shop-vip-benefits]');
     const shop = getShopConfig();
     const enabled = shop.enabled !== false && shop.sections?.vip !== false;
     const plans = getActiveVipPlans();
-    const hasPlans = enabled && plans.length > 0;
-    btn.disabled = !hasPlans;
-    btn.setAttribute('aria-disabled', hasPlans ? 'false' : 'true');
-    if (!hasPlans){
-      btn.innerHTML = '<i class="fas fa-crown ml-1"></i> به زودی';
-      return;
+    const primaryPlan = enabled && plans.length ? getPrimaryVipPlan() : null;
+    const hasPlan = Boolean(primaryPlan);
+
+    if (detailBtn){
+      detailBtn.disabled = !hasPlan;
+      detailBtn.setAttribute('aria-disabled', hasPlan ? 'false' : 'true');
+      detailBtn.innerHTML = hasPlan
+        ? '<i class="fas fa-crown ml-1"></i> جزئیات اشتراک'
+        : '<i class="fas fa-crown ml-1"></i> به زودی';
     }
-    const cheapest = getCheapestVipPlan();
-    const priceLabel = cheapest ? formatVipPrice(cheapest) : '';
-    if (priceLabel && priceLabel !== 'رایگان'){
-      btn.innerHTML = `<i class="fas fa-crown ml-1"></i> شروع از ${priceLabel}`;
-    } else {
-      btn.innerHTML = '<i class="fas fa-crown ml-1"></i> مشاهده پلن‌ها';
+
+    if (buyBtn){
+      buyBtn.disabled = !hasPlan;
+      buyBtn.setAttribute('aria-disabled', hasPlan ? 'false' : 'true');
+      if (hasPlan){
+        buyBtn.dataset.vipPlanButton = primaryPlan.tier || primaryPlan.id || 'vip';
+        buyBtn.innerHTML = '<i class="fas fa-check ml-1"></i> خرید اشتراک';
+        buyBtn.onclick = () => startPurchaseVip(primaryPlan.tier || primaryPlan.id);
+      } else {
+        delete buyBtn.dataset.vipPlanButton;
+        buyBtn.innerHTML = '<i class="fas fa-hourglass-half ml-1"></i> به زودی';
+        buyBtn.onclick = null;
+      }
+    }
+
+    if (priceEl){
+      if (hasPlan){
+        const priceLabel = formatVipPrice(primaryPlan);
+        priceEl.textContent = priceLabel && priceLabel !== 'رایگان'
+          ? `شروع از ${priceLabel}`
+          : 'اشتراک فعال است';
+      } else {
+        priceEl.textContent = 'شروع از —';
+      }
+    }
+
+    if (benefitsEl){
+      if (hasPlan && Array.isArray(primaryPlan.benefits) && primaryPlan.benefits.length){
+        const summary = primaryPlan.benefits.slice(0, 3).join(' • ');
+        benefitsEl.textContent = summary;
+      } else {
+        benefitsEl.textContent = 'حذف تبلیغات • محدودیت‌های بیشتر • پشتیبانی ویژه';
+      }
     }
   }
 

@@ -7027,7 +7027,7 @@ function updateShopSummary() {
       shopSummaryElements.vip.textContent = 'غیرفعال';
     } else {
       const planLabel = vipState.planCount
-        ? `${formatNumberFa(vipState.planCount)} پلن`
+        ? (vipState.planCount === 1 ? 'پلن واحد' : `${formatNumberFa(vipState.planCount)} پلن`)
         : 'بدون پلن';
       let priceLabel = '';
       if (vipState.cheapestPrice > 0) {
