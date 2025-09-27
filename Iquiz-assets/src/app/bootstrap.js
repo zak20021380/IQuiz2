@@ -3094,8 +3094,6 @@ document.addEventListener('click', (e) => {
       });
     }
 
-    const allowQuickPurchase = shop.quickPurchase !== false;
-
     packs.forEach((pkg) => {
       const card = document.createElement('div');
       card.className = 'glass-dark rounded-2xl p-4 card-hover flex flex-col justify-between relative h-full';
@@ -3113,38 +3111,43 @@ document.addEventListener('click', (e) => {
         : '';
       card.innerHTML = `
         ${ribbon}
-        <div class="space-y-2">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="text-sm opacity-80">${pkg.displayName || `بسته ${faNum(pkg.amount)} سکه`}</div>
-              <div class="text-2xl font-extrabold mt-1">${faNum(pkg.amount)} سکه</div>
-              ${bonusLine}
+        <div class="pkg-card-body">
+          <div class="pkg-card-info">
+            <div class="pkg-card-header">
+              <div>
+                <div class="text-sm opacity-80">${pkg.displayName || `بسته ${faNum(pkg.amount)} سکه`}</div>
+                <div class="text-2xl font-extrabold mt-1">${faNum(pkg.amount)} سکه</div>
+                ${bonusLine}
+              </div>
+              <div class="pkg-card-meta">
+                <span class="pkg-card-meta-label">دریافتی کل</span>
+                <span class="pkg-card-meta-value">${faNum(pkg.totalCoins)}</span>
+                ${paymentChip ? `<span class="pkg-card-meta-chip">${paymentChip}</span>` : ''}
+              </div>
             </div>
-            <div class="text-xs opacity-75 text-left space-y-1">
-              <div>دریافتی کل:</div>
-              <div class="font-bold text-base">${faNum(pkg.totalCoins)}</div>
-              ${paymentChip ? `<div>${paymentChip}</div>` : ''}
+            <div class="pkg-card-price">
+              <i class="fas fa-receipt"></i>
+              <span>قیمت: ${faNum(pkg.priceToman)} تومان</span>
             </div>
+            ${description}
           </div>
-          <div class="text-xs opacity-70 flex items-center gap-1">
-            <i class="fas fa-receipt"></i>
-            <span>قیمت: ${faNum(pkg.priceToman)} تومان</span>
+          <div class="pkg-payment-footer">
+            <div class="pkg-secure-line">
+              <span class="pkg-secure-icon"><i class="fas fa-shield-check"></i></span>
+              <div class="pkg-secure-copy">
+                <span class="pkg-secure-title">پرداخت امن آنلاین</span>
+                <span class="pkg-secure-sub">تسویه آنی سکه پس از تایید تراکنش</span>
+              </div>
+            </div>
+            <button class="btn btn-primary pkg-buy-btn buy-pkg" data-id="${pkg.id}" data-price="${pkg.priceToman}">
+              <i class="fas fa-lock ml-1"></i> پرداخت امن ${faNum(pkg.priceToman)} تومان
+            </button>
           </div>
-          ${description}
         </div>
-        <button class="btn btn-primary mt-3 buy-pkg" data-id="${pkg.id}" data-price="${pkg.priceToman}">
-          <i class="fas fa-credit-card ml-1"></i> خرید ${faNum(pkg.priceToman)} تومان
-        </button>
       `;
-      const btn = card.querySelector('button');
+      const btn = card.querySelector('.buy-pkg');
       if (btn){
-        if (!allowQuickPurchase){
-          btn.disabled = true;
-          btn.innerHTML = '<i class="fas fa-headset ml-1"></i> ارتباط با پشتیبانی';
-          btn.setAttribute('aria-label', 'ارتباط با پشتیبانی');
-        } else {
-          btn.setAttribute('aria-label', `خرید بسته ${faNum(pkg.amount)} سکه`);
-        }
+        btn.setAttribute('aria-label', `خرید بسته ${faNum(pkg.amount)} سکه`);
       }
       grid.appendChild(card);
     });
@@ -3174,28 +3177,49 @@ function showPaymentModal(packageId) {
   const priceToman = pkg.priceToman || Math.round(((pkg.priceCents || 0) / 100) * (RemoteConfig.pricing.usdToToman || 70000));
   const totalCoins = pkg.amount + Math.floor(pkg.amount * (pkg.bonus || 0) / 100);
   const walletBalance = Server.wallet.coins || 0;
-  
+
   // Update modal content
   $('#payment-package-name').textContent = `بسته ${faNum(pkg.amount)} سکه`;
   $('#payment-coins-amount').textContent = `${faNum(totalCoins)} سکه`;
   $('#payment-price').textContent = `${faNum(priceToman)} تومان`;
   $('#payment-wallet-balance').textContent = `${faNum(walletBalance)} تومان`;
-  
+
   // Check if wallet balance is sufficient
   const needsPayment = walletBalance < priceToman;
-  $('#payment-warning').classList.toggle('show', needsPayment);
-  
+  const warning = $('#payment-warning');
+  if (warning){
+    warning.classList.toggle('show', needsPayment);
+  }
+
+  const gatewayInfo = $('#payment-gateway-info');
+  if (gatewayInfo){
+    const title = gatewayInfo.querySelector('.payment-gateway-title');
+    const sub = gatewayInfo.querySelector('.payment-gateway-sub');
+    if (needsPayment){
+      if (title) title.textContent = 'انتقال به درگاه پرداخت امن شاپرک';
+      if (sub) sub.textContent = 'پس از تکمیل پرداخت، سکه‌ها به صورت خودکار به حساب شما اضافه می‌شوند.';
+    } else {
+      if (title) title.textContent = 'کسر آنی از موجودی کیف پول';
+      if (sub) sub.textContent = 'در صورت نیاز به شارژ بیشتر، همین مسیر شما را مستقیماً به درگاه پرداخت هدایت می‌کند.';
+    }
+  }
+
   // Update button text based on balance
   const confirmBtn = $('#payment-confirm-btn');
-  if (needsPayment) {
-    confirmBtn.innerHTML = '<i class="fas fa-credit-card ml-2"></i> رفتن به درگاه پرداخت';
-  } else {
-    confirmBtn.innerHTML = '<i class="fas fa-check ml-2"></i> تایید و پرداخت';
+  if (!confirmBtn){
+    return;
   }
-  
+  if (needsPayment) {
+    confirmBtn.innerHTML = '<i class="fas fa-shield-halved ml-2"></i> رفتن به درگاه پرداخت';
+  } else {
+    confirmBtn.innerHTML = '<i class="fas fa-check ml-2"></i> تایید و کسر از کیف پول';
+  }
+  confirmBtn.dataset.defaultHtml = confirmBtn.innerHTML;
+  confirmBtn.dataset.paymentMode = needsPayment ? 'gateway' : 'wallet';
+
   // Set up click handler
   confirmBtn.onclick = () => handlePaymentConfirm(pkg.id, priceToman, needsPayment);
-  
+
   // Show modal
   $('#modal-payment').classList.add('show');
   
@@ -3214,14 +3238,38 @@ function closePaymentModal() {
 }
 
 async function handlePaymentConfirm(packageId, priceToman, needsPayment) {
-  if (needsPayment) {
-    closePaymentModal();
-    toast('<i class="fas fa-spinner fa-spin ml-2"></i> در حال انتقال به درگاه پرداخت...');
-    await startExternalPayment(packageId, priceToman);
-  } else {
-    // Process payment with wallet balance
-    closePaymentModal();
-    startPurchaseCoins(packageId);
+  const confirmBtn = $('#payment-confirm-btn');
+  const cancelBtn = $('#payment-cancel-btn');
+  const defaultHtml = confirmBtn?.dataset?.defaultHtml || confirmBtn?.innerHTML || '';
+  const loadingHtml = needsPayment
+    ? '<i class="fas fa-spinner fa-spin ml-2"></i> در حال اتصال به درگاه...'
+    : '<i class="fas fa-spinner fa-spin ml-2"></i> در حال تکمیل خرید...';
+
+  if (confirmBtn){
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = loadingHtml;
+  }
+  if (cancelBtn){
+    cancelBtn.disabled = true;
+  }
+
+  try {
+    if (needsPayment) {
+      toast('<i class="fas fa-shield-halved ml-2"></i> در حال انتقال به درگاه پرداخت امن...');
+      closePaymentModal();
+      await startExternalPayment(packageId, priceToman);
+    } else {
+      closePaymentModal();
+      await startPurchaseCoins(packageId);
+    }
+  } finally {
+    if (confirmBtn){
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = defaultHtml;
+    }
+    if (cancelBtn){
+      cancelBtn.disabled = false;
+    }
   }
 }
 
