@@ -2311,11 +2311,44 @@ function startQuizTimerCountdown(){
     return RemoteConfig.shop || adminSettings?.shop || {};
   }
 
+  function isDeprecatedVipTier(plan){
+    if (!plan || typeof plan !== 'object') return false;
+    const fields = [plan.tier, plan.id, plan.displayName, plan.name, plan.badge];
+    for (const field of fields){
+      if (!field) continue;
+      const normalized = String(field).trim().toLowerCase();
+      if (!normalized) continue;
+      if (normalized.includes('lite') || normalized.includes('لایت')){
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function sanitizeVipPlanList(plans){
+    if (!Array.isArray(plans)) return [];
+    const unique = [];
+    const seen = new Set();
+    for (const plan of plans){
+      if (!plan || typeof plan !== 'object') continue;
+      if (isDeprecatedVipTier(plan)) continue;
+      const key = String(plan.tier || plan.id || '').trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      unique.push(plan);
+    }
+    if (!unique.length){
+      const fallback = plans.find((plan) => plan && (plan.tier || plan.id));
+      if (fallback) unique.push(fallback);
+    }
+    return unique;
+  }
+
   function getVipPlanConfigs(){
     const pricing = RemoteConfig?.pricing?.vip || {};
     const adminPlans = Array.isArray(RemoteConfig?.shop?.vipPlans) ? RemoteConfig.shop.vipPlans : [];
     if (adminPlans.length) {
-      return adminPlans
+      return sanitizeVipPlanList(adminPlans
         .map((plan, index) => {
           if (!plan || typeof plan !== 'object') return null;
           const tier = plan.tier || plan.id;
@@ -2341,9 +2374,9 @@ function startQuizTimerCountdown(){
             period: plan.period || base.period || ''
           };
         })
-        .filter(Boolean);
+        .filter(Boolean));
     }
-    return Object.keys(pricing).map((tier, index) => {
+    return sanitizeVipPlanList(Object.keys(pricing).map((tier, index) => {
       const base = pricing[tier] || {};
       const benefits = Array.isArray(base.benefits) ? base.benefits.slice() : [];
       return {
@@ -2359,7 +2392,7 @@ function startQuizTimerCountdown(){
         buttonText: base.buttonText || 'خرید اشتراک',
         period: base.period || ''
       };
-    });
+    }));
   }
 
   function hasActiveVipPlans(){
