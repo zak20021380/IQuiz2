@@ -211,7 +211,12 @@ export function renderQuestionUI(q) {
     if (authorLabelEl) {
       authorLabelEl.textContent = sourceKey === 'community'
         ? 'پیشنهاد جامعه آیکوئیز'
-        : 'منتشر شده توسط تیم محتوا';
+        : '';
+      if (!authorLabelEl.textContent) {
+        authorLabelEl.classList.add('hidden');
+      } else {
+        authorLabelEl.classList.remove('hidden');
+      }
     }
     const authorIconEl = authorWrapper.querySelector('[data-author-icon]');
     if (authorIconEl) {
