@@ -386,8 +386,7 @@ const DEFAULT_REMOTE_CONFIG = {
       { id: 'c3000', amount: 3000, bonus: 25, priceToman: 899_000, priceCents: 2999 }
     ],
     vip: {
-      lite: { id: 'vip_lite', priceCents: 299 },
-      pro: { id: 'vip_pro', priceCents: 599 }
+      standard: { id: 'vip_standard', priceCents: 499 }
     },
     keys: [
       { id: 'k1', amount: 1, priceGame: 30, label: 'بسته کوچک' },

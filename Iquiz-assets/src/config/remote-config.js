@@ -27,34 +27,20 @@ export const RemoteConfig = {
     ],
 
     vip: {
-      lite: {
-        id:'vip_lite',
-        displayName:'وی‌آی‌پی لایت',
-        priceToman: 99_000,
-        priceCents:299,
+      standard: {
+        id:'vip_standard',
+        displayName:'اشتراک VIP',
+        priceToman: 149_000,
+        priceCents:499,
         period:'ماهانه',
-        buttonText:'شروع اشتراک',
-        benefits:[
-          'حذف تبلیغات بنری',
-          'دو برابر محدودیت روزانه مسابقه/کلید'
-        ],
-        order:1,
-        badge:'شروع هوشمند'
-      },
-      pro:  {
-        id:'vip_pro',
-        displayName:'وی‌آی‌پی پرو',
-        priceToman: 199_000,
-        priceCents:599,
-        period:'ماهانه',
-        buttonText:'ارتقا به پرو',
+        buttonText:'خرید اشتراک',
         benefits:[
           'حذف تمام تبلیغات',
-          'سه برابر محدودیت روزانه مسابقه/کلید',
-          'جوایز و ماموریت‌های اختصاصی'
+          'دو برابر شدن محدودیت‌های روزانه',
+          'پشتیبانی اولویت‌دار'
         ],
-        order:2,
-        badge:'حرفه‌ای‌ها'
+        order:1,
+        badge:'اشتراک ویژه'
       }
     },
 
@@ -70,38 +56,25 @@ export const RemoteConfig = {
     sections: { hero: true, keys: true, wallet: true, vip: true },
     vipPlans: [
       {
-        id: 'vip_lite',
-        tier: 'lite',
-        displayName: 'وی‌آی‌پی لایت',
-        price: 99_000,
+        id: 'vip_standard',
+        tier: 'standard',
+        displayName: 'اشتراک VIP',
+        price: 149_000,
         period: 'ماهانه',
-        buttonText: 'شروع اشتراک',
-        benefits: ['حذف تبلیغات بنری', 'دو برابر محدودیت روزانه مسابقه/کلید'],
-        badge: 'شروع هوشمند',
-        featured: false,
-        order: 1,
-        active: true
-      },
-      {
-        id: 'vip_pro',
-        tier: 'pro',
-        displayName: 'وی‌آی‌پی پرو',
-        price: 199_000,
-        period: 'ماهانه',
-        buttonText: 'ارتقا به پرو',
-        benefits: ['حذف تمام تبلیغات', 'سه برابر محدودیت روزانه', 'جوایز و ماموریت‌های اختصاصی'],
-        badge: 'حرفه‌ای‌ها',
+        buttonText: 'خرید اشتراک',
+        benefits: ['حذف تمام تبلیغات', 'دو برابر شدن محدودیت‌های روزانه', 'پشتیبانی اولویت‌دار'],
+        badge: '',
         featured: true,
-        order: 2,
+        order: 1,
         active: true
       }
     ],
     vipSummary: {
       enabled: true,
-      customNote: 'با فعال‌سازی VIP تبلیغات حذف می‌شود و محدودیت‌های روزانه افزایش می‌یابد.',
-      perks: [],
-      trialDays: 3,
-      slots: 150,
+      customNote: 'اشتراک VIP فقط یک پلن دارد؛ با فعال‌سازی، تبلیغات حذف و محدودیت‌های روزانه افزایش می‌یابد.',
+      perks: ['حذف تبلیغات', 'دو برابر شدن محدودیت‌ها', 'پشتیبانی اولویت‌دار'],
+      trialDays: 0,
+      slots: 0,
       autoRenew: true,
       autoApprove: true,
       billingCycle: 'monthly'
