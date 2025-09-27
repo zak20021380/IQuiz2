@@ -2311,14 +2311,65 @@ function startQuizTimerCountdown(){
     return RemoteConfig.shop || adminSettings?.shop || {};
   }
 
+  function getVipPlanConfigs(){
+    const pricing = RemoteConfig?.pricing?.vip || {};
+    const adminPlans = Array.isArray(RemoteConfig?.shop?.vipPlans) ? RemoteConfig.shop.vipPlans : [];
+    if (adminPlans.length) {
+      return adminPlans
+        .map((plan, index) => {
+          if (!plan || typeof plan !== 'object') return null;
+          const tier = plan.tier || plan.id;
+          if (!tier) return null;
+          const base = pricing[tier] || {};
+          const benefits = Array.isArray(plan.benefits) && plan.benefits.length
+            ? plan.benefits.slice()
+            : Array.isArray(base.benefits) ? base.benefits.slice() : [];
+          const priceToman = Number(plan.price != null ? plan.price : base.priceToman);
+          return {
+            tier,
+            ...base,
+            ...plan,
+            displayName: plan.displayName || base.displayName || tier,
+            priceToman: Number.isFinite(priceToman) ? priceToman : Number(base.priceToman) || 0,
+            priceCents: Number.isFinite(plan.priceCents) ? Number(plan.priceCents) : Number(base.priceCents) || undefined,
+            benefits,
+            order: Number.isFinite(plan.order) ? Number(plan.order) : (Number(base.order) || index + 1),
+            active: plan.active !== false && base.active !== false,
+            featured: plan.featured === true || base.featured === true,
+            badge: plan.badge || base.badge || '',
+            buttonText: plan.buttonText || base.buttonText || 'خرید اشتراک',
+            period: plan.period || base.period || ''
+          };
+        })
+        .filter(Boolean);
+    }
+    return Object.keys(pricing).map((tier, index) => {
+      const base = pricing[tier] || {};
+      const benefits = Array.isArray(base.benefits) ? base.benefits.slice() : [];
+      return {
+        tier,
+        ...base,
+        displayName: base.displayName || tier,
+        priceToman: Number(base.priceToman) || 0,
+        benefits,
+        order: Number.isFinite(base.order) ? Number(base.order) : index + 1,
+        active: base.active !== false,
+        featured: base.featured === true,
+        badge: base.badge || '',
+        buttonText: base.buttonText || 'خرید اشتراک',
+        period: base.period || ''
+      };
+    });
+  }
+
   function hasActiveVipPlans(){
-    const vip = RemoteConfig?.pricing?.vip || {};
-    return Object.values(vip).some((plan) => plan && plan.active !== false);
+    return getVipPlanConfigs().some((plan) => plan && plan.active !== false);
   }
 
   function getActiveVipPlans(){
-    const vip = RemoteConfig?.pricing?.vip || {};
-    return Object.keys(vip).map((tier) => ({ tier, ...(vip[tier] || {}) })).filter((plan) => plan && plan.active !== false);
+    return getVipPlanConfigs()
+      .filter((plan) => plan && plan.active !== false)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }
 
   function normalizeVipPrice(plan){
@@ -2593,31 +2644,52 @@ function startQuizTimerCountdown(){
   }
 
   function renderVipPlans(){
-    const cards = $$('[data-vip-plan]');
-    if (!cards.length) {
+    const container = $('#vip-plans');
+    const template = $('#vip-plan-template');
+    const meta = $('#vip-meta');
+    if (!container || !template || !template.content?.firstElementChild) {
       renderShopVipIntro();
       return;
     }
-    const plansConfig = RemoteConfig?.pricing?.vip || {};
-    let anyActive = false;
-    cards.forEach((card) => {
-      const tier = card.dataset.vipPlan;
-      const plan = plansConfig?.[tier];
-      const active = !!(plan && plan.active !== false);
-      card.classList.toggle('hidden', !active);
-      const btn = card.querySelector('[data-vip-plan-button]');
-      if (btn) btn.disabled = !active;
-      if (!active) return;
-      anyActive = true;
-      const displayName = plan.displayName || (tier === 'pro' ? 'وی‌آی‌پی پرو' : tier === 'lite' ? 'وی‌آی‌پی لایت' : `پلن ${tier}`);
-      const nameEl = card.querySelector('[data-vip-plan-name]');
-      if (nameEl) nameEl.textContent = displayName;
-      const priceEl = card.querySelector('[data-vip-plan-price]');
+    container.innerHTML = '';
+    const plans = getActiveVipPlans();
+    if (!plans.length) {
+      const empty = document.createElement('div');
+      empty.className = 'text-sm opacity-70 text-center bg-white/5 border border-white/10 rounded-2xl p-4';
+      empty.textContent = 'پلنی برای خرید فعال نشده است.';
+      container.appendChild(empty);
+      if (meta) {
+        meta.textContent = 'برای نمایش پلن‌های VIP ابتدا آن‌ها را در پنل مدیریت فعال کنید.';
+      }
+      renderShopVipIntro();
+      return;
+    }
+
+    plans.forEach((plan) => {
+      const node = template.content.firstElementChild.cloneNode(true);
+      node.dataset.vipPlanCard = plan.tier;
+      if (plan.featured) {
+        node.classList.add('border-amber-300/40', 'shadow-lg', 'shadow-amber-500/20');
+      }
+      const nameEl = node.querySelector('[data-plan-name]');
+      if (nameEl) nameEl.textContent = plan.displayName || plan.tier || 'اشتراک VIP';
+      const periodEl = node.querySelector('[data-plan-period]');
+      if (periodEl) periodEl.textContent = plan.period || '';
+      const priceEl = node.querySelector('[data-plan-price]');
       if (priceEl) priceEl.textContent = formatVipPrice(plan);
-      const benefitsEl = card.querySelector('[data-vip-plan-benefits]');
+      const badgeEl = node.querySelector('[data-plan-badge]');
+      if (badgeEl) {
+        if (plan.badge) {
+          badgeEl.textContent = plan.badge;
+          badgeEl.className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold';
+        } else {
+          badgeEl.remove();
+        }
+      }
+      const benefitsEl = node.querySelector('[data-plan-benefits]');
       if (benefitsEl) {
-        const benefits = Array.isArray(plan.benefits) ? plan.benefits.filter(Boolean) : [];
         benefitsEl.innerHTML = '';
+        const benefits = Array.isArray(plan.benefits) ? plan.benefits.filter(Boolean) : [];
         if (benefits.length) {
           benefits.forEach((benefit) => {
             const li = document.createElement('li');
@@ -2630,16 +2702,48 @@ function startQuizTimerCountdown(){
           benefitsEl.appendChild(li);
         }
       }
+      const btn = node.querySelector('[data-plan-button]');
       if (btn) {
         const label = plan.buttonText || 'خرید اشتراک';
         btn.textContent = label;
-        btn.setAttribute('aria-label', `${label} ${displayName}`);
+        btn.dataset.vipPlanButton = plan.tier;
+        btn.setAttribute('aria-label', `${label} ${plan.displayName || plan.tier}`);
+        btn.classList.remove('btn-primary', 'btn-secondary');
+        btn.classList.add(plan.featured ? 'btn-primary' : 'btn-secondary');
+        btn.addEventListener('click', () => startPurchaseVip(plan.tier));
       }
+      container.appendChild(node);
     });
-    if (!anyActive){
-      const meta = $('#vip-meta');
-      if (meta) meta.innerHTML = '<div class="text-sm opacity-80">پلن فعالی در دسترس نیست.</div>';
+
+    if (meta) {
+      const summary = RemoteConfig?.shop?.vipSummary || {};
+      meta.innerHTML = '';
+      if (summary.customNote) {
+        const note = document.createElement('div');
+        note.textContent = summary.customNote;
+        meta.appendChild(note);
+      }
+      const tags = [];
+      if (Number(summary.trialDays) > 0) tags.push(`دوره آزمایشی ${faNum(summary.trialDays)} روز`);
+      if (Number(summary.slots) > 0) tags.push(`ظرفیت ${faNum(summary.slots)} نفر`);
+      if (summary.autoRenew) tags.push('تمدید خودکار فعال');
+      if (summary.autoApprove) tags.push('تایید فوری پس از پرداخت');
+      if (tags.length) {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-wrap gap-2 mt-3 text-xs opacity-80 justify-end sm:justify-start';
+        tags.forEach((label) => {
+          const chip = document.createElement('span');
+          chip.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 border border-white/15';
+          chip.textContent = label;
+          wrap.appendChild(chip);
+        });
+        meta.appendChild(wrap);
+      }
+      if (!meta.innerHTML.trim()) {
+        meta.textContent = 'پلن مناسب خود را انتخاب کنید و فوراً مزایای VIP را فعال نمایید.';
+      }
     }
+
     renderShopVipIntro();
   }
 
@@ -3209,13 +3313,27 @@ async function startPurchaseCoins(pkgId){
     const pricing = RemoteConfig.pricing.vip[tier];
     if(!pricing){ toast('پلن یافت نشد'); return; }
     const idem = genIdemKey();
-    const btn = (tier==='lite')?$('#buy-vip-lite'):$('#buy-vip-pro');
-    btn.disabled = true; const prevHTML = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> ایجاد تراکنش...';
-    await logEvent('purchase_initiated', { kind:'vip', tier, priceCents:pricing.priceCents, idem });
+    const btn = document.querySelector(`[data-vip-plan-button="${tier}"]`);
+    const planName = pricing.displayName || pricing.name || tier;
+    const prevHTML = btn ? btn.innerHTML : null;
+    const prevDisabled = btn ? btn.disabled : false;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> ایجاد تراکنش...';
+    }
+    const priceCents = Number.isFinite(pricing.priceCents)
+      ? Number(pricing.priceCents)
+      : (Number.isFinite(pricing.priceToman) && RemoteConfig?.pricing?.usdToToman
+          ? Math.round((pricing.priceToman / RemoteConfig.pricing.usdToToman) * 100)
+          : undefined);
+    await logEvent('purchase_initiated', { kind:'vip', tier, priceCents, priceToman: pricing.priceToman ?? null, idem });
     const res = await Net.jpost('/api/payments/create', { idempotencyKey: idem, type:'vip', tier });
     const txnId = res?.data?.txnId || null;
     if(!txnId){
-      btn.disabled=false; btn.innerHTML = prevHTML;
+      if (btn) {
+        btn.disabled = prevDisabled;
+        btn.innerHTML = prevHTML;
+      }
       toast('<i class="fas fa-triangle-exclamation ml-2"></i> ایجاد تراکنش VIP ناموفق');
       await logEvent('purchase_failed', { kind:'vip', tier, reason:'create_failed' });
       return;
@@ -3239,13 +3357,16 @@ async function startPurchaseCoins(pkgId){
     // Poll subscription
     let ok=false;
     for(let i=0;i<20;i++){ await wait(1200); await refreshSubscription(); if(Server.subscription.active){ ok=true; break; } }
-    btn.disabled=false; btn.innerHTML = prevHTML;
+    if (btn) {
+      btn.disabled = prevDisabled;
+      btn.innerHTML = prevHTML;
+    }
     if(ok){
       await logEvent('purchase_succeeded', { kind:'vip', tier, txnId });
       await logEvent('vip_activated', { tier, expiry: Server.subscription.expiry||null });
       openReceipt({ title:'اشتراک فعال شد 🎉', rows:[
         ['کد تراکنش', txnId],
-        ['پلن', tier==='lite'?'لایت':'پرو'],
+        ['پلن', planName],
         ['تا تاریخ', Server.subscription.expiry ? new Date(Server.subscription.expiry).toLocaleDateString('fa-IR') : '—']
       ]});
       renderHeader(); renderDashboard(); AdManager.refreshAll(); shootConfetti();
@@ -5669,8 +5790,6 @@ function leaveGroup(groupId) {
   });
   
   // VIP purchase buttons
-  $('#buy-vip-lite')?.addEventListener('click', ()=> startPurchaseVip('lite'));
-  $('#buy-vip-pro')?.addEventListener('click', ()=> startPurchaseVip('pro'));
   
   // Detail Popup Events
   $('#detail-close')?.addEventListener('click', closeDetailPopup);

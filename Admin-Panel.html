@@ -3639,10 +3639,139 @@
                       </label>
                     </div>
                   </div>
+                  <div class="space-y-4" data-vip-plans-editor>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div>
+                        <h4 class="text-sm font-semibold text-white flex items-center gap-2">
+                          <i class="fa-solid fa-layer-group text-amber-300"></i>
+                          <span>پلن‌های اشتراک VIP</span>
+                        </h4>
+                        <p class="text-xs text-white/60 mt-1">قیمت، مزایا و CTA هر پلن را مدیریت کنید تا تجربه فروش حرفه‌ای‌تری ارائه شود.</p>
+                      </div>
+                      <span class="text-xs text-white/50">قیمت‌ها بر اساس واحد انتخابی فروشگاه نمایش داده می‌شوند.</span>
+                    </div>
+                    <div class="grid gap-4 xl:grid-cols-2" data-vip-plan-list>
+                      <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4" data-vip-plan-card data-vip-plan-tier="lite" data-vip-plan-default-name="وی‌آی‌پی لایت" data-vip-plan-order="1">
+                        <div class="flex items-start justify-between gap-3">
+                          <div>
+                            <div class="text-sm font-semibold text-white/80 flex items-center gap-2">
+                              <i class="fa-solid fa-crown text-amber-300"></i>
+                              <span data-vip-plan-title>وی‌آی‌پی لایت</span>
+                            </div>
+                            <p class="text-xs text-white/50 mt-1">پلن شروع سریع برای کاربران تازه‌وارد.</p>
+                          </div>
+                          <label class="toggle text-xs">
+                            <input type="checkbox" data-vip-plan-active data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                            <span class="toggle-label" data-toggle-text>فعال</span>
+                          </label>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">عنوان نمایشی</label>
+                            <input type="text" class="form-input text-sm" data-vip-plan-field="displayName" value="وی‌آی‌پی لایت" placeholder="مثال: اشتراک طلایی">
+                          </div>
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">قیمت (تومان)</label>
+                            <input type="number" min="0" class="form-input text-sm" data-vip-plan-field="price" value="99000">
+                          </div>
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">دوره صورتحساب</label>
+                            <select class="form-input text-sm" data-vip-plan-field="period">
+                              <option value="هفتگی">هفتگی</option>
+                              <option value="ماهانه" selected>ماهانه</option>
+                              <option value="سه‌ماهه">سه‌ماهه</option>
+                              <option value="سالانه">سالانه</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">متن دکمه</label>
+                            <input type="text" class="form-input text-sm" data-vip-plan-field="buttonText" value="شروع اشتراک" placeholder="مثال: شروع اشتراک">
+                          </div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">برچسب تبلیغاتی</label>
+                            <input type="text" class="form-input text-sm" data-vip-plan-field="badge" value="شروع هوشمند" placeholder="مثال: پیشنهاد ویژه">
+                          </div>
+                          <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                            <span class="text-xs text-white/60">نمایش به عنوان پلن پیشنهادی</span>
+                            <label class="toggle text-xs">
+                              <input type="checkbox" data-vip-plan-featured data-toggle-on="بله" data-toggle-off="خیر">
+                              <span class="toggle-label" data-toggle-text>خیر</span>
+                            </label>
+                          </div>
+                        </div>
+                        <div>
+                          <label class="block text-xs text-white/60 mb-1">لیست مزایا (هر خط یک مورد)</label>
+                          <textarea rows="3" class="form-input text-sm" data-vip-plan-field="benefits">حذف تبلیغات بنری
+دو برابر محدودیت روزانه مسابقه/کلید</textarea>
+                          <p class="text-xs text-white/50 mt-1">می‌توانید از گلوله‌گذاری خودکار برای نمایش در فروشگاه استفاده کنید.</p>
+                        </div>
+                      </div>
+                      <div class="rounded-2xl border border-amber-200/40 bg-gradient-to-br from-amber-500/20 via-rose-500/10 to-indigo-600/20 p-4 space-y-4" data-vip-plan-card data-vip-plan-tier="pro" data-vip-plan-default-name="وی‌آی‌پی پرو" data-vip-plan-order="2">
+                        <div class="flex items-start justify-between gap-3">
+                          <div>
+                            <div class="text-sm font-semibold text-white flex items-center gap-2">
+                              <i class="fa-solid fa-crown text-yellow-300"></i>
+                              <span data-vip-plan-title>وی‌آی‌پی پرو</span>
+                            </div>
+                            <p class="text-xs text-white/60 mt-1">پیشنهاد حرفه‌ای با حداکثر مزایا و پشتیبانی.</p>
+                          </div>
+                          <label class="toggle text-xs">
+                            <input type="checkbox" data-vip-plan-active data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                            <span class="toggle-label" data-toggle-text>فعال</span>
+                          </label>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">عنوان نمایشی</label>
+                            <input type="text" class="form-input text-sm" data-vip-plan-field="displayName" value="وی‌آی‌پی پرو" placeholder="مثال: اشتراک حرفه‌ای">
+                          </div>
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">قیمت (تومان)</label>
+                            <input type="number" min="0" class="form-input text-sm" data-vip-plan-field="price" value="199000">
+                          </div>
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">دوره صورتحساب</label>
+                            <select class="form-input text-sm" data-vip-plan-field="period">
+                              <option value="هفتگی">هفتگی</option>
+                              <option value="ماهانه" selected>ماهانه</option>
+                              <option value="سه‌ماهه">سه‌ماهه</option>
+                              <option value="سالانه">سالانه</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">متن دکمه</label>
+                            <input type="text" class="form-input text-sm" data-vip-plan-field="buttonText" value="ارتقا به پرو" placeholder="مثال: ارتقا به پرو">
+                          </div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label class="block text-xs text-white/60 mb-1">برچسب تبلیغاتی</label>
+                            <input type="text" class="form-input text-sm" data-vip-plan-field="badge" value="حرفه‌ای‌ها" placeholder="مثال: محبوب‌ترین">
+                          </div>
+                          <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                            <span class="text-xs text-white/60">نمایش به عنوان پلن پیشنهادی</span>
+                            <label class="toggle text-xs">
+                              <input type="checkbox" data-vip-plan-featured data-toggle-on="بله" data-toggle-off="خیر" checked>
+                              <span class="toggle-label" data-toggle-text>بله</span>
+                            </label>
+                          </div>
+                        </div>
+                        <div>
+                          <label class="block text-xs text-white/60 mb-1">لیست مزایا (هر خط یک مورد)</label>
+                          <textarea rows="3" class="form-input text-sm" data-vip-plan-field="benefits">حذف تمام تبلیغات
+سه برابر محدودیت روزانه مسابقه/کلید
+جوایز و ماموریت‌های اختصاصی</textarea>
+                          <p class="text-xs text-white/50 mt-1">برای جدا کردن مزایا از کلید Enter استفاده کنید.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div>
                     <label class="block text-xs text-white/70 mb-1">توضیحات اختصاصی VIP</label>
                     <textarea id="shop-vip-benefits" rows="2" class="form-input text-sm" placeholder="مثال: تحلیل اختصاصی عملکرد و مسابقات هفتگی">دسترسی به رویدادهای اختصاصی و تحلیل عملکرد هفتگی.</textarea>
-                    <p class="text-xs text-white/50 mt-1">این متن در معرفی اشتراک VIP به کاربران نمایش داده می‌شود.</p>
+                    <p class="text-xs text-white/50 mt-1">این متن به‌عنوان توضیح تکمیلی زیر پلن‌های اشتراک نمایش داده می‌شود.</p>
                   </div>
                 </div>
                 <div class="space-y-5 lg:col-span-2">
@@ -3670,6 +3799,10 @@
                     <p class="text-xs text-white/70 leading-6" data-vip-preview-note>دسترسی به رویدادهای اختصاصی و تحلیل عملکرد هفتگی.</p>
                   </div>
                   <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+                    <div class="flex items-center justify-between text-xs text-white/60">
+                      <span>پلن‌های فعال</span>
+                      <span class="text-sm font-bold text-white" data-vip-metric="plans">۲ پلن</span>
+                    </div>
                     <div class="flex items-center justify-between text-xs text-white/60">
                       <span>مزایای فعال</span>
                       <span class="text-sm font-bold text-white" data-vip-metric="perks">۳</span>

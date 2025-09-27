@@ -583,6 +583,7 @@ const shopVipPreviewPerks = shopVipSection ? shopVipSection.querySelector('[data
 const shopVipPreviewNote = shopVipSection ? shopVipSection.querySelector('[data-vip-preview-note]') : null;
 const shopVipMetricElements = shopVipSection ? Array.from(shopVipSection.querySelectorAll('[data-vip-metric]')) : [];
 const shopVipPerkCheckboxes = shopVipSection ? Array.from(shopVipSection.querySelectorAll('input[data-vip-perk]')) : [];
+const shopVipPlanCards = shopVipSection ? Array.from(shopVipSection.querySelectorAll('[data-vip-plan-card]')) : [];
 const shopRevenueSection = $('#shop-revenue-section');
 const shopRevenueRangeButtons = shopRevenueSection ? Array.from(shopRevenueSection.querySelectorAll('[data-shop-revenue-range]')) : [];
 const shopRevenueRangeLabel = shopRevenueSection ? shopRevenueSection.querySelector('[data-shop-revenue-range-label]') : null;
@@ -6263,6 +6264,13 @@ function applySettingsSnapshot(snapshot) {
     });
   }
 
+  const vipPlansData = Array.isArray(shop.vipPlans)
+    ? shop.vipPlans
+    : Array.isArray(snapshot.vipPlans)
+      ? snapshot.vipPlans
+      : [];
+  applyVipPlanSnapshots(vipPlansData);
+
   const support = shop.support || {};
   if (shopSupportMessageInput && support.message != null) shopSupportMessageInput.value = support.message;
   if (shopSupportLinkInput && support.link != null) shopSupportLinkInput.value = support.link;
@@ -6284,6 +6292,13 @@ function applySettingsSnapshot(snapshot) {
   syncToggleLabel(shopVipToggle);
   syncToggleLabel(shopVipAutoRenewToggle);
   syncToggleLabel(shopVipAutoApproveToggle);
+  shopVipPlanCards.forEach((card) => {
+    const activeToggle = card.querySelector('[data-vip-plan-active]');
+    const featuredToggle = card.querySelector('[data-vip-plan-featured]');
+    syncToggleLabel(activeToggle);
+    syncToggleLabel(featuredToggle);
+    updateVipPlanTitle(card);
+  });
 
   updateHeroPreview();
   updateVipPreview();
@@ -6420,10 +6435,185 @@ function collectShopPackagesByType() {
   return result;
 }
 
+function parseVipBenefitsValue(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map((item) => safeString(item, '')).filter(Boolean);
+  }
+  const text = safeString(raw, '');
+  if (!text) return [];
+  return text
+    .split(/\r?\n|•/)
+    .map((item) => safeString(item, ''))
+    .filter(Boolean);
+}
+
+function readVipPlanCard(card) {
+  if (!card) return null;
+  const data = card.dataset || {};
+  const fallbackTier = safeString(data.vipPlanTier || data.vipPlanId || '', '');
+  const plan = {
+    id: safeString(data.vipPlanId || data.vipPlanTier || fallbackTier, fallbackTier),
+    tier: safeString(data.vipPlanTier || data.vipPlanId || fallbackTier, fallbackTier),
+    displayName: '',
+    price: 0,
+    period: '',
+    buttonText: '',
+    badge: '',
+    benefits: [],
+    active: true,
+    featured: false,
+    order: safeNumber(data.vipPlanOrder || 0, 0) || 0,
+  };
+
+  const defaultName = safeString(data.vipPlanDefaultName || plan.tier, plan.tier);
+
+  card.querySelectorAll('[data-vip-plan-field]').forEach((input) => {
+    if (!input || !input.dataset) return;
+    const field = safeString(input.dataset.vipPlanField || '', '');
+    if (!field) return;
+    if (input.tagName === 'TEXTAREA') {
+      if (field === 'benefits') {
+        plan.benefits = parseVipBenefitsValue(input.value);
+      } else {
+        plan[field] = safeString(input.value, '');
+      }
+    } else if (input.tagName === 'SELECT') {
+      plan[field] = safeString(input.value, '');
+    } else if (input.type === 'number') {
+      plan[field] = safeNumber(input.value, 0);
+    } else {
+      plan[field] = safeString(input.value, '');
+    }
+  });
+
+  const activeToggle = card.querySelector('[data-vip-plan-active]');
+  if (activeToggle) {
+    plan.active = getCheckboxValue(activeToggle, true);
+  }
+  const featuredToggle = card.querySelector('[data-vip-plan-featured]');
+  if (featuredToggle) {
+    plan.featured = getCheckboxValue(featuredToggle, false);
+  }
+
+  if (!plan.displayName) {
+    plan.displayName = defaultName || plan.tier || 'VIP';
+  }
+  if (!plan.id) {
+    plan.id = plan.tier || defaultName || `vip_${Date.now()}`;
+  }
+  if (!Array.isArray(plan.benefits) || !plan.benefits.length) {
+    const benefitsField = card.querySelector('[data-vip-plan-field="benefits"]');
+    if (benefitsField) {
+      plan.benefits = parseVipBenefitsValue(benefitsField.defaultValue || benefitsField.value || '');
+    }
+  }
+  if (!plan.order) {
+    const fallbackOrder = safeNumber(card.dataset.vipPlanOrder || 0, 0);
+    plan.order = fallbackOrder || 0;
+  }
+
+  return plan;
+}
+
+function collectVipPlansFromCards() {
+  if (!shopVipPlanCards.length) return [];
+  return shopVipPlanCards
+    .map((card, index) => {
+      const plan = readVipPlanCard(card);
+      if (!plan || !plan.tier) return null;
+      if (!plan.order) {
+        plan.order = index + 1;
+      }
+      return plan;
+    })
+    .filter(Boolean);
+}
+
+function updateVipPlanTitle(card) {
+  if (!card) return;
+  const title = card.querySelector('[data-vip-plan-title]');
+  if (!title) return;
+  const nameInput = card.querySelector('[data-vip-plan-field="displayName"]');
+  const defaultName = safeString(card.dataset.vipPlanDefaultName || card.dataset.vipPlanTier || '', '');
+  const value = safeString(nameInput ? nameInput.value : '', defaultName);
+  title.textContent = value || defaultName || '—';
+}
+
+function applyVipPlanSnapshots(plans) {
+  if (!shopVipPlanCards.length) return;
+  const source = Array.isArray(plans) ? plans : [];
+  const byTier = new Map();
+  source.forEach((plan) => {
+    if (!plan || typeof plan !== 'object') return;
+    const tier = safeString(plan.tier || plan.id || '', '');
+    if (!tier) return;
+    byTier.set(tier, plan);
+  });
+
+  shopVipPlanCards.forEach((card, index) => {
+    const tier = safeString(card.dataset.vipPlanTier || card.dataset.vipPlanId || '', '');
+    const plan = byTier.get(tier) || byTier.get(safeString(card.dataset.vipPlanDefaultName || '', '')) || null;
+    const inputs = Array.from(card.querySelectorAll('[data-vip-plan-field]'));
+    inputs.forEach((input) => {
+      if (!input || !input.dataset) return;
+      const field = safeString(input.dataset.vipPlanField || '', '');
+      if (!field) return;
+      if (!plan) {
+        if (input.tagName === 'SELECT') {
+          setSelectValue(input, input.value);
+        } else if (input.tagName === 'TEXTAREA') {
+          input.value = input.defaultValue || '';
+        } else if (input.type === 'number') {
+          input.value = input.defaultValue != null ? input.defaultValue : input.value;
+        } else {
+          input.value = input.defaultValue != null ? input.defaultValue : input.value;
+        }
+        return;
+      }
+      switch (input.tagName) {
+        case 'SELECT':
+          setSelectValue(input, plan[field] != null ? plan[field] : input.value);
+          break;
+        case 'TEXTAREA':
+          if (field === 'benefits') {
+            input.value = Array.isArray(plan.benefits) ? plan.benefits.join('\n') : safeString(plan[field], '');
+          } else {
+            input.value = safeString(plan[field], '');
+          }
+          break;
+        default:
+          if (input.type === 'number') {
+            input.value = plan[field] != null ? plan[field] : input.value;
+          } else {
+            input.value = safeString(plan[field], '');
+          }
+          break;
+      }
+    });
+    const activeToggle = card.querySelector('[data-vip-plan-active]');
+    if (activeToggle) {
+      activeToggle.checked = plan ? plan.active !== false : true;
+      syncToggleLabel(activeToggle);
+    }
+    const featuredToggle = card.querySelector('[data-vip-plan-featured]');
+    if (featuredToggle) {
+      featuredToggle.checked = plan ? plan.featured === true : getCheckboxValue(featuredToggle, false);
+      syncToggleLabel(featuredToggle);
+    }
+    updateVipPlanTitle(card);
+    if (plan && !plan.order) {
+      plan.order = index + 1;
+    }
+  });
+}
+
 function collectVipSettings() {
   const state = computeVipState();
-  if (!state) return {};
-  return {
+  if (!state) {
+    return { config: {}, plans: [] };
+  }
+  const plans = collectVipPlansFromCards();
+  const config = {
     enabled: state.enabled,
     autoRenew: state.autoRenew,
     autoApprove: state.autoApprove,
@@ -6434,9 +6624,11 @@ function collectVipSettings() {
     perks: state.perksValues,
     customNote: state.note
   };
+  return { config, plans };
 }
 
 function collectShopSettingsSnapshot() {
+  const vipSnapshot = collectVipSettings();
   return {
     enabled: getCheckboxValue(shopGlobalToggle, true),
     currency: safeString(shopPricingCurrencySelect ? shopPricingCurrencySelect.value : 'coin', 'coin') || 'coin',
@@ -6450,7 +6642,8 @@ function collectShopSettingsSnapshot() {
       ctaLink: safeString(shopHeroLinkInput ? shopHeroLinkInput.value : '', '')
     },
     packages: collectShopPackagesByType(),
-    vip: collectVipSettings(),
+    vip: vipSnapshot.config,
+    vipPlans: vipSnapshot.plans,
     support: {
       message: safeString(shopSupportMessageInput ? shopSupportMessageInput.value : '', ''),
       link: safeString(shopSupportLinkInput ? shopSupportLinkInput.value : '', '')
@@ -6689,6 +6882,15 @@ function computeVipState() {
 
   const perksSelected = perks.filter((perk) => perk.checked);
 
+  const plans = collectVipPlansFromCards();
+  const activePlans = plans.filter((plan) => plan && plan.active !== false);
+  const pricedPlans = activePlans.filter((plan) => Number.isFinite(plan.price) && plan.price > 0);
+  const cheapestPlan = pricedPlans.length
+    ? pricedPlans.slice().sort((a, b) => a.price - b.price)[0]
+    : null;
+  const featuredPlan = activePlans.find((plan) => plan.featured) || null;
+  const previewPlan = featuredPlan || cheapestPlan || activePlans[0] || null;
+
   return {
     enabled: getCheckboxValue(shopVipToggle),
     autoRenew: getCheckboxValue(shopVipAutoRenewToggle),
@@ -6705,7 +6907,14 @@ function computeVipState() {
     perksCount: perksSelected.length,
     note: safeString(shopVipBenefitsInput ? shopVipBenefitsInput.value : '', ''),
     currencyValue,
-    currencyLabel
+    currencyLabel,
+    plans,
+    activePlans,
+    featuredPlan,
+    previewPlan,
+    cheapestPlan,
+    planCount: activePlans.length,
+    cheapestPrice: cheapestPlan ? cheapestPlan.price : 0
   };
 }
 
@@ -6720,8 +6929,16 @@ function updateVipPreview() {
     shopVipStatusLabel.classList.toggle('text-rose-300', !state.enabled);
   }
 
+  const previewPlan = state.previewPlan;
+  const previewPrice = previewPlan && Number.isFinite(previewPlan.price) ? previewPlan.price : state.price;
+  const previewBenefits = Array.isArray(previewPlan?.benefits) && previewPlan.benefits.length
+    ? previewPlan.benefits
+    : state.perksLabels;
+
   if (shopVipPreviewCard) {
     shopVipPreviewCard.classList.toggle('opacity-60', !state.enabled);
+    shopVipPreviewCard.classList.toggle('ring-2', !!(previewPlan && previewPlan.featured));
+    shopVipPreviewCard.classList.toggle('ring-amber-300/60', !!(previewPlan && previewPlan.featured));
   }
 
   if (shopVipPreviewState) {
@@ -6729,18 +6946,19 @@ function updateVipPreview() {
   }
 
   if (shopVipPreviewPrice) {
-    shopVipPreviewPrice.textContent = state.price > 0
-      ? `${formatNumberFa(state.price)} ${state.currencyLabel}`
+    shopVipPreviewPrice.textContent = previewPrice > 0
+      ? `${formatNumberFa(previewPrice)} ${state.currencyLabel}`
       : `قیمت ${state.currencyLabel}`;
   }
 
   if (shopVipPreviewCycle) {
-    shopVipPreviewCycle.textContent = state.billingLabel || 'دوره نامشخص';
+    const cycleLabel = previewPlan?.period || state.billingLabel || 'دوره نامشخص';
+    shopVipPreviewCycle.textContent = cycleLabel;
   }
 
   if (shopVipPreviewPerks) {
-    shopVipPreviewPerks.textContent = state.perksLabels.length
-      ? state.perksLabels.join(' • ')
+    shopVipPreviewPerks.textContent = previewBenefits.length
+      ? previewBenefits.join(' • ')
       : 'مزیتی انتخاب نشده است';
   }
 
@@ -6762,6 +6980,9 @@ function updateVipPreview() {
           break;
         case 'slots':
           metric.textContent = state.slots > 0 ? `${formatNumberFa(state.slots)} نفر` : 'نامحدود';
+          break;
+        case 'plans':
+          metric.textContent = state.planCount ? `${formatNumberFa(state.planCount)} پلن` : 'بدون پلن';
           break;
         case 'automation': {
           const parts = [];
@@ -6805,11 +7026,18 @@ function updateShopSummary() {
     } else if (!vipState.enabled) {
       shopSummaryElements.vip.textContent = 'غیرفعال';
     } else {
-      const perksLabel = vipState.perksCount
-        ? `${formatNumberFa(vipState.perksCount)} مزیت`
-        : 'بدون مزیت';
-      const cycleLabel = vipState.billingLabel || 'دوره نامشخص';
-      shopSummaryElements.vip.textContent = `${perksLabel} • ${cycleLabel}`;
+      const planLabel = vipState.planCount
+        ? `${formatNumberFa(vipState.planCount)} پلن`
+        : 'بدون پلن';
+      let priceLabel = '';
+      if (vipState.cheapestPrice > 0) {
+        priceLabel = `از ${formatNumberFa(vipState.cheapestPrice)} ${vipState.currencyLabel}`;
+      } else if (vipState.billingLabel) {
+        priceLabel = vipState.billingLabel;
+      } else {
+        priceLabel = 'دوره نامشخص';
+      }
+      shopSummaryElements.vip.textContent = `${planLabel} • ${priceLabel}`;
     }
   }
 }
@@ -6914,6 +7142,40 @@ function setupShopControls() {
       if (shopState.initialized) {
         markShopUpdated();
       }
+    });
+  });
+
+  shopVipPlanCards.forEach((card) => {
+    if (!card) return;
+    const planInputs = Array.from(card.querySelectorAll('[data-vip-plan-field]'));
+    const activeToggle = card.querySelector('[data-vip-plan-active]');
+    const featuredToggle = card.querySelector('[data-vip-plan-featured]');
+
+    [activeToggle, featuredToggle].forEach((toggle) => {
+      if (!toggle) return;
+      registerToggle(toggle, {
+        onChange: () => {
+          updateVipPlanTitle(card);
+          updateVipPreview();
+          updateShopSummary();
+          if (shopState.initialized) {
+            markShopUpdated();
+          }
+        }
+      });
+    });
+
+    planInputs.forEach((input) => {
+      if (!input) return;
+      const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
+      input.addEventListener(eventName, () => {
+        updateVipPlanTitle(card);
+        updateVipPreview();
+        updateShopSummary();
+        if (shopState.initialized) {
+          markShopUpdated();
+        }
+      });
     });
   });
 
