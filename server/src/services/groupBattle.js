@@ -1,3 +1,4 @@
+const { randomUUID } = require('crypto');
 const { getGroupBattleRewardConfig } = require('../config/adminSettings');
 
 const ROSTER_ROLES = ['دانش عمومی','رهبر استراتژی','متخصص علوم','استاد ادبیات','تحلیل‌گر داده','هوش تاریخی','ریاضی‌دان','کارشناس فناوری','حل مسئله سریع','هوش مصنوعی'];
@@ -188,6 +189,7 @@ function simulateGroupBattle(hostGroup, opponentGroup, user) {
   const { hostPlayers, opponentPlayers } = getBattleParticipants(hostGroup, opponentGroup, user);
   const duelCount = 10;
   const baseSeed = Date.now();
+  const battleId = `gb-${randomUUID()}`;
   const rounds = [];
   let hostTotal = 0;
   let opponentTotal = 0;
@@ -221,7 +223,7 @@ function simulateGroupBattle(hostGroup, opponentGroup, user) {
   }
 
   return {
-    id: `gb-${baseSeed}`,
+    id: battleId,
     playedAt: new Date().toISOString(),
     host: { id: hostGroup.groupId, name: hostGroup.name, total: normalizedHostTotal, players: hostPlayers.map((p) => (p ? { ...p } : null)) },
     opponent: { id: opponentGroup.groupId, name: opponentGroup.name, total: normalizedOpponentTotal, players: opponentPlayers.map((p) => (p ? { ...p } : null)) },
