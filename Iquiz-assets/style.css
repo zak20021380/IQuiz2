@@ -160,16 +160,17 @@
     .vip-modal-scroll{ flex:1; overflow-y:auto; position:relative; z-index:1; padding-left:.3rem; margin-left:-.3rem; }
     .vip-modal-scroll::-webkit-scrollbar{ width:6px; }
     .vip-modal-scroll::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.25); border-radius:999px; }
-    .vip-modal-plans{ display:flex; flex-direction:column; gap:1rem; }
-    .vip-modal-plan{ border-radius:1.35rem; border:1px solid rgba(255,255,255,0.18); background:linear-gradient(150deg, rgba(15,23,42,0.75), rgba(76,29,149,0.3)); padding:1.25rem 1.35rem; display:flex; flex-direction:column; gap:1rem; position:relative; overflow:hidden; }
+    .vip-modal-plans{ display:flex; flex-direction:column; gap:clamp(.85rem, 2.6vw, 1rem); }
+    .vip-modal-plan{ border-radius:1.35rem; border:1px solid rgba(255,255,255,0.18); background:linear-gradient(150deg, rgba(15,23,42,0.75), rgba(76,29,149,0.3)); padding:clamp(1rem, 3vw, 1.35rem); display:flex; flex-direction:column; gap:clamp(.75rem, 2.4vw, 1.05rem); position:relative; overflow:hidden; min-width:0; }
     .vip-modal-plan.is-featured{ border-color:rgba(250,204,21,0.65); box-shadow:0 18px 45px rgba(250,204,21,0.2); }
     .vip-modal-plan::before{ content:''; position:absolute; inset:-45% auto auto -35%; width:260px; height:260px; background:radial-gradient(circle at center, rgba(59,130,246,0.18), transparent 65%); opacity:.85; pointer-events:none; }
-    .vip-modal-plan-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; position:relative; z-index:1; }
-    .vip-modal-plan-title{ display:flex; flex-direction:column; gap:.4rem; }
-    .vip-modal-plan-name{ font-size:1.05rem; font-weight:800; }
-    .vip-modal-plan-period{ font-size:.8rem; opacity:.75; }
-    .vip-modal-plan-price{ font-size:1rem; font-weight:700; display:flex; align-items:center; gap:.4rem; }
-    .vip-modal-plan-price .vip-badge{ font-size:.7rem; padding:.25rem .6rem; border-radius:999px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); }
+    .vip-modal-plan-header{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:flex-start; gap:clamp(.75rem, 2vw, 1rem); position:relative; z-index:1; }
+    .vip-modal-plan-header > *{ min-width:0; }
+    .vip-modal-plan-title{ display:flex; flex-direction:column; gap:.4rem; min-width:0; }
+    .vip-modal-plan-name{ font-size:clamp(1rem, 3.6vw, 1.05rem); font-weight:800; }
+    .vip-modal-plan-period{ font-size:clamp(.76rem, 3vw, .82rem); opacity:.75; }
+    .vip-modal-plan-price{ font-size:clamp(.95rem, 3.4vw, 1rem); font-weight:700; display:flex; align-items:flex-end; justify-content:flex-end; gap:.4rem; flex-wrap:wrap; text-align:right; }
+    .vip-modal-plan-price .vip-badge{ font-size:.7rem; padding:.25rem .6rem; border-radius:999px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); white-space:nowrap; }
     .vip-modal-benefits{ list-style:disc; padding-inline-end:1.2rem; margin:0; display:flex; flex-direction:column; gap:.45rem; font-size:.87rem; line-height:1.7; opacity:.95; position:relative; z-index:1; }
     .vip-modal-benefits li::marker{ color:rgba(250,204,21,0.85); }
     .vip-modal-cta{ align-self:flex-end; position:relative; z-index:1; }
@@ -216,8 +217,9 @@
       .vip-modal-close{ top:.85rem; left:.85rem; }
       .vip-modal-icon{ width:3.1rem; height:3.1rem; font-size:1.35rem; }
       .vip-modal-sub{ font-size:.9rem; }
-      .vip-modal-plan{ padding:1.1rem 1.05rem; border-radius:1.2rem; }
-      .vip-modal-plan-header{ flex-direction:column; align-items:flex-start; gap:.6rem; }
+      .vip-modal-plan{ padding:clamp(.95rem, 4vw, 1.1rem) clamp(.9rem, 4vw, 1.05rem); border-radius:1.2rem; }
+      .vip-modal-plan-header{ grid-template-columns:1fr; align-items:stretch; }
+      .vip-modal-plan-price{ justify-content:space-between; width:100%; }
       .vip-modal-cta button{ font-size:.85rem; }
     }
     @media(max-width:520px){
@@ -226,6 +228,8 @@
       .invite-share-box{ padding:1.05rem; gap:.95rem; }
       .vip-modal-card{ padding:1.25rem 1rem; border-radius:1.55rem; }
       .vip-modal-title{ font-size:1.22rem; }
+      .vip-modal-plan-name{ font-size:clamp(.98rem, 4.2vw, 1.02rem); }
+      .vip-modal-plan-price{ font-size:clamp(.9rem, 4vw, .96rem); }
       .vip-modal-tag{ font-size:.72rem; }
       .vip-modal-benefits{ font-size:.82rem; }
     }
@@ -241,10 +245,14 @@
       .invite-share-input input{ background:rgba(15,23,42,0.45); border:1px solid rgba(255,255,255,0.16); border-radius:.9rem; padding:.55rem .75rem; text-align:center; font-size:.88rem; }
       .invite-copy-btn{ justify-content:center; width:100%; padding:.68rem; font-size:.86rem; }
       .invite-stat{ justify-content:center; width:100%; font-size:.82rem; }
+      .vip-modal-plan{ border-radius:1.15rem; }
+      .vip-modal-plan-price{ justify-content:flex-start; text-align:right; }
     }
     @media(max-width:380px){
       .invite-modal-card{ padding:1.15rem .85rem; border-radius:1.4rem; }
       .invite-modal-title{ font-size:1.08rem; }
+      .vip-modal-plan{ padding:clamp(.85rem, 6vw, 1rem); }
+      .vip-modal-plan-price{ gap:.35rem; }
     }
     .duel-rule-banner{ display:flex; align-items:flex-start; gap:1rem; padding:1.25rem 1.4rem; border-radius:1.5rem; background:linear-gradient(135deg, rgba(248,113,113,0.22), rgba(236,72,153,0.18)); border:1px solid rgba(248,113,113,0.35); box-shadow:0 18px 40px rgba(15,23,42,0.22); }
     .duel-rule-banner p{ line-height:1.8; }
