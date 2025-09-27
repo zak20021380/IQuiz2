@@ -683,6 +683,61 @@
         </div>
       </div>
 
+      <!-- Wallet Top-up (Custom Amount) -->
+      <div id="shop-wallet-topup" class="glass-dark rounded-3xl p-5 card-hover space-y-5" data-shop-section="wallet-topup">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 text-right">
+          <div class="space-y-2 max-w-xl">
+            <div class="flex items-center gap-3 text-lg font-extrabold">
+              <span class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-200"><i class="fas fa-plus"></i></span>
+              <span>شارژ دلخواه کیف پول</span>
+            </div>
+            <p class="text-sm leading-7 opacity-80">مبلغ دلخواهت را همین‌جا کنار بگذار تا هر زمان خواستی بدون وارد کردن چندباره اطلاعات کارت، سکه، کلید یا حتی اشتراک VIP بخری.</p>
+          </div>
+          <div class="glass rounded-2xl px-4 py-3 text-sm text-center space-y-1">
+            <div class="opacity-70">موجودی فعلی کیف پول</div>
+            <div class="text-lg font-bold"><span id="shop-topup-balance">—</span> <span class="text-xs opacity-70">تومان</span></div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <label class="flex-1">
+              <span class="text-xs opacity-80 block mb-2">مبلغ دلخواه (تومان)</span>
+              <input type="range" min="50000" max="2000000" step="50000" value="200000" class="w-full accent-emerald-400" data-topup-range aria-label="مبلغ دلخواه">
+            </label>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <input type="number" inputmode="numeric" pattern="[0-9]*" min="50000" max="2000000" step="50000" value="200000" class="w-full sm:w-40 glass rounded-xl px-3 py-2 text-sm bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-emerald-400" data-topup-input aria-label="ورود مبلغ">
+              <button type="button" class="chip bg-emerald-500/10 border border-emerald-400/40 text-emerald-200 text-xs" data-topup-max><i class="fas fa-arrow-up ml-1"></i> حداکثر</button>
+            </div>
+          </div>
+          <div class="text-xs opacity-70" data-topup-limits>حداقل ۵۰٬۰۰۰ و حداکثر ۲٬۰۰۰٬۰۰۰ تومان (گام‌های ۵۰٬۰۰۰ تومانی)</div>
+          <div class="flex flex-wrap gap-2" data-topup-presets></div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div class="glass rounded-2xl p-4 space-y-2">
+            <div class="text-xs opacity-70">مبلغ انتخابی</div>
+            <div class="text-2xl font-extrabold text-emerald-200" data-topup-amount>۲۰۰٬۰۰۰ تومان</div>
+            <div class="text-xs opacity-80 leading-6" data-topup-coins>تقریباً می‌توانی با این مبلغ بسته‌ی پیشنهادی سکه را بخری.</div>
+          </div>
+          <div class="glass rounded-2xl p-4 space-y-2">
+            <div class="text-xs opacity-70">مزایای شارژ کیف پول</div>
+            <ul class="text-xs leading-6 space-y-2 opacity-90" data-topup-benefits>
+              <li class="flex items-start gap-2"><i class="fas fa-bolt text-emerald-300 mt-1"></i><span>پرداخت سریع و یک‌مرحله‌ای برای تمام خریدها</span></li>
+              <li class="flex items-start gap-2"><i class="fas fa-shield-heart text-emerald-300 mt-1"></i><span>امنیت بیشتر؛ فقط یک‌بار اطلاعات کارت را وارد می‌کنی</span></li>
+              <li class="flex items-start gap-2"><i class="fas fa-star text-emerald-300 mt-1"></i><span>آمادگی برای خرید فوری سکه، کلید و اشتراک VIP در لحظه‌های حساس</span></li>
+              <li class="flex items-start gap-2"><i class="fas fa-chart-line text-emerald-300 mt-1"></i><span>مدیریت بهتر هزینه‌ها با مشاهده موجودی و تاریخچه پرداخت‌ها</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div class="text-xs opacity-80 leading-6" data-topup-suggestion>پیشنهاد ما: بسته مناسب سکه را بعد از ثبت مبلغ انتخاب کن.</div>
+          <div class="hidden text-xs text-rose-100 bg-rose-500/10 border border-rose-400/30 rounded-xl px-3 py-2" data-topup-offline><i class="fas fa-wifi-slash ml-1"></i>برای ادامه فرایند شارژ، اتصال اینترنت لازم است.</div>
+          <button type="button" class="btn btn-primary w-full sm:w-auto px-6 py-3 text-sm" data-topup-submit><i class="fas fa-arrow-left ml-2"></i> تایید مبلغ و ادامه</button>
+        </div>
+      </div>
+
       <div id="shop-support-cta" class="hidden glass-dark rounded-2xl p-4 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div class="flex items-center gap-2"><i class="fas fa-headset text-sky-300"></i><span data-support-message>برای سوالات بیشتر با پشتیبانی در تماس باشید.</span></div>
         <a id="shop-support-link" class="btn btn-secondary w-full sm:w-auto px-4 text-sm" href="#" target="_blank" rel="noopener">
@@ -716,6 +771,7 @@
           <i class="fas fa-bullhorn text-amber-300"></i>
           <span data-wallet-promo-text>برای مدت محدود ۱۰٪ تخفیف روی تمامی بسته‌ها اعمال شده است.</span>
         </div>
+        <div id="wallet-custom-plan" class="hidden bg-emerald-500/10 border border-emerald-400/40 rounded-xl p-4 text-xs leading-6 space-y-2"></div>
         <div id="pkg-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
         <div class="text-xs opacity-80 mt-3">پس از ایجاد تراکنش، نتیجه از سرور تأیید شده و رسید نمایش داده می‌شود. لطفاً چند ثانیه صبر کن.</div>
       </div>

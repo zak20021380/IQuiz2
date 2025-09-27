@@ -76,6 +76,20 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
   const PAYMENT_SESSION_STORAGE_KEY = 'quiz_payment_session_id_v1';
   const PENDING_PAYMENT_STORAGE_KEY = 'quiz_pending_payment_v1';
 
+  const WALLET_TOPUP_DEFAULTS = {
+    min: 50_000,
+    max: 2_000_000,
+    step: 50_000,
+    defaultAmount: 200_000,
+  };
+
+  const walletTopupState = {
+    amount: WALLET_TOPUP_DEFAULTS.defaultAmount,
+    plannedAmount: null,
+  };
+
+  let walletTopupRecommendation = null;
+
   const enNum = n => Number(n).toLocaleString('en-US');
 
   const FALLBACK_GROUP_BATTLE_REWARD_CONFIG = {
@@ -2431,6 +2445,8 @@ function startQuizTimerCountdown(){
         show = enabled && sections.keys !== false;
       } else if (key === 'wallet') {
         show = enabled && sections.wallet !== false;
+      } else if (key === 'wallet-topup') {
+        show = enabled && sections.wallet !== false && shop.quickTopup !== false;
       } else if (key === 'vip-intro') {
         show = enabled && sections.vip !== false && vipAvailable;
       }
@@ -2729,9 +2745,109 @@ function startQuizTimerCountdown(){
     return true;
   }
 
+  function normalizeTopupSettings(source){
+    const config = source && typeof source === 'object' ? source : {};
+    const min = Math.max(10_000, Number(config.minAmount) || WALLET_TOPUP_DEFAULTS.min);
+    const max = Math.max(min, Number(config.maxAmount) || WALLET_TOPUP_DEFAULTS.max);
+    const stepRaw = Number(config.stepAmount);
+    const step = Math.max(1_000, Number.isFinite(stepRaw) && stepRaw > 0 ? stepRaw : WALLET_TOPUP_DEFAULTS.step);
+    const defaultRaw = Number(config.defaultAmount);
+    const defaultAmount = clamp(
+      Number.isFinite(defaultRaw) && defaultRaw > 0 ? defaultRaw : WALLET_TOPUP_DEFAULTS.defaultAmount,
+      min,
+      max
+    );
+    const presetSource = Array.isArray(config.presets) && config.presets.length
+      ? config.presets
+      : [defaultAmount, Math.round((min + max) / 2), max];
+    const presetSet = new Set();
+    const presets = [];
+    presetSource.forEach((value) => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return;
+      const normalized = clamp(Math.round(numeric / step) * step, min, max);
+      if (!presetSet.has(normalized)){
+        presetSet.add(normalized);
+        presets.push(normalized);
+      }
+    });
+    presets.sort((a, b) => a - b);
+    return { min, max, step, defaultAmount, presets };
+  }
+
+  function getWalletTopupSettings(){
+    const shop = getShopConfig();
+    const source =
+      (shop?.quickTopup && typeof shop.quickTopup === 'object')
+        ? shop.quickTopup
+        : shop?.quickTopupConfig;
+    return normalizeTopupSettings(source);
+  }
+
+  function getNormalizedWalletPackages(){
+    const usdToToman = RemoteConfig?.pricing?.usdToToman || 70_000;
+    const raw = Array.isArray(RemoteConfig?.pricing?.coins) ? RemoteConfig.pricing.coins : [];
+    return raw
+      .map((pkg, index) => {
+        const amount = Number(pkg.amount) || 0;
+        const bonus = Number(pkg.bonus || 0);
+        const basePrice = Number(pkg.priceToman || pkg.price || 0);
+        const priceCents = Number(pkg.priceCents || 0);
+        const priceToman = basePrice > 0 ? basePrice : (priceCents > 0 ? Math.round((priceCents / 100) * usdToToman) : 0);
+        const totalCoins = Math.round(amount + (amount * bonus / 100));
+        const priority = Number(pkg.priority ?? (index + 1));
+        return {
+          ...pkg,
+          amount,
+          bonus,
+          priceToman,
+          totalCoins,
+          priority,
+        };
+      })
+      .filter((pkg) => pkg.amount > 0 && pkg.priceToman > 0)
+      .sort((a, b) => (a.priority ?? a.amount) - (b.priority ?? b.amount));
+  }
+
+  function pickWalletPackageByAmount(amount, packages = getNormalizedWalletPackages()){
+    if (!packages.length) return null;
+    const target = Math.max(0, Number(amount) || 0);
+    let candidate = null;
+    let bestDiff = Infinity;
+    let fallback = null;
+    packages.forEach((pkg) => {
+      if (!fallback || pkg.priceToman > fallback.priceToman){
+        fallback = pkg;
+      }
+      if (pkg.priceToman >= target){
+        const diff = pkg.priceToman - target;
+        if (diff < bestDiff){
+          bestDiff = diff;
+          candidate = pkg;
+        }
+      }
+    });
+    return candidate || fallback || null;
+  }
+
+  function getBestWalletCoinRate(packages = getNormalizedWalletPackages()){
+    let best = 0;
+    packages.forEach((pkg) => {
+      const ratio = pkg.priceToman > 0 ? pkg.totalCoins / pkg.priceToman : 0;
+      if (ratio > best){
+        best = ratio;
+      }
+    });
+    return best;
+  }
+
   function renderShopBalances(){
     if ($('#shop-gcoins'))  $('#shop-gcoins').textContent  = faNum(State.coins);
     if ($('#shop-wallet'))  $('#shop-wallet').textContent  = (Server.wallet.coins==null?'—':faNum(Server.wallet.coins));
+    const topupBalance = $('#shop-topup-balance');
+    if (topupBalance){
+      topupBalance.textContent = (Server.wallet.coins==null?'—':faNum(Server.wallet.coins));
+    }
     if ($('#keys-count'))   $('#keys-count').textContent   = faNum(State.keys || 0);
   }
 
@@ -2753,6 +2869,149 @@ function startQuizTimerCountdown(){
       msgEl.textContent = shop.messaging?.lowBalance || fallback;
     }
     warningEl.classList.toggle('hidden', !shouldShow);
+  }
+
+  function renderShopWalletTopup(){
+    const card = $('#shop-wallet-topup');
+    if (!card) return;
+    const shop = getShopConfig();
+    const quickEnabled = shop.enabled !== false && (shop.sections?.wallet !== false) && shop.quickTopup !== false;
+    card.classList.toggle('hidden', !quickEnabled);
+    if (!quickEnabled) return;
+
+    const settings = getWalletTopupSettings();
+    const packages = getNormalizedWalletPackages();
+    const isOnline = online();
+
+    const range = card.querySelector('[data-topup-range]');
+    const input = card.querySelector('[data-topup-input]');
+    const maxBtn = card.querySelector('[data-topup-max]');
+    const presetsWrap = card.querySelector('[data-topup-presets]');
+    const amountEl = card.querySelector('[data-topup-amount]');
+    const coinsEl = card.querySelector('[data-topup-coins]');
+    const limitsEl = card.querySelector('[data-topup-limits]');
+    const suggestionEl = card.querySelector('[data-topup-suggestion]');
+    const offlineEl = card.querySelector('[data-topup-offline]');
+    const submitBtn = card.querySelector('[data-topup-submit]');
+
+    const clampToStep = (value) => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return settings.defaultAmount;
+      const snapped = Math.round(numeric / settings.step) * settings.step;
+      return clamp(snapped, settings.min, settings.max);
+    };
+
+    walletTopupState.amount = clampToStep(walletTopupState.amount ?? settings.defaultAmount);
+
+    if (range){
+      range.min = settings.min;
+      range.max = settings.max;
+      range.step = settings.step;
+    }
+    if (input){
+      input.min = settings.min;
+      input.max = settings.max;
+      input.step = settings.step;
+    }
+    if (limitsEl){
+      limitsEl.textContent = `حداقل ${faNum(settings.min)} و حداکثر ${faNum(settings.max)} تومان (گام‌های ${faNum(settings.step)} تومانی)`;
+    }
+    let lastRecommended = null;
+
+    const updateAmount = (value) => {
+      const next = clampToStep(value);
+      walletTopupState.amount = next;
+      if (range) range.value = String(next);
+      if (input) input.value = String(next);
+      if (amountEl) amountEl.textContent = `${faNum(next)} تومان`;
+      lastRecommended = pickWalletPackageByAmount(next, packages);
+      if (coinsEl){
+        if (lastRecommended){
+          coinsEl.innerHTML = `با این مبلغ می‌توانی بسته‌ای با حدود <span class="text-emerald-200 font-semibold">${faNum(lastRecommended.totalCoins)}</span> سکه تهیه کنی.`;
+        } else {
+          const bestRate = getBestWalletCoinRate(packages);
+          if (bestRate > 0){
+            const estimate = Math.round(next * bestRate);
+            coinsEl.innerHTML = `تقریباً ${faNum(estimate)} سکه در دسترس خواهی داشت.`;
+          } else {
+            coinsEl.textContent = 'به محض فعال شدن بسته‌های سکه، می‌توانی از موجودی کیف پول استفاده کنی.';
+          }
+        }
+      }
+      if (suggestionEl){
+        if (lastRecommended){
+          const displayName = lastRecommended.displayName || `بسته ${faNum(lastRecommended.amount)} سکه`;
+          suggestionEl.innerHTML = `پیشنهاد ما: <span class="text-emerald-200 font-bold">${displayName}</span> با قیمت ${faNum(lastRecommended.priceToman)} تومان نزدیک‌ترین گزینه به مبلغ انتخابی است.`;
+        } else {
+          suggestionEl.textContent = 'پس از ثبت مبلغ، در صفحه بعد بسته مناسب را انتخاب کن.';
+        }
+      }
+    };
+
+    if (presetsWrap){
+      presetsWrap.innerHTML = '';
+      settings.presets.forEach((value) => {
+        const presetValue = clampToStep(value);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip bg-white/10 border border-white/20 hover:bg-white/15 transition text-xs flex items-center gap-2';
+        btn.innerHTML = `<i class="fas fa-bolt text-emerald-300"></i><span>${faNum(presetValue)}</span><span>تومان</span>`;
+        btn.addEventListener('click', () => updateAmount(presetValue));
+        presetsWrap.appendChild(btn);
+      });
+    }
+
+    if (range && !range.dataset.bound){
+      range.dataset.bound = 'true';
+      range.addEventListener('input', (event) => {
+        updateAmount(event.target?.value ?? settings.defaultAmount);
+      });
+    }
+    if (input && !input.dataset.bound){
+      input.dataset.bound = 'true';
+      input.addEventListener('input', () => {
+        updateAmount(input.value);
+      });
+      input.addEventListener('blur', () => {
+        input.value = String(walletTopupState.amount);
+      });
+    }
+    if (maxBtn && !maxBtn.dataset.bound){
+      maxBtn.dataset.bound = 'true';
+      maxBtn.addEventListener('click', () => updateAmount(settings.max));
+    }
+
+    updateAmount(walletTopupState.amount);
+
+    if (offlineEl){
+      offlineEl.classList.toggle('hidden', isOnline);
+    }
+    card.classList.toggle('opacity-60', !isOnline);
+
+    if (submitBtn){
+      submitBtn.disabled = !isOnline;
+      submitBtn.setAttribute('aria-disabled', isOnline ? 'false' : 'true');
+      submitBtn.title = isOnline ? 'تایید مبلغ و رفتن به مرحله پرداخت' : 'برای شارژ کیف پول باید آنلاین باشی';
+      if (!submitBtn.dataset.bound){
+        submitBtn.dataset.bound = 'true';
+        submitBtn.addEventListener('click', () => {
+          if (!online()){ toast('<i class="fas fa-wifi-slash ml-2"></i>برای شارژ باید آنلاین باشی'); return; }
+          const amount = walletTopupState.amount;
+          const recommended = pickWalletPackageByAmount(amount, packages);
+          walletTopupState.plannedAmount = amount;
+          walletTopupRecommendation = recommended?.id || null;
+          const parts = [`مبلغ ${faNum(amount)} تومان برای شارژ کیف پول ثبت شد.`];
+          if (recommended){
+            const name = recommended.displayName || `بسته ${faNum(recommended.amount)} سکه`;
+            parts.push(`در مرحله بعد، بسته ${name} با قیمت ${faNum(recommended.priceToman)} تومان را انتخاب کن.`);
+          } else {
+            parts.push('در مرحله بعد می‌توانی بسته مناسب را از بخش خرید سکه انتخاب کنی.');
+          }
+          toast(`<i class="fas fa-wallet ml-2"></i>${parts.join(' ')}`);
+          navTo('wallet');
+        });
+      }
+    }
   }
 
   function renderKeyPackages(){
@@ -2943,6 +3202,7 @@ function startQuizTimerCountdown(){
     renderShopVipIntro();
     renderShopBalances();
     renderShopLowBalanceMessage();
+    renderShopWalletTopup();
     renderKeyPackages();
   }
 
@@ -3040,6 +3300,59 @@ document.addEventListener('click', (e) => {
     }
   }
 
+  function renderWalletCustomPlan(){
+    const hint = $('#wallet-custom-plan');
+    if (!hint) return;
+    const amount = walletTopupState.plannedAmount;
+    if (!amount){
+      hint.classList.add('hidden');
+      hint.innerHTML = '';
+      return;
+    }
+
+    const packs = getNormalizedWalletPackages();
+    const recommended = walletTopupRecommendation
+      ? packs.find((pkg) => pkg.id === walletTopupRecommendation)
+      : pickWalletPackageByAmount(amount, packs);
+
+    const amountLabel = `مبلغ انتخابی شما: <span class="font-bold text-white">${faNum(amount)}</span> تومان`;
+    let followUp = '';
+    if (recommended){
+      const displayName = recommended.displayName || `بسته ${faNum(recommended.amount)} سکه`;
+      followUp = `پیشنهاد ما انتخاب <span class="font-bold text-emerald-200">${displayName}</span> با قیمت ${faNum(recommended.priceToman)} تومان است.`;
+    } else if (!packs.length){
+      followUp = 'در حال حاضر بسته‌ای برای خرید فعال نیست، اما مبلغ ذخیره‌شده به محض فعال شدن بسته‌ها قابل استفاده خواهد بود.';
+    } else {
+      followUp = 'می‌توانی از بسته‌های موجود برای خرید فوری استفاده کنی.';
+    }
+
+    hint.innerHTML = `
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="space-y-1">
+          <div class="font-semibold text-emerald-200 flex items-center gap-2"><i class="fas fa-bolt"></i><span>شارژ دلخواه آماده است</span></div>
+          <div class="text-sm leading-6">${amountLabel}${followUp ? ` • ${followUp}` : ''}</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" class="btn btn-secondary px-4 text-xs whitespace-nowrap" data-clear-topup>
+            <i class="fas fa-times ml-1"></i>انصراف
+          </button>
+        </div>
+      </div>
+    `;
+    hint.classList.remove('hidden');
+
+    const clearBtn = hint.querySelector('[data-clear-topup]');
+    if (clearBtn && !clearBtn.dataset.bound){
+      clearBtn.dataset.bound = 'true';
+      clearBtn.addEventListener('click', () => {
+        walletTopupState.plannedAmount = null;
+        walletTopupRecommendation = null;
+        renderWallet();
+        renderShopWalletTopup();
+      });
+    }
+  }
+
   function buildPackages(){
     const grid = $('#pkg-grid');
     if (!grid) return;
@@ -3053,28 +3366,11 @@ document.addEventListener('click', (e) => {
       return;
     }
 
-    const usdToToman = RemoteConfig?.pricing?.usdToToman || 70_000;
-    const raw = Array.isArray(RemoteConfig?.pricing?.coins) ? RemoteConfig.pricing.coins : [];
-    const packs = raw
-      .map((pkg, index) => {
-        const amount = Number(pkg.amount) || 0;
-        const bonus = Number(pkg.bonus || 0);
-        const basePrice = Number(pkg.priceToman || pkg.price || 0);
-        const priceCents = Number(pkg.priceCents || 0);
-        const priceToman = basePrice > 0 ? basePrice : (priceCents > 0 ? Math.round((priceCents / 100) * usdToToman) : 0);
-        const totalCoins = Math.round(amount + (amount * bonus / 100));
-        const priority = Number(pkg.priority ?? (index + 1));
-        return {
-          ...pkg,
-          amount,
-          bonus,
-          priceToman,
-          totalCoins,
-          priority,
-        };
-      })
-      .filter((pkg) => pkg.amount > 0 && pkg.priceToman > 0)
-      .sort((a, b) => (a.priority ?? a.amount) - (b.priority ?? b.amount));
+    const packs = getNormalizedWalletPackages();
+
+    if (walletTopupRecommendation && !packs.some((pkg) => pkg.id === walletTopupRecommendation)){
+      walletTopupRecommendation = null;
+    }
 
     if (!packs.length){
       grid.innerHTML = `<div class="glass-dark rounded-2xl p-4 text-center opacity-80">در حال حاضر بسته‌ای موجود نیست</div>`;
@@ -3092,6 +3388,11 @@ document.addEventListener('click', (e) => {
           highlightId = pkg.id;
         }
       });
+    }
+
+    let recommendedId = walletTopupRecommendation;
+    if (!recommendedId && walletTopupState.plannedAmount){
+      recommendedId = pickWalletPackageByAmount(walletTopupState.plannedAmount, packs)?.id || null;
     }
 
     packs.forEach((pkg) => {
@@ -3145,6 +3446,14 @@ document.addEventListener('click', (e) => {
           </div>
         </div>
       `;
+      if (recommendedId && pkg.id === recommendedId){
+        card.classList.add('ring-2', 'ring-emerald-400/80', 'shadow-lg', 'shadow-emerald-500/20');
+        card.dataset.walletRecommendation = 'true';
+        const badge = document.createElement('span');
+        badge.className = 'chip absolute bottom-4 right-4 bg-emerald-400/90 text-emerald-950 text-xs font-bold flex items-center gap-2 shadow-lg';
+        badge.innerHTML = '<i class="fas fa-hand-point-up"></i><span>پیشنهاد شما</span>';
+        card.appendChild(badge);
+      }
       const btn = card.querySelector('.buy-pkg');
       if (btn){
         btn.setAttribute('aria-label', `خرید بسته ${faNum(pkg.amount)} سکه`);
@@ -3158,6 +3467,7 @@ document.addEventListener('click', (e) => {
 
   function renderWallet(){
     renderWalletPromo();
+    renderWalletCustomPlan();
     buildPackages();
   }
 
@@ -6433,8 +6743,17 @@ async function init(){
 
       if(!localStorage.getItem(STORAGE_KEY)){ setTimeout(()=>toast('برای شروع روی «شروع کوییز» بزن ✨'), 800); }
 
-      window.addEventListener('online', ()=>{ $('#wallet-offline')?.classList.add('hidden'); AdManager.refreshAll(); });
-      window.addEventListener('offline', ()=>{ $('#wallet-offline')?.classList.remove('hidden'); });
+      window.addEventListener('online', ()=>{
+        $('#wallet-offline')?.classList.add('hidden');
+        renderShopWalletTopup();
+        renderWalletCustomPlan();
+        AdManager.refreshAll();
+      });
+      window.addEventListener('offline', ()=>{
+        $('#wallet-offline')?.classList.remove('hidden');
+        renderShopWalletTopup();
+        renderWalletCustomPlan();
+      });
 
       AdManager.maybeShowInterstitial('app_open');
     }catch(err){
