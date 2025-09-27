@@ -313,7 +313,13 @@ async function getQuestions(params = {}) {
 
   if (items.length < countRequested) {
     const missing = countRequested - items.length;
-    const excludeObjectIds = Array.from(seenIds)
+    const excludeIdsSet = new Set(seenIds);
+    for (const recentId of recentObjectIds) {
+      if (!recentId) continue;
+      excludeIdsSet.add(String(recentId));
+    }
+
+    const excludeObjectIds = Array.from(excludeIdsSet)
       .map((id) => toObjectId(id))
       .filter((id) => id);
     const backfillQuery = cloneQuery(baseQuery);
