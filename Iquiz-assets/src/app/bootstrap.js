@@ -1505,6 +1505,8 @@ function populateProvinceOptions(selectEl, placeholder){
     $('#detail-content').innerHTML = content;
     popup.classList.add('show');
     overlay.classList.add('show');
+    popup.setAttribute('aria-hidden', 'false');
+    overlay.setAttribute('aria-hidden', 'false');
   }
 
   function cancelDuelSession(reason) {
@@ -1542,6 +1544,8 @@ function populateProvinceOptions(selectEl, placeholder){
     const context = popup?.dataset?.context || '';
     popup?.classList.remove('show');
     overlay?.classList.remove('show');
+    if (popup) popup.setAttribute('aria-hidden', 'true');
+    if (overlay) overlay.setAttribute('aria-hidden', 'true');
     const shouldCancel = !(options.skipDuelCancel || context === 'info');
     if (shouldCancel && DuelSession?.awaitingSelection && !DuelSession?.selectionResolved) {
       cancelDuelSession('selection_cancelled');
@@ -4253,8 +4257,16 @@ async function startPurchaseCoins(pkgId){
     if(range && countLabel){ countLabel.textContent = faNum(range.value || range.getAttribute('value') || 5); }
     openSheet();
   }
-  function openSheet(){ $('#sheet-setup').classList.add('show'); }
-  function closeSheet(){ $('#sheet-setup').classList.remove('show'); }
+  function openSheet(){
+    const sheet = $('#sheet-setup');
+    sheet?.classList.add('show');
+    sheet?.setAttribute('aria-hidden', 'false');
+  }
+  function closeSheet(){
+    const sheet = $('#sheet-setup');
+    sheet?.classList.remove('show');
+    sheet?.setAttribute('aria-hidden', 'true');
+  }
   
   // ===== Notifications =====
   function renderNotifications(){
@@ -6441,8 +6453,15 @@ function leaveGroup(groupId) {
   // VIP purchase buttons
   
   // Detail Popup Events
+  const detailPopupEl = $('#detail-popup');
+  const detailOverlayEl = $('#detail-overlay');
+  detailPopupEl?.setAttribute('aria-hidden', 'true');
+  detailOverlayEl?.setAttribute('aria-hidden', 'true');
   $('#detail-close')?.addEventListener('click', closeDetailPopup);
-  $('#detail-overlay')?.addEventListener('click', closeDetailPopup);
+  detailOverlayEl?.addEventListener('click', closeDetailPopup);
+
+  const setupSheetEl = $('#sheet-setup');
+  setupSheetEl?.setAttribute('aria-hidden', 'true');
 
   // Close modals (receipt)
   $$('[data-close="#modal-receipt"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-receipt')));
