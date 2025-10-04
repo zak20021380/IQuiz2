@@ -1,0 +1,125 @@
+{
+  "general": {
+    "appName": "Quiz WebApp Pro",
+    "language": "fa",
+    "questionTime": 20,
+    "maxQuestions": 10
+  },
+  "rewards": {
+    "pointsCorrect": 100,
+    "coinsCorrect": 5,
+    "pointsStreak": 50,
+    "coinsStreak": 10,
+    "groupBattleRewards": {
+      "winner": {
+        "coins": 70,
+        "score": 220
+      },
+      "loser": {
+        "coins": 30,
+        "score": 90
+      },
+      "groupScore": 420
+    },
+    "duelRewards": {
+      "winner": {
+        "coins": 60,
+        "score": 180
+      },
+      "loser": {
+        "coins": 20,
+        "score": 60
+      },
+      "draw": {
+        "coins": 35,
+        "score": 120
+      }
+    }
+  },
+  "shop": {
+    "enabled": true,
+    "currency": "coin",
+    "lowBalanceThreshold": 200,
+    "quickTopup": true,
+    "quickPurchase": true,
+    "hero": {
+      "title": "به فروشگاه ایکویز خوش آمدید",
+      "subtitle": "هر روز پیشنهادهای تازه و کلیدهای بیشتر دریافت کنید.",
+      "ctaText": "مشاهده پیشنهادها",
+      "ctaLink": "#wallet"
+    },
+    "packages": {
+      "keys": [
+        {
+          "active": true,
+          "displayName": "بسته کوچک (۱ کلید)",
+          "amount": 1,
+          "price": 30,
+          "badge": "شروع سریع",
+          "description": "مناسب برای شروع تجربه ایکویز.",
+          "id": "k1",
+          "priority": "1"
+        },
+        {
+          "active": true,
+          "displayName": "بسته اقتصادی (۳ کلید)",
+          "amount": 3,
+          "price": 80,
+          "badge": "پیشنهاد ویژه",
+          "description": "بهترین نسبت قیمت به کلید.",
+          "id": "k3",
+          "priority": "2"
+        },
+        {
+          "active": true,
+          "displayName": "بسته حرفه‌ای (۱۰ کلید)",
+          "amount": 10,
+          "price": 250,
+          "badge": "برای رکورددارها",
+          "description": "مناسب برای بازیکنان حرفه‌ای.",
+          "id": "k10",
+          "priority": "3"
+        }
+      ]
+    },
+    "vip": {
+      "enabled": true,
+      "autoRenew": true,
+      "autoApprove": true,
+      "billingCycle": "monthly",
+      "price": 120,
+      "trialDays": 3,
+      "slots": 150,
+      "perks": [
+        "daily-boost",
+        "double-xp",
+        "priority-support"
+      ],
+      "customNote": "دسترسی به رویدادهای اختصاصی و تحلیل عملکرد هفتگی."
+    },
+    "support": {
+      "message": "سوال یا درخواست خاص داری؟ تیم ما در تلگرام پاسخگوست.",
+      "link": "https://t.me/iquiz-support"
+    },
+    "vipPlans": [
+      {
+        "id": "standard",
+        "tier": "standard",
+        "displayName": "اشتراک VIP",
+        "price": 149000,
+        "period": "ماهانه",
+        "buttonText": "خرید اشتراک",
+        "badge": "",
+        "benefits": [
+          "حذف تمام تبلیغات",
+          "دو برابر شدن محدودیت‌های روزانه",
+          "پشتیبانی اولویت‌دار"
+        ],
+        "active": true,
+        "featured": false,
+        "order": 1
+      }
+    ]
+  },
+  "updatedAt": 1759425492191
+}
