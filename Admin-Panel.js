@@ -1,5 +1,5 @@
 // --------------- CONFIG ---------------
-const API_BASE = 'http://localhost:4000/api'; // در پروDUCTION دامنه‌ات را بده
+const API_BASE = 'http://localhost:4000/admin/api'; // در پروDUCTION دامنه‌ات را بده
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const escapeHtml = (value = '') => String(value)
@@ -2904,7 +2904,7 @@ function renderAdProvinceOptions(selected = []) {
 
 async function loadAdProvinces() {
   try {
-    const res = await fetch('/api/public/provinces', { cache: 'no-store' });
+    const res = await fetch('/admin/api/public/provinces', { cache: 'no-store' });
     const data = await res.json();
     const names = Array.isArray(data)
       ? data
@@ -3192,7 +3192,16 @@ async function handleAdSubmit(event) {
 // --------------- AUTH (JWT) ---------------
 let sessionExpiredNotified = false;
 
-function getToken() { return localStorage.getItem('iq_admin_token'); }
+function getToken() {
+  return (
+    localStorage.adminToken ||
+    localStorage.token ||
+    sessionStorage.adminToken ||
+    sessionStorage.token ||
+    localStorage.getItem('iq_admin_token') ||
+    ''
+  );
+}
 function setToken(t) {
   sessionExpiredNotified = false;
   if (!t) {
@@ -3219,10 +3228,9 @@ function forceReauthentication(message = '') {
 }
 
 async function api(path, options = {}) {
-  const headers = options.headers ? { ...options.headers } : {};
-  const token = getToken();
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  headers['Content-Type'] = 'application/json';
+  const token = localStorage.adminToken || localStorage.token || sessionStorage.adminToken || sessionStorage.token || '';
+  const headers = { 'Content-Type': 'application/json', ...(options?.headers || {}) };
+  if (token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
 
   const fetchOptions = { ...options, headers };
   if (!fetchOptions.cache) {
@@ -3241,7 +3249,11 @@ async function api(path, options = {}) {
     }
     throw new Error(errorMessage);
   }
-  return res.json();
+  const json = await res.json();
+  if (json?.ok && json?.data?.total !== undefined && !json.data.overview) {
+    json.data = { overview: json.data };
+  }
+  return json;
 }
 
 
@@ -5423,7 +5435,7 @@ async function fetchProvinceListForUsers() {
     return usersState.provinces;
   }
 
-  usersState.provincesPromise = fetch('/api/public/provinces', { cache: 'no-store' })
+  usersState.provincesPromise = fetch('/admin/api/public/provinces', { cache: 'no-store' })
     .then((res) => res.json())
     .then((data) => {
       const names = Array.isArray(data)
