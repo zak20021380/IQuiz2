@@ -565,6 +565,10 @@ const shopQuickPurchaseToggle = $('#shop-quick-purchase');
 const shopSupportMessageInput = $('#shop-support-message');
 const shopSupportLinkInput = $('#shop-support-link');
 const shopPackageCards = shopSettingsPage ? Array.from(shopSettingsPage.querySelectorAll('[data-shop-package]')) : [];
+const coinPackagesList = shopSettingsPage ? shopSettingsPage.querySelector('#coin-packages-list') : null;
+const coinPackagesEmptyState = shopSettingsPage ? shopSettingsPage.querySelector('#coin-packages-empty') : null;
+const coinPackageTemplate = shopSettingsPage ? shopSettingsPage.querySelector('#coin-package-template') : null;
+const coinPackageAddButton = $('#coin-package-add');
 const shopVipSection = shopSettingsPage ? shopSettingsPage.querySelector('[data-shop-vip-section]') : null;
 const shopVipToggle = $('#shop-vip-enable');
 const shopVipAutoRenewToggle = $('#shop-vip-auto-renew');
@@ -629,6 +633,44 @@ const SHOP_CURRENCY_LABELS = Object.freeze({
   wallet: 'سکه کیف پول',
   rial: 'تومان'
 });
+const DEFAULT_COIN_PACKAGES = Object.freeze([
+  {
+    id: 'c100',
+    displayName: 'بسته شروع سریع',
+    amount: 100,
+    bonus: 0,
+    priceToman: 59000,
+    badge: 'پرفروش',
+    paymentMethod: 'درگاه بانکی',
+    description: 'مناسب برای شروع و شارژ سریع کیف پول.',
+    priority: 1,
+    active: true
+  },
+  {
+    id: 'c500',
+    displayName: 'بسته حرفه‌ای',
+    amount: 500,
+    bonus: 5,
+    priceToman: 239000,
+    badge: 'پیشنهاد ویژه',
+    paymentMethod: 'درگاه بانکی',
+    description: '۵٪ سکه هدیه برای کاربرانی که به دنبال صرفه بیشتر هستند.',
+    priority: 2,
+    active: true
+  },
+  {
+    id: 'c1200',
+    displayName: 'بسته طلایی',
+    amount: 1200,
+    bonus: 12,
+    priceToman: 459000,
+    badge: 'بیشترین صرفه',
+    paymentMethod: 'درگاه بانکی',
+    description: 'هدیه ۱۲٪ برای کاربران حرفه‌ای و وفادار.',
+    priority: 3,
+    active: true
+  }
+]);
 const settingsSaveButton = $('#settings-save-button');
 const generalAppNameInput = $('#settings-app-name');
 const generalLanguageSelect = $('#settings-language');
@@ -6258,6 +6300,14 @@ function applySettingsSnapshot(snapshot) {
 
   const packagesData = shop.packages != null ? shop.packages : snapshot.packages;
   applyPackageSnapshots(packagesData);
+  const walletPackages = packagesData && typeof packagesData === 'object'
+    ? (Array.isArray(packagesData.wallet)
+        ? packagesData.wallet
+        : Array.isArray(packagesData.coins)
+          ? packagesData.coins
+          : [])
+    : [];
+  applyCoinPackageSnapshots(walletPackages);
 
   const vip = shop.vip || {};
   if (shopVipToggle && vip.enabled != null) shopVipToggle.checked = !!vip.enabled;
@@ -6357,6 +6407,168 @@ function collectRewardSettings() {
   };
 }
 
+function getCoinPackageRows() {
+  if (!coinPackagesList) return [];
+  return Array.from(coinPackagesList.querySelectorAll('[data-coin-package-row]'));
+}
+
+function updateCoinPackagesEmptyState() {
+  if (!coinPackagesEmptyState) return;
+  const hasItems = getCoinPackageRows().length > 0;
+  coinPackagesEmptyState.classList.toggle('hidden', hasItems);
+}
+
+function computeCoinPackageTotal(amount, bonus) {
+  const base = Math.max(0, Number(amount) || 0);
+  const percent = Math.max(0, Number(bonus) || 0);
+  return Math.round(base + (base * percent) / 100);
+}
+
+function updateCoinPackageCard(row) {
+  if (!row) return;
+  const inputs = Array.from(row.querySelectorAll('[data-coin-field]'));
+  const state = {};
+  inputs.forEach((input) => {
+    const field = safeString(input.dataset.coinField || '', '');
+    if (!field) return;
+    if (input.type === 'checkbox') state[field] = !!input.checked;
+    else if (input.type === 'number') state[field] = safeNumber(input.value, 0);
+    else state[field] = safeString(input.value, '');
+  });
+
+  const displayName = safeString(state.displayName || '', '');
+  const amount = safeNumber(state.amount || 0, 0);
+  const bonus = safeNumber(state.bonus || 0, 0);
+  const price = safeNumber(state.priceToman || 0, 0);
+  const totalCoins = computeCoinPackageTotal(amount, bonus);
+  const pricePerCoin = totalCoins > 0 && price > 0 ? Math.round(price / totalCoins) : 0;
+
+  const title = row.querySelector('[data-coin-package-title]');
+  if (title) title.textContent = displayName || `بسته ${formatNumberFa(amount)} سکه`;
+
+  const summary = row.querySelector('[data-coin-package-summary]');
+  if (summary) {
+    const bonusLabel = bonus > 0 ? ` + ${formatNumberFa(bonus)}٪ هدیه` : '';
+    summary.textContent = amount > 0
+      ? `${formatNumberFa(amount)} سکه${bonusLabel} → ${formatNumberFa(totalCoins)} سکه`
+      : '—';
+  }
+
+  const meta = row.querySelector('[data-coin-package-meta]');
+  if (meta) {
+    const parts = [];
+    if (price > 0) parts.push(`قیمت: ${formatNumberFa(price)} تومان`);
+    if (pricePerCoin > 0) parts.push(`هر سکه ≈ ${formatNumberFa(pricePerCoin)} تومان`);
+    meta.textContent = parts.length ? parts.join(' • ') : 'جزئیات قیمت‌گذاری را کامل کنید.';
+  }
+
+  const activeToggle = row.querySelector('input[data-coin-field="active"]');
+  if (activeToggle) {
+    syncToggleLabel(activeToggle);
+  }
+
+  row.dataset.coinPackageId = safeString(state.id || '', '');
+  row.classList.toggle('opacity-60', state.active === false);
+}
+
+function refreshCoinPackageOrder() {
+  const rows = getCoinPackageRows();
+  rows.forEach((row, index) => {
+    const chip = row.querySelector('[data-coin-package-index]');
+    if (chip) chip.textContent = formatNumberFa(index + 1);
+    const priorityInput = row.querySelector('[data-coin-field="priority"]');
+    if (priorityInput) priorityInput.value = index + 1;
+    updateCoinPackageCard(row);
+  });
+  updateCoinPackagesEmptyState();
+}
+
+function readCoinPackageRow(row) {
+  if (!row) return null;
+  const data = {};
+  const inputs = Array.from(row.querySelectorAll('[data-coin-field]'));
+  inputs.forEach((input) => {
+    const field = safeString(input.dataset.coinField || '', '');
+    if (!field) return;
+    if (input.type === 'checkbox') data[field] = !!input.checked;
+    else if (input.type === 'number') data[field] = safeNumber(input.value, 0);
+    else data[field] = safeString(input.value, '');
+  });
+  const idInput = safeString(data.id || row.dataset.coinPackageId || '', '');
+  if (!idInput) return null;
+  data.id = idInput;
+  data.priority = safeNumber(data.priority || 0, 0);
+  data.totalCoins = computeCoinPackageTotal(data.amount, data.bonus);
+  return data;
+}
+
+function createCoinPackageRow(initialData = {}, options = {}) {
+  if (!coinPackageTemplate) return null;
+  const content = coinPackageTemplate.content?.firstElementChild;
+  if (!content) return null;
+  const node = content.cloneNode(true);
+  const base = initialData && typeof initialData === 'object' ? initialData : {};
+  node.dataset.coinPackageId = safeString(base.id || '', '');
+
+  const inputs = Array.from(node.querySelectorAll('[data-coin-field]'));
+  inputs.forEach((input) => {
+    const field = safeString(input.dataset.coinField || '', '');
+    if (!field) return;
+    const value = base[field];
+    if (input.type === 'checkbox') {
+      input.checked = value !== false;
+    } else if (input.type === 'number') {
+      input.value = value != null ? value : input.value;
+    } else {
+      input.value = value != null ? value : input.value;
+    }
+  });
+
+  if (options && options.autoFocus) {
+    const focusTarget = node.querySelector('[data-coin-field="displayName"]');
+    if (focusTarget) focusTarget.focus();
+  }
+
+  updateCoinPackageCard(node);
+  return node;
+}
+
+function applyCoinPackageSnapshots(packages) {
+  if (!coinPackagesList) return;
+  coinPackagesList.innerHTML = '';
+  const source = Array.isArray(packages) && packages.length ? packages : DEFAULT_COIN_PACKAGES;
+  source.forEach((pkg, index) => {
+    const row = createCoinPackageRow({
+      ...pkg,
+      priority: pkg.priority != null ? pkg.priority : index + 1,
+    });
+    if (row) {
+      coinPackagesList.appendChild(row);
+    }
+  });
+  refreshCoinPackageOrder();
+}
+
+function appendCoinPackage(data = {}, options = {}) {
+  if (!coinPackagesList) return null;
+  const row = createCoinPackageRow(data, options);
+  if (!row) return null;
+  coinPackagesList.appendChild(row);
+  refreshCoinPackageOrder();
+  return row;
+}
+
+function generateCoinPackageId() {
+  const existing = new Set(getCoinPackageRows().map((row) => safeString(row.dataset.coinPackageId || '', '')));
+  let attempt = 0;
+  while (attempt < 20) {
+    const id = `c${Math.random().toString(36).slice(2, 8)}`;
+    if (id && !existing.has(id)) return id;
+    attempt += 1;
+  }
+  return `c${Date.now().toString(36)}`;
+}
+
 function readPackageCard(card) {
   if (!card) return null;
   const pkg = {};
@@ -6434,7 +6646,6 @@ function applyPackageSnapshots(packages) {
 
 function collectShopPackagesByType() {
   const result = {};
-  if (!shopPackageCards.length) return result;
   shopPackageCards.forEach((card) => {
     const pkg = readPackageCard(card);
     if (!pkg || !pkg.id) return;
@@ -6444,6 +6655,17 @@ function collectShopPackagesByType() {
     delete pkgCopy.type;
     result[type].push(pkgCopy);
   });
+  const walletPackages = getCoinPackageRows()
+    .map((row, index) => {
+      const pkg = readCoinPackageRow(row);
+      if (!pkg || !pkg.id) return null;
+      if (!pkg.priority) pkg.priority = index + 1;
+      return pkg;
+    })
+    .filter(Boolean);
+  if (walletPackages.length) {
+    result.wallet = walletPackages;
+  }
   return result;
 }
 
@@ -7011,11 +7233,19 @@ function updateVipPreview() {
 }
 
 function updateShopSummary() {
-  const totalPackages = shopPackageCards.length;
-  const activePackages = shopPackageCards.filter((card) => {
+  const coinRows = getCoinPackageRows();
+  const activeCoinPackages = coinRows.filter((row) => {
+    const toggle = row.querySelector('[data-coin-field="active"]');
+    return getCheckboxValue(toggle, true);
+  }).length;
+
+  const activeKeyPackages = shopPackageCards.filter((card) => {
     const toggle = card.querySelector('[data-shop-package-active]');
     return getCheckboxValue(toggle, true);
   }).length;
+
+  const totalPackages = shopPackageCards.length + coinRows.length;
+  const activePackages = activeKeyPackages + activeCoinPackages;
 
   if (shopSummaryElements.packages) {
     shopSummaryElements.packages.textContent = totalPackages
@@ -7066,8 +7296,96 @@ function markShopUpdated() {
   }
 }
 
+function setupCoinPackageControls() {
+  if (!coinPackagesList) return;
+
+  const handleChange = (row) => {
+    updateCoinPackageCard(row);
+    updateShopSummary();
+    if (shopState.initialized) {
+      markShopUpdated();
+    }
+  };
+
+  coinPackagesList.addEventListener('input', (event) => {
+    const target = event.target.closest('[data-coin-field]');
+    if (!target) return;
+    const row = target.closest('[data-coin-package-row]');
+    if (!row) return;
+    handleChange(row);
+  });
+
+  coinPackagesList.addEventListener('change', (event) => {
+    const target = event.target.closest('[data-coin-field]');
+    if (!target) return;
+    const row = target.closest('[data-coin-package-row]');
+    if (!row) return;
+    handleChange(row);
+  });
+
+  coinPackagesList.addEventListener('click', (event) => {
+    const removeBtn = event.target.closest('[data-coin-package-remove]');
+    if (removeBtn) {
+      event.preventDefault();
+      const row = removeBtn.closest('[data-coin-package-row]');
+      if (!row) return;
+      row.remove();
+      refreshCoinPackageOrder();
+      updateShopSummary();
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+      return;
+    }
+
+    const moveBtn = event.target.closest('[data-coin-package-move]');
+    if (moveBtn) {
+      event.preventDefault();
+      const row = moveBtn.closest('[data-coin-package-row]');
+      if (!row || !coinPackagesList) return;
+      const direction = moveBtn.dataset.coinPackageMove;
+      if (direction === 'up' && row.previousElementSibling) {
+        coinPackagesList.insertBefore(row, row.previousElementSibling);
+      } else if (direction === 'down' && row.nextElementSibling) {
+        coinPackagesList.insertBefore(row.nextElementSibling, row);
+      }
+      refreshCoinPackageOrder();
+      updateShopSummary();
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+    }
+  });
+
+  if (coinPackageAddButton) {
+    coinPackageAddButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      const rows = getCoinPackageRows();
+      const defaultTemplate = DEFAULT_COIN_PACKAGES[Math.min(rows.length, DEFAULT_COIN_PACKAGES.length - 1)] || {};
+      const id = generateCoinPackageId();
+      const data = {
+        ...defaultTemplate,
+        id,
+        priority: rows.length + 1,
+      };
+      const row = appendCoinPackage(data, { autoFocus: true });
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      updateShopSummary();
+      if (shopState.initialized) {
+        markShopUpdated();
+      }
+    });
+  }
+
+  refreshCoinPackageOrder();
+}
+
 function setupShopControls() {
   if (!shopSettingsPage) return;
+
+  setupCoinPackageControls();
 
   const registerToggle = (toggle, options) => {
     if (!toggle) return;
