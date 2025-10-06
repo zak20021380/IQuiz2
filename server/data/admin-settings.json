@@ -58,7 +58,7 @@
           "badge": "شروع سریع",
           "description": "مناسب برای شروع تجربه ایکویز.",
           "id": "k1",
-          "priority": "1"
+          "priority": 1
         },
         {
           "active": true,
@@ -68,7 +68,7 @@
           "badge": "پیشنهاد ویژه",
           "description": "بهترین نسبت قیمت به کلید.",
           "id": "k3",
-          "priority": "2"
+          "priority": 2
         },
         {
           "active": true,
@@ -78,7 +78,57 @@
           "badge": "برای رکورددارها",
           "description": "مناسب برای بازیکنان حرفه‌ای.",
           "id": "k10",
-          "priority": "3"
+          "priority": 3
+        }
+      ],
+      "wallet": [
+        {
+          "active": true,
+          "displayName": "بسته ۱۰۰ سکه",
+          "amount": 100,
+          "priceToman": 59000,
+          "bonus": 0,
+          "paymentMethod": "درگاه بانکی",
+          "badge": "ورودی سریع",
+          "description": "برای خریدهای فوری و تست امکانات.",
+          "id": "c100",
+          "priority": 1
+        },
+        {
+          "active": true,
+          "displayName": "بسته ۵۰۰ سکه",
+          "amount": 500,
+          "priceToman": 239000,
+          "bonus": 5,
+          "paymentMethod": "درگاه بانکی",
+          "badge": "پرفروش",
+          "description": "انتخاب محبوب کاربران حرفه‌ای.",
+          "id": "c500",
+          "priority": 2
+        },
+        {
+          "active": true,
+          "displayName": "بسته ۱۲۰۰ سکه",
+          "amount": 1200,
+          "priceToman": 459000,
+          "bonus": 12,
+          "paymentMethod": "پرداخت امن",
+          "badge": "برای حرفه‌ای‌ها",
+          "description": "بسته ایده‌آل برای مسابقات روزانه و رویدادها.",
+          "id": "c1200",
+          "priority": 3
+        },
+        {
+          "active": true,
+          "displayName": "بسته ۳۰۰۰ سکه",
+          "amount": 3000,
+          "priceToman": 899000,
+          "bonus": 25,
+          "paymentMethod": "پرداخت شرکتی",
+          "badge": "حداکثر صرفه اقتصادی",
+          "description": "بیشترین هدیه سکه برای تیم‌ها و بازیکنان حرفه‌ای.",
+          "id": "c3000",
+          "priority": 4
         }
       ]
     },

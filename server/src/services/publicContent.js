@@ -1,4 +1,5 @@
 const { CATEGORIES, resolveCategory } = require('../config/categories');
+const { loadAdminSettings } = require('../config/adminSettings');
 
 const DEFAULT_DIFFICULTIES = [
   { value: 'easy', label: 'آسان' },
@@ -471,8 +472,68 @@ function getFallbackProvinces() {
   return clone(FALLBACK_PROVINCES);
 }
 
+function sortByPriorityOrAmount(a, b) {
+  const priorityA = Number.isFinite(a.priority) ? a.priority : null;
+  const priorityB = Number.isFinite(b.priority) ? b.priority : null;
+  if (priorityA != null && priorityB != null && priorityA !== priorityB) {
+    return priorityA - priorityB;
+  }
+  if (priorityA != null && priorityB == null) return -1;
+  if (priorityB != null && priorityA == null) return 1;
+  return (a.amount || 0) - (b.amount || 0);
+}
+
+function mapWalletPackageForRemote(pkg) {
+  if (!pkg || typeof pkg !== 'object') return null;
+  const id = typeof pkg.id === 'string' ? pkg.id.trim() : String(pkg.id || '');
+  const amount = Number(pkg.amount);
+  const priceToman = Number(pkg.priceToman != null ? pkg.priceToman : pkg.price);
+  if (!id || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(priceToman) || priceToman <= 0) {
+    return null;
+  }
+  const mapped = {
+    id,
+    amount,
+    priceToman,
+    price: priceToman,
+    bonus: Math.max(0, Number(pkg.bonus) || 0),
+    priority: Number.isFinite(pkg.priority) ? pkg.priority : undefined,
+    displayName: typeof pkg.displayName === 'string' ? pkg.displayName : undefined,
+    paymentMethod: typeof pkg.paymentMethod === 'string' ? pkg.paymentMethod : undefined,
+    badge: typeof pkg.badge === 'string' ? pkg.badge : undefined,
+    description: typeof pkg.description === 'string' ? pkg.description : undefined,
+  };
+  if (Number.isFinite(pkg.priceCents) && pkg.priceCents > 0) {
+    mapped.priceCents = pkg.priceCents;
+  }
+  return mapped;
+}
+
+function applyAdminShopConfig(config) {
+  const next = clone(config);
+  try {
+    const settings = loadAdminSettings();
+    const shop = settings && settings.shop ? settings.shop : {};
+    const packages = shop && shop.packages ? shop.packages : {};
+    const walletPackages = Array.isArray(packages.wallet) ? packages.wallet : [];
+    const activeWallet = walletPackages
+      .filter((pkg) => pkg && pkg.active !== false)
+      .map(mapWalletPackageForRemote)
+      .filter(Boolean)
+      .sort(sortByPriorityOrAmount);
+    if (activeWallet.length) {
+      next.pricing = next.pricing || {};
+      next.pricing.coins = activeWallet;
+    }
+  } catch (error) {
+    console.warn('[publicContent] failed to merge admin shop settings into fallback config', error);
+  }
+  return next;
+}
+
 function getFallbackConfig() {
-  return clone(DEFAULT_REMOTE_CONFIG);
+  const base = clone(DEFAULT_REMOTE_CONFIG);
+  return applyAdminShopConfig(base);
 }
 
 function sanitizeDifficulty(input) {
