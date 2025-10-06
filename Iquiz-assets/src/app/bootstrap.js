@@ -75,6 +75,8 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
   const APP_TITLE_SUFFIX = ' — نسخه فارسی';
   const PAYMENT_SESSION_STORAGE_KEY = 'quiz_payment_session_id_v1';
   const PENDING_PAYMENT_STORAGE_KEY = 'quiz_pending_payment_v1';
+  const PURCHASE_NOTICE_STORAGE_KEY = 'quiz_purchase_success_notice_v1';
+  const PURCHASE_NOTICE_TTL = 6 * 60 * 60 * 1000;
   const TELEGRAM_BOT_USERNAME = (document.body?.dataset?.telegramBot || 'IQuizBot').replace(/^@+/, '').trim() || 'IQuizBot';
   const TELEGRAM_BOT_WEB_LINK = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
   const TELEGRAM_BOT_APP_LINK = `tg://resolve?domain=${TELEGRAM_BOT_USERNAME}`;
@@ -242,6 +244,44 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
 
   function clearPendingPayment(){
     try { sessionStorage.removeItem(PENDING_PAYMENT_STORAGE_KEY); } catch (err) {}
+  }
+
+  function storePurchaseNotice(payload = {}){
+    try {
+      const normalized = { ...payload };
+      normalized.timestamp = Number.isFinite(normalized.timestamp) ? Number(normalized.timestamp) : Date.now();
+      sessionStorage.setItem(PURCHASE_NOTICE_STORAGE_KEY, JSON.stringify(normalized));
+    } catch (err) {}
+  }
+
+  function getPurchaseNotice({ consume = false } = {}){
+    try {
+      const raw = sessionStorage.getItem(PURCHASE_NOTICE_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') {
+        sessionStorage.removeItem(PURCHASE_NOTICE_STORAGE_KEY);
+        return null;
+      }
+      const timestamp = Number(parsed.timestamp) || 0;
+      if (timestamp && (Date.now() - timestamp) > PURCHASE_NOTICE_TTL) {
+        sessionStorage.removeItem(PURCHASE_NOTICE_STORAGE_KEY);
+        return null;
+      }
+      if (consume) {
+        sessionStorage.removeItem(PURCHASE_NOTICE_STORAGE_KEY);
+      }
+      return parsed;
+    } catch (err) {
+      if (consume) {
+        try { sessionStorage.removeItem(PURCHASE_NOTICE_STORAGE_KEY); } catch (_) {}
+      }
+      return null;
+    }
+  }
+
+  function clearPurchaseNotice(){
+    try { sessionStorage.removeItem(PURCHASE_NOTICE_STORAGE_KEY); } catch (err) {}
   }
 
   function getBaseQuestionDuration(){
@@ -2963,6 +3003,61 @@ function startQuizTimerCountdown(){
     warningEl.classList.toggle('hidden', !shouldShow);
   }
 
+  function renderShopPurchaseNotice(){
+    const banner = $('#shop-purchase-success');
+    if (!banner) return;
+    const notice = getPurchaseNotice();
+    if (!notice) {
+      banner.classList.add('hidden');
+      return;
+    }
+
+    const messageEl = banner.querySelector('[data-purchase-message]');
+    if (messageEl) {
+      messageEl.textContent = notice.message || 'خرید با موفقیت انجام شد.';
+    }
+
+    const metaEl = banner.querySelector('[data-purchase-meta]');
+    if (metaEl) {
+      const metaParts = [];
+      const balanceValue = Number(notice.balance);
+      if (Number.isFinite(balanceValue)) {
+        metaParts.push(`موجودی فعلی: ${faNum(balanceValue)} سکه`);
+      }
+      if (notice.reference) {
+        metaParts.push(`کد تراکنش: ${notice.reference}`);
+      }
+      const ts = Number(notice.timestamp) || 0;
+      if (ts) {
+        metaParts.push(formatRelativeTime(ts));
+      }
+      metaEl.textContent = metaParts.length ? metaParts.join(' • ') : 'موجودی شما به‌روزرسانی شد.';
+    }
+
+    const closeBtn = banner.querySelector('[data-purchase-dismiss]');
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = 'true';
+      closeBtn.addEventListener('click', () => {
+        clearPurchaseNotice();
+        renderShopPurchaseNotice();
+      });
+    }
+
+    banner.classList.remove('hidden');
+  }
+
+  function announcePurchaseSuccess({ coinsAdded = 0, balance = null, itemLabel = '', reference = '' } = {}){
+    const coins = Math.max(0, Number(coinsAdded) || 0);
+    const balanceValue = Number.isFinite(Number(balance)) ? Number(balance) : null;
+    const label = itemLabel ? String(itemLabel).trim() : '';
+    const baseMessage = label ? `${label} خریداری شد` : 'خرید با موفقیت انجام شد';
+    const coinsPart = coins > 0 ? `؛ ${faNum(coins)} سکه به کیف پولت اضافه شد` : '';
+    const message = `${baseMessage}${coinsPart}.`;
+    toast(`<i class="fas fa-check-circle ml-2"></i> ${message}`);
+    storePurchaseNotice({ message, coinsAdded: coins, balance: balanceValue, itemLabel: label, reference, timestamp: Date.now() });
+    renderShopPurchaseNotice();
+  }
+
   function renderShopWalletTopup(){
     const card = $('#shop-wallet-topup');
     if (!card) return;
@@ -3294,6 +3389,7 @@ function startQuizTimerCountdown(){
     renderShopVipIntro();
     renderShopBalances();
     renderShopLowBalanceMessage();
+    renderShopPurchaseNotice();
     renderShopWalletTopup();
     renderKeyPackages();
   }
@@ -3761,8 +3857,9 @@ async function handleGatewayReturn(statusParam, paymentId, extra = {}){
           ['موجودی کیف پول', faNum(Server.wallet.coins || 0)]
         ]
       });
+      announcePurchaseSuccess({ coinsAdded: coinsAwarded, balance: Server.wallet.coins, itemLabel: packageTitle, reference: refId || '' });
+      SFX.coin();
       shootConfetti();
-      toast('<i class="fas fa-check-circle ml-2"></i> پرداخت با موفقیت تایید شد!');
       await logEvent('payment_status_success', { paymentId, refId, packageId });
     } else if (data.status === 'canceled') {
       toast('<i class="fas fa-circle-xmark ml-2"></i> پرداخت توسط کاربر لغو شد.');
@@ -3926,6 +4023,10 @@ async function startPurchaseCoins(pkgId){
         ['موجودی جدید', faNum(Server.wallet.coins)]
       ]
     });
+    const delta = (Server.wallet.coins != null && before != null) ? (Server.wallet.coins - before) : 0;
+    const coinsAdded = Math.max(0, Number.isFinite(delta) ? delta : 0) || Math.max(pkg.totalCoins || 0, pkg.amount || 0);
+    const packageLabel = pkg.displayName || `بسته ${faNum(pkg.amount)} سکه`;
+    announcePurchaseSuccess({ coinsAdded, balance: Server.wallet.coins, itemLabel: packageLabel, reference: txnId });
     await logEvent('purchase_succeeded', { kind:'coins', pkgId, txnId, priceToman:priceTmn });
     SFX.coin();
   } else {

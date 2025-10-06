@@ -3862,6 +3862,219 @@
             </section>
 
             <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6">
+              <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <h3 class="text-lg font-bold flex items-center gap-2">
+                    <i class="fas fa-coins text-amber-300"></i>
+                    <span>پکیج‌های سکه (کیف پول)</span>
+                  </h3>
+                  <p class="text-sm text-white/70 mt-1">تعداد سکه و قیمت تومان هر بسته را مشخص کنید تا در فروشگاه و ربات IQuiz همگام‌سازی شود.</p>
+                </div>
+                <span class="text-xs text-white/60 bg-white/5 border border-white/10 rounded-full px-3 py-1 inline-flex items-center gap-2">
+                  <i class="fas fa-sync-alt text-emerald-300"></i>
+                  <span>همگام با IQuiz-Bot</span>
+                </span>
+              </div>
+              <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-5 space-y-4 transition hover:border-white/20" data-shop-package="wallet" data-package-id="c100">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="space-y-1">
+                      <p class="text-xs text-white/60">ورودی سریع</p>
+                      <h4 class="text-sm font-bold" data-package-name>بسته ۱۰۰ سکه</h4>
+                    </div>
+                    <label class="toggle text-xs">
+                      <input type="checkbox" data-shop-package-active data-package-field="active" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                      <span class="toggle-label" data-toggle-text>فعال</span>
+                    </label>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">عنوان نمایشی</label>
+                      <input type="text" class="form-input text-sm" data-package-field="displayName" value="بسته ۱۰۰ سکه">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">تعداد سکه</label>
+                      <input type="number" class="form-input text-sm" data-package-field="amount" value="100" min="1">
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">قیمت (تومان)</label>
+                      <input type="number" class="form-input text-sm" data-package-field="priceToman" value="59000" min="1000">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">درصد هدیه</label>
+                      <input type="number" class="form-input text-sm" data-package-field="bonus" value="0" min="0">
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">نحوه پرداخت</label>
+                      <input type="text" class="form-input text-sm" data-package-field="paymentMethod" value="درگاه بانکی">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">برچسب کوتاه</label>
+                      <input type="text" class="form-input text-sm" data-package-field="badge" value="شروع هوشمند">
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-white/60 mb-1">توضیح کوتاه</label>
+                    <textarea class="form-input text-sm" rows="2" data-package-field="description">بهترین گزینه برای شروع و تست امکانات.</textarea>
+                  </div>
+                  <input type="hidden" data-package-field="id" value="c100">
+                  <input type="hidden" data-package-field="priority" value="1">
+                </div>
+
+                <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-5 space-y-4 transition hover:border-white/20" data-shop-package="wallet" data-package-id="c500">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="space-y-1">
+                      <p class="text-xs text-white/60">پرفروش</p>
+                      <h4 class="text-sm font-bold" data-package-name>بسته ۵۰۰ سکه</h4>
+                    </div>
+                    <label class="toggle text-xs">
+                      <input type="checkbox" data-shop-package-active data-package-field="active" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                      <span class="toggle-label" data-toggle-text>فعال</span>
+                    </label>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">عنوان نمایشی</label>
+                      <input type="text" class="form-input text-sm" data-package-field="displayName" value="بسته ۵۰۰ سکه">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">تعداد سکه</label>
+                      <input type="number" class="form-input text-sm" data-package-field="amount" value="500" min="1">
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">قیمت (تومان)</label>
+                      <input type="number" class="form-input text-sm" data-package-field="priceToman" value="239000" min="1000">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">درصد هدیه</label>
+                      <input type="number" class="form-input text-sm" data-package-field="bonus" value="5" min="0">
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">نحوه پرداخت</label>
+                      <input type="text" class="form-input text-sm" data-package-field="paymentMethod" value="آنلاین فوری">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">برچسب کوتاه</label>
+                      <input type="text" class="form-input text-sm" data-package-field="badge" value="پیشنهاد محبوب">
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-white/60 mb-1">توضیح کوتاه</label>
+                    <textarea class="form-input text-sm" rows="2" data-package-field="description">۵٪ هدیه سکه برای خریدهای بعدی.</textarea>
+                  </div>
+                  <input type="hidden" data-package-field="id" value="c500">
+                  <input type="hidden" data-package-field="priority" value="2">
+                </div>
+
+                <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-5 space-y-4 transition hover:border-white/20" data-shop-package="wallet" data-package-id="c1200">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="space-y-1">
+                      <p class="text-xs text-white/60">اقتصادی</p>
+                      <h4 class="text-sm font-bold" data-package-name>بسته ۱۲۰۰ سکه</h4>
+                    </div>
+                    <label class="toggle text-xs">
+                      <input type="checkbox" data-shop-package-active data-package-field="active" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                      <span class="toggle-label" data-toggle-text>فعال</span>
+                    </label>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">عنوان نمایشی</label>
+                      <input type="text" class="form-input text-sm" data-package-field="displayName" value="بسته ۱۲۰۰ سکه">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">تعداد سکه</label>
+                      <input type="number" class="form-input text-sm" data-package-field="amount" value="1200" min="1">
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">قیمت (تومان)</label>
+                      <input type="number" class="form-input text-sm" data-package-field="priceToman" value="459000" min="1000">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">درصد هدیه</label>
+                      <input type="number" class="form-input text-sm" data-package-field="bonus" value="12" min="0">
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">نحوه پرداخت</label>
+                      <input type="text" class="form-input text-sm" data-package-field="paymentMethod" value="پرداخت امن">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">برچسب کوتاه</label>
+                      <input type="text" class="form-input text-sm" data-package-field="badge" value="برای حرفه‌ای‌ها">
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-white/60 mb-1">توضیح کوتاه</label>
+                    <textarea class="form-input text-sm" rows="2" data-package-field="description">بسته ایده‌آل برای مسابقات روزانه و رویدادها.</textarea>
+                  </div>
+                  <input type="hidden" data-package-field="id" value="c1200">
+                  <input type="hidden" data-package-field="priority" value="3">
+                </div>
+
+                <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-5 space-y-4 transition hover:border-white/20" data-shop-package="wallet" data-package-id="c3000">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="space-y-1">
+                      <p class="text-xs text-white/60">حرفه‌ای</p>
+                      <h4 class="text-sm font-bold" data-package-name>بسته ۳۰۰۰ سکه</h4>
+                    </div>
+                    <label class="toggle text-xs">
+                      <input type="checkbox" data-shop-package-active data-package-field="active" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                      <span class="toggle-label" data-toggle-text>فعال</span>
+                    </label>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">عنوان نمایشی</label>
+                      <input type="text" class="form-input text-sm" data-package-field="displayName" value="بسته ۳۰۰۰ سکه">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">تعداد سکه</label>
+                      <input type="number" class="form-input text-sm" data-package-field="amount" value="3000" min="1">
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">قیمت (تومان)</label>
+                      <input type="number" class="form-input text-sm" data-package-field="priceToman" value="899000" min="1000">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">درصد هدیه</label>
+                      <input type="number" class="form-input text-sm" data-package-field="bonus" value="25" min="0">
+                    </div>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">نحوه پرداخت</label>
+                      <input type="text" class="form-input text-sm" data-package-field="paymentMethod" value="پرداخت شرکتی">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">برچسب کوتاه</label>
+                      <input type="text" class="form-input text-sm" data-package-field="badge" value="حداکثر صرفه اقتصادی">
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-white/60 mb-1">توضیح کوتاه</label>
+                    <textarea class="form-input text-sm" rows="2" data-package-field="description">بیشترین هدیه سکه برای تیم‌ها و بازیکنان حرفه‌ای.</textarea>
+                  </div>
+                  <input type="hidden" data-package-field="id" value="c3000">
+                  <input type="hidden" data-package-field="priority" value="4">
+                </div>
+              </div>
+            </section>
+
+            <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6">
               <div>
                 <h3 class="text-lg font-bold flex items-center gap-2">
                   <i class="fas fa-headset text-sky-200"></i>
