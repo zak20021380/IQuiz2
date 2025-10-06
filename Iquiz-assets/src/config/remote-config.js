@@ -20,10 +20,50 @@ export const RemoteConfig = {
     usdToToman: 70_000,
 
     coins: [
-      { id:'c100',  amount:100,  bonus:0,  priceToman: 59_000,   priceCents:199  },
-      { id:'c500',  amount:500,  bonus:5,  priceToman: 239_000,  priceCents:799  },
-      { id:'c1200', amount:1200, bonus:12, priceToman: 459_000,  priceCents:1499 },
-      { id:'c3000', amount:3000, bonus:25, priceToman: 899_000,  priceCents:2999 }
+      {
+        id:'c100',
+        amount:100,
+        bonus:0,
+        priceToman: 59_000,
+        priceCents:199,
+        displayName:'بسته ۱۰۰ سکه',
+        paymentMethod:'درگاه بانکی',
+        badge:'شروع هوشمند',
+        description:'بهترین گزینه برای شروع سریع و تست امکانات.'
+      },
+      {
+        id:'c500',
+        amount:500,
+        bonus:5,
+        priceToman: 239_000,
+        priceCents:799,
+        displayName:'بسته ۵۰۰ سکه',
+        paymentMethod:'آنلاین فوری',
+        badge:'پیشنهاد محبوب',
+        description:'۵٪ هدیه سکه برای خریدهای بعدی دریافت کنید.'
+      },
+      {
+        id:'c1200',
+        amount:1200,
+        bonus:12,
+        priceToman: 459_000,
+        priceCents:1499,
+        displayName:'بسته ۱۲۰۰ سکه',
+        paymentMethod:'پرداخت امن',
+        badge:'برای حرفه‌ای‌ها',
+        description:'بسته ایده‌آل برای مسابقات روزانه و رویدادها.'
+      },
+      {
+        id:'c3000',
+        amount:3000,
+        bonus:25,
+        priceToman: 899_000,
+        priceCents:2999,
+        displayName:'بسته ۳۰۰۰ سکه',
+        paymentMethod:'پرداخت شرکتی',
+        badge:'حداکثر صرفه اقتصادی',
+        description:'بیشترین هدیه سکه برای تیم‌ها و بازیکنان حرفه‌ای.'
+      }
     ],
 
     vip: {

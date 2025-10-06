@@ -624,6 +624,19 @@
         <span data-low-balance-message>موجودی سکه شما کم است. برای شرکت در مسابقه‌ها کیف پول را شارژ کنید.</span>
       </div>
 
+      <div id="shop-purchase-success" class="hidden glass-dark rounded-2xl border border-emerald-400/40 bg-emerald-500/10 p-4 flex items-start gap-3" role="status" aria-live="polite">
+        <span class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-300/40 text-emerald-200 flex items-center justify-center text-lg">
+          <i class="fas fa-circle-check"></i>
+        </span>
+        <div class="flex-1 space-y-1">
+          <div class="text-sm font-bold text-emerald-100" data-purchase-message>خرید با موفقیت انجام شد.</div>
+          <div class="text-xs text-white/70" data-purchase-meta>موجودی شما به‌روزرسانی شد.</div>
+        </div>
+        <button type="button" class="text-xs text-white/60 hover:text-white transition" data-purchase-dismiss aria-label="بستن اعلان خرید">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+
       <!-- بسته‌های کلید -->
       <div data-shop-section="keys">
         <div class="flex items-center justify-between mb-3">
