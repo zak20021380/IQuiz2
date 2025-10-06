@@ -3311,12 +3311,20 @@ function startQuizTimerCountdown(){
   });
 
 
+const SHOP_ITEM_META = Object.freeze({
+  life: { label: 'جان اضافه', success: 'یک جان جدید فعال شد.' },
+  boost: { label: 'افزایش امتیاز', success: 'بوست امتیاز به‌مدت ۱۰ دقیقه فعال شد.' },
+  hint: { label: 'راهنمای سریع', success: 'راهنما برای سوالات فعال شد.' },
+  streak: { label: 'محافظ استریک', success: 'محافظ استریک روشن شد.' }
+});
+
+
 function buyKeys(packId){
   const pack = RemoteConfig.pricing.keys.find(p => p.id === packId);
   if (!pack){ toast('بستهٔ کلید یافت نشد'); return; }
 
   if (State.coins < pack.priceGame){
-    toast('<i class="fas fa-exclamation-circle ml-2"></i> سکهٔ بازی کافی نیست'); 
+    toast('<i class="fas fa-exclamation-circle ml-2"></i> سکهٔ بازی کافی نیست');
     return;
   }
 
@@ -3330,6 +3338,16 @@ function buyKeys(packId){
   renderShop();         // آپدیت خود فروشگاه
 
   SFX.coin();
+  openReceipt({
+    title:'خرید کلید موفق بود',
+    rows:[
+      ['بسته', pack.displayName || `بسته ${faNum(pack.amount)} کلید`],
+      ['کلیدهای دریافت‌شده', faNum(pack.amount)],
+      ['کلیدهای موجود', faNum(State.keys)],
+      ['سکه مصرف شده', faNum(pack.priceGame)],
+      ['سکه باقی‌مانده', faNum(State.coins)]
+    ]
+  });
   const shop = getShopConfig();
   const template = shop.messaging?.success || '';
   const successMsg = template
@@ -3356,9 +3374,25 @@ document.addEventListener('click', (e) => {
     if(item==='boost') State.boostUntil = Date.now() + 10*60*1000;
     if(item==='hint') { /* Hint logic */ }
     if(item==='streak') { /* Streak protection logic */ }
-    saveState(); renderDashboard(); renderTopBars();
-    SFX.coin(); toast('<i class="fas fa-check-circle ml-2"></i>خرید با موفقیت انجام شد');
-    
+    saveState(); renderHeader(); renderDashboard(); renderTopBars();
+    SFX.coin();
+    const meta = SHOP_ITEM_META[item] || { label:'آیتم فروشگاه', success:'خرید با موفقیت انجام شد.' };
+    const rows = [
+      ['آیتم', meta.label],
+      ['سکه مصرف شده', faNum(price)],
+      ['موجودی سکه', faNum(State.coins)]
+    ];
+    if (item === 'life') {
+      rows.splice(2, 0, ['جان‌های موجود', faNum(State.lives)]);
+    }
+    if (item === 'boost') {
+      const expires = State.boostUntil ? new Date(State.boostUntil) : null;
+      const label = expires ? expires.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }) : '۱۰ دقیقه آینده';
+      rows.splice(2, 0, ['فعال تا', label]);
+    }
+    openReceipt({ title: `${meta.label} با موفقیت خریداری شد`, rows });
+    toast(`<i class="fas fa-check-circle ml-2"></i> ${meta.success || 'خرید با موفقیت انجام شد.'}`);
+
     // Log analytics
     logEvent('purchase_item', { item, price });
   }

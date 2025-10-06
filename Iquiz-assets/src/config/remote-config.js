@@ -193,9 +193,13 @@ function applyAdminOverrides(config, settings){
         priceCents: config.pricing.usdToToman ? Math.round(((Number(pkg.priceToman ?? pkg.price) || 0) / config.pricing.usdToToman) * 100) : undefined,
         displayName: pkg.displayName || '',
         paymentMethod: pkg.paymentMethod || '',
+        badge: typeof pkg.badge === 'string' ? pkg.badge : '',
+        description: typeof pkg.description === 'string' ? pkg.description : '',
+        active: pkg.active !== false,
         priority: Number(pkg.priority) || (index + 1),
+        totalCoins: Math.round((Number(pkg.amount) || 0) + ((Number(pkg.amount) || 0) * (Number(pkg.bonus) || 0) / 100)),
       }))
-      .filter(pkg => pkg.amount > 0 && pkg.priceToman > 0)
+      .filter(pkg => pkg.amount > 0 && pkg.priceToman > 0 && pkg.active !== false)
       .sort((a,b)=> (a.priority ?? a.amount) - (b.priority ?? b.amount));
   }
 

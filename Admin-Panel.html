@@ -3743,6 +3743,90 @@
                 </h3>
                 <p class="text-sm text-white/70 mt-1">پکیج‌های پیشنهادی را ساده و قابل‌فهم نگه دارید. در صورت نیاز می‌توانید مقادیر را ویرایش کنید.</p>
               </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-5" id="coin-packages-editor">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <div class="text-sm font-semibold text-white flex items-center gap-2">
+                      <i class="fa-solid fa-coins text-amber-300"></i>
+                      <span>بسته‌های سکه کیف پول</span>
+                    </div>
+                    <p class="text-xs text-white/60 mt-1">مبالغ، تعداد سکه و هدیه‌ی هر بسته را مطابق استراتژی قیمت‌گذاری خود تنظیم کنید.</p>
+                  </div>
+                  <button type="button" id="coin-package-add" class="btn btn-secondary w-full sm:w-auto text-xs font-bold px-4 py-2">
+                    <i class="fas fa-plus ml-1"></i>
+                    بسته جدید
+                  </button>
+                </div>
+                <div id="coin-packages-empty" class="rounded-2xl border border-dashed border-white/20 bg-white/5 p-5 text-center text-xs text-white/60 leading-6 hidden">
+                  هنوز بسته‌ای تعریف نشده است. روی «بسته جدید» بزنید یا از مقادیر پیش‌فرض استفاده کنید.
+                </div>
+                <div id="coin-packages-list" class="space-y-4"></div>
+                <template id="coin-package-template">
+                  <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-5 space-y-4" data-coin-package-row data-coin-package-id>
+                    <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                          <span class="chip bg-amber-500/15 border border-amber-400/30 text-amber-200 text-xs font-bold" data-coin-package-index>۱</span>
+                          <h4 class="text-sm font-bold" data-coin-package-title>بسته سکه</h4>
+                        </div>
+                        <p class="text-xs text-white/60" data-coin-package-summary>—</p>
+                      </div>
+                      <div class="flex items-center gap-2 self-end md:self-start">
+                        <button type="button" class="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs hover:bg-white/10 transition" data-coin-package-move="up" aria-label="جابجایی به بالا">
+                          <i class="fas fa-arrow-up"></i>
+                        </button>
+                        <button type="button" class="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs hover:bg-white/10 transition" data-coin-package-move="down" aria-label="جابجایی به پایین">
+                          <i class="fas fa-arrow-down"></i>
+                        </button>
+                        <button type="button" class="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-400/30 text-xs text-rose-200 hover:bg-rose-500/20 transition" data-coin-package-remove aria-label="حذف بسته">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <div>
+                        <label class="block text-xs text-white/60 mb-1">عنوان نمایشی</label>
+                        <input type="text" class="form-input text-sm" data-coin-field="displayName" placeholder="مثال: بسته طلایی">
+                      </div>
+                      <div>
+                        <label class="block text-xs text-white/60 mb-1">شناسه بسته</label>
+                        <input type="text" class="form-input text-sm" data-coin-field="id" placeholder="مثال: c1200">
+                      </div>
+                      <div>
+                        <label class="block text-xs text-white/60 mb-1">تعداد سکه پایه</label>
+                        <input type="number" min="1" class="form-input text-sm" data-coin-field="amount" value="100">
+                      </div>
+                      <div>
+                        <label class="block text-xs text-white/60 mb-1">درصد هدیه</label>
+                        <input type="number" min="0" class="form-input text-sm" data-coin-field="bonus" value="0">
+                      </div>
+                      <div>
+                        <label class="block text-xs text-white/60 mb-1">قیمت (تومان)</label>
+                        <input type="number" min="1000" step="1000" class="form-input text-sm" data-coin-field="priceToman" value="59000">
+                      </div>
+                      <div>
+                        <label class="block text-xs text-white/60 mb-1">روش پرداخت</label>
+                        <input type="text" class="form-input text-sm" data-coin-field="paymentMethod" placeholder="مثال: درگاه بانکی">
+                      </div>
+                      <div>
+                        <label class="block text-xs text-white/60 mb-1">برچسب تبلیغاتی</label>
+                        <input type="text" class="form-input text-sm" data-coin-field="badge" placeholder="مثال: پرفروش">
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block text-xs text-white/60 mb-1">توضیح کوتاه</label>
+                      <textarea rows="2" class="form-input text-sm" data-coin-field="description" placeholder="برای ترغیب کاربر توضیحی کوتاه بنویسید."></textarea>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div class="text-xs text-white/60 leading-6" data-coin-package-meta>—</div>
+                      <label class="toggle text-xs">
+                        <input type="checkbox" data-coin-field="active" data-toggle-on="فعال" data-toggle-off="غیرفعال" checked>
+                        <span class="toggle-label" data-toggle-text>فعال</span>
+                      </label>
+                    </div>
+                  </div>
+                </template>
+              </div>
               <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <div class="rounded-2xl border border-white/10 bg-slate-900/60 p-5 space-y-4 transition hover:border-white/20" data-shop-package="keys" data-package-id="k1">
                   <div class="flex items-start justify-between gap-3">
