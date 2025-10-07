@@ -36,6 +36,17 @@ const formatPercentFa = (value) => {
   return new Intl.NumberFormat('fa-IR', { minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(number);
 };
 
+const toInt = (v) => {
+  const map = { '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4', '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9' };
+  const s = String(v ?? '')
+    .replace(/[۰-۹]/g, (d) => map[d] ?? d)
+    .replace(/[, ]+/g, '')
+    .trim();
+  const n = Number(s);
+  if (!Number.isFinite(n)) throw new Error('Invalid number');
+  return Math.trunc(n);
+};
+
 const DIFFICULTY_META = {
   easy:   { label: 'آسون', class: 'meta-chip difficulty-easy', icon: 'fa-feather' },
   medium: { label: 'متوسط', class: 'meta-chip difficulty-medium', icon: 'fa-wave-square' },
@@ -6350,6 +6361,42 @@ function mergePricingVipWithLegacy(pricingVip, legacyPlans) {
     .filter(Boolean);
 }
 
+function getCoinFieldInput(row, field) {
+  if (!row) return null;
+  return row.querySelector(`[data-coin-field="${field}"]`);
+}
+
+function getCoinFieldValue(row, field) {
+  const input = getCoinFieldInput(row, field);
+  if (!input) return null;
+  if (input.type === 'checkbox') return !!input.checked;
+  return input.value;
+}
+
+function getVipPlanFieldInput(card, field) {
+  if (!card) return null;
+  return card.querySelector(`[data-vip-plan-field="${field}"]`);
+}
+
+function getVipPlanFieldValue(card, field) {
+  const input = getVipPlanFieldInput(card, field);
+  if (!input) return null;
+  if (input.type === 'checkbox') return !!input.checked;
+  return input.value;
+}
+
+function pickFirstValue(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null) continue;
+    if (typeof value === 'string') {
+      if (value.trim() !== '') return value;
+      continue;
+    }
+    return value;
+  }
+  return '';
+}
+
 function collectShopPricingSnapshot(options = {}) {
   const { strict = false } = options || {};
   const errors = [];
@@ -6357,59 +6404,127 @@ function collectShopPricingSnapshot(options = {}) {
 
   const coins = [];
   getCoinPackageRows().forEach((row, index) => {
-    const data = readCoinPackageRow(row);
-    if (!data) {
-      if (strict) errors.push(`شناسه بسته سکه شماره ${index + 1} نامعتبر است.`);
-      return;
-    }
-    const id = safeString(data.id || '', '');
+    if (!row) return;
+    const idValue = pickFirstValue(getCoinFieldValue(row, 'id'), row.dataset ? row.dataset.coinPackageId : '');
+    const id = safeString(idValue || '', '');
     if (!id) {
       if (strict) errors.push(`برای بسته سکه شماره ${index + 1} شناسه وارد کنید.`);
       return;
     }
-    const title = safeString(data.displayName || data.title || id, id);
-    const coinsValue = Math.trunc(Number(data.amount) || 0);
-    if (!Number.isFinite(coinsValue) || coinsValue < 1) {
-      if (strict) errors.push(`تعداد سکه بسته «${title}» باید حداقل ۱ باشد.`);
+    const titleValue = pickFirstValue(getCoinFieldValue(row, 'displayName'), getCoinFieldValue(row, 'title'), id);
+    const title = safeString(titleValue || id, id);
+
+    let coinsValue;
+    try {
+      coinsValue = toInt(pickFirstValue(getCoinFieldValue(row, 'amount'), getCoinFieldValue(row, 'coins'), 0));
+    } catch (_) {
+      if (strict) errors.push(`تعداد سکه بسته «${title || id}» معتبر نیست.`);
       return;
     }
-    const priceValue = Math.trunc(Number(data.priceToman ?? data.price ?? 0));
-    if (!Number.isFinite(priceValue) || priceValue < 0) {
-      if (strict) errors.push(`قیمت بسته «${title}» نامعتبر است.`);
+    if (!Number.isInteger(coinsValue) || coinsValue < 1) {
+      if (strict) errors.push(`تعداد سکه بسته «${title || id}» باید حداقل ۱ باشد.`);
       return;
     }
+
+    let priceValue;
+    try {
+      priceValue = toInt(pickFirstValue(
+        getCoinFieldValue(row, 'priceToman'),
+        getCoinFieldValue(row, 'priceIrr'),
+        getCoinFieldValue(row, 'price'),
+        0,
+      ));
+    } catch (_) {
+      if (strict) errors.push(`قیمت بسته «${title || id}» معتبر نیست.`);
+      return;
+    }
+    if (!Number.isInteger(priceValue) || priceValue < 0) {
+      if (strict) errors.push(`قیمت بسته «${title || id}» باید عدد صحیح بزرگ‌تر یا مساوی صفر باشد.`);
+      return;
+    }
+
+    const featuredValue = getCoinFieldValue(row, 'featured');
+    const activeValue = getCoinFieldValue(row, 'active');
+
     coins.push({
       id,
-      title,
+      title: title || id,
       coins: coinsValue,
       priceIrr: priceValue,
-      featured: data.featured === true,
-      active: data.active !== false,
+      featured: featuredValue === true,
+      active: activeValue !== false,
     });
   });
 
   const vip = [];
-  const vipPlans = collectVipPlansFromCards();
-  vipPlans.forEach((plan, index) => {
+  shopVipPlanCards.forEach((card, index) => {
+    if (!card) return;
+    const plan = readVipPlanCard(card);
     if (!plan) return;
     const id = safeString(plan.id || plan.tier || '', '');
     if (!id) {
       if (strict) errors.push(`برای پلن VIP شماره ${index + 1} شناسه وارد کنید.`);
       return;
     }
-    const title = safeString(plan.displayName || plan.title || id, id);
-    const priceValue = Math.trunc(Number(plan.price ?? 0));
-    if (!Number.isFinite(priceValue) || priceValue < 0) {
-      if (strict) errors.push(`قیمت پلن «${title}» نامعتبر است.`);
+    const titleValue = pickFirstValue(getVipPlanFieldValue(card, 'displayName'), plan.displayName, plan.title, id);
+    const title = safeString(titleValue || id, id);
+
+    let priceValue;
+    try {
+      priceValue = toInt(pickFirstValue(
+        getVipPlanFieldValue(card, 'price'),
+        plan.price,
+        plan.priceIrr,
+        plan.priceIRR,
+        plan.priceToman,
+        0,
+      ));
+    } catch (_) {
+      if (strict) errors.push(`قیمت پلن «${title || id}» معتبر نیست.`);
       return;
     }
-    const months = Math.max(1, resolveVipPlanMonths(plan));
+    if (!Number.isInteger(priceValue) || priceValue < 0) {
+      if (strict) errors.push(`قیمت پلن «${title || id}» باید عدد صحیح بزرگ‌تر یا مساوی صفر باشد.`);
+      return;
+    }
+
+    const rawMonths = pickFirstValue(
+      plan.months,
+      plan.durationMonths,
+      plan.periodMonths,
+      getVipPlanFieldValue(card, 'months'),
+    );
+    let monthsValue;
+    if (rawMonths !== '' && rawMonths !== null && rawMonths !== undefined) {
+      try {
+        monthsValue = toInt(rawMonths);
+      } catch (_) {
+        if (strict) errors.push(`مدت (ماه) پلن «${title || id}» معتبر نیست.`);
+        return;
+      }
+    } else {
+      const periodValue = safeString(pickFirstValue(
+        getVipPlanFieldValue(card, 'period'),
+        plan.period,
+        plan.billingCycle,
+        plan.cycle,
+      ), '');
+      monthsValue = Math.max(1, resolveVipPlanMonths({ ...plan, period: periodValue }));
+    }
+    if (!Number.isInteger(monthsValue) || monthsValue < 1) {
+      if (strict) errors.push(`مدت (ماه) پلن «${title || id}» باید حداقل ۱ باشد.`);
+      return;
+    }
+
+    const activeField = getVipPlanFieldValue(card, 'active');
+    const active = typeof activeField === 'boolean' ? activeField : plan.active !== false;
+
     vip.push({
       id,
-      title,
-      months,
+      title: title || id,
+      months: monthsValue,
       priceIrr: priceValue,
-      active: plan.active !== false,
+      active,
     });
   });
 
@@ -7094,23 +7209,76 @@ function persistSettings(snapshot) {
   }
 }
 
-async function fetchServerSettings() {
+async function fetchServerSettings(options = {}) {
+  const { showErrorToast = false } = options || {};
   try {
-    const response = await api('/admin/settings');
-    if (response && response.ok && response.data && typeof response.data === 'object') {
-      return response.data;
+    const response = await apiFetch('/admin/settings');
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (_) {
+      payload = null;
     }
+
+    if (response.status === 401) {
+      forceReauthentication('Login required');
+      return null;
+    }
+
+    if (!response.ok) {
+      const message = Array.isArray(payload?.details) && payload.details.length
+        ? payload.details[0]
+        : payload?.message || 'بارگذاری تنظیمات روی سرور با خطا مواجه شد';
+      if (showErrorToast) {
+        showToast(message, 'error');
+      }
+      return null;
+    }
+
+    const rawSettings = payload && typeof payload === 'object'
+      ? (payload.data && typeof payload.data === 'object' ? payload.data : payload)
+      : null;
+    if (!rawSettings || typeof rawSettings !== 'object') {
+      return null;
+    }
+
+    const rawShop = rawSettings.shop && typeof rawSettings.shop === 'object' ? rawSettings.shop : {};
+    const rawPricing = rawShop.pricing && typeof rawShop.pricing === 'object' ? rawShop.pricing : {};
+    const normalizedPricing = {
+      currency: normalizePricingCurrencyValue(rawPricing.currency || DEFAULT_SHOP_PRICING.currency),
+      coins: Array.isArray(rawPricing.coins) ? rawPricing.coins.slice() : [],
+      vip: Array.isArray(rawPricing.vip) ? rawPricing.vip.slice() : [],
+    };
+
+    return {
+      ...rawSettings,
+      shop: {
+        ...rawShop,
+        pricing: normalizedPricing,
+      },
+    };
   } catch (error) {
     console.warn('Failed to load admin settings from server', error);
+    if (showErrorToast) {
+      showToast('بارگذاری تنظیمات روی سرور با خطا مواجه شد', 'error');
+    }
+  }
+  return null;
+}
+
+async function loadServerSettings(options = {}) {
+  const settings = await fetchServerSettings(options);
+  if (settings) {
+    applySettingsSnapshot(settings);
+    persistSettings(settings);
+    return settings;
   }
   return null;
 }
 
 async function initializeSettingsFromStorage() {
-  const serverSettings = await fetchServerSettings();
+  const serverSettings = await loadServerSettings();
   if (serverSettings) {
-    applySettingsSnapshot(serverSettings);
-    persistSettings(serverSettings);
     return;
   }
   const saved = readStoredSettings();
@@ -7182,19 +7350,53 @@ async function handleSettingsSave() {
   `;
 
   try {
-    const response = await api('/admin/settings', {
+    const response = await apiFetch('/admin/settings', {
       method: 'PUT',
-      body: JSON.stringify(snapshot)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(snapshot),
     });
-    const persisted = response && response.data && typeof response.data === 'object' ? response.data : snapshot;
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (_) {
+      payload = null;
+    }
+
+    if (response.status === 401) {
+      forceReauthentication('Login required');
+      return;
+    }
+
+    if (response.status === 400) {
+      const detailMessage = Array.isArray(payload?.details) && payload.details.length
+        ? payload.details[0]
+        : payload?.message || 'اطلاعات قیمت‌گذاری فروشگاه را بررسی کنید.';
+      showToast(detailMessage, 'error');
+      return;
+    }
+
+    if (!response.ok) {
+      showToast('ذخیره تنظیمات روی سرور با خطا مواجه شد', 'error');
+      return;
+    }
+
+    const persisted = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
+      ? payload.data
+      : snapshot;
     persistSettings(persisted);
     applySettingsSnapshot(persisted);
     showToast('تنظیمات ذخیره شد و اعمال شد', 'success');
+
+    const refreshed = await loadServerSettings({ showErrorToast: true });
+    const detail = refreshed || persisted;
     markShopUpdated();
     updateShopSummary();
-    try {
-      window.dispatchEvent(new CustomEvent('iquiz-admin-settings-updated', { detail: persisted }));
-    } catch (_) {}
+    if (detail) {
+      try {
+        window.dispatchEvent(new CustomEvent('iquiz-admin-settings-updated', { detail }));
+      } catch (_) {}
+    }
   } catch (error) {
     console.error('Failed to save admin settings to server', error);
     const detailMessage = Array.isArray(error?.details) && error.details.length
