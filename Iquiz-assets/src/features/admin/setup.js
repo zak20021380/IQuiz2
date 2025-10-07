@@ -1,5 +1,5 @@
 import Api from '../../services/api.js';
-import { RemoteConfig, patchPricingKeys } from '../../config/remote-config.js';
+import { RemoteConfig, patchPricingKeys, applyServerPricing } from '../../config/remote-config.js';
 import {
   enforceStaticCategoryList,
   STATIC_CATEGORY_DEFINITIONS,
@@ -131,16 +131,20 @@ function updateCommunityCorrectPreview() {
 }
 
 export async function initFromAdmin() {
-  const [cfg, catList, provinces] = await Promise.all([
+  const [cfg, content, catList, provinces] = await Promise.all([
     Api.config().catch(() => null),
+    Api.content().catch(() => null),
     Api.categories().catch(() => []),
     Api.provinces().catch(() => [])
   ]);
 
   if (cfg && typeof cfg === 'object') {
     deepApply(RemoteConfig, cfg);
-    patchPricingKeys(RemoteConfig);
   }
+
+  const pricingSource = content?.pricing || content?.data?.pricing || null;
+  applyServerPricing(RemoteConfig, pricingSource || {});
+  patchPricingKeys(RemoteConfig);
 
   const rawCategories = Array.isArray(catList) ? catList.filter((c) => c?.isActive !== false) : [];
   const normalizedCategories = enforceStaticCategoryList(rawCategories);

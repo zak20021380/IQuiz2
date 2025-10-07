@@ -19,30 +19,9 @@ export const RemoteConfig = {
   pricing: {
     usdToToman: 70_000,
 
-    coins: [
-      { id:'c100',  amount:100,  bonus:0,  priceToman: 59_000,   priceCents:199  },
-      { id:'c500',  amount:500,  bonus:5,  priceToman: 239_000,  priceCents:799  },
-      { id:'c1200', amount:1200, bonus:12, priceToman: 459_000,  priceCents:1499 },
-      { id:'c3000', amount:3000, bonus:25, priceToman: 899_000,  priceCents:2999 }
-    ],
+    coins: [],
 
-    vip: {
-      standard: {
-        id:'vip_standard',
-        displayName:'اشتراک VIP',
-        priceToman: 149_000,
-        priceCents:499,
-        period:'ماهانه',
-        buttonText:'خرید اشتراک',
-        benefits:[
-          'حذف تمام تبلیغات',
-          'دو برابر شدن محدودیت‌های روزانه',
-          'پشتیبانی اولویت‌دار'
-        ],
-        order:1,
-        badge:'اشتراک ویژه'
-      }
-    },
+    vip: {},
 
     keys: [
       { id:'k1',  amount:1,  priceGame:30,  label:'بسته کوچک',    displayName:'بسته کوچک',    priority: 1 },
@@ -54,21 +33,7 @@ export const RemoteConfig = {
   shop: {
     enabled: true,
     sections: { hero: true, keys: true, wallet: true, vip: true },
-    vipPlans: [
-      {
-        id: 'vip_standard',
-        tier: 'standard',
-        displayName: 'اشتراک VIP',
-        price: 149_000,
-        period: 'ماهانه',
-        buttonText: 'خرید اشتراک',
-        benefits: ['حذف تمام تبلیغات', 'دو برابر شدن محدودیت‌های روزانه', 'پشتیبانی اولویت‌دار'],
-        badge: '',
-        featured: true,
-        order: 1,
-        active: true
-      }
-    ],
+    vipPlans: [],
     vipSummary: {
       enabled: true,
       customNote: 'اشتراک VIP فقط یک پلن دارد؛ با فعال‌سازی، تبلیغات حذف و محدودیت‌های روزانه افزایش می‌یابد.',
@@ -156,6 +121,192 @@ export function applyAB(config = RemoteConfig){
 
   deepMerge(config, overrides);
   return config;
+}
+
+function normalizeServerCoinPackages(pricingCoins, existing = [], usdToToman) {
+  const legacy = new Map(
+    (Array.isArray(existing) ? existing : []).map((pkg) => {
+      const key = typeof pkg?.id === 'string' ? pkg.id.trim() : '';
+      return [key, pkg];
+    })
+  );
+
+  const list = Array.isArray(pricingCoins) ? pricingCoins : [];
+  return list
+    .map((entry, index) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const baseId = typeof entry.id === 'string' ? entry.id.trim() : '';
+      const packageId = typeof entry.packageId === 'string' ? entry.packageId.trim() : '';
+      let id = baseId || packageId;
+      const coinsRaw = entry.coins ?? entry.amount;
+      const amount = Number.isFinite(Number(coinsRaw)) ? Math.max(0, Number(coinsRaw)) : 0;
+      if (!id && amount > 0) id = `c${Math.round(amount)}`;
+      if (!id) id = `coin_${index + 1}`;
+      const legacyPkg = legacy.get(id) || {};
+      const priceRaw = entry.priceIrr ?? entry.priceIRR ?? entry.price ?? entry.priceToman ?? entry.price;
+      const priceToman = Number.isFinite(Number(priceRaw)) ? Math.max(0, Number(priceRaw)) : 0;
+      if (!amount || !priceToman) return null;
+      const bonusRaw = entry.bonus ?? legacyPkg.bonus ?? 0;
+      const bonus = Number.isFinite(Number(bonusRaw)) ? Math.max(0, Number(bonusRaw)) : 0;
+      const priorityRaw = entry.priority ?? legacyPkg.priority;
+      const priority = Number.isFinite(Number(priorityRaw)) ? Number(priorityRaw) : index + 1;
+      const displayName = typeof entry.title === 'string' && entry.title.trim()
+        ? entry.title.trim()
+        : (typeof entry.displayName === 'string' && entry.displayName.trim()
+            ? entry.displayName.trim()
+            : (legacyPkg.displayName || (amount ? `بسته ${amount} سکه` : id)));
+      const paymentMethod = typeof entry.paymentMethod === 'string' && entry.paymentMethod.trim()
+        ? entry.paymentMethod.trim()
+        : (legacyPkg.paymentMethod || '');
+      const badge = typeof entry.badge === 'string' && entry.badge.trim()
+        ? entry.badge.trim()
+        : (legacyPkg.badge || '');
+      const description = typeof entry.description === 'string' && entry.description.trim()
+        ? entry.description.trim()
+        : (legacyPkg.description || '');
+      const active = entry.active !== false && legacyPkg.active !== false;
+      const totalCoins = Math.round(amount + (amount * bonus) / 100);
+      const normalized = {
+        ...legacyPkg,
+        id,
+        amount,
+        bonus,
+        priceToman,
+        price: priceToman,
+        displayName,
+        paymentMethod,
+        badge,
+        description,
+        priority,
+        totalCoins: totalCoins > 0 ? totalCoins : amount,
+        active,
+      };
+      if (Number.isFinite(usdToToman) && usdToToman > 0) {
+        normalized.priceCents = Math.round((priceToman / usdToToman) * 100);
+      }
+      return normalized;
+    })
+    .filter((pkg) => pkg && pkg.amount > 0 && pkg.priceToman > 0 && pkg.active !== false)
+    .sort((a, b) => (a.priority ?? a.amount) - (b.priority ?? b.amount));
+}
+
+function normalizeServerVipPlans(pricingVip, existing = {}, usdToToman) {
+  const list = Array.isArray(pricingVip)
+    ? pricingVip
+    : pricingVip && typeof pricingVip === 'object'
+      ? Object.values(pricingVip)
+      : [];
+
+  const normalized = {};
+  list.forEach((entry, index) => {
+    if (!entry || typeof entry !== 'object') return;
+    const tierRaw = typeof entry.tier === 'string' && entry.tier.trim() ? entry.tier.trim() : '';
+    const idRaw = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : '';
+    const key = tierRaw || idRaw || `vip_${index + 1}`;
+    const base = existing && typeof existing === 'object' ? (existing[key] || existing[idRaw] || {}) : {};
+    const priceRaw = entry.priceIrr ?? entry.priceIRR ?? entry.price ?? entry.priceToman ?? entry.price;
+    const priceToman = Number.isFinite(Number(priceRaw)) ? Math.max(0, Number(priceRaw)) : 0;
+    const displayName = typeof entry.title === 'string' && entry.title.trim()
+      ? entry.title.trim()
+      : (typeof entry.displayName === 'string' && entry.displayName.trim()
+          ? entry.displayName.trim()
+          : (base.displayName || key));
+    const normalizedPlan = {
+      ...base,
+      id: idRaw || base.id || key,
+      tier: key,
+      displayName,
+      active: entry.active !== false,
+    };
+    if (priceToman > 0) {
+      normalizedPlan.priceToman = priceToman;
+      normalizedPlan.price = priceToman;
+      if (Number.isFinite(usdToToman) && usdToToman > 0) {
+        normalizedPlan.priceCents = Math.round((priceToman / usdToToman) * 100);
+      }
+    }
+    if (typeof entry.buttonText === 'string' && entry.buttonText.trim()) {
+      normalizedPlan.buttonText = entry.buttonText.trim();
+    }
+    if (typeof entry.period === 'string' && entry.period.trim()) {
+      normalizedPlan.period = entry.period.trim();
+    }
+    if (Array.isArray(entry.benefits) && entry.benefits.length) {
+      normalizedPlan.benefits = entry.benefits
+        .map((benefit) => (typeof benefit === 'string' ? benefit.trim() : ''))
+        .filter(Boolean);
+    }
+    if (typeof entry.badge === 'string' && entry.badge.trim()) {
+      normalizedPlan.badge = entry.badge.trim();
+    }
+    if (Number.isFinite(Number(entry.order))) {
+      normalizedPlan.order = Number(entry.order);
+    }
+    normalized[key] = normalizedPlan;
+  });
+
+  return normalized;
+}
+
+export function applyServerPricing(config = RemoteConfig, pricing = {}) {
+  if (!config || typeof config !== 'object') return {};
+  if (!config.pricing) config.pricing = {};
+  const target = config.pricing;
+
+  if (pricing && typeof pricing === 'object') {
+    const usd = Number(pricing.usdToToman);
+    if (Number.isFinite(usd) && usd > 0) {
+      target.usdToToman = usd;
+    }
+    const normalizedCoins = normalizeServerCoinPackages(pricing.coins, target.coins, target.usdToToman);
+    target.coins = normalizedCoins;
+
+    if (!config.shop) config.shop = {};
+    if (!config.shop.packages || typeof config.shop.packages !== 'object') {
+      config.shop.packages = {};
+    }
+    config.shop.packages.wallet = normalizedCoins.map((pkg) => ({ ...pkg }));
+
+    const normalizedVip = normalizeServerVipPlans(pricing.vip, target.vip, target.usdToToman);
+    if (Object.keys(normalizedVip).length) {
+      target.vip = { ...(target.vip || {}), ...normalizedVip };
+    } else if (!target.vip || typeof target.vip !== 'object') {
+      target.vip = {};
+    }
+
+    const vipList = Object.values(target.vip || {}).filter((plan) => plan && plan.active !== false);
+    config.shop.vipPlans = vipList
+      .map((plan, index) => {
+        const order = Number.isFinite(plan.order) ? Number(plan.order) : index + 1;
+        return {
+          id: plan.id || plan.tier || `vip_${index + 1}`,
+          tier: plan.tier || plan.id || `vip_${index + 1}`,
+          displayName: plan.displayName || plan.id || plan.tier || `vip_${index + 1}`,
+          price: plan.priceToman || plan.price || 0,
+          period: plan.period || '',
+          buttonText: plan.buttonText || 'خرید اشتراک',
+          benefits: Array.isArray(plan.benefits) ? plan.benefits.slice() : [],
+          badge: plan.badge || '',
+          featured: plan.featured || false,
+          order,
+          active: plan.active !== false,
+        };
+      })
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  } else {
+    target.coins = [];
+    if (!config.shop) config.shop = {};
+    if (!config.shop.packages || typeof config.shop.packages !== 'object') {
+      config.shop.packages = {};
+    }
+    config.shop.packages.wallet = [];
+    if (!target.vip || typeof target.vip !== 'object') {
+      target.vip = {};
+    }
+    config.shop.vipPlans = [];
+  }
+
+  return target;
 }
 
 function applyAdminOverrides(config, settings){

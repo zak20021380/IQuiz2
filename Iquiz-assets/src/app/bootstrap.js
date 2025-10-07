@@ -1,5 +1,5 @@
 import { $, $$ } from '../utils/dom.js';
-import { clamp, faNum, faDecimal, formatDuration, formatRelativeTime } from '../utils/format.js';
+import { clamp, faNum, faDecimal, formatDuration, formatRelativeTime, formatIRR } from '../utils/format.js';
 import { configureFeedback, vibrate, toast, wait, SFX, shootConfetti } from '../utils/feedback.js';
 import { RemoteConfig } from '../config/remote-config.js';
 import {
@@ -3006,7 +3006,7 @@ function startQuizTimerCountdown(){
       input.step = settings.step;
     }
     if (limitsEl){
-      limitsEl.textContent = `حداقل ${faNum(settings.min)} و حداکثر ${faNum(settings.max)} تومان (گام‌های ${faNum(settings.step)} تومانی)`;
+      limitsEl.textContent = `حداقل ${formatIRR(settings.min)} و حداکثر ${formatIRR(settings.max)} تومان (گام‌های ${formatIRR(settings.step)} تومانی)`;
     }
     let lastRecommended = null;
 
@@ -3015,7 +3015,7 @@ function startQuizTimerCountdown(){
       walletTopupState.amount = next;
       if (range) range.value = String(next);
       if (input) input.value = String(next);
-      if (amountEl) amountEl.textContent = `${faNum(next)} تومان`;
+      if (amountEl) amountEl.textContent = `${formatIRR(next)} تومان`;
       lastRecommended = pickWalletPackageByAmount(next, packages);
       if (coinsEl){
         if (lastRecommended){
@@ -3033,7 +3033,7 @@ function startQuizTimerCountdown(){
       if (suggestionEl){
         if (lastRecommended){
           const displayName = lastRecommended.displayName || `بسته ${faNum(lastRecommended.amount)} سکه`;
-          suggestionEl.innerHTML = `پیشنهاد ما: <span class="text-emerald-200 font-bold">${displayName}</span> با قیمت ${faNum(lastRecommended.priceToman)} تومان نزدیک‌ترین گزینه به مبلغ انتخابی است.`;
+          suggestionEl.innerHTML = `پیشنهاد ما: <span class="text-emerald-200 font-bold">${displayName}</span> با قیمت ${formatIRR(lastRecommended.priceToman)} تومان نزدیک‌ترین گزینه به مبلغ انتخابی است.`;
         } else {
           suggestionEl.textContent = 'پس از ثبت مبلغ، در صفحه بعد بسته مناسب را انتخاب کن.';
         }
@@ -3047,7 +3047,7 @@ function startQuizTimerCountdown(){
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'chip bg-white/10 border border-white/20 hover:bg-white/15 transition text-xs flex items-center gap-2';
-        btn.innerHTML = `<i class="fas fa-bolt text-emerald-300"></i><span>${faNum(presetValue)}</span><span>تومان</span>`;
+        btn.innerHTML = `<i class="fas fa-bolt text-emerald-300"></i><span>${formatIRR(presetValue)}</span><span>تومان</span>`;
         btn.addEventListener('click', () => updateAmount(presetValue));
         presetsWrap.appendChild(btn);
       });
@@ -3092,10 +3092,10 @@ function startQuizTimerCountdown(){
           const recommended = pickWalletPackageByAmount(amount, packages);
           walletTopupState.plannedAmount = amount;
           walletTopupRecommendation = recommended?.id || null;
-          const parts = [`مبلغ ${faNum(amount)} تومان برای شارژ کیف پول ثبت شد.`];
+          const parts = [`مبلغ ${formatIRR(amount)} تومان برای شارژ کیف پول ثبت شد.`];
           if (recommended){
             const name = recommended.displayName || `بسته ${faNum(recommended.amount)} سکه`;
-            parts.push(`در مرحله بعد، بسته ${name} با قیمت ${faNum(recommended.priceToman)} تومان را انتخاب کن.`);
+            parts.push(`در مرحله بعد، بسته ${name} با قیمت ${formatIRR(recommended.priceToman)} تومان را انتخاب کن.`);
           } else {
             parts.push('در مرحله بعد می‌توانی بسته مناسب را از بخش خرید سکه انتخاب کنی.');
           }
@@ -3441,11 +3441,11 @@ document.addEventListener('click', (e) => {
       ? packs.find((pkg) => pkg.id === walletTopupRecommendation)
       : pickWalletPackageByAmount(amount, packs);
 
-    const amountLabel = `مبلغ انتخابی شما: <span class="font-bold text-white">${faNum(amount)}</span> تومان`;
+    const amountLabel = `مبلغ انتخابی شما: <span class="font-bold text-white">${formatIRR(amount)}</span> تومان`;
     let followUp = '';
     if (recommended){
       const displayName = recommended.displayName || `بسته ${faNum(recommended.amount)} سکه`;
-      followUp = `پیشنهاد ما انتخاب <span class="font-bold text-emerald-200">${displayName}</span> با قیمت ${faNum(recommended.priceToman)} تومان است.`;
+      followUp = `پیشنهاد ما انتخاب <span class="font-bold text-emerald-200">${displayName}</span> با قیمت ${formatIRR(recommended.priceToman)} تومان است.`;
     } else if (!packs.length){
       followUp = 'در حال حاضر بسته‌ای برای خرید فعال نیست، اما مبلغ ذخیره‌شده به محض فعال شدن بسته‌ها قابل استفاده خواهد بود.';
     } else {
@@ -3554,7 +3554,7 @@ document.addEventListener('click', (e) => {
             </div>
             <div class="pkg-card-price">
               <i class="fas fa-receipt"></i>
-              <span>قیمت: ${faNum(pkg.priceToman)} تومان</span>
+              <span>قیمت: ${formatIRR(pkg.priceToman)} تومان</span>
             </div>
             ${description}
           </div>
@@ -3567,7 +3567,7 @@ document.addEventListener('click', (e) => {
               </div>
             </div>
             <button class="btn btn-primary pkg-buy-btn buy-pkg" data-id="${pkg.id}" data-price="${pkg.priceToman}">
-              <i class="fas fa-lock ml-1"></i> پرداخت امن ${faNum(pkg.priceToman)} تومان
+              <i class="fas fa-lock ml-1"></i> پرداخت امن ${formatIRR(pkg.priceToman)} تومان
             </button>
           </div>
         </div>
@@ -3617,8 +3617,8 @@ function showPaymentModal(packageId) {
   // Update modal content
   $('#payment-package-name').textContent = `بسته ${faNum(pkg.amount)} سکه`;
   $('#payment-coins-amount').textContent = `${faNum(totalCoins)} سکه`;
-  $('#payment-price').textContent = `${faNum(priceToman)} تومان`;
-  $('#payment-wallet-balance').textContent = `${faNum(walletBalance)} تومان`;
+  $('#payment-price').textContent = `${formatIRR(priceToman)} تومان`;
+  $('#payment-wallet-balance').textContent = `${formatIRR(walletBalance)} تومان`;
 
   // Check if wallet balance is sufficient
   const needsPayment = walletBalance < priceToman;
@@ -3646,9 +3646,9 @@ function showPaymentModal(packageId) {
     return;
   }
   if (needsPayment) {
-    confirmBtn.innerHTML = '<i class="fas fa-shield-halved ml-2"></i> رفتن به درگاه پرداخت';
+    confirmBtn.innerHTML = `<i class="fas fa-shield-halved ml-2"></i> پرداخت ${formatIRR(priceToman)} تومان`;
   } else {
-    confirmBtn.innerHTML = '<i class="fas fa-check ml-2"></i> تایید و کسر از کیف پول';
+    confirmBtn.innerHTML = `<i class="fas fa-check ml-2"></i> تایید و کسر ${formatIRR(priceToman)} تومان`;
   }
   confirmBtn.dataset.defaultHtml = confirmBtn.innerHTML;
   confirmBtn.dataset.paymentMode = needsPayment ? 'gateway' : 'wallet';
