@@ -9,6 +9,10 @@ export async function config() {
   return await Net.jget(`${API_BASE}/config`);
 }
 
+export async function content() {
+  return await Net.jget(`${API_BASE}/content`);
+}
+
 export async function categories() {
   return await Net.jget(`${API_BASE}/categories`);
 }
@@ -84,6 +88,7 @@ export async function duelSubmitRound(duelId, roundIndex, payload) {
 
 const Api = {
   config,
+  content,
   categories,
   questions,
   provinces,

@@ -5,6 +5,12 @@ export const faNum = (value) => {
   return Number(value).toLocaleString('fa-IR');
 };
 
+export const formatIRR = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '—';
+  return numeric.toLocaleString('fa-IR');
+};
+
 export const faDecimal = (value, digits = 1) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '—';
