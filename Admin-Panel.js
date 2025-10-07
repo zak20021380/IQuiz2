@@ -675,6 +675,11 @@ const DEFAULT_COIN_PACKAGES = Object.freeze([
     active: true
   }
 ]);
+const DEFAULT_SHOP_PRICING = Object.freeze({
+  currency: 'IRR',
+  coins: [],
+  vip: [],
+});
 const settingsSaveButton = $('#settings-save-button');
 const generalAppNameInput = $('#settings-app-name');
 const generalLanguageSelect = $('#settings-language');
@@ -3293,7 +3298,12 @@ async function api(path, options = {}) {
         forceReauthentication(errorMessage);
       }
     }
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage);
+    error.status = res.status;
+    if (err && typeof err === 'object' && err.details) {
+      error.details = Array.isArray(err.details) ? err.details : [err.details];
+    }
+    throw error;
   }
   const json = await res.json();
   if (json?.ok && json?.data?.total !== undefined && !json.data.overview) {
@@ -6252,6 +6262,167 @@ function setCheckboxValue(input, value) {
   input.checked = !!value;
 }
 
+function normalizePricingCurrencyValue(value) {
+  const text = safeString(value, '');
+  return text ? text.toUpperCase() : 'IRR';
+}
+
+function resolveVipPlanMonths(plan) {
+  if (!plan || typeof plan !== 'object') return 1;
+  if (plan.months != null && Number.isFinite(Number(plan.months))) {
+    const directMonths = Math.max(1, Math.trunc(Number(plan.months)) || 1);
+    if (directMonths) return directMonths;
+  }
+  const period = safeString(plan.period || plan.billingCycle || '', '').toLowerCase();
+  if (!period) return 1;
+  if (period.includes('سال')) return 12;
+  if (period.includes('سه') || period.includes('quarter') || period.includes('فصل')) return 3;
+  if (period.includes('week') || period.includes('هفت')) return 1;
+  if (period.includes('year')) return 12;
+  if (period.includes('month') || period.includes('ماه')) return 1;
+  return 1;
+}
+
+function deriveVipPeriodFromMonths(months) {
+  if (!Number.isFinite(months)) return 'ماهانه';
+  if (months >= 12) return 'سالانه';
+  if (months >= 3) return 'سه‌ماهه';
+  return 'ماهانه';
+}
+
+function mergePricingCoinsWithLegacy(pricingCoins, legacyWallet) {
+  const legacyList = Array.isArray(legacyWallet) ? legacyWallet : [];
+  const legacyMap = new Map(legacyList.map((pkg) => [safeString(pkg?.id || '', ''), pkg]));
+  return (Array.isArray(pricingCoins) ? pricingCoins : [])
+    .map((coin, index) => {
+      if (!coin || typeof coin !== 'object') return null;
+      const id = safeString(coin.id || '', '');
+      if (!id) return null;
+      const legacy = legacyMap.get(id) || {};
+      const title = safeString(legacy.displayName || coin.title || id, id);
+      const amount = Number.isFinite(Number(legacy.amount)) && Number(legacy.amount) > 0
+        ? Number(legacy.amount)
+        : Math.max(1, Math.trunc(Number(coin.coins) || 0));
+      const priceBase = legacy.priceToman ?? legacy.price;
+      const price = Number.isFinite(Number(priceBase)) && Number(priceBase) >= 0
+        ? Number(priceBase)
+        : Math.max(0, Math.trunc(Number(coin.priceIrr ?? coin.priceIRR ?? coin.price) || 0));
+      return {
+        ...legacy,
+        id,
+        displayName: title,
+        amount,
+        priceToman: price,
+        price,
+        active: coin.active !== false && legacy.active !== false,
+        featured: coin.featured === true || legacy.featured === true,
+        priority: Number.isFinite(Number(legacy.priority)) ? Number(legacy.priority) : index + 1,
+      };
+    })
+    .filter(Boolean);
+}
+
+function mergePricingVipWithLegacy(pricingVip, legacyPlans) {
+  const legacyList = Array.isArray(legacyPlans) ? legacyPlans : [];
+  const legacyMap = new Map(legacyList.map((plan) => [safeString(plan?.id || plan?.tier || '', ''), plan]));
+  return (Array.isArray(pricingVip) ? pricingVip : [])
+    .map((vip, index) => {
+      if (!vip || typeof vip !== 'object') return null;
+      const id = safeString(vip.id || '', '');
+      if (!id) return null;
+      const legacy = legacyMap.get(id) || legacyList[index] || {};
+      const months = Number.isFinite(Number(vip.months)) ? Math.max(1, Math.trunc(Number(vip.months))) : resolveVipPlanMonths(legacy);
+      const price = Number.isFinite(Number(vip.priceIrr ?? vip.priceIRR ?? vip.price))
+        ? Math.max(0, Math.trunc(Number(vip.priceIrr ?? vip.priceIRR ?? vip.price)))
+        : Number.isFinite(Number(legacy.price))
+          ? Math.max(0, Math.trunc(Number(legacy.price)))
+          : 0;
+      return {
+        ...legacy,
+        id,
+        tier: safeString(legacy?.tier || id, id),
+        displayName: safeString(legacy?.displayName || vip.title || id, id),
+        price,
+        period: safeString(legacy?.period || deriveVipPeriodFromMonths(months), deriveVipPeriodFromMonths(months)),
+        active: vip.active !== false && legacy.active !== false,
+      };
+    })
+    .filter(Boolean);
+}
+
+function collectShopPricingSnapshot(options = {}) {
+  const { strict = false } = options || {};
+  const errors = [];
+  const currency = normalizePricingCurrencyValue(shopPricingCurrencySelect ? shopPricingCurrencySelect.value : 'IRR');
+
+  const coins = [];
+  getCoinPackageRows().forEach((row, index) => {
+    const data = readCoinPackageRow(row);
+    if (!data) {
+      if (strict) errors.push(`شناسه بسته سکه شماره ${index + 1} نامعتبر است.`);
+      return;
+    }
+    const id = safeString(data.id || '', '');
+    if (!id) {
+      if (strict) errors.push(`برای بسته سکه شماره ${index + 1} شناسه وارد کنید.`);
+      return;
+    }
+    const title = safeString(data.displayName || data.title || id, id);
+    const coinsValue = Math.trunc(Number(data.amount) || 0);
+    if (!Number.isFinite(coinsValue) || coinsValue < 1) {
+      if (strict) errors.push(`تعداد سکه بسته «${title}» باید حداقل ۱ باشد.`);
+      return;
+    }
+    const priceValue = Math.trunc(Number(data.priceToman ?? data.price ?? 0));
+    if (!Number.isFinite(priceValue) || priceValue < 0) {
+      if (strict) errors.push(`قیمت بسته «${title}» نامعتبر است.`);
+      return;
+    }
+    coins.push({
+      id,
+      title,
+      coins: coinsValue,
+      priceIrr: priceValue,
+      featured: data.featured === true,
+      active: data.active !== false,
+    });
+  });
+
+  const vip = [];
+  const vipPlans = collectVipPlansFromCards();
+  vipPlans.forEach((plan, index) => {
+    if (!plan) return;
+    const id = safeString(plan.id || plan.tier || '', '');
+    if (!id) {
+      if (strict) errors.push(`برای پلن VIP شماره ${index + 1} شناسه وارد کنید.`);
+      return;
+    }
+    const title = safeString(plan.displayName || plan.title || id, id);
+    const priceValue = Math.trunc(Number(plan.price ?? 0));
+    if (!Number.isFinite(priceValue) || priceValue < 0) {
+      if (strict) errors.push(`قیمت پلن «${title}» نامعتبر است.`);
+      return;
+    }
+    const months = Math.max(1, resolveVipPlanMonths(plan));
+    vip.push({
+      id,
+      title,
+      months,
+      priceIrr: priceValue,
+      active: plan.active !== false,
+    });
+  });
+
+  return {
+    pricing: {
+      currency,
+      coins,
+      vip,
+    },
+    errors,
+  };
+}
+
 // legacy helpers removed in simplified shop settings
 
 function applySettingsSnapshot(snapshot) {
@@ -6288,10 +6459,17 @@ function applySettingsSnapshot(snapshot) {
   if (duelDrawScoreInput && duelDraw.score != null) duelDrawScoreInput.value = duelDraw.score;
 
   const shop = snapshot.shop || {};
+  const pricing = shop.pricing && typeof shop.pricing === 'object'
+    ? shop.pricing
+    : snapshot.pricing && typeof snapshot.pricing === 'object'
+      ? snapshot.pricing
+      : DEFAULT_SHOP_PRICING;
   if (shopGlobalToggle && shop.enabled != null) shopGlobalToggle.checked = !!shop.enabled;
   updateShopStatus(getCheckboxValue(shopGlobalToggle, true));
 
-  if (shopPricingCurrencySelect && shop.currency != null) setSelectValue(shopPricingCurrencySelect, shop.currency);
+  const pricingCurrency = normalizePricingCurrencyValue(pricing.currency || shop.currency);
+  if (shopPricingCurrencySelect) setSelectValue(shopPricingCurrencySelect, pricingCurrency);
+  shop.currency = pricingCurrency;
   if (shopLowBalanceThresholdInput && shop.lowBalanceThreshold != null) shopLowBalanceThresholdInput.value = shop.lowBalanceThreshold;
   if (shopQuickTopupToggle) shopQuickTopupToggle.checked = shop.quickTopup !== false && !!shop.quickTopup;
   if (shopQuickPurchaseToggle) shopQuickPurchaseToggle.checked = shop.quickPurchase !== false && !!shop.quickPurchase;
@@ -6304,13 +6482,15 @@ function applySettingsSnapshot(snapshot) {
 
   const packagesData = shop.packages != null ? shop.packages : snapshot.packages;
   applyPackageSnapshots(packagesData);
-  const walletPackages = packagesData && typeof packagesData === 'object'
+  const legacyWalletPackages = packagesData && typeof packagesData === 'object'
     ? (Array.isArray(packagesData.wallet)
         ? packagesData.wallet
         : Array.isArray(packagesData.coins)
           ? packagesData.coins
           : [])
     : [];
+  const pricingCoinPackages = mergePricingCoinsWithLegacy(pricing.coins, legacyWalletPackages);
+  const walletPackages = pricingCoinPackages.length ? pricingCoinPackages : legacyWalletPackages;
   applyCoinPackageSnapshots(walletPackages);
 
   const vip = shop.vip || {};
@@ -6330,11 +6510,13 @@ function applySettingsSnapshot(snapshot) {
     });
   }
 
-  const vipPlansData = Array.isArray(shop.vipPlans)
+  const legacyVipPlans = Array.isArray(shop.vipPlans)
     ? shop.vipPlans
     : Array.isArray(snapshot.vipPlans)
       ? snapshot.vipPlans
       : [];
+  const pricingVipPlans = mergePricingVipWithLegacy(pricing.vip, legacyVipPlans);
+  const vipPlansData = pricingVipPlans.length ? pricingVipPlans : legacyVipPlans;
   applyVipPlanSnapshots(vipPlansData);
 
   const support = shop.support || {};
@@ -6865,11 +7047,13 @@ function collectVipSettings() {
   return { config, plans };
 }
 
-function collectShopSettingsSnapshot() {
+function collectShopSettingsSnapshot(options = {}) {
+  const { strictPricing = false } = options || {};
   const vipSnapshot = collectVipSettings();
-  return {
+  const pricingResult = collectShopPricingSnapshot({ strict: strictPricing });
+  const snapshot = {
     enabled: getCheckboxValue(shopGlobalToggle, true),
-    currency: safeString(shopPricingCurrencySelect ? shopPricingCurrencySelect.value : 'coin', 'coin') || 'coin',
+    currency: pricingResult.pricing.currency || 'IRR',
     lowBalanceThreshold: safeNumber(shopLowBalanceThresholdInput ? shopLowBalanceThresholdInput.value : 0, 0),
     quickTopup: getCheckboxValue(shopQuickTopupToggle),
     quickPurchase: getCheckboxValue(shopQuickPurchaseToggle),
@@ -6885,15 +7069,18 @@ function collectShopSettingsSnapshot() {
     support: {
       message: safeString(shopSupportMessageInput ? shopSupportMessageInput.value : '', ''),
       link: safeString(shopSupportLinkInput ? shopSupportLinkInput.value : '', '')
-    }
+    },
+    pricing: pricingResult.pricing,
   };
+  return { snapshot, errors: pricingResult.errors };
 }
 
 function collectSettingsSnapshot() {
+  const { snapshot: shop } = collectShopSettingsSnapshot();
   return {
     general: collectGeneralSettings(),
     rewards: collectRewardSettings(),
-    shop: collectShopSettingsSnapshot(),
+    shop,
     updatedAt: Date.now()
   };
 }
@@ -6972,11 +7159,18 @@ async function handleSettingsSave() {
     return;
   }
 
+  const shopResult = collectShopSettingsSnapshot({ strictPricing: true });
+  if (shopResult.errors.length) {
+    showToast(shopResult.errors[0] || 'اطلاعات قیمت‌گذاری فروشگاه را بررسی کنید.', 'warning');
+    return;
+  }
+
+  const updatedAt = Date.now();
   const snapshot = {
     general,
     rewards,
-    shop: collectShopSettingsSnapshot(),
-    updatedAt: Date.now()
+    shop: shopResult.snapshot,
+    updatedAt
   };
 
   settingsSaveButton.disabled = true;
@@ -7003,7 +7197,10 @@ async function handleSettingsSave() {
     } catch (_) {}
   } catch (error) {
     console.error('Failed to save admin settings to server', error);
-    showToast('ذخیره تنظیمات روی سرور با خطا مواجه شد', 'error');
+    const detailMessage = Array.isArray(error?.details) && error.details.length
+      ? error.details[0]
+      : error?.message || 'ذخیره تنظیمات روی سرور با خطا مواجه شد';
+    showToast(detailMessage, 'error');
     return;
   } finally {
     settingsSaveButton.disabled = false;

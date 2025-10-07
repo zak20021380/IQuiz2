@@ -32,13 +32,96 @@ function normalizeCoinPackage(pkg, index, usdToToman) {
   return normalized;
 }
 
+function mergeCoinPricing(pricingCoins, legacyWallet = []) {
+  if (!Array.isArray(pricingCoins)) return [];
+  const legacyMap = new Map(
+    (Array.isArray(legacyWallet) ? legacyWallet : []).map((pkg) => {
+      const id = typeof pkg?.id === 'string' ? pkg.id.trim() : '';
+      return [id, pkg];
+    })
+  );
+  return pricingCoins
+    .map((coin, index) => {
+      if (!coin || typeof coin !== 'object') return null;
+      const id = typeof coin.id === 'string' ? coin.id.trim() : '';
+      if (!id) return null;
+      const legacy = legacyMap.get(id) || {};
+      const coins = Number.isFinite(Number(coin.coins)) ? Number(coin.coins) : Number(legacy.amount) || 0;
+      const price = Number.isFinite(Number(coin.priceIrr ?? coin.priceIRR ?? coin.price))
+        ? Number(coin.priceIrr ?? coin.priceIRR ?? coin.price)
+        : Number(legacy.priceToman ?? legacy.price) || 0;
+      if (!Number.isFinite(coins) || coins <= 0) return null;
+      const base = {
+        ...legacy,
+        id,
+        displayName: legacy.displayName || coin.title || id,
+        amount: coins,
+        priceToman: price,
+        price,
+        bonus: Number.isFinite(Number(legacy.bonus)) ? Number(legacy.bonus) : 0,
+        active: coin.active !== false && legacy.active !== false,
+        featured: coin.featured === true || legacy.featured === true,
+        priority: Number.isFinite(Number(legacy.priority)) ? Number(legacy.priority) : index + 1,
+      };
+      return base;
+    })
+    .filter(Boolean);
+}
+
+function monthsToDays(months) {
+  const value = Number.isFinite(Number(months)) ? Math.max(1, Math.trunc(Number(months))) : 1;
+  return value * 30;
+}
+
+function mergeVipPricing(pricingVip, legacyVip = {}) {
+  if (!Array.isArray(pricingVip)) return null;
+  const normalized = {};
+  pricingVip.forEach((vip) => {
+    if (!vip || typeof vip !== 'object') return;
+    const id = typeof vip.id === 'string' ? vip.id.trim() : '';
+    if (!id) return;
+    const title = typeof vip.title === 'string' && vip.title.trim() ? vip.title.trim() : id;
+    const price = Number.isFinite(Number(vip.priceIrr ?? vip.priceIRR ?? vip.price))
+      ? Number(vip.priceIrr ?? vip.priceIRR ?? vip.price)
+      : 0;
+    const months = Number.isFinite(Number(vip.months)) ? Math.max(1, Math.trunc(Number(vip.months))) : 1;
+    const legacy = legacyVip && typeof legacyVip === 'object' ? legacyVip[id] || {} : {};
+    normalized[id] = {
+      ...legacy,
+      id,
+      title,
+      priceToman: price,
+      price,
+      durationDays: monthsToDays(months),
+      active: vip.active !== false,
+    };
+  });
+  return normalized;
+}
+
 function applyAdminOverrides(config) {
   const settings = loadAdminSettings();
   const shopSettings = settings.shop && typeof settings.shop === 'object' ? settings.shop : {};
   const packages = shopSettings.packages && typeof shopSettings.packages === 'object' ? shopSettings.packages : {};
-  const walletSource = Array.isArray(packages.wallet) ? packages.wallet : [];
+  const legacyWalletSource = Array.isArray(packages.wallet)
+    ? packages.wallet
+    : Array.isArray(packages.coins)
+      ? packages.coins
+      : [];
+  const pricingSettings = shopSettings.pricing && typeof shopSettings.pricing === 'object' ? shopSettings.pricing : null;
+  let walletSource = legacyWalletSource;
+
+  if (pricingSettings && Array.isArray(pricingSettings.coins)) {
+    const mapped = mergeCoinPricing(pricingSettings.coins, legacyWalletSource);
+    if (mapped.length) {
+      walletSource = mapped;
+    }
+  }
 
   if (!config.pricing) config.pricing = {};
+  if (pricingSettings && pricingSettings.currency) {
+    config.pricing.currency = pricingSettings.currency;
+  }
   const usdToToman = Number.isFinite(config.pricing.usdToToman) ? Number(config.pricing.usdToToman) : null;
 
   if (walletSource.length) {
@@ -54,6 +137,14 @@ function applyAdminOverrides(config) {
         ? config.shop.packages
         : {};
       config.shop.packages.wallet = normalized.map((pkg) => ({ ...pkg }));
+    }
+  }
+
+  if (pricingSettings && Array.isArray(pricingSettings.vip)) {
+    const legacyVip = config.pricing && typeof config.pricing === 'object' ? config.pricing.vip || {} : {};
+    const vipOverrides = mergeVipPricing(pricingSettings.vip, legacyVip);
+    if (vipOverrides && Object.keys(vipOverrides).length) {
+      config.pricing.vip = { ...legacyVip, ...vipOverrides };
     }
   }
 
