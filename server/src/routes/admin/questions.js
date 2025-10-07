@@ -1,8 +1,8 @@
 const router = require('express').Router();
-const { protect, adminOnly } = require('../../middleware/auth');
+const { requireAdmin } = require('../../middleware/adminAuth');
 const questionsController = require('../../controllers/questions.controller');
 
-router.use(protect, adminOnly);
+router.use(requireAdmin);
 
 router.post('/ingest', questionsController.create);
 router.get('/suspects', questionsController.listDuplicateSuspects);

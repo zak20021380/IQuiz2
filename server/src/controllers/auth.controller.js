@@ -13,6 +13,12 @@ exports.login = async (req, res, next) => {
     }
     if (user.role !== 'admin') return res.status(403).json({ ok:false, message:'Admins only' });
     const token = sign(user._id);
-    res.json({ ok:true, token, user: { id:user._id, email:user.email, username:user.username } });
+    res.cookie('admin_jwt', token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+    res.json({ ok:true, token });
   } catch (e) { next(e); }
 };

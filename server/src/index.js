@@ -4,6 +4,7 @@ const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
@@ -20,6 +21,7 @@ const { ensureInitialCategories, syncProviderCategories } = require('./services/
 
 // init
 const app = express();
+app.set('trust proxy', 1);
 
 // ───────────────── Security & parsers
 // CSP کامل برای Tailwind CDN، Google Fonts، cdnjs و آواتار نمونه
@@ -47,6 +49,7 @@ app.use(helmet({
 
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+app.use(cookieParser());
 app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
@@ -55,15 +58,7 @@ app.use(hpp());
 if (env.nodeEnv !== 'production') app.use(morgan('dev'));
 
 // cors
-const allowedOrigins = env.cors.allowedOrigins;
-
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error('Not allowed by CORS'));
-  }
-}));
+app.use(cors());
 
 // rate limit
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 }));

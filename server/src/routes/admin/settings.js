@@ -1,12 +1,12 @@
 const router = require('express').Router();
-const { protect, adminOnly } = require('../../middleware/auth');
+const { requireAdmin } = require('../../middleware/adminAuth');
 const {
   getAdminSettingsSnapshot,
   saveAdminSettings,
   AdminSettingsValidationError,
 } = require('../../config/adminSettings');
 
-router.use(protect, adminOnly);
+router.use(requireAdmin);
 
 router.get('/', (req, res, next) => {
   try {

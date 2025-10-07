@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { protect, adminOnly } = require('../../middleware/auth');
+const { requireAdmin } = require('../../middleware/adminAuth');
 const questionConfig = require('../../config/questions');
 const questionPicker = require('../../services/QuestionPicker');
 
@@ -20,7 +20,7 @@ function computeMedian(values) {
   return sorted[mid];
 }
 
-router.use(protect, adminOnly);
+router.use(requireAdmin);
 
 router.get('/questions/repeat-rate', async (req, res, next) => {
   try {
