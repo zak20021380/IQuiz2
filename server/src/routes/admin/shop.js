@@ -1,8 +1,8 @@
 const router = require('express').Router();
-const { protect, adminOnly } = require('../../middleware/auth');
+const { requireAdmin } = require('../../middleware/adminAuth');
 const { getRevenueOverview } = require('../../services/adminShopAnalytics');
 
-router.use(protect, adminOnly);
+router.use(requireAdmin);
 
 router.get('/revenue', async (req, res, next) => {
   try {

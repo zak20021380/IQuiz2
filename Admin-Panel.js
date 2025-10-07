@@ -1,7 +1,23 @@
 const __isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 const __API_BASE = __isDev ? 'http://localhost:4000/api' : '/admin/api';
 const apiPath  = p => __API_BASE + (p.startsWith('/') ? p : '/' + p);
-const apiFetch = (path, opts = {}) => fetch(apiPath(path), { credentials: 'include', ...opts });
+const apiFetch = (path, opts = {}) => {
+  const options = { ...opts, credentials: 'include' };
+  const hasHeadersCtor = typeof Headers !== 'undefined';
+  const headers = hasHeadersCtor
+    ? new Headers(options.headers || {})
+    : { ...(options.headers || {}) };
+  const token = getToken();
+  if (token) {
+    if (hasHeadersCtor) {
+      if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+    } else if (!headers.Authorization && !headers.authorization) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  options.headers = headers;
+  return fetch(apiPath(path), options);
+};
 
 // --------------- CONFIG ---------------
 const $ = s => document.querySelector(s);
@@ -3255,14 +3271,17 @@ async function handleAdSubmit(event) {
 let sessionExpiredNotified = false;
 
 function getToken() {
-  return (
-    localStorage.adminToken ||
-    localStorage.token ||
-    sessionStorage.adminToken ||
-    sessionStorage.token ||
-    localStorage.getItem('iq_admin_token') ||
-    ''
-  );
+  try {
+    return (
+      localStorage.getItem('adminToken') ||
+      localStorage.getItem('iq_admin_token') ||
+      sessionStorage.getItem('adminToken') ||
+      sessionStorage.getItem('iq_admin_token') ||
+      ''
+    );
+  } catch (_) {
+    return '';
+  }
 }
 function setToken(t) {
   sessionExpiredNotified = false;
@@ -3270,17 +3289,31 @@ function setToken(t) {
     clearToken();
     return;
   }
-  localStorage.setItem('iq_admin_token', t);
+  try {
+    localStorage.setItem('adminToken', t);
+    localStorage.setItem('iq_admin_token', t);
+  } catch (_) {
+    // ignore storage failures
+  }
 }
-function clearToken() { localStorage.removeItem('iq_admin_token'); }
+function clearToken() {
+  try {
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('iq_admin_token');
+    sessionStorage.removeItem('adminToken');
+    sessionStorage.removeItem('iq_admin_token');
+  } catch (_) {
+    // ignore storage failures
+  }
+}
 function logout() { clearToken(); location.reload(); }
 
-function forceReauthentication(message = '') {
+function forceReauthentication(message = 'لطفاً دوباره وارد شوید') {
   clearToken();
   const normalizedMessage = message && typeof message === 'string' ? message.trim() : '';
   if (!sessionExpiredNotified) {
     sessionExpiredNotified = true;
-    const fallbackMessage = normalizedMessage || 'نشست شما منقضی شده است. لطفاً دوباره وارد شوید';
+    const fallbackMessage = normalizedMessage || 'لطفاً دوباره وارد شوید';
     showToast(fallbackMessage, 'warning');
   }
   const loginModal = $('#login-modal');
@@ -3290,9 +3323,17 @@ function forceReauthentication(message = '') {
 }
 
 async function api(path, options = {}) {
-  const token = localStorage.adminToken || localStorage.token || sessionStorage.adminToken || sessionStorage.token || '';
-  const headers = { 'Content-Type': 'application/json', ...(options?.headers || {}) };
-  if (token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
+  const hasHeadersCtor = typeof Headers !== 'undefined';
+  const headers = hasHeadersCtor
+    ? new Headers(options?.headers || {})
+    : { ...(options?.headers || {}) };
+  if (hasHeadersCtor) {
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+  } else if (!headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   const fetchOptions = { ...options, headers };
   if (!fetchOptions.cache) {
@@ -3301,18 +3342,22 @@ async function api(path, options = {}) {
 
   const res = await apiFetch(path, fetchOptions);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Request failed' }));
-    const errorMessage = err.message || 'Request failed';
-    if (res.status === 401) {
-      const normalized = errorMessage.toLowerCase();
-      if (normalized.includes('token') || normalized.includes('unauthorized') || normalized.includes('expired')) {
-        forceReauthentication(errorMessage);
-      }
+    let errPayload = null;
+    try {
+      errPayload = await res.json();
+    } catch (_) {
+      errPayload = null;
+    }
+    let errorMessage = errPayload?.message || 'Request failed';
+    const shouldForceLogin = res.status === 401 && !/\/auth\/login/i.test(String(path || ''));
+    if (shouldForceLogin) {
+      forceReauthentication();
+      errorMessage = '__AUTH__';
     }
     const error = new Error(errorMessage);
     error.status = res.status;
-    if (err && typeof err === 'object' && err.details) {
-      error.details = Array.isArray(err.details) ? err.details : [err.details];
+    if (errPayload && typeof errPayload === 'object' && errPayload.details) {
+      error.details = Array.isArray(errPayload.details) ? errPayload.details : [errPayload.details];
     }
     throw error;
   }
@@ -3338,6 +3383,10 @@ function ensureToastContainer() {
 }
 
 function showToast(message, type = 'info', duration = 3000) {
+  if (message === '__AUTH__') return;
+  if (message === 'لطفاً دوباره وارد شوید' && type === 'error') {
+    type = 'warning';
+  }
   const toastContainer = ensureToastContainer();
   if (!toastContainer) {
     if (typeof window !== 'undefined' && typeof window.alert === 'function') {
@@ -7221,7 +7270,7 @@ async function fetchServerSettings(options = {}) {
     }
 
     if (response.status === 401) {
-      forceReauthentication('Login required');
+      forceReauthentication();
       return null;
     }
 
@@ -7364,7 +7413,7 @@ async function handleSettingsSave() {
     }
 
     if (response.status === 401) {
-      forceReauthentication('Login required');
+      forceReauthentication();
       return;
     }
 
