@@ -1,5 +1,9 @@
+const __isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const __API_BASE = __isDev ? 'http://localhost:4000/api' : '/admin/api';
+const apiPath  = p => __API_BASE + (p.startsWith('/') ? p : '/' + p);
+const apiFetch = (path, opts = {}) => fetch(apiPath(path), { credentials: 'include', ...opts });
+
 // --------------- CONFIG ---------------
-const API_BASE = 'http://localhost:4000/admin/api'; // در پروDUCTION دامنه‌ات را بده
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const escapeHtml = (value = '') => String(value)
@@ -2946,7 +2950,7 @@ function renderAdProvinceOptions(selected = []) {
 
 async function loadAdProvinces() {
   try {
-    const res = await fetch('/admin/api/public/provinces', { cache: 'no-store' });
+    const res = await apiFetch('/public/provinces', { cache: 'no-store' });
     const data = await res.json();
     const names = Array.isArray(data)
       ? data
@@ -3279,7 +3283,7 @@ async function api(path, options = {}) {
     fetchOptions.cache = 'no-store';
   }
 
-  const res = await fetch(`${API_BASE}${path}`, fetchOptions);
+  const res = await apiFetch(path, fetchOptions);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: 'Request failed' }));
     const errorMessage = err.message || 'Request failed';
@@ -5477,7 +5481,7 @@ async function fetchProvinceListForUsers() {
     return usersState.provinces;
   }
 
-  usersState.provincesPromise = fetch('/admin/api/public/provinces', { cache: 'no-store' })
+  usersState.provincesPromise = apiFetch('/public/provinces', { cache: 'no-store' })
     .then((res) => res.json())
     .then((data) => {
       const names = Array.isArray(data)
