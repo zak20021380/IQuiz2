@@ -63,6 +63,17 @@ const toInt = (v) => {
   return Math.trunc(n);
 };
 
+function toBool(value, defaultValue = false) {
+  if (value === undefined || value === null) return !!defaultValue;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return !!defaultValue;
+  if (['false', '0', 'off', 'no', 'disable', 'disabled'].includes(normalized)) return false;
+  if (['true', '1', 'on', 'yes', 'enable', 'enabled'].includes(normalized)) return true;
+  return !!defaultValue;
+}
+
 const DIFFICULTY_META = {
   easy:   { label: 'آسون', class: 'meta-chip difficulty-easy', icon: 'fa-feather' },
   medium: { label: 'متوسط', class: 'meta-chip difficulty-medium', icon: 'fa-wave-square' },
@@ -659,6 +670,7 @@ const shopState = {
   initialized: false,
   lastUpdated: null
 };
+let serverSettingsCache = null;
 const SHOP_CURRENCY_LABELS = Object.freeze({
   coin: 'سکه بازی',
   wallet: 'سکه کیف پول',
@@ -670,7 +682,7 @@ const DEFAULT_COIN_PACKAGES = Object.freeze([
     displayName: 'بسته شروع سریع',
     amount: 100,
     bonus: 0,
-    priceToman: 59000,
+    priceToman: 0,
     badge: 'پرفروش',
     paymentMethod: 'درگاه بانکی',
     description: 'مناسب برای شروع و شارژ سریع کیف پول.',
@@ -682,7 +694,7 @@ const DEFAULT_COIN_PACKAGES = Object.freeze([
     displayName: 'بسته حرفه‌ای',
     amount: 500,
     bonus: 5,
-    priceToman: 239000,
+    priceToman: 0,
     badge: 'پیشنهاد ویژه',
     paymentMethod: 'درگاه بانکی',
     description: '۵٪ سکه هدیه برای کاربرانی که به دنبال صرفه بیشتر هستند.',
@@ -694,7 +706,7 @@ const DEFAULT_COIN_PACKAGES = Object.freeze([
     displayName: 'بسته طلایی',
     amount: 1200,
     bonus: 12,
-    priceToman: 459000,
+    priceToman: 0,
     badge: 'بیشترین صرفه',
     paymentMethod: 'درگاه بانکی',
     description: 'هدیه ۱۲٪ برای کاربران حرفه‌ای و وفادار.',
@@ -6363,10 +6375,18 @@ function mergePricingCoinsWithLegacy(pricingCoins, legacyWallet) {
       const amount = Number.isFinite(Number(legacy.amount)) && Number(legacy.amount) > 0
         ? Number(legacy.amount)
         : Math.max(1, Math.trunc(Number(coin.coins) || 0));
-      const priceBase = legacy.priceToman ?? legacy.price;
-      const price = Number.isFinite(Number(priceBase)) && Number(priceBase) >= 0
-        ? Number(priceBase)
-        : Math.max(0, Math.trunc(Number(coin.priceIrr ?? coin.priceIRR ?? coin.price) || 0));
+      const priceSource = pickFirstValue(
+        coin.priceToman,
+        coin.price,
+        coin.priceIrr,
+        coin.priceIRR,
+        legacy.priceToman,
+        legacy.price,
+        0,
+      );
+      const price = Number.isFinite(Number(priceSource)) && Number(priceSource) >= 0
+        ? Math.trunc(Number(priceSource))
+        : 0;
       return {
         ...legacy,
         id,
@@ -6374,6 +6394,7 @@ function mergePricingCoinsWithLegacy(pricingCoins, legacyWallet) {
         amount,
         priceToman: price,
         price,
+        coins: Math.max(1, Math.trunc(Number(coin.coins) || amount || 0)),
         active: coin.active !== false && legacy.active !== false,
         featured: coin.featured === true || legacy.featured === true,
         priority: Number.isFinite(Number(legacy.priority)) ? Number(legacy.priority) : index + 1,
@@ -6392,17 +6413,25 @@ function mergePricingVipWithLegacy(pricingVip, legacyPlans) {
       if (!id) return null;
       const legacy = legacyMap.get(id) || legacyList[index] || {};
       const months = Number.isFinite(Number(vip.months)) ? Math.max(1, Math.trunc(Number(vip.months))) : resolveVipPlanMonths(legacy);
-      const price = Number.isFinite(Number(vip.priceIrr ?? vip.priceIRR ?? vip.price))
-        ? Math.max(0, Math.trunc(Number(vip.priceIrr ?? vip.priceIRR ?? vip.price)))
-        : Number.isFinite(Number(legacy.price))
-          ? Math.max(0, Math.trunc(Number(legacy.price)))
-          : 0;
+      const priceSource = pickFirstValue(
+        vip.priceToman,
+        vip.price,
+        vip.priceIrr,
+        vip.priceIRR,
+        legacy.priceToman,
+        legacy.price,
+        0,
+      );
+      const price = Number.isFinite(Number(priceSource))
+        ? Math.max(0, Math.trunc(Number(priceSource)))
+        : 0;
       return {
         ...legacy,
         id,
         tier: safeString(legacy?.tier || id, id),
         displayName: safeString(legacy?.displayName || vip.title || id, id),
         price,
+        priceToman: price,
         period: safeString(legacy?.period || deriveVipPeriodFromMonths(months), deriveVipPeriodFromMonths(months)),
         active: vip.active !== false && legacy.active !== false,
       };
@@ -6454,24 +6483,28 @@ function collectShopPricingSnapshot(options = {}) {
   const coins = [];
   getCoinPackageRows().forEach((row, index) => {
     if (!row) return;
-    const idValue = pickFirstValue(getCoinFieldValue(row, 'id'), row.dataset ? row.dataset.coinPackageId : '');
-    const id = safeString(idValue || '', '');
-    if (!id) {
-      if (strict) errors.push(`برای بسته سکه شماره ${index + 1} شناسه وارد کنید.`);
-      return;
-    }
-    const titleValue = pickFirstValue(getCoinFieldValue(row, 'displayName'), getCoinFieldValue(row, 'title'), id);
-    const title = safeString(titleValue || id, id);
+    const initialIdValue = pickFirstValue(
+      getCoinFieldValue(row, 'id'),
+      row.dataset ? row.dataset.coinPackageId : '',
+    );
+    const initialId = safeString(initialIdValue || '', '');
+    const initialTitleValue = pickFirstValue(
+      getCoinFieldValue(row, 'title'),
+      getCoinFieldValue(row, 'displayName'),
+      initialId,
+      `بسته سکه ${index + 1}`,
+    );
+    const packageLabel = safeString(initialTitleValue || initialId || `بسته سکه ${index + 1}`, `بسته سکه ${index + 1}`);
 
     let coinsValue;
     try {
       coinsValue = toInt(pickFirstValue(getCoinFieldValue(row, 'amount'), getCoinFieldValue(row, 'coins'), 0));
     } catch (_) {
-      if (strict) errors.push(`تعداد سکه بسته «${title || id}» معتبر نیست.`);
+      if (strict) errors.push(`تعداد سکه بسته «${packageLabel}» معتبر نیست.`);
       return;
     }
     if (!Number.isInteger(coinsValue) || coinsValue < 1) {
-      if (strict) errors.push(`تعداد سکه بسته «${title || id}» باید حداقل ۱ باشد.`);
+      if (strict) errors.push(`تعداد سکه بسته «${packageLabel}» باید حداقل ۱ باشد.`);
       return;
     }
 
@@ -6479,29 +6512,43 @@ function collectShopPricingSnapshot(options = {}) {
     try {
       priceValue = toInt(pickFirstValue(
         getCoinFieldValue(row, 'priceToman'),
-        getCoinFieldValue(row, 'priceIrr'),
         getCoinFieldValue(row, 'price'),
+        getCoinFieldValue(row, 'priceIrr'),
         0,
       ));
     } catch (_) {
-      if (strict) errors.push(`قیمت بسته «${title || id}» معتبر نیست.`);
+      if (strict) errors.push(`قیمت بسته «${packageLabel}» معتبر نیست.`);
       return;
     }
     if (!Number.isInteger(priceValue) || priceValue < 0) {
-      if (strict) errors.push(`قیمت بسته «${title || id}» باید عدد صحیح بزرگ‌تر یا مساوی صفر باشد.`);
+      if (strict) errors.push(`قیمت بسته «${packageLabel}» باید عدد صحیح بزرگ‌تر یا مساوی صفر باشد.`);
       return;
     }
 
-    const featuredValue = getCoinFieldValue(row, 'featured');
-    const activeValue = getCoinFieldValue(row, 'active');
+    const idValue = pickFirstValue(
+      getCoinFieldValue(row, 'id'),
+      row.dataset ? row.dataset.coinPackageId : '',
+      `c${coinsValue}`,
+    );
+    const id = safeString(idValue || '', `c${coinsValue}`);
+    const titleValue = pickFirstValue(
+      getCoinFieldValue(row, 'title'),
+      getCoinFieldValue(row, 'displayName'),
+      `${coinsValue} coins`,
+    );
+    const title = safeString(titleValue || `${coinsValue} coins`, `${coinsValue} coins`);
+
+    const featuredValue = toBool(getCoinFieldValue(row, 'featured'));
+    const activeValue = toBool(getCoinFieldValue(row, 'active'), true);
 
     coins.push({
       id,
-      title: title || id,
+      title,
       coins: coinsValue,
-      priceIrr: priceValue,
-      featured: featuredValue === true,
-      active: activeValue !== false,
+      priceToman: priceValue,
+      price: priceValue,
+      featured: featuredValue,
+      active: activeValue,
     });
   });
 
@@ -6521,11 +6568,12 @@ function collectShopPricingSnapshot(options = {}) {
     let priceValue;
     try {
       priceValue = toInt(pickFirstValue(
+        getVipPlanFieldValue(card, 'priceToman'),
         getVipPlanFieldValue(card, 'price'),
+        plan.priceToman,
         plan.price,
         plan.priceIrr,
         plan.priceIRR,
-        plan.priceToman,
         0,
       ));
     } catch (_) {
@@ -6572,7 +6620,8 @@ function collectShopPricingSnapshot(options = {}) {
       id,
       title: title || id,
       months: monthsValue,
-      priceIrr: priceValue,
+      priceToman: priceValue,
+      price: priceValue,
       active,
     });
   });
@@ -6864,7 +6913,13 @@ function createCoinPackageRow(initialData = {}, options = {}) {
   inputs.forEach((input) => {
     const field = safeString(input.dataset.coinField || '', '');
     if (!field) return;
-    const value = base[field];
+    let value = base[field];
+    if ((value === undefined || value === null) && field === 'priceToman') {
+      value = pickFirstValue(base.priceToman, base.price, base.priceIrr, base.priceIRR, '');
+    }
+    if ((value === undefined || value === null) && field === 'displayName') {
+      value = pickFirstValue(base.displayName, base.title, '');
+    }
     if (input.type === 'checkbox') {
       input.checked = value !== false;
     } else if (input.type === 'number') {
@@ -7318,6 +7373,7 @@ async function fetchServerSettings(options = {}) {
 async function loadServerSettings(options = {}) {
   const settings = await fetchServerSettings(options);
   if (settings) {
+    serverSettingsCache = settings;
     applySettingsSnapshot(settings);
     persistSettings(settings);
     return settings;
@@ -7331,7 +7387,10 @@ async function initializeSettingsFromStorage() {
     return;
   }
   const saved = readStoredSettings();
-  if (saved) applySettingsSnapshot(saved);
+  if (saved) {
+    serverSettingsCache = saved;
+    applySettingsSnapshot(saved);
+  }
 }
 
 async function handleSettingsSave() {
@@ -7383,11 +7442,43 @@ async function handleSettingsSave() {
   }
 
   const updatedAt = Date.now();
-  const snapshot = {
+  const baseSettings = serverSettingsCache && typeof serverSettingsCache === 'object'
+    ? serverSettingsCache
+    : readStoredSettings() || {};
+  const shopSnapshot = shopResult.snapshot || {};
+  const snapshotPricing = shopSnapshot.pricing || {};
+  const coinsPricing = Array.isArray(snapshotPricing.coins)
+    ? snapshotPricing.coins.map((coin) => ({ ...coin }))
+    : [];
+  const vipPricing = Array.isArray(snapshotPricing.vip)
+    ? snapshotPricing.vip.map((plan) => ({ ...plan }))
+    : Array.isArray(baseSettings.shop?.pricing?.vip)
+      ? baseSettings.shop.pricing.vip.map((plan) => ({ ...plan }))
+      : [];
+  const pricingCurrency = normalizePricingCurrencyValue(
+    snapshotPricing.currency
+      || baseSettings.shop?.pricing?.currency
+      || baseSettings.shop?.currency
+      || 'IRR',
+  );
+
+  const requestPayload = {
+    ...baseSettings,
     general,
     rewards,
-    shop: shopResult.snapshot,
-    updatedAt
+    shop: {
+      ...baseSettings.shop,
+      ...shopSnapshot,
+      currency: pricingCurrency,
+      pricing: {
+        ...(baseSettings.shop?.pricing || {}),
+        ...snapshotPricing,
+        coins: coinsPricing,
+        vip: vipPricing,
+        currency: pricingCurrency,
+      },
+    },
+    updatedAt,
   };
 
   settingsSaveButton.disabled = true;
@@ -7402,25 +7493,27 @@ async function handleSettingsSave() {
     const response = await apiFetch('/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(snapshot),
+      credentials: 'include',
+      body: JSON.stringify(requestPayload),
     });
 
-    let payload = null;
+    let responsePayload = null;
     try {
-      payload = await response.json();
+      responsePayload = await response.json();
     } catch (_) {
-      payload = null;
+      responsePayload = null;
     }
 
     if (response.status === 401) {
-      forceReauthentication();
+      clearToken();
+      showToast('نشست شما منقضی شده است. لطفاً دوباره وارد شوید.', 'warning');
       return;
     }
 
     if (response.status === 400) {
-      const detailMessage = Array.isArray(payload?.details) && payload.details.length
-        ? payload.details[0]
-        : payload?.message || 'اطلاعات قیمت‌گذاری فروشگاه را بررسی کنید.';
+      const detailMessage = Array.isArray(responsePayload?.details) && responsePayload.details.length
+        ? responsePayload.details[0]
+        : responsePayload?.message || 'اطلاعات قیمت‌گذاری فروشگاه را بررسی کنید.';
       showToast(detailMessage, 'error');
       return;
     }
@@ -7430,15 +7523,18 @@ async function handleSettingsSave() {
       return;
     }
 
-    const persisted = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
-      ? payload.data
-      : snapshot;
+    const persisted = responsePayload && typeof responsePayload === 'object' && responsePayload.data && typeof responsePayload.data === 'object'
+      ? responsePayload.data
+      : requestPayload;
     persistSettings(persisted);
     applySettingsSnapshot(persisted);
     showToast('تنظیمات ذخیره شد و اعمال شد', 'success');
 
     const refreshed = await loadServerSettings({ showErrorToast: true });
     const detail = refreshed || persisted;
+    if (detail) {
+      serverSettingsCache = detail;
+    }
     markShopUpdated();
     updateShopSummary();
     if (detail) {
