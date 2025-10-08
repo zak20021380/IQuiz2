@@ -19,15 +19,9 @@ const jserviceRoutes = require('./routes/jservice.routes');
 const aiRoutes = require('./routes/ai');
 const { ensureInitialCategories, syncProviderCategories } = require('./services/categorySeeder');
 
-// init
 const app = express();
 app.set('trust proxy', 1);
 
-// ───────────────── Security & parsers
-// CSP کامل برای Tailwind CDN، Google Fonts، cdnjs و آواتار نمونه
-// یادآوری: برای اینکه HTML استاتیک (که اسکریپت‌های درون‌خطی دارد) درست کار کند، باید
-// علاوه بر script-src، دستورهای script-src-elem و script-src-attr را هم بازتعریف کنیم؛
-// در غیر اینصورت Helmet برای آن‌ها مقدار «'none'» قرار می‌دهد و اجرای اسکریپت‌ها متوقف می‌شود.
 const telegramOrigins = Array.from(new Set((env.telegram.allowedOrigins || []).filter(Boolean)));
 app.use(helmet({
   contentSecurityPolicy: {
@@ -54,33 +48,23 @@ app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
 
-// logging
 if (env.nodeEnv !== 'production') app.use(morgan('dev'));
 
-// cors
 app.use(cors());
-
-// rate limit
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 }));
 
-// ───────────────── Static files
-// توجه: HTMLهای شما (Admin-Panel.html / IQuiz-bot.html) در ریشه‌ی پروژه هستند (یک سطح بالاتر از `server`).
-app.use(express.static(path.join(__dirname, '..', '..'))); // سرو از ریشه پروژه
+app.use(express.static(path.join(__dirname, '..', '..')));
 
-// روت دوستانه برای پنل ادمین
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '..', '..', 'Admin-Panel.html'));
 });
 
-// روت تست برای فایل بات (اختیاری)
 app.get('/bot', (req, res) => {
   res.sendFile(path.join(__dirname, '..', '..', 'IQuiz-bot.html'));
 });
 
-// جلوگیری از 404 برای favicon
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
-// ───────────────── API routes
 app.get('/healthz', (req, res) => res.json({ ok: true, status: 'healthy' }));
 
 app.use('/api/auth', require('./routes/auth.routes'));
@@ -99,17 +83,16 @@ app.use('/api/admin/shop', require('./routes/admin/shop'));
 app.use('/api/admin/settings', require('./routes/admin/settings'));
 app.use('/api/public', require('./routes/public.routes'));
 app.use('/api/jservice', jserviceRoutes);
-app.use('/api', aiRoutes);
 app.use('/api/wallet', require('./routes/wallet.routes'));
-// Mount subscription routes directly without rewriting the path so /api/subscription/* stays intact.
 app.use('/api/subscription', require('./routes/subscription.routes'));
 app.use('/api/payments', require('./routes/payments.routes'));
 app.use('/payments', require('./routes/payments-public.routes'));
 
-// error handler
+// ⬇️ مهم: ماژول هوش مصنوعی را روی مسیر اختصاصی می‌نشانیم تا سایر مسیرهای /api را نپوشاند
+app.use('/api/ai', aiRoutes);
+
 app.use(errorHandler);
 
-// ───────────────── Start
 let server;
 
 const startApp = async () => {
