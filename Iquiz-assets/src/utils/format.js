@@ -8,7 +8,11 @@ export const faNum = (value) => {
 export const formatIRR = (value) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '—';
-  return numeric.toLocaleString('fa-IR');
+
+  // IRR values are always displayed without fractional parts. Using faNum keeps
+  // the behaviour consistent with the other helpers in this module while
+  // ensuring we always return Persian digits.
+  return faNum(Math.trunc(numeric));
 };
 
 export const faDecimal = (value, digits = 1) => {
