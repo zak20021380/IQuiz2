@@ -377,9 +377,6 @@
           کد تخفیف: <span class="font-mono bg-white/20 px-2 py-1 rounded">SANANDAJ10</span>
         </div>
       </div>
-      <button id="btn-advertisers" class="btn btn-tertiary w-full">
-        درخواست تبلیغ
-      </button>
     </section>
     
     <!-- QUIZ -->
@@ -664,7 +661,7 @@
             </div>
             <div class="space-y-2">
               <div class="font-bold text-lg">اشتراک VIP</div>
-              <div class="text-sm opacity-80" data-shop-vip-benefits>حذف تبلیغات • محدودیت‌های بیشتر • پشتیبانی ویژه</div>
+              <div class="text-sm opacity-80" data-shop-vip-benefits>حذف تبلیغات • محدودیت‌های بیشتر • جوایز اختصاصی</div>
               <div class="text-xs opacity-70" data-shop-vip-price>شروع از —</div>
             </div>
           </div>
@@ -693,13 +690,6 @@
           </div>
           <button id="btn-open-wallet-2" class="btn btn-primary w-full sm:w-auto px-4 text-sm"><i class="fas fa-store ml-1"></i> مشاهده بسته‌ها</button>
         </div>
-      </div>
-
-      <div id="shop-support-cta" class="hidden glass-dark rounded-2xl p-4 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div class="flex items-center gap-2"><i class="fas fa-headset text-sky-300"></i><span data-support-message>برای سوالات بیشتر با پشتیبانی در تماس باشید.</span></div>
-        <a id="shop-support-link" class="btn btn-secondary w-full sm:w-auto px-4 text-sm" href="#" target="_blank" rel="noopener">
-          <i class="fas fa-message ml-1"></i> ارتباط با پشتیبانی
-        </a>
       </div>
     </div>
   </div>
@@ -1177,150 +1167,9 @@
         <i class="fas fa-arrow-right"></i> بازگشت
       </button>
     </section>
-
-    <!-- SUPPORT & ADVERTISERS -->
-    <section id="page-support" class="hidden space-y-5">
-      <div class="glass rounded-3xl p-6">
-        <h3 class="text-2xl font-extrabold mb-5 flex items-center gap-2">
-          <i class="fas fa-headset text-blue-300"></i>
-          <span>پشتیبانی و تبلیغات</span>
-        </h3>
-        
-        <!-- Tabs -->
-        <div class="flex justify-between mb-6 bg-white/10 rounded-xl p-1">
-          <button class="support-tab flex-1 py-2 px-3 rounded-lg text-center font-medium active" data-tab="support">
-            پشتیبانی
-          </button>
-          <button class="support-tab flex-1 py-2 px-3 rounded-lg text-center font-medium" data-tab="advertiser">
-            درخواست تبلیغ
-          </button>
-        </div>
-        
-        <!-- Support Content -->
-        <div id="support-content" class="tab-content">
-          <div class="mb-6">
-            <h4 class="font-bold mb-3 flex items-center gap-2">
-              <i class="fas fa-ticket-alt text-amber-300"></i>
-              <span>ارسال تیکت پشتیبانی</span>
-            </h4>
-            <form id="support-form" class="space-y-4">
-              <div class="form-group">
-                <label class="form-label" for="support-name">نام و نام خانوادگی</label>
-                <input type="text" id="support-name" class="form-input" placeholder="نام خود را وارد کنید" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="support-mobile">شماره موبایل</label>
-                <input type="tel" id="support-mobile" class="form-input" placeholder="۰۹۱۲۳۴۵۶۷۸۹" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="support-message">پیام</label>
-                <textarea id="support-message" class="form-textarea" placeholder="مشکل یا پیشنهاد خود را بنویسید..." required></textarea>
-              </div>
-              <button type="submit" class="btn btn-primary w-full">
-                <i class="fas fa-paper-plane ml-2"></i> ارسال تیکت
-              </button>
-            </form>
-          </div>
-          
-          <div>
-            <h4 class="font-bold mb-3 flex items-center gap-2">
-              <i class="fas fa-history text-purple-300"></i>
-              <span>تیکت‌های من</span>
-            </h4>
-            <div id="tickets-list" class="space-y-3">
-              <div class="ticket-item">
-                <div class="flex justify-between items-start mb-1">
-                  <div class="font-bold">مشکل در پرداخت</div>
-                  <span class="ticket-status status-pending">در حال بررسی</span>
-                </div>
-                <div class="text-xs opacity-70 mb-2">۱۴۰۲/۰۵/۱۰</div>
-                <div class="text-sm">پرداخت انجام شد اما سکه‌ها اضافه نشدند...</div>
-              </div>
-              <div class="ticket-item">
-                <div class="flex justify-between items-start mb-1">
-                  <div class="font-bold">پیشنهاد برای سوالات</div>
-                  <span class="ticket-status status-closed">بسته شده</span>
-                </div>
-                <div class="text-xs opacity-70 mb-2">۱۴۰۲/۰۴/۲۵</div>
-                <div class="text-sm">پیشنهاد اضافه کردن دسته سوالات جدید...</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Advertiser Content -->
-        <div id="advertiser-content" class="tab-content hidden">
-          <div class="mb-6 glass rounded-2xl p-6">
-            <h4 class="font-bold mb-4 flex items-center gap-2">
-              <i class="fas fa-bullhorn text-green-300"></i>
-              <span>درخواست تبلیغ</span>
-            </h4>
-            <form id="advertiser-form" class="space-y-4 advertiser-form">
-              <div class="form-group">
-                <label class="form-label" for="ad-placement">نوع تبلیغ</label>
-                <select id="ad-placement" class="form-input" required>
-                  <option value="">انتخاب کنید</option>
-                  <option value="banner">بنری</option>
-                  <option value="native">همسان</option>
-                  <option value="interstitial">میانی</option>
-                  <option value="rewarded">ویدیویی</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="ad-budget">بودجه (تومان)</label>
-                <input type="number" id="ad-budget" class="form-input" placeholder="مثال: ۵۰۰۰۰۰۰" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="ad-provinces">استان‌های هدف</label>
-                <select id="ad-provinces" class="form-input" multiple required>
-                  <option value="تهران">تهران</option>
-                  <option value="اصفهان">اصفهان</option>
-                  <option value="خراسان رضوی">خراسان رضوی</option>
-                  <option value="فارس">فارس</option>
-                  <option value="کردستان">کردستان</option>
-                  <option value="آذربایجان شرقی">آذربایجان شرقی</option>
-                  <option value="آذربایجان غربی">آذربایجان غربی</option>
-                  <option value="مازندران">مازندران</option>
-                  <option value="گیلان">گیلان</option>
-                  <option value="خوزستان">خوزستان</option>
-                </select>
-                <div class="text-xs opacity-70 mt-1">برای انتخاب چند استان، کلید Ctrl را نگه دارید</div>
-              </div>
-              <div class="grid grid-cols-2 gap-3">
-                <div class="form-group">
-                  <label class="form-label" for="ad-start">تاریخ شروع</label>
-                  <input type="date" id="ad-start" class="form-input" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="ad-end">تاریخ پایان</label>
-                  <input type="date" id="ad-end" class="form-input" required>
-                </div>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="ad-creative">لینک کریتیو</label>
-                <input type="url" id="ad-creative" class="form-input" placeholder="https://example.com/ad-image.jpg" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="ad-landing">لینک مقصد</label>
-                <input type="url" id="ad-landing" class="form-input" placeholder="https://example.com" required>
-              </div>
-              <button type="submit" class="btn btn-primary w-full">
-                <i class="fas fa-paper-plane ml-2"></i> ارسال درخواست
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-      <button class="w-full py-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/20 transition flex items-center justify-center gap-2" id="btn-back-support">
-        <i class="fas fa-arrow-right"></i> بازگشت
-      </button>
-    </section>
-
-  </main>
-
   <!-- Bottom Nav -->
   <nav class="glass safe sticky bottom-0 z-50 w-full shadow-lg">
-    <div class="max-w-md mx-auto grid grid-cols-5">
+    <div class="max-w-md mx-auto grid grid-cols-4">
       <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="dashboard" aria-label="خانه">
         <i class="fas fa-home text-xl mb-1"></i>
         <div class="text-xs">خانه</div>
@@ -1336,10 +1185,6 @@
       <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="shop" aria-label="فروشگاه">
         <i class="fas fa-store text-xl mb-1"></i>
         <div class="text-xs">فروشگاه</div>
-      </button>
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="support" aria-label="پشتیبانی">
-        <i class="fas fa-headset text-xl mb-1"></i>
-        <div class="text-xs">پشتیبانی</div>
       </button>
     </div>
   </nav>

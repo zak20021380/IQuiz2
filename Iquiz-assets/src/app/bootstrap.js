@@ -1380,7 +1380,7 @@ function populateProvinceOptions(selectEl, placeholder){
 
   updateLifelineStates();
   
-  const NAV_PAGES=['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral','support'];
+  const NAV_PAGES=['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral'];
   const NAV_PAGE_SET=new Set(NAV_PAGES);
 
   function navTo(page){
@@ -2626,7 +2626,7 @@ function startQuizTimerCountdown(){
     supportEl.classList.toggle('hidden', !(enabled && hasSupport));
     if (!(enabled && hasSupport)) return;
     const msgEl = supportEl.querySelector('[data-support-message]');
-    if (msgEl) msgEl.textContent = support.supportCta || 'برای سوالات بیشتر با پشتیبانی در تماس باشید.';
+    if (msgEl) msgEl.textContent = support.supportCta || 'برای سوالات بیشتر راهنمای برنامه را بررسی کنید.';
     const linkEl = $('#shop-support-link');
     if (linkEl) {
       const href = support.supportLink || '#';
@@ -2691,7 +2691,7 @@ function startQuizTimerCountdown(){
         const summary = primaryPlan.benefits.slice(0, 3).join(' • ');
         benefitsEl.textContent = summary;
       } else {
-        benefitsEl.textContent = 'حذف تبلیغات • محدودیت‌های بیشتر • پشتیبانی ویژه';
+        benefitsEl.textContent = 'حذف تبلیغات • محدودیت‌های بیشتر • جوایز اختصاصی';
       }
     }
   }
@@ -2795,7 +2795,7 @@ function startQuizTimerCountdown(){
     const summaryText = vipConfig.customNote
       || (Array.isArray(primaryPlan?.benefits) && primaryPlan.benefits.length
         ? primaryPlan.benefits.slice(0, 3).join(' • ')
-        : 'با اشتراک VIP از امکانات ویژه و پشتیبانی اختصاصی بهره‌مند شوید.');
+        : 'با اشتراک VIP از امکانات ویژه و جوایز اختصاصی بهره‌مند شوید.');
     if (summaryEl){
       summaryEl.textContent = summaryText;
     }
@@ -4321,34 +4321,6 @@ async function startPurchaseCoins(pkgId){
       await shareOnTelegram(web, text);
     }
   }
-  
-  // ===== Support & Advertisers =====
-  function renderSupportTickets() {
-    const ticketsList = $('#tickets-list');
-    ticketsList.innerHTML = '<div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text"></div>';
-
-    // Simulate loading tickets
-    setTimeout(() => {
-      ticketsList.innerHTML = `
-        <div class="ticket-item">
-          <div class="flex justify-between items-start mb-1">
-            <div class="font-bold">مشکل در پرداخت</div>
-            <span class="ticket-status status-pending">در حال بررسی</span>
-          </div>
-          <div class="text-xs opacity-70 mb-2">۱۴۰۲/۰۵/۱۰</div>
-          <div class="text-sm">پرداخت انجام شد اما سکه‌ها اضافه نشدند...</div>
-        </div>
-        <div class="ticket-item">
-          <div class="flex justify-between items-start mb-1">
-            <div class="font-bold">پیشنهاد برای سوالات</div>
-            <span class="ticket-status status-closed">بسته شده</span>
-          </div>
-          <div class="text-xs opacity-70 mb-2">۱۴۰۲/۰۴/۲۵</div>
-          <div class="text-sm">پیشنهاد اضافه کردن دسته سوالات جدید...</div>
-        </div>
-      `;
-    }, 1000);
-  }
 
   function prepareInviteModal(){
     const reward = Number(State.referral?.rewardPerFriend ?? 5);
@@ -4561,10 +4533,6 @@ async function startPurchaseCoins(pkgId){
     }
     await shareOnTelegram(link, text);
   });
-  $('#btn-advertisers')?.addEventListener('click', ()=>{
-    navTo('support');
-    document.querySelector('.support-tab[data-tab="advertiser"]')?.click();
-  });
   // Delegate shop item purchases to handle dynamic re-renders
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-buy]');
@@ -4574,7 +4542,7 @@ async function startPurchaseCoins(pkgId){
   document.addEventListener('click', event=>{
     const trigger=event.target.closest('[data-tab]');
     if(!trigger) return;
-    if(trigger.classList.contains('leaderboard-tab') || trigger.classList.contains('support-tab')) return;
+    if(trigger.classList.contains('leaderboard-tab')) return;
     const tab=trigger.dataset.tab;
     if(!tab || !NAV_PAGE_SET.has(tab)) return;
     event.preventDefault();
@@ -6448,7 +6416,6 @@ function leaveGroup(groupId) {
   $('#btn-back-group')?.addEventListener('click', () => navTo('dashboard'));
   $('#btn-back-pass-missions')?.addEventListener('click', () => navTo('dashboard'));
   $('#btn-back-referral')?.addEventListener('click', () => navTo('dashboard'));
-  $('#btn-back-support')?.addEventListener('click', () => navTo('dashboard'));
   
   // Wallet/VIP navigation
   $('#btn-open-wallet')?.addEventListener('click', ()=>navTo('wallet'));
@@ -6651,129 +6618,6 @@ function leaveGroup(groupId) {
     referralDuelBtn.addEventListener('click', () => navTo('duel'));
   }
 
-  // Support & Advertisers Tabs
-  $$('.support-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      $$('.support-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      $$('.tab-content').forEach(content => content.classList.add('hidden'));
-      $(`#${tab.dataset.tab}-content`).classList.remove('hidden');
-      
-      if (tab.dataset.tab === 'support') {
-        renderSupportTickets();
-      }
-    });
-  });
-  
-  // Support Form
-  $('#support-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const name = $('#support-name').value.trim();
-    const mobile = $('#support-mobile').value.trim();
-    const message = $('#support-message').value.trim();
-    
-    if (!name || !mobile || !message) {
-      toast('<i class="fas fa-exclamation-circle ml-2"></i>لطفاً تمام فیلدها را پر کنید');
-      return;
-    }
-    
-    // Validate mobile number (simple validation)
-    if (!/^09[0-9]{9}$/.test(mobile)) {
-      toast('<i class="fas fa-exclamation-circle ml-2"></i>شماره موبایل نامعتبر است');
-      return;
-    }
-    
-    // Show loading state
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> در حال ارسال...';
-    
-    try {
-      // Simulate API call
-      await wait(1500);
-      
-      // In a real app, this would be:
-      // const result = await Net.jpost('/api/support/tickets', { name, mobile, message });
-      
-      // Show success message
-      toast('<i class="fas fa-check-circle ml-2"></i>تیکت شما با موفقیت ارسال شد');
-      
-      // Reset form
-      e.target.reset();
-      
-      // Refresh tickets list
-      renderSupportTickets();
-      
-      // Log analytics
-      logEvent('support_ticket_created', { category: 'support' });
-    } catch (error) {
-      toast('<i class="fas fa-exclamation-circle ml-2"></i>خطا در ارسال تیکت. لطفاً دوباره تلاش کنید');
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
-    }
-  });
-  
-  // Advertiser Form
-  $('#advertiser-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const placement = $('#ad-placement').value;
-    const budget = $('#ad-budget').value;
-    const provinces = Array.from($('#ad-provinces').selectedOptions).map(option => option.value);
-    const startDate = $('#ad-start').value;
-    const endDate = $('#ad-end').value;
-    const creative = $('#ad-creative').value.trim();
-    const landing = $('#ad-landing').value.trim();
-    
-    if (!placement || !budget || !provinces.length || !startDate || !endDate || !creative || !landing) {
-      toast('<i class="fas fa-exclamation-circle ml-2"></i>لطفاً تمام فیلدها را پر کنید');
-      return;
-    }
-    
-    // Validate dates
-    if (new Date(startDate) >= new Date(endDate)) {
-      toast('<i class="fas fa-exclamation-circle ml-2"></i>تاریخ پایان باید بعد از تاریخ شروع باشد');
-      return;
-    }
-    
-    // Show loading state
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> در حال ارسال...';
-    
-    try {
-      // Simulate API call
-      await wait(1500);
-
-      // In a real app, this would be an API call
-      const ad = { placement, budget: Number(budget), provinces, startDate, endDate, creative, landing };
-      if(!State.ads[placement]) State.ads[placement] = [];
-      State.ads[placement].push(ad);
-      saveState();
-
-      // Show success message
-      toast('<i class="fas fa-check-circle ml-2"></i>درخواست تبلیغ شما با موفقیت ذخیره شد');
-
-      // Reset form
-      e.target.reset();
-
-      // Refresh ads
-      AdManager.refreshAll();
-
-      // Log analytics
-      logEvent('ad_request_submitted', { category: 'advertiser', placement, budget });
-    } catch (error) {
-      toast('<i class="fas fa-exclamation-circle ml-2"></i>خطا در ارسال درخواست. لطفاً دوباره تلاش کنید');
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
-    }
-  });
-  
   // Share Result
   
   $('#active-duel-requests')?.addEventListener('click', event => {
