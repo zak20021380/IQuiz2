@@ -190,36 +190,36 @@ router.post('/answers', async (req, res, next) => {
 router.get('/categories', async (req, res) => {
   try {
     const docs = await Category.find({ status: 'active' }).sort({ name: 1 }).lean();
-    const normalized = docs
+    const dbCats = docs
       .map(mapCategoryDocument)
-      .filter(cat => cat && cat.isActive);
-    if (normalized.length > 0) {
-      return res.json(normalized);
-    }
+      .filter(c => c && c.isActive)
+      .map(({ id, name }) => ({ id, name }));
+
+    const fallback = await getFallbackCategories(); // [{id,name}, ...]
+    // ادغام بر اساس id (fallback اولویت دارد برای کامل بودن)
+    const byId = new Map();
+    for (const c of fallback) if (c?.id) byId.set(String(c.id), { id: String(c.id), name: c.name });
+    for (const c of dbCats)  if (c?.id) byId.set(String(c.id), { id: String(c.id), name: c.name });
+
+    return res.json([...byId.values()]);
   } catch (error) {
-    logger.warn(`Failed to load categories from database: ${error.message}`);
+    logger.warn(`Failed to load categories: ${error.message}`);
+    const fallback = await getFallbackCategories();
+    return res.json(fallback);
   }
-  const data = await getFallbackCategories();
-  return res.json(data);
 });
+
 
 router.get('/provinces', async (req, res) => {
   try {
-    const docs = await AdModel.distinct('provinces', { provinces: { $nin: [null, ''] } });
-    const normalized = docs
-      .map((province) => (typeof province === 'string' ? province.trim() : ''))
-      .filter(Boolean)
-      .map((name, index) => ({ id: index + 1, name }));
-
-    if (normalized.length > 0) {
-      return res.json(normalized);
-    }
+    const data = await getFallbackProvinces(); // فول‌لیست
+    return res.json(data);
   } catch (error) {
-    logger.warn(`Failed to load provinces from database: ${error.message}`);
+    logger.warn(`Failed to load provinces: ${error.message}`);
+    return res.json([]); // در بدترین حالت
   }
-  const data = await getFallbackProvinces();
-  return res.json(data);
 });
+
 
 router.get('/questions', async (req, res, next) => {
   try {
