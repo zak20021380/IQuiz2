@@ -32,8 +32,6 @@
         <div class="text-xs text-white/80 flex items-center gap-2 flex-wrap">
           <span class="flex items-center gap-1"><i class="fas fa-star text-yellow-300"></i> امتیاز: <b id="hdr-score">۰</b></span>
           <span class="flex items-center gap-1" title="سکه بازی"><i class="fas fa-coins text-yellow-300"></i> <b id="hdr-gcoins">۰</b></span>
-          <!-- Wallet (server) -->
-          <span class="flex items-center gap-1" title="کیف پول (سرور)"><i class="fas fa-wallet text-emerald-300"></i> <b id="hdr-wallet">—</b></span>
         </div>
       </div>
     </div>
@@ -127,17 +125,15 @@
             <div class="text-2xl font-extrabold text-rose-300" id="stat-lives">۳</div>
             <div class="text-xs opacity-80 mt-1">کلید</div>
           </div>
-          <div class="glass rounded-2xl p-4 card-hover col-span-3" title="کیف پول (سرور)">
+          <div class="glass rounded-2xl p-4 card-hover col-span-3">
             <div class="flex items-center justify-between">
               <div class="text-sm opacity-90 flex items-center gap-2">
-                <i class="fas fa-wallet text-emerald-300"></i>
-                <span>کیف پول</span>
+                <i class="fas fa-crown text-yellow-300"></i>
+                <span>اشتراک ویژه</span>
               </div>
-              <div class="text-xl font-extrabold" id="stat-wallet">—</div>
-            </div>
-            <div class="mt-3 grid grid-cols-2 gap-2">
-              <button id="go-wallet" class="btn btn-primary text-sm w-full px-4 py-3" aria-label="رفتن به خرید سکه"><i class="fas fa-coins ml-2"></i> خرید سکه</button>
-              <button id="go-vip" class="btn btn-tertiary text-sm w-full px-4 py-3" aria-label="رفتن به اشتراک VIP"><i class="fas fa-crown ml-2"></i> اشتراک VIP</button>
+              <div class="flex items-center gap-2">
+                <button id="go-vip" class="btn btn-tertiary text-sm w-full sm:w-auto px-4 py-3" aria-label="رفتن به اشتراک VIP"><i class="fas fa-crown ml-2"></i> مشاهده پلن‌ها</button>
+              </div>
             </div>
           </div>
         </div>
@@ -612,16 +608,15 @@
     <div id="shop-balance-bar" class="bg-white/10 border-b border-white/15 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" data-shop-section="balances">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="chip"><i class="fas fa-coins ml-1"></i> سکه بازی: <b id="shop-gcoins">۰</b></span>
-        <span class="chip"><i class="fas fa-wallet ml-1"></i> کیف پول: <b id="shop-wallet">—</b></span>
       </div>
-      <button id="btn-open-wallet" class="btn btn-primary w-full sm:w-auto px-4 py-2 text-sm" data-shop-quick-topup><i class="fas fa-plus-circle ml-1"></i> شارژ کیف پول</button>
+      <button id="btn-open-wallet" class="btn btn-primary w-full sm:w-auto px-4 py-2 text-sm"><i class="fas fa-coins ml-1"></i> خرید سکه</button>
     </div>
 
     <!-- محتوا -->
     <div class="p-5 space-y-6">
       <div id="shop-low-balance-warning" class="hidden bg-rose-500/20 border border-rose-400/40 text-rose-50 text-sm rounded-xl p-3 flex items-center gap-2" role="alert">
         <i class="fas fa-exclamation-triangle"></i>
-        <span data-low-balance-message>موجودی سکه شما کم است. برای شرکت در مسابقه‌ها کیف پول را شارژ کنید.</span>
+        <span data-low-balance-message>موجودی سکه شما کم است. برای ادامه مسابقه‌ها سکه بیشتری تهیه کنید.</span>
       </div>
 
       <!-- بسته‌های کلید -->
@@ -657,7 +652,7 @@
           </button>
         </div>
 
-        <div class="text-xs opacity-70 mt-2">کلید با «سکهٔ بازی» پرداخت می‌شه، نه کیف پول.</div>
+        <div class="text-xs opacity-70 mt-2">کلید با «سکهٔ بازی» پرداخت می‌شه، پس حواست به موجودی باشه.</div>
       </div>
 
       <!-- VIP -->
@@ -684,74 +679,19 @@
         </div>
       </div>
 
-      <!-- Coins (Wallet) -->
+      <!-- Coins -->
       <div class="glass-dark rounded-2xl p-5 card-hover" data-shop-section="wallet">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-center sm:text-right">
           <div class="flex items-center gap-4">
             <div class="w-14 h-14 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 flex items-center justify-center">
-              <i class="fas fa-wallet text-white text-xl"></i>
+              <i class="fas fa-coins text-white text-xl"></i>
             </div>
             <div>
-              <div class="font-bold text-lg">خرید سکه (کیف پول)</div>
+              <div class="font-bold text-lg">فروشگاه سکه</div>
               <div class="text-sm opacity-80 mt-1">بسته‌های ۱۰۰/۵۰۰/۱۲۰۰/۳۰۰۰ با بونوس</div>
             </div>
           </div>
-          <button id="btn-open-wallet-2" class="btn btn-primary w-full sm:w-auto px-4 text-sm"><i class="fas fa-coins ml-1"></i> خرید سکه</button>
-        </div>
-      </div>
-
-      <!-- Wallet Top-up (Custom Amount) -->
-      <div id="shop-wallet-topup" class="glass-dark rounded-3xl p-5 card-hover space-y-5" data-shop-section="wallet-topup">
-        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 text-right">
-          <div class="space-y-2 max-w-xl">
-            <div class="flex items-center gap-3 text-lg font-extrabold">
-              <span class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-200"><i class="fas fa-plus"></i></span>
-              <span>شارژ دلخواه کیف پول</span>
-            </div>
-            <p class="text-sm leading-7 opacity-80">مبلغ دلخواهت را همین‌جا کنار بگذار تا هر زمان خواستی بدون وارد کردن چندباره اطلاعات کارت، سکه، کلید یا حتی اشتراک VIP بخری.</p>
-          </div>
-          <div class="glass rounded-2xl px-4 py-3 text-sm text-center space-y-1">
-            <div class="opacity-70">موجودی فعلی کیف پول</div>
-            <div class="text-lg font-bold"><span id="shop-topup-balance">—</span> <span class="text-xs opacity-70">تومان</span></div>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-            <label class="flex-1">
-              <span class="text-xs opacity-80 block mb-2">مبلغ دلخواه (تومان)</span>
-              <input type="range" min="50000" max="2000000" step="50000" value="200000" class="w-full accent-emerald-400" data-topup-range aria-label="مبلغ دلخواه">
-            </label>
-            <div class="flex items-center gap-2 w-full sm:w-auto">
-              <input type="number" inputmode="numeric" pattern="[0-9]*" min="50000" max="2000000" step="50000" value="200000" class="w-full sm:w-40 glass rounded-xl px-3 py-2 text-sm bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-emerald-400" data-topup-input aria-label="ورود مبلغ">
-              <button type="button" class="chip bg-emerald-500/10 border border-emerald-400/40 text-emerald-200 text-xs" data-topup-max><i class="fas fa-arrow-up ml-1"></i> حداکثر</button>
-            </div>
-          </div>
-          <div class="text-xs opacity-70" data-topup-limits>حداقل ۵۰٬۰۰۰ و حداکثر ۲٬۰۰۰٬۰۰۰ تومان (گام‌های ۵۰٬۰۰۰ تومانی)</div>
-          <div class="flex flex-wrap gap-2" data-topup-presets></div>
-        </div>
-
-        <div class="grid sm:grid-cols-2 gap-3">
-          <div class="glass rounded-2xl p-4 space-y-2">
-            <div class="text-xs opacity-70">مبلغ انتخابی</div>
-            <div class="text-2xl font-extrabold text-emerald-200" data-topup-amount>۲۰۰٬۰۰۰ تومان</div>
-            <div class="text-xs opacity-80 leading-6" data-topup-coins>تقریباً می‌توانی با این مبلغ بسته‌ی پیشنهادی سکه را بخری.</div>
-          </div>
-          <div class="glass rounded-2xl p-4 space-y-2">
-            <div class="text-xs opacity-70">مزایای شارژ کیف پول</div>
-            <ul class="text-xs leading-6 space-y-2 opacity-90" data-topup-benefits>
-              <li class="flex items-start gap-2"><i class="fas fa-bolt text-emerald-300 mt-1"></i><span>پرداخت سریع و یک‌مرحله‌ای برای تمام خریدها</span></li>
-              <li class="flex items-start gap-2"><i class="fas fa-shield-heart text-emerald-300 mt-1"></i><span>امنیت بیشتر؛ فقط یک‌بار اطلاعات کارت را وارد می‌کنی</span></li>
-              <li class="flex items-start gap-2"><i class="fas fa-star text-emerald-300 mt-1"></i><span>آمادگی برای خرید فوری سکه، کلید و اشتراک VIP در لحظه‌های حساس</span></li>
-              <li class="flex items-start gap-2"><i class="fas fa-chart-line text-emerald-300 mt-1"></i><span>مدیریت بهتر هزینه‌ها با مشاهده موجودی و تاریخچه پرداخت‌ها</span></li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="space-y-3">
-          <div class="text-xs opacity-80 leading-6" data-topup-suggestion>پیشنهاد ما: بسته مناسب سکه را بعد از ثبت مبلغ انتخاب کن.</div>
-          <div class="hidden text-xs text-rose-100 bg-rose-500/10 border border-rose-400/30 rounded-xl px-3 py-2" data-topup-offline><i class="fas fa-wifi-slash ml-1"></i>برای ادامه فرایند شارژ، اتصال اینترنت لازم است.</div>
-          <button type="button" class="btn btn-primary w-full sm:w-auto px-6 py-3 text-sm" data-topup-submit><i class="fas fa-arrow-left ml-2"></i> تایید مبلغ و ادامه</button>
+          <button id="btn-open-wallet-2" class="btn btn-primary w-full sm:w-auto px-4 text-sm"><i class="fas fa-store ml-1"></i> مشاهده بسته‌ها</button>
         </div>
       </div>
 
@@ -776,10 +716,9 @@
       <div class="glass rounded-3xl p-6">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-2xl font-extrabold flex items-center gap-2">
-            <i class="fas fa-wallet text-emerald-300"></i>
-            <span>خرید سکه</span>
+            <i class="fas fa-coins text-emerald-300"></i>
+            <span>فروشگاه سکه</span>
           </h3>
-          <div class="chip" title="موجودی کیف پول (سرور)"><i class="fas fa-coins text-yellow-300 ml-1"></i> <b id="wallet-balance">—</b></div>
         </div>
         <div id="wallet-offline" class="hidden bg-rose-500/20 border border-rose-400/40 text-rose-50 text-sm rounded-xl p-3 mb-3">
           <i class="fas fa-wifi-slash ml-1"></i> آفلاین هستی؛ خرید غیرفعال است.
@@ -788,7 +727,6 @@
           <i class="fas fa-bullhorn text-amber-300"></i>
           <span data-wallet-promo-text>برای مدت محدود ۱۰٪ تخفیف روی تمامی بسته‌ها اعمال شده است.</span>
         </div>
-        <div id="wallet-custom-plan" class="hidden bg-emerald-500/10 border border-emerald-400/40 rounded-xl p-4 text-xs leading-6 space-y-2"></div>
         <div id="pkg-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
         <div class="text-xs opacity-80 mt-3">پس از ایجاد تراکنش، نتیجه از سرور تأیید شده و رسید نمایش داده می‌شود. لطفاً چند ثانیه صبر کن.</div>
       </div>
@@ -1688,17 +1626,6 @@
           <span class="payment-label">قیمت</span>
           <span class="payment-value" id="payment-price">-</span>
         </div>
-        <div class="payment-row">
-          <span class="payment-label">موجودی کیف پول</span>
-          <span class="payment-value" id="payment-wallet-balance">-</span>
-        </div>
-      </div>
-
-      <div class="payment-warning" id="payment-warning">
-        <div class="flex items-center gap-2">
-          <i class="fas fa-exclamation-triangle text-red-400"></i>
-          <span>موجودی کیف پول شما کافی نیست. به درگاه پرداخت هدایت می‌شوید.</span>
-        </div>
       </div>
 
       <div class="payment-gateway-info" id="payment-gateway-info">
@@ -1792,7 +1719,20 @@
   <!-- Confetti -->
   <canvas id="confetti" class="confetti"></canvas>
   
-<script type="module" src="/Iquiz-assets/main.js" defer></script>
+<script>
+  (function loadAppBundle(){
+    try {
+      const script = document.createElement('script');
+      script.type = 'module';
+      script.defer = true;
+      const version = Date.now().toString();
+      script.src = `/Iquiz-assets/main.js?v=${version}`;
+      document.head.appendChild(script);
+    } catch (error) {
+      console.error('Failed to load app bundle', error);
+    }
+  })();
+</script>
 
 </body>
 </html>

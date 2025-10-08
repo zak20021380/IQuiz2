@@ -890,7 +890,10 @@ function populateProvinceOptions(selectEl, placeholder){
     }
     
     // server numbers:
-    $('#hdr-wallet').textContent = (Server.wallet.coins==null?'—':faNum(Server.wallet.coins));
+    const hdrWallet = $('#hdr-wallet');
+    if (hdrWallet) {
+      hdrWallet.textContent = (Server.wallet.coins == null ? '—' : faNum(Server.wallet.coins));
+    }
     const vip = Server.subscription.active===true;
     $('#vip-badge').classList.toggle('hidden', !vip);
   }
@@ -1160,7 +1163,10 @@ function populateProvinceOptions(selectEl, placeholder){
     $('#stat-lives').textContent = faNum(State.lives);
     $('#vip-chip').classList.toggle('hidden', !Server.subscription.active);
     $('#streak').textContent = faNum(State.streak);
-    $('#stat-wallet').textContent = (Server.wallet.coins==null?'—':faNum(Server.wallet.coins));
+    const statWallet = $('#stat-wallet');
+    if (statWallet) {
+      statWallet.textContent = (Server.wallet.coins == null ? '—' : faNum(Server.wallet.coins));
+    }
     const pct = clamp((State.streak%7)/7*100,0,100);
     $('#streak-bar').style.width = pct + '%';
     
@@ -3026,7 +3032,7 @@ function startQuizTimerCountdown(){
             const estimate = Math.round(next * bestRate);
             coinsEl.innerHTML = `تقریباً ${faNum(estimate)} سکه در دسترس خواهی داشت.`;
           } else {
-            coinsEl.textContent = 'به محض فعال شدن بسته‌های سکه، می‌توانی از موجودی کیف پول استفاده کنی.';
+          coinsEl.textContent = 'به محض فعال شدن بسته‌های سکه، می‌توانی از این مبلغ ذخیره‌شده استفاده کنی.';
           }
         }
       }
@@ -3083,7 +3089,7 @@ function startQuizTimerCountdown(){
     if (submitBtn){
       submitBtn.disabled = !isOnline;
       submitBtn.setAttribute('aria-disabled', isOnline ? 'false' : 'true');
-      submitBtn.title = isOnline ? 'تایید مبلغ و رفتن به مرحله پرداخت' : 'برای شارژ کیف پول باید آنلاین باشی';
+      submitBtn.title = isOnline ? 'تایید مبلغ و رفتن به مرحله پرداخت' : 'برای ثبت مبلغ باید آنلاین باشی';
       if (!submitBtn.dataset.bound){
         submitBtn.dataset.bound = 'true';
         submitBtn.addEventListener('click', () => {
@@ -3092,7 +3098,7 @@ function startQuizTimerCountdown(){
           const recommended = pickWalletPackageByAmount(amount, packages);
           walletTopupState.plannedAmount = amount;
           walletTopupRecommendation = recommended?.id || null;
-          const parts = [`مبلغ ${formatIRR(amount)} تومان برای شارژ کیف پول ثبت شد.`];
+          const parts = [`مبلغ ${formatIRR(amount)} تومان برای خرید بعدی ذخیره شد.`];
           if (recommended){
             const name = recommended.displayName || `بسته ${faNum(recommended.amount)} سکه`;
             parts.push(`در مرحله بعد، بسته ${name} با قیمت ${formatIRR(recommended.priceToman)} تومان را انتخاب کن.`);
@@ -3587,8 +3593,14 @@ document.addEventListener('click', (e) => {
       grid.appendChild(card);
     });
 
-    $('#wallet-balance').textContent = (Server.wallet.coins == null ? '—' : faNum(Server.wallet.coins));
-    $('#wallet-offline').classList.toggle('hidden', online());
+    const walletBalance = $('#wallet-balance');
+    if (walletBalance) {
+      walletBalance.textContent = (Server.wallet.coins == null ? '—' : faNum(Server.wallet.coins));
+    }
+    const walletOffline = $('#wallet-offline');
+    if (walletOffline) {
+      walletOffline.classList.toggle('hidden', online());
+    }
   }
 
   function renderWallet(){
@@ -3606,38 +3618,24 @@ function showPaymentModal(packageId) {
     toast('بسته یافت نشد');
     return;
   }
-  
+
   currentPackageData = pkg;
-  
+
   // Calculate price in Toman
   const priceToman = pkg.priceToman || Math.round(((pkg.priceCents || 0) / 100) * (RemoteConfig.pricing.usdToToman || 70000));
   const totalCoins = pkg.amount + Math.floor(pkg.amount * (pkg.bonus || 0) / 100);
-  const walletBalance = Server.wallet.coins || 0;
 
   // Update modal content
   $('#payment-package-name').textContent = `بسته ${faNum(pkg.amount)} سکه`;
   $('#payment-coins-amount').textContent = `${faNum(totalCoins)} سکه`;
   $('#payment-price').textContent = `${formatIRR(priceToman)} تومان`;
-  $('#payment-wallet-balance').textContent = `${formatIRR(walletBalance)} تومان`;
-
-  // Check if wallet balance is sufficient
-  const needsPayment = walletBalance < priceToman;
-  const warning = $('#payment-warning');
-  if (warning){
-    warning.classList.toggle('show', needsPayment);
-  }
 
   const gatewayInfo = $('#payment-gateway-info');
   if (gatewayInfo){
     const title = gatewayInfo.querySelector('.payment-gateway-title');
     const sub = gatewayInfo.querySelector('.payment-gateway-sub');
-    if (needsPayment){
-      if (title) title.textContent = 'انتقال به درگاه پرداخت امن شاپرک';
-      if (sub) sub.textContent = 'پس از تکمیل پرداخت، سکه‌ها به صورت خودکار به حساب شما اضافه می‌شوند.';
-    } else {
-      if (title) title.textContent = 'کسر آنی از موجودی کیف پول';
-      if (sub) sub.textContent = 'در صورت نیاز به شارژ بیشتر، همین مسیر شما را مستقیماً به درگاه پرداخت هدایت می‌کند.';
-    }
+    if (title) title.textContent = 'انتقال به درگاه پرداخت امن شاپرک';
+    if (sub) sub.textContent = 'پس از تکمیل پرداخت، سکه‌ها به صورت خودکار به حساب شما اضافه می‌شوند.';
   }
 
   // Update button text based on balance
@@ -3645,16 +3643,11 @@ function showPaymentModal(packageId) {
   if (!confirmBtn){
     return;
   }
-  if (needsPayment) {
-    confirmBtn.innerHTML = `<i class="fas fa-shield-halved ml-2"></i> پرداخت ${formatIRR(priceToman)} تومان`;
-  } else {
-    confirmBtn.innerHTML = `<i class="fas fa-check ml-2"></i> تایید و کسر ${formatIRR(priceToman)} تومان`;
-  }
+  confirmBtn.innerHTML = `<i class="fas fa-shield-halved ml-2"></i> پرداخت ${formatIRR(priceToman)} تومان`;
   confirmBtn.dataset.defaultHtml = confirmBtn.innerHTML;
-  confirmBtn.dataset.paymentMode = needsPayment ? 'gateway' : 'wallet';
 
   // Set up click handler
-  confirmBtn.onclick = () => handlePaymentConfirm(pkg.id, priceToman, needsPayment);
+  confirmBtn.onclick = () => handlePaymentConfirm(pkg.id, priceToman);
 
   // Show modal
   $('#modal-payment').classList.add('show');
@@ -3673,13 +3666,11 @@ function closePaymentModal() {
   currentPackageData = null;
 }
 
-async function handlePaymentConfirm(packageId, priceToman, needsPayment) {
+async function handlePaymentConfirm(packageId, priceToman) {
   const confirmBtn = $('#payment-confirm-btn');
   const cancelBtn = $('#payment-cancel-btn');
   const defaultHtml = confirmBtn?.dataset?.defaultHtml || confirmBtn?.innerHTML || '';
-  const loadingHtml = needsPayment
-    ? '<i class="fas fa-spinner fa-spin ml-2"></i> در حال اتصال به درگاه...'
-    : '<i class="fas fa-spinner fa-spin ml-2"></i> در حال تکمیل خرید...';
+  const loadingHtml = '<i class="fas fa-spinner fa-spin ml-2"></i> در حال اتصال به درگاه...';
 
   if (confirmBtn){
     confirmBtn.disabled = true;
@@ -3690,14 +3681,9 @@ async function handlePaymentConfirm(packageId, priceToman, needsPayment) {
   }
 
   try {
-    if (needsPayment) {
-      toast('<i class="fas fa-shield-halved ml-2"></i> در حال انتقال به درگاه پرداخت امن...');
-      closePaymentModal();
-      await startExternalPayment(packageId, priceToman);
-    } else {
-      closePaymentModal();
-      await startPurchaseCoins(packageId);
-    }
+    toast('<i class="fas fa-shield-halved ml-2"></i> در حال انتقال به درگاه پرداخت امن...');
+    closePaymentModal();
+    await startExternalPayment(packageId, priceToman);
   } finally {
     if (confirmBtn){
       confirmBtn.disabled = false;
@@ -3792,7 +3778,7 @@ async function handleGatewayReturn(statusParam, paymentId, extra = {}){
           ['کد پیگیری', refId || '—'],
           ['آیتم', packageTitle],
           ['سکه دریافتی', faNum(coinsAwarded)],
-          ['موجودی کیف پول', faNum(Server.wallet.coins || 0)]
+          ['سکه‌های فعلی', faNum(Server.wallet.coins || 0)]
         ]
       });
       shootConfetti();
@@ -3818,7 +3804,7 @@ async function handleGatewayReturn(statusParam, paymentId, extra = {}){
     const price = parseFloat(btn.dataset.price||'0');
     const wallet = Server.wallet.coins||0;
     $('#pay-popup-message').innerHTML = `قیمت بسته: ${faNum(price)} تومان`;
-    $('#pay-popup-wallet').innerHTML = `موجودی کیف پول: ${faNum(wallet)} تومان`;
+    $('#pay-popup-wallet').innerHTML = `بودجه خرید: ${faNum(wallet)} تومان`;
     $('#pay-popup-confirm').onclick = ()=>{
       closeModal('#modal-pay-confirm');
       if(wallet >= price){
@@ -3957,7 +3943,7 @@ async function startPurchaseCoins(pkgId){
         ['کد تراکنش', txnId],
         ['بسته', `${faNum(pkg.amount)} (+${pkg.bonus||0}%)`],
         ['مبلغ', formatToman(priceTmn)],
-        ['موجودی جدید', faNum(Server.wallet.coins)]
+        ['سکه‌های فعلی', faNum(Server.wallet.coins)]
       ]
     });
     await logEvent('purchase_succeeded', { kind:'coins', pkgId, txnId, priceToman:priceTmn });
