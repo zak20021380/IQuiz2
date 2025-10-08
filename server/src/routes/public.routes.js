@@ -8,13 +8,12 @@ const QuestionService = require('../services/questionService');
 const telegramController = require('../controllers/telegram.controller');
 const { resolveCategory } = require('../config/categories');
 const { recordAnswerEvent } = require('../controllers/answers');
+const { mapCategoryDocument, sanitizeDifficulty } = require('../services/publicContent');
 const {
   getFallbackCategories,
-  mapCategoryDocument,
   getFallbackProvinces,
-  getFallbackConfig,
-  sanitizeDifficulty
-} = require('../services/publicContent');
+  getFallbackConfig
+} = require('../utils/fallbacks');
 
 const MAX_PUBLIC_QUESTIONS = 30;
 const AD_PLACEMENTS = new Set(AdModel.AD_PLACEMENTS || ['banner', 'native', 'interstitial', 'rewarded']);
@@ -200,11 +199,26 @@ router.get('/categories', async (req, res) => {
   } catch (error) {
     logger.warn(`Failed to load categories from database: ${error.message}`);
   }
-  return res.json(getFallbackCategories());
+  const data = await getFallbackCategories();
+  return res.json(data);
 });
 
-router.get('/provinces', (req, res) => {
-  res.json(getFallbackProvinces());
+router.get('/provinces', async (req, res) => {
+  try {
+    const docs = await AdModel.distinct('provinces', { provinces: { $nin: [null, ''] } });
+    const normalized = docs
+      .map((province) => (typeof province === 'string' ? province.trim() : ''))
+      .filter(Boolean)
+      .map((name, index) => ({ id: index + 1, name }));
+
+    if (normalized.length > 0) {
+      return res.json(normalized);
+    }
+  } catch (error) {
+    logger.warn(`Failed to load provinces from database: ${error.message}`);
+  }
+  const data = await getFallbackProvinces();
+  return res.json(data);
 });
 
 router.get('/questions', async (req, res, next) => {
