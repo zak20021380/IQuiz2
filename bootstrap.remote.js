@@ -6487,17 +6487,8 @@ function leaveGroup(groupId) {
   // Wallet/VIP navigation
   $('#btn-open-wallet')?.addEventListener('click', ()=>navTo('wallet'));
   $('#btn-open-wallet-2')?.addEventListener('click', ()=>navTo('wallet'));
-  $('#btn-open-vip')?.addEventListener('click', (event)=>{
-    event.preventDefault();
-    const opened = openVipDetailsModal();
-    if (!opened){
-      navTo('vip');
-    }
-  });
   $('#go-wallet')?.addEventListener('click', ()=>navTo('wallet'));
-  $('#go-vip')?.addEventListener('click', ()=>navTo('vip'));
   $('#btn-back-wallet')?.addEventListener('click', ()=>navTo('shop'));
-  $('#btn-back-vip')?.addEventListener('click', ()=>navTo('shop'));
   
   // Leaderboard CTA
   $('#btn-view-leaderboard')?.addEventListener('click', ()=>{
@@ -6522,13 +6513,8 @@ function leaveGroup(groupId) {
   $$('[data-close="#modal-pay-confirm"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-pay-confirm')));
   $$('[data-close="#modal-province-soon"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-province-soon')));
   $$('[data-close="#modal-invite"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-invite')));
-  $$('[data-close="#modal-vip-details"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-vip-details')));
 
   // Game Limits CTAs
-  $('#btn-buy-vip-limit')?.addEventListener('click', () => {
-    navTo('vip');
-  });
-
   $('#btn-reset-match-limit')?.addEventListener('click', () => {
     if (State.lives <= 0) {
       toast('کلید کافی نیست');
