@@ -207,22 +207,22 @@
         <legend>عمومی</legend>
         <div class="field">
           <label for="settings-app-name">نام برنامه</label>
-          <input id="settings-app-name" name="appName" type="text" maxlength="120" placeholder="مثلاً Quiz WebApp Pro" />
+          <input id="settings-app-name" name="appName" data-key="appName" type="text" maxlength="120" placeholder="مثلاً Quiz WebApp Pro" />
         </div>
         <div class="field">
           <label for="settings-default-lang">زبان پیش‌فرض</label>
-          <select id="settings-default-lang" name="defaultLang">
+          <select id="settings-default-lang" name="defaultLang" data-key="defaultLang">
             <option value="fa">فارسی</option>
             <option value="en">English</option>
           </select>
         </div>
         <div class="field">
           <label for="settings-question-time">زمان هر سؤال (ثانیه)</label>
-          <input id="settings-question-time" name="questionTimeSec" type="number" min="5" max="600" step="1" value="30" />
+          <input id="settings-question-time" name="questionTimeSec" data-key="questionTimeSec" type="number" min="5" max="600" step="1" value="30" />
         </div>
         <div class="field">
           <label for="settings-max-questions">حداکثر تعداد سؤال در هر بازی</label>
-          <input id="settings-max-questions" name="maxQuestionsPerMatch" type="number" min="1" max="200" step="1" value="10" />
+          <input id="settings-max-questions" name="maxQuestionsPerMatch" data-key="maxQuestionsPerMatch" type="number" min="1" max="200" step="1" value="10" />
         </div>
       </fieldset>
 
@@ -230,19 +230,19 @@
         <legend>تسویه و بودجه</legend>
         <div class="field">
           <label for="settings-minimum-settlement">حداقل مبلغ تسویه (تومان)</label>
-          <input id="settings-minimum-settlement" name="minimumSettlement" type="number" min="0" step="1000" value="0" />
+          <input id="settings-minimum-settlement" name="minimumSettlement" data-key="minimumSettlement" type="number" min="0" step="1000" value="0" />
         </div>
         <div class="field">
           <label for="settings-rounding-step">گام گرد کردن مبالغ</label>
-          <input id="settings-rounding-step" name="roundingStep" type="number" min="1" step="1" value="1" />
+          <input id="settings-rounding-step" name="roundingStep" data-key="roundingStep" type="number" min="1" step="1" value="1" />
         </div>
         <div class="field">
           <label for="settings-settlement-amounts">مبالغ پیشنهادی تسویه (با ویرگول یا خط جدید جدا کنید)</label>
-          <textarea id="settings-settlement-amounts" name="settlementAmounts" placeholder="مثلاً 25000, 50000, 100000"></textarea>
+          <textarea id="settings-settlement-amounts" name="settlementAmounts" data-key="settlementAmounts" placeholder="مثلاً 25000, 50000, 100000"></textarea>
         </div>
         <div class="field">
           <label for="settings-monthly-budget">بودجه ماهانه تبلیغات (تومان)</label>
-          <input id="settings-monthly-budget" name="monthlyBudget" type="number" min="0" step="1000" value="0" />
+          <input id="settings-monthly-budget" name="monthlyBudget" data-key="monthlyBudget" type="number" min="0" step="1000" value="0" />
         </div>
       </fieldset>
 
@@ -252,167 +252,51 @@
           <span>نسخه: <strong id="settings-version">—</strong></span>
           <span>آخرین بروزرسانی: <strong id="settings-updated-at">—</strong></span>
         </div>
-        <button id="settings-save-button" type="submit" class="btn-primary">ذخیره تغییرات</button>
+        <button id="saveBtn" type="submit" class="btn-primary">ذخیره تغییرات</button>
       </div>
     </form>
   </div>
 
-  <script>
-    const API = '/admin/api';
-    const fetchJSON = (u, opt = {}) => {
-      const options = { credentials: 'include', cache: 'no-store', ...opt };
-      return fetch(API + u, options).then((response) => {
-        if (!response.ok) {
-          const error = new Error(`Request failed with status ${response.status}`);
-          error.status = response.status;
-          throw error;
-        }
-        return response.json();
-      });
-    };
+    <script>
+const API = '/admin/api/admin/settings';
+const numKeys = ['questionTimeSec','maxQuestionsPerMatch','minimumSettlement','roundingStep','monthlyBudget'];
 
-    const form = document.getElementById('admin-settings-form');
-    const statusEl = document.getElementById('settings-status');
-    const saveButton = document.getElementById('settings-save-button');
-    const versionEl = document.getElementById('settings-version');
-    const updatedAtEl = document.getElementById('settings-updated-at');
-    const formControls = Array.from(form.querySelectorAll('input, select, textarea, button'));
+async function loadSettings(){
+  const r = await fetch(API);
+  if(!r.ok) throw new Error('GET failed');
+  const { data = {} } = await r.json();
+  for (const [k,v] of Object.entries(data)) {
+    const el = document.querySelector(`[data-key="${k}"]`);
+    if (!el) continue;
+    el.value = Array.isArray(v) ? v.join(',') : (v ?? '');
+  }
+}
 
-    let busyCounter = 0;
-    let loadController = null;
+async function saveSettings(){
+  const data = {};
+  document.querySelectorAll('[data-key]').forEach(el=>{
+    const k = el.dataset.key;
+    let v = el.value ?? '';
+    if (k === 'settlementAmounts') v = v.split(',').map(s=>+s.trim()).filter(n=>!isNaN(n));
+    else if (numKeys.includes(k)) v = +v;
+    data[k] = v;
+  });
+  const r = await fetch(API, {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ data })
+  });
+  if(!r.ok) throw new Error('PUT failed');
+  alert('Saved ✅');
+}
 
-    const setBusy = (state) => {
-      busyCounter = Math.max(0, busyCounter + (state ? 1 : -1));
-      const disabled = busyCounter > 0;
-      formControls.forEach((control) => {
-        if (disabled) {
-          control.setAttribute('disabled', 'disabled');
-        } else {
-          control.removeAttribute('disabled');
-        }
-      });
-      if (disabled) {
-        saveButton.textContent = 'در حال پردازش...';
-      } else {
-        saveButton.textContent = 'ذخیره تغییرات';
-      }
-    };
-
-    const showStatus = (message, tone = 'info') => {
-      statusEl.textContent = message || '';
-      statusEl.classList.remove('error', 'success');
-      if (tone === 'error') {
-        statusEl.classList.add('error');
-      } else if (tone === 'success') {
-        statusEl.classList.add('success');
-      }
-    };
-
-    const toNumber = (value) => {
-      const num = Number(value);
-      return Number.isFinite(num) ? num : 0;
-    };
-
-    const parseSettlementInput = (value) => {
-      if (!value) return [];
-      return Array.from(new Set(
-        value
-          .split(/[\s,]+/)
-          .map((item) => Number(item.trim()))
-          .filter((num) => Number.isFinite(num) && num >= 0)
-      )).sort((a, b) => a - b);
-    };
-
-    const renderSettings = ({ data, version, updatedAt }) => {
-      if (!data || typeof data !== 'object') return;
-      form.appName.value = data.appName ?? '';
-      form.defaultLang.value = data.defaultLang ?? 'fa';
-      form.questionTimeSec.value = data.questionTimeSec ?? 30;
-      form.maxQuestionsPerMatch.value = data.maxQuestionsPerMatch ?? 10;
-      form.minimumSettlement.value = data.minimumSettlement ?? 0;
-      form.roundingStep.value = data.roundingStep ?? 1;
-      form.settlementAmounts.value = Array.isArray(data.settlementAmounts)
-        ? data.settlementAmounts.join(', ')
-        : '';
-      form.monthlyBudget.value = data.monthlyBudget ?? 0;
-
-      versionEl.textContent = typeof version === 'number' ? version : '0';
-      updatedAtEl.textContent = updatedAt ? new Date(updatedAt).toLocaleString('fa-IR') : '—';
-    };
-
-    const readSettingsFromForm = () => ({
-      appName: form.appName.value.trim(),
-      defaultLang: form.defaultLang.value || 'fa',
-      questionTimeSec: toNumber(form.questionTimeSec.value),
-      maxQuestionsPerMatch: toNumber(form.maxQuestionsPerMatch.value),
-      minimumSettlement: toNumber(form.minimumSettlement.value),
-      roundingStep: toNumber(form.roundingStep.value) || 1,
-      settlementAmounts: parseSettlementInput(form.settlementAmounts.value),
-      monthlyBudget: toNumber(form.monthlyBudget.value)
-    });
-
-    const loadSettings = async ({ silent = false } = {}) => {
-      if (loadController) {
-        loadController.abort();
-      }
-      const controller = new AbortController();
-      loadController = controller;
-      setBusy(true);
-      if (!silent) {
-        showStatus('در حال بارگذاری تنظیمات...', 'info');
-      }
-      try {
-        const response = await fetchJSON('/admin/settings', { signal: controller.signal });
-        if (controller.signal.aborted) return;
-        renderSettings(response);
-        if (!silent) {
-          showStatus('تنظیمات از سرور بارگذاری شد.', 'success');
-        }
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error('Failed to load settings', error);
-        if (error.status === 401 || error.status === 403) {
-          showStatus('دسترسی غیرمجاز. لطفاً دوباره وارد شوید.', 'error');
-        } else {
-          showStatus('خطا در بارگذاری تنظیمات. لطفاً دوباره تلاش کنید.', 'error');
-        }
-      } finally {
-        if (loadController === controller) {
-          loadController = null;
-        }
-        setBusy(false);
-      }
-    };
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      if (busyCounter > 0) return;
-      setBusy(true);
-      showStatus('در حال ذخیره تنظیمات...', 'info');
-      try {
-        const data = readSettingsFromForm();
-        await fetchJSON('/admin/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data })
-        });
-        showStatus('تنظیمات با موفقیت ذخیره شد.', 'success');
-        await loadSettings({ silent: true });
-      } catch (error) {
-        console.error('Failed to save settings', error);
-        if (error.status === 401 || error.status === 403) {
-          showStatus('دسترسی غیرمجاز. لطفاً دوباره وارد شوید.', 'error');
-        } else {
-          showStatus('خطا در ذخیره تنظیمات. لطفاً دوباره تلاش کنید.', 'error');
-        }
-      } finally {
-        setBusy(false);
-      }
-    });
-
-    document.addEventListener('DOMContentLoaded', () => {
-      loadSettings();
-    });
-  </script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadSettings().catch(console.error);
+  document.getElementById('saveBtn')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    saveSettings().catch(err=>{ console.error(err); alert('Save failed ❌'); });
+  });
+});
+    </script>
 </body>
 </html>
