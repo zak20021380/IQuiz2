@@ -46,7 +46,7 @@ app.use(helmet({
     }
   }
 }));
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(cookieParser());
 app.use(mongoSanitize());
@@ -58,7 +58,7 @@ app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 }));
 
 // Static + friendly routes
 app.use(express.static(path.join(__dirname, '..', '..')));
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'Admin-Panel.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'public', 'Admin-Panel.html')));
 app.get('/bot', (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'IQuiz-bot.html')));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/healthz', (req, res) => res.json({ ok: true, status: 'healthy' }));
@@ -77,7 +77,7 @@ app.use('/api/limits', require('./routes/limits.routes'));
 app.use('/api/admin/questions', require('./routes/admin/questions'));
 app.use('/api/admin/metrics', require('./routes/admin/metrics'));
 app.use('/api/admin/shop', require('./routes/admin/shop'));
-app.use('/api/admin/settings', require('./routes/admin/settings'));
+app.use('/api', require('./routes/admin.settings.routes'));
 app.use('/api/public', require('./routes/public.routes'));
 app.use('/api/jservice', jserviceRoutes);
 app.use('/api/wallet', walletRoutes);

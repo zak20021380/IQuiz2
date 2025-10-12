@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>پنل مدیریت - تنظیمات سراسری</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Vazirmatn", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(1000px 700px at 90% 10%, rgba(59, 130, 246, 0.2), transparent 55%),
+                  radial-gradient(900px 600px at 10% 85%, rgba(14, 165, 233, 0.18), transparent 60%),
+                  linear-gradient(135deg, #0f172a, #1e293b);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 4vw, 48px);
+      box-sizing: border-box;
+    }
+
+    .card {
+      width: min(720px, 100%);
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 24px 60px -32px rgba(15, 23, 42, 0.9);
+      padding: clamp(20px, 4vw, 40px);
+    }
+
+    h1 {
+      margin: 0 0 24px;
+      font-size: clamp(24px, 4vw, 32px);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    h1 span.icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #fbbf24, #f97316);
+      color: #1e293b;
+      font-weight: 700;
+      font-size: 20px;
+    }
+
+    form {
+      display: grid;
+      gap: 16px;
+    }
+
+    fieldset {
+      border: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 14px;
+      background: rgba(30, 41, 59, 0.7);
+      border-radius: 18px;
+      padding: clamp(16px, 3vw, 28px);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    fieldset legend {
+      padding: 0 8px;
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 12px;
+      color: #fbbf24;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      font-weight: 600;
+      font-size: 14px;
+      color: rgba(248, 250, 252, 0.85);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.6);
+      color: inherit;
+      font-size: 15px;
+      padding: 10px 12px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      resize: vertical;
+      min-height: 44px;
+    }
+
+    textarea {
+      min-height: 72px;
+      line-height: 1.6;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: rgba(59, 130, 246, 0.7);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      justify-content: space-between;
+      padding-top: 8px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 24px;
+      font-size: 13px;
+      color: rgba(248, 250, 252, 0.6);
+    }
+
+    .btn-primary {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      background: linear-gradient(135deg, #fbbf24, #f97316);
+      color: #1f2937;
+      box-shadow: 0 18px 40px -22px rgba(251, 191, 36, 0.65);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn-primary:hover:not([disabled]) {
+      transform: translateY(-1px);
+      box-shadow: 0 22px 46px -20px rgba(251, 191, 36, 0.72);
+    }
+
+    .btn-primary[disabled] {
+      cursor: progress;
+      opacity: 0.65;
+    }
+
+    .status {
+      font-size: 14px;
+      border-radius: 12px;
+      padding: 10px 14px;
+      background: rgba(14, 165, 233, 0.12);
+      color: rgba(125, 211, 252, 0.95);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      transition: opacity 0.2s ease;
+      margin: 0;
+      min-height: 20px;
+    }
+
+    .status.error {
+      background: rgba(248, 113, 113, 0.15);
+      color: rgba(252, 165, 165, 0.95);
+      border-color: rgba(248, 113, 113, 0.35);
+    }
+
+    .status.success {
+      background: rgba(34, 197, 94, 0.12);
+      color: rgba(187, 247, 208, 0.95);
+      border-color: rgba(74, 222, 128, 0.25);
+    }
+
+    @media (max-width: 640px) {
+      .actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn-primary {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1><span class="icon">⚙️</span> تنظیمات سراسری بازی</h1>
+    <form id="admin-settings-form" autocomplete="off">
+      <fieldset>
+        <legend>عمومی</legend>
+        <div class="field">
+          <label for="settings-app-name">نام برنامه</label>
+          <input id="settings-app-name" name="appName" type="text" maxlength="120" placeholder="مثلاً Quiz WebApp Pro" />
+        </div>
+        <div class="field">
+          <label for="settings-default-lang">زبان پیش‌فرض</label>
+          <select id="settings-default-lang" name="defaultLang">
+            <option value="fa">فارسی</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="settings-question-time">زمان هر سؤال (ثانیه)</label>
+          <input id="settings-question-time" name="questionTimeSec" type="number" min="5" max="600" step="1" value="30" />
+        </div>
+        <div class="field">
+          <label for="settings-max-questions">حداکثر تعداد سؤال در هر بازی</label>
+          <input id="settings-max-questions" name="maxQuestionsPerMatch" type="number" min="1" max="200" step="1" value="10" />
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>تسویه و بودجه</legend>
+        <div class="field">
+          <label for="settings-minimum-settlement">حداقل مبلغ تسویه (تومان)</label>
+          <input id="settings-minimum-settlement" name="minimumSettlement" type="number" min="0" step="1000" value="0" />
+        </div>
+        <div class="field">
+          <label for="settings-rounding-step">گام گرد کردن مبالغ</label>
+          <input id="settings-rounding-step" name="roundingStep" type="number" min="1" step="1" value="1" />
+        </div>
+        <div class="field">
+          <label for="settings-settlement-amounts">مبالغ پیشنهادی تسویه (با ویرگول یا خط جدید جدا کنید)</label>
+          <textarea id="settings-settlement-amounts" name="settlementAmounts" placeholder="مثلاً 25000, 50000, 100000"></textarea>
+        </div>
+        <div class="field">
+          <label for="settings-monthly-budget">بودجه ماهانه تبلیغات (تومان)</label>
+          <input id="settings-monthly-budget" name="monthlyBudget" type="number" min="0" step="1000" value="0" />
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <p id="settings-status" class="status" role="status" aria-live="polite"></p>
+        <div class="meta">
+          <span>نسخه: <strong id="settings-version">—</strong></span>
+          <span>آخرین بروزرسانی: <strong id="settings-updated-at">—</strong></span>
+        </div>
+        <button id="settings-save-button" type="submit" class="btn-primary">ذخیره تغییرات</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const API = '/admin/api';
+    const fetchJSON = (u, opt = {}) => {
+      const options = { credentials: 'include', cache: 'no-store', ...opt };
+      return fetch(API + u, options).then((response) => {
+        if (!response.ok) {
+          const error = new Error(`Request failed with status ${response.status}`);
+          error.status = response.status;
+          throw error;
+        }
+        return response.json();
+      });
+    };
+
+    const form = document.getElementById('admin-settings-form');
+    const statusEl = document.getElementById('settings-status');
+    const saveButton = document.getElementById('settings-save-button');
+    const versionEl = document.getElementById('settings-version');
+    const updatedAtEl = document.getElementById('settings-updated-at');
+    const formControls = Array.from(form.querySelectorAll('input, select, textarea, button'));
+
+    let busyCounter = 0;
+    let loadController = null;
+
+    const setBusy = (state) => {
+      busyCounter = Math.max(0, busyCounter + (state ? 1 : -1));
+      const disabled = busyCounter > 0;
+      formControls.forEach((control) => {
+        if (disabled) {
+          control.setAttribute('disabled', 'disabled');
+        } else {
+          control.removeAttribute('disabled');
+        }
+      });
+      if (disabled) {
+        saveButton.textContent = 'در حال پردازش...';
+      } else {
+        saveButton.textContent = 'ذخیره تغییرات';
+      }
+    };
+
+    const showStatus = (message, tone = 'info') => {
+      statusEl.textContent = message || '';
+      statusEl.classList.remove('error', 'success');
+      if (tone === 'error') {
+        statusEl.classList.add('error');
+      } else if (tone === 'success') {
+        statusEl.classList.add('success');
+      }
+    };
+
+    const toNumber = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    const parseSettlementInput = (value) => {
+      if (!value) return [];
+      return Array.from(new Set(
+        value
+          .split(/[\s,]+/)
+          .map((item) => Number(item.trim()))
+          .filter((num) => Number.isFinite(num) && num >= 0)
+      )).sort((a, b) => a - b);
+    };
+
+    const renderSettings = ({ data, version, updatedAt }) => {
+      if (!data || typeof data !== 'object') return;
+      form.appName.value = data.appName ?? '';
+      form.defaultLang.value = data.defaultLang ?? 'fa';
+      form.questionTimeSec.value = data.questionTimeSec ?? 30;
+      form.maxQuestionsPerMatch.value = data.maxQuestionsPerMatch ?? 10;
+      form.minimumSettlement.value = data.minimumSettlement ?? 0;
+      form.roundingStep.value = data.roundingStep ?? 1;
+      form.settlementAmounts.value = Array.isArray(data.settlementAmounts)
+        ? data.settlementAmounts.join(', ')
+        : '';
+      form.monthlyBudget.value = data.monthlyBudget ?? 0;
+
+      versionEl.textContent = typeof version === 'number' ? version : '0';
+      updatedAtEl.textContent = updatedAt ? new Date(updatedAt).toLocaleString('fa-IR') : '—';
+    };
+
+    const readSettingsFromForm = () => ({
+      appName: form.appName.value.trim(),
+      defaultLang: form.defaultLang.value || 'fa',
+      questionTimeSec: toNumber(form.questionTimeSec.value),
+      maxQuestionsPerMatch: toNumber(form.maxQuestionsPerMatch.value),
+      minimumSettlement: toNumber(form.minimumSettlement.value),
+      roundingStep: toNumber(form.roundingStep.value) || 1,
+      settlementAmounts: parseSettlementInput(form.settlementAmounts.value),
+      monthlyBudget: toNumber(form.monthlyBudget.value)
+    });
+
+    const loadSettings = async ({ silent = false } = {}) => {
+      if (loadController) {
+        loadController.abort();
+      }
+      const controller = new AbortController();
+      loadController = controller;
+      setBusy(true);
+      if (!silent) {
+        showStatus('در حال بارگذاری تنظیمات...', 'info');
+      }
+      try {
+        const response = await fetchJSON('/admin/settings', { signal: controller.signal });
+        if (controller.signal.aborted) return;
+        renderSettings(response);
+        if (!silent) {
+          showStatus('تنظیمات از سرور بارگذاری شد.', 'success');
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error('Failed to load settings', error);
+        if (error.status === 401 || error.status === 403) {
+          showStatus('دسترسی غیرمجاز. لطفاً دوباره وارد شوید.', 'error');
+        } else {
+          showStatus('خطا در بارگذاری تنظیمات. لطفاً دوباره تلاش کنید.', 'error');
+        }
+      } finally {
+        if (loadController === controller) {
+          loadController = null;
+        }
+        setBusy(false);
+      }
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (busyCounter > 0) return;
+      setBusy(true);
+      showStatus('در حال ذخیره تنظیمات...', 'info');
+      try {
+        const data = readSettingsFromForm();
+        await fetchJSON('/admin/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data })
+        });
+        showStatus('تنظیمات با موفقیت ذخیره شد.', 'success');
+        await loadSettings({ silent: true });
+      } catch (error) {
+        console.error('Failed to save settings', error);
+        if (error.status === 401 || error.status === 403) {
+          showStatus('دسترسی غیرمجاز. لطفاً دوباره وارد شوید.', 'error');
+        } else {
+          showStatus('خطا در ذخیره تنظیمات. لطفاً دوباره تلاش کنید.', 'error');
+        }
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+    });
+  </script>
+</body>
+</html>
