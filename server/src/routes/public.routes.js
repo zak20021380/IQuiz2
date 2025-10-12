@@ -8,7 +8,9 @@ const QuestionService = require('../services/questionService');
 const telegramController = require('../controllers/telegram.controller');
 const { resolveCategory } = require('../config/categories');
 const { recordAnswerEvent } = require('../controllers/answers');
-const { mapCategoryDocument, sanitizeDifficulty } = require('../services/publicContent');
+const { mapCategoryDocument } = require('../services/publicContent');
+const { sanitizeDifficulty } = require('../utils');
+
 const {
   getFallbackCategories,
   getFallbackProvinces,
@@ -189,36 +191,24 @@ router.post('/answers', async (req, res, next) => {
 
 router.get('/categories', async (req, res) => {
   try {
-    const docs = await Category.find({ status: 'active' }).sort({ name: 1 }).lean();
-    const dbCats = docs
-      .map(mapCategoryDocument)
-      .filter(c => c && c.isActive)
-      .map(({ id, name }) => ({ id, name }));
-
-    const fallback = await getFallbackCategories(); // [{id,name}, ...]
-    // ادغام بر اساس id (fallback اولویت دارد برای کامل بودن)
-    const byId = new Map();
-    for (const c of fallback) if (c?.id) byId.set(String(c.id), { id: String(c.id), name: c.name });
-    for (const c of dbCats)  if (c?.id) byId.set(String(c.id), { id: String(c.id), name: c.name });
-
-    return res.json([...byId.values()]);
+    const data = await getFallbackCategories();   // فقط fallback
+    return res.json(data);
   } catch (error) {
-    logger.warn(`Failed to load categories: ${error.message}`);
-    const fallback = await getFallbackCategories();
-    return res.json(fallback);
+    return res.json([]); // در بدترین حالت خالی
   }
 });
+
 
 
 router.get('/provinces', async (req, res) => {
   try {
-    const data = await getFallbackProvinces(); // فول‌لیست
+    const data = await getFallbackProvinces();    // 31 استان
     return res.json(data);
   } catch (error) {
-    logger.warn(`Failed to load provinces: ${error.message}`);
-    return res.json([]); // در بدترین حالت
+    return res.json([]);
   }
 });
+
 
 
 router.get('/questions', async (req, res, next) => {

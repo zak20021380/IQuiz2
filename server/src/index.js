@@ -16,13 +16,27 @@ const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const errorHandler = require('./middleware/error');
 
-const jserviceRoutes = require('./routes/jservice.routes');
-const aiRoutes = require('./routes/ai');
-const walletRoutes = require('./routes/wallet.routes');
-const subscriptionRoutes = require('./routes/subscription.routes');
-const paymentsRoutes = require('./routes/payments.routes');
-const paymentsPublicRoutes = require('./routes/payments-public.routes');
-const { ensureInitialCategories, syncProviderCategories } = require('./services/categorySeeder');
+// --- helper: خروجی ماژول رو به Router تبدیل کن
+function ensureRouter(mod, name) {
+  if (typeof mod === 'function') return mod;
+  if (mod && typeof mod.router === 'function') return mod.router;
+  if (mod && typeof mod.default === 'function') return mod.default;
+  throw new TypeError(`Route "${name}" does not export a middleware function`);
+}
+
+// --- helper: ایمن mount کن؛ اگه ترکید فقط warn بده
+const failedRoutes = [];
+function safeMount(app, prefix, modulePath, label = modulePath) {
+  try {
+    const mod = require(modulePath);
+    const router = ensureRouter(mod, label);
+    app.use(prefix, router);
+    logger.info(`[routes] mounted ${label} -> ${prefix}`);
+  } catch (err) {
+    failedRoutes.push({ prefix, modulePath, error: err.message });
+    logger.warn(`[routes] skipped ${label} at ${prefix}: ${err.message}`);
+  }
+}
 
 const app = express();
 app.set('trust proxy', 1);
@@ -57,40 +71,37 @@ app.use(cors());
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 }));
 
 // Static + friendly routes
-app.use(express.static(path.join(__dirname, '..', '..')));
+app.use(express.static(path.join(__dirname, '..', '..'))); // => /var/www/king-ofiq/bot
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'Admin-Panel.html')));
-app.get('/bot', (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'IQuiz-bot.html')));
+app.get('/bot',   (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'IQuiz-bot.html')));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/healthz', (req, res) => res.json({ ok: true, status: 'healthy' }));
 
-// Regular API routes (order matters)
-app.use('/api/auth', require('./routes/auth.routes'));
-app.use('/api/categories', require('./routes/categories.routes'));
-app.use('/api/questions', require('./routes/questions.routes'));
-app.use('/api/users', require('./routes/users.routes'));
-app.use('/api/achievements', require('./routes/achievements.routes'));
-app.use('/api/ads', require('./routes/ads.routes'));
-app.use('/api/analytics', require('./routes/analytics.routes'));
-app.use('/api/group-battles', require('./routes/group-battles.routes'));
-app.use('/api/duels', require('./routes/duels.routes'));
-app.use('/api/limits', require('./routes/limits.routes'));
-app.use('/api/admin/questions', require('./routes/admin/questions'));
-app.use('/api/admin/metrics', require('./routes/admin/metrics'));
-app.use('/api/admin/shop', require('./routes/admin/shop'));
-app.use('/api/admin/settings', require('./routes/admin/settings'));
-app.use('/api/public', require('./routes/public.routes'));
-app.use('/api/jservice', jserviceRoutes);
-app.use('/api/wallet', walletRoutes);
+// --- Routes (به ترتیب مهم)
+safeMount(app, '/api/auth',            './routes/auth.routes',            'auth.routes');
+safeMount(app, '/api/categories',      './routes/categories.routes',      'categories.routes');
+safeMount(app, '/api/questions',       './routes/questions.routes',       'questions.routes');
+safeMount(app, '/api/users',           './routes/users.routes',           'users.routes');
+safeMount(app, '/api/achievements',    './routes/achievements.routes',    'achievements.routes');
+safeMount(app, '/api/ads',             './routes/ads.routes',             'ads.routes');
+safeMount(app, '/api/analytics',       './routes/analytics.routes',       'analytics.routes');
+safeMount(app, '/api/group-battles',   './routes/group-battles.routes',   'group-battles.routes');
+safeMount(app, '/api/duels',           './routes/duels.routes',           'duels.routes');
+safeMount(app, '/api/limits',          './routes/limits.routes',          'limits.routes');
+safeMount(app, '/api/admin/questions', './routes/admin/questions',        'admin/questions');
+safeMount(app, '/api/admin/metrics',   './routes/admin/metrics',          'admin/metrics');
+safeMount(app, '/api/admin/shop',      './routes/admin/shop',             'admin/shop');
+safeMount(app, '/api/admin/settings',  './routes/admin/settings',         'admin/settings');
 
-// Mount subscription BEFORE AI (so /api/subscription/* is reachable)
-app.use('/api/subscription', subscriptionRoutes);
+// مهم برای ربات
+safeMount(app, '/api/public',          './routes/public.routes',          'public.routes');
 
-// payments
-app.use('/api/payments', paymentsRoutes);
-app.use('/payments', paymentsPublicRoutes);
-
-// Mount AI on its own prefix (won’t shadow other /api/* routes)
-app.use('/api/ai', aiRoutes);
+// مالی/کیف پول/اشتراک/AI
+safeMount(app, '/api/wallet',          './routes/wallet.routes',          'wallet.routes');
+safeMount(app, '/api/subscription',    './routes/subscription.routes',    'subscription.routes');
+safeMount(app, '/api/payments',        './routes/payments.routes',        'payments.routes');
+safeMount(app, '/payments',            './routes/payments-public.routes', 'payments-public.routes');
+safeMount(app, '/api/ai',              './routes/ai',                     'ai');
 
 // Debug helpers
 app.get('/__routes', (req, res) => {
@@ -112,6 +123,10 @@ app.get('/__routes', (req, res) => {
     res.json(out);
   } catch { res.json([]); }
 });
+
+// ببین کدوم routeها اسکیپ شدن
+app.get('/__failed', (req, res) => res.json(failedRoutes));
+
 app.get('/__sign/:id', (req, res) => {
   const jwt = require('jsonwebtoken');
   const s = process.env.JWT_SECRET || 'insecure-dev';
@@ -125,9 +140,13 @@ app.use(errorHandler);
 let server;
 const startApp = async () => {
   await connectDB();
+  const { ensureInitialCategories, syncProviderCategories } = require('./services/categorySeeder');
   await ensureInitialCategories();
-  try { await syncProviderCategories(); } catch (err) { logger.warn(`Failed to sync provider categories: ${err.message}`); }
-  server = app.listen(env.port, () => logger.info(`🚀 API running on http://localhost:${env.port}`));
+  try { await syncProviderCategories(); } catch (err) {
+    logger.warn(`Failed to sync provider categories: ${err.message}`);
+  }
+  const port = env.port || process.env.PORT || 4000;
+  server = app.listen(port, () => logger.info(`🚀 API running on http://localhost:${port}`));
 };
 startApp().catch(err => {
   logger.error(`Failed to start application: ${err.message}`, err);
