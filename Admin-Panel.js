@@ -1,5 +1,5 @@
 const __isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const __API_BASE = __isDev ? 'http://localhost:4000/api' : '/admin/api';
+const __API_BASE = __isDev ? 'http://localhost:4000/api' : '/api';
 const apiPath  = p => __API_BASE + (p.startsWith('/') ? p : '/' + p);
 const apiFetch = (path, opts = {}) => {
   const options = { ...opts, credentials: 'include' };
