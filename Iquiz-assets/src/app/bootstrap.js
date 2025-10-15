@@ -4382,6 +4382,17 @@ async function startPurchaseCoins(pkgId){
     }
   }
 
+  const QUIT_MODAL_DEFAULTS = {
+    title: 'خروج از مسابقه؟',
+    message: 'آیا مطمئن هستید که می‌خواهید مسابقه را ترک کنید؟ نتیجهٔ سؤالات پاسخ‌داده‌شده ثبت می‌شود.'
+  };
+
+  function isGameplaySessionActive(){
+    if(State.quiz?.inProgress) return true;
+    if(DuelSession?.awaitingSelection && !DuelSession?.selectionResolved) return true;
+    return false;
+  }
+
   function cleanupQuitModalKeyHandler(){
     if(quitModalKeyHandler){
       document.removeEventListener('keydown', quitModalKeyHandler);
@@ -4415,12 +4426,17 @@ async function startPurchaseCoins(pkgId){
 
     const summaryTextEl = $('#quit-summary-text');
     if(summaryTextEl){
+      const opponentName = State.duelOpponent?.name || DuelSession?.opponent?.name || '';
       if(answered === 0){
-        summaryTextEl.textContent = 'هنوز به هیچ سؤالی پاسخ نداده‌ای. با خروج، مسابقه بدون امتیاز پایان خواهد یافت.';
+        summaryTextEl.textContent = opponentName
+          ? `هنوز رقابت با ${opponentName} شروع نشده است. با خروج، نبرد لغو می‌شود.`
+          : 'هنوز به هیچ سؤالی پاسخ نداده‌ای. با خروج، مسابقه بدون امتیاز پایان خواهد یافت.';
       }else if(total > answered){
-        summaryTextEl.textContent = `تا این لحظه به ${faNum(answered)} سؤال از ${faNum(total)} پاسخ داده‌ای. با خروج، مسابقه همین حالا پایان می‌یابد.`;
+        const baseText = `تا این لحظه به ${faNum(answered)} سؤال از ${faNum(total)} پاسخ داده‌ای. با خروج، مسابقه همین حالا پایان می‌یابد.`;
+        summaryTextEl.textContent = opponentName ? `${baseText} نتیجهٔ نبرد با ${opponentName} بر اساس پاسخ‌های فعلی ثبت می‌شود.` : baseText;
       }else{
-        summaryTextEl.textContent = `تا این لحظه به ${faNum(answered)} سؤال پاسخ داده‌ای. با خروج، مسابقه همین حالا پایان می‌یابد.`;
+        const baseText = `تا این لحظه به ${faNum(answered)} سؤال پاسخ داده‌ای. با خروج، مسابقه همین حالا پایان می‌یابد.`;
+        summaryTextEl.textContent = opponentName ? `${baseText} نتیجهٔ نبرد با ${opponentName} بر اساس پاسخ‌های فعلی ثبت می‌شود.` : baseText;
       }
     }
   }
@@ -4439,14 +4455,29 @@ async function startPurchaseCoins(pkgId){
   }
 
   function openQuitConfirmModal(){
-    if(!State.quiz?.inProgress){
+    const hasActiveQuiz = !!State.quiz?.inProgress;
+    const awaitingDuelSelection = !!(DuelSession?.awaitingSelection && !DuelSession?.selectionResolved);
+    if(!hasActiveQuiz && !awaitingDuelSelection){
       quizTimerPausedForQuit = false;
       navTo('dashboard');
       return;
     }
+    const isDuel = !!State.duelOpponent || awaitingDuelSelection;
+    const titleEl = $('#quit-confirm-title');
+    const messageEl = $('#quit-confirm-message');
+    if(titleEl){
+      titleEl.textContent = isDuel ? 'خروج از نبرد؟' : QUIT_MODAL_DEFAULTS.title;
+    }
+    if(messageEl){
+      if(isDuel){
+        messageEl.textContent = 'می‌خواهی از نبرد خارج شوی؟ نتیجهٔ پاسخ‌های داده‌شده تا این لحظه ثبت و نبرد پایان می‌یابد.';
+      }else{
+        messageEl.textContent = QUIT_MODAL_DEFAULTS.message;
+      }
+    }
     updateQuitConfirmSummary();
-    quizTimerPausedForQuit = true;
-    if(State.quiz?.timer){
+    quizTimerPausedForQuit = hasActiveQuiz;
+    if(hasActiveQuiz && State.quiz?.timer){
       clearInterval(State.quiz.timer);
       State.quiz.timer = null;
     }
@@ -4461,6 +4492,7 @@ async function startPurchaseCoins(pkgId){
     const confirmBtn = $('#confirm-quit');
     if(confirmBtn) confirmBtn.disabled = true;
     const hadQuiz = !!State.quiz?.inProgress;
+    const hadDuelSession = !!(DuelSession || State.duelOpponent);
     quizTimerPausedForQuit = false;
     if(State.quiz.timer){
       clearInterval(State.quiz.timer);
@@ -4470,6 +4502,9 @@ async function startPurchaseCoins(pkgId){
       cancelDuelSession('user_cancelled');
       endQuiz();
     }else{
+      if(hadDuelSession){
+        cancelDuelSession('user_cancelled');
+      }
       navTo('dashboard');
     }
     if(confirmBtn){
@@ -4545,6 +4580,12 @@ async function startPurchaseCoins(pkgId){
     if(trigger.classList.contains('leaderboard-tab')) return;
     const tab=trigger.dataset.tab;
     if(!tab || !NAV_PAGE_SET.has(tab)) return;
+    const isCurrentTab = trigger.classList.contains('active');
+    if(!isCurrentTab && isGameplaySessionActive()){
+      event.preventDefault();
+      openQuitConfirmModal();
+      return;
+    }
     event.preventDefault();
     if(tab==='quiz'){ openSetupSheet(); }
     else{ navTo(tab); }
