@@ -41,6 +41,8 @@ const userSchema = new mongoose.Schema(
     score:    { type: Number, default: 0 },
     status:   { type: String, enum: ['active', 'blocked', 'pending'], default: 'active' },
     province: { type: String, trim: true, default: '' },
+    groupId: { type: String, trim: true, default: '' },
+    groupName: { type: String, trim: true, default: '' },
     isActive: { type: Boolean, default: true },
     telegramId: { type: String, unique: true, sparse: true, index: true },
     telegramUsername: { type: String, trim: true, default: '' },

@@ -95,6 +95,228 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
 
   const enNum = n => Number(n).toLocaleString('en-US');
 
+  const SCORE_SYNC_DELAY = 1500;
+  let pendingScoreDelta = 0;
+  let scoreSyncTimer = null;
+  let lastScoreContext = { reason: 'gameplay' };
+
+  function getCurrentGroupContext() {
+    const group = getUserGroup();
+    if (group) {
+      return { id: group.id || group.groupId || '', name: group.name || '' };
+    }
+    const groupName = State.user.group || '';
+    if (groupName) {
+      return { id: groupName, name: groupName };
+    }
+    return { id: '', name: '' };
+  }
+
+  function mergeLeaderboardGroups(list) {
+    if (!Array.isArray(list)) return;
+    if (!Array.isArray(State.groups)) State.groups = [];
+    const byId = new Map(State.groups.map(g => [g.id || g.groupId, g]));
+    list.forEach(item => {
+      if (!item) return;
+      const id = item.id || item.groupId || '';
+      if (!id) return;
+      const existing = byId.get(id);
+      if (existing) {
+        if (item.name) existing.name = item.name;
+        if (Number.isFinite(item.score)) existing.score = Number(item.score);
+        if (Number.isFinite(item.members)) existing.members = Number(item.members);
+        if (item.admin) existing.admin = item.admin;
+      } else {
+        State.groups.push({
+          id,
+          groupId: id,
+          name: item.name || id,
+          score: Number(item.score) || 0,
+          members: Number(item.members) || 0,
+          admin: item.admin || '',
+          memberList: Array.isArray(item.memberList) ? [...item.memberList] : [],
+          matches: Array.isArray(item.matches) ? [...item.matches] : [],
+          roster: Array.isArray(item.roster) ? [...item.roster] : [],
+          requests: [],
+        });
+      }
+    });
+    ensureGroupRosters();
+  }
+
+  function applyLeaderboardData(payload) {
+    if (!payload || typeof payload !== 'object') return;
+
+    if (Array.isArray(payload.users)) {
+      State.leaderboard = payload.users
+        .map(user => ({
+          id: user.id || user._id || '',
+          name: user.name || user.username || 'کاربر',
+          score: Number(user.score) || 0,
+          province: user.province || '',
+          group: user.group || user.groupName || '',
+          avatar: user.avatar || '',
+        }))
+        .filter(entry => entry.id);
+    }
+
+    if (Array.isArray(payload.provinces)) {
+      State.provinces = payload.provinces
+        .map(province => ({
+          id: province.id || province.name || '',
+          name: province.name || province.id || '',
+          score: Number(province.score) || 0,
+          members: Number(province.members) || 0,
+        }))
+        .filter(entry => entry.name);
+    }
+
+    if (Array.isArray(payload.groups)) {
+      mergeLeaderboardGroups(payload.groups);
+    }
+
+    if (payload.user && typeof payload.user === 'object') {
+      if (payload.user.score != null && Number.isFinite(Number(payload.user.score))) {
+        State.score = Math.max(0, Math.round(Number(payload.user.score)));
+      }
+      if (payload.user.province != null) {
+        State.user.province = payload.user.province || '';
+      }
+      if (payload.user.group != null || payload.user.groupName != null) {
+        const groupName = payload.user.group || payload.user.groupName || '';
+        State.user.group = groupName;
+      }
+      if (payload.user.id && Array.isArray(State.leaderboard)) {
+        const idx = State.leaderboard.findIndex(entry => entry.id === payload.user.id);
+        const meEntry = {
+          id: payload.user.id,
+          name: State.user.name || payload.user.name || 'من',
+          score: Number(payload.user.score) || State.score,
+          province: payload.user.province || State.user.province || '',
+          group: payload.user.group || payload.user.groupName || State.user.group || '',
+          avatar: payload.user.avatar || State.user.avatar || '',
+        };
+        if (idx >= 0) {
+          State.leaderboard[idx] = { ...State.leaderboard[idx], ...meEntry };
+        } else {
+          State.leaderboard.push(meEntry);
+        }
+      }
+    }
+
+    saveState();
+    renderHeader();
+    renderDashboard();
+    if (document.querySelector('.leaderboard-tab.active')) {
+      renderLeaderboard();
+    }
+  }
+
+  async function refreshLeaderboard({ silent = false } = {}) {
+    try {
+      const res = await Api.leaderboard();
+      if (!res || res.ok === false) {
+        if (!silent) toast(res?.message || 'خطا در دریافت رتبه‌بندی');
+        return null;
+      }
+      if (res.data) {
+        applyLeaderboardData(res.data);
+      }
+      return res.data;
+    } catch (err) {
+      console.warn('Failed to refresh leaderboard', err);
+      if (!silent) toast('خطا در ارتباط با سرور رتبه‌بندی');
+      return null;
+    }
+  }
+
+  function enqueueScoreSync(delta, context = {}) {
+    if (!Number.isFinite(delta) || delta === 0) return;
+    pendingScoreDelta += Math.round(delta);
+    const groupCtx = getCurrentGroupContext();
+    lastScoreContext = {
+      reason: context.reason || lastScoreContext.reason || 'gameplay',
+      province: State.user.province || '',
+      groupId: groupCtx.id,
+      groupName: groupCtx.name,
+    };
+    if (scoreSyncTimer) clearTimeout(scoreSyncTimer);
+    scoreSyncTimer = setTimeout(() => { scoreSyncTimer = null; flushScoreSync().catch(() => {}); }, SCORE_SYNC_DELAY);
+  }
+
+  async function flushScoreSync(forceContext = {}) {
+    if (!pendingScoreDelta) return null;
+    const delta = pendingScoreDelta;
+    pendingScoreDelta = 0;
+    if (scoreSyncTimer) {
+      clearTimeout(scoreSyncTimer);
+      scoreSyncTimer = null;
+    }
+    const context = { ...lastScoreContext, ...forceContext };
+    const payload = {
+      scoreDelta: delta,
+      province: context.province || State.user.province || '',
+    };
+    if (context.groupId || context.groupName) {
+      payload.group = { id: context.groupId || context.groupName, name: context.groupName || context.groupId };
+    }
+    try {
+      const res = await Api.submitProgress(payload);
+      if (res?.ok !== false && res?.data) {
+        applyLeaderboardData(res.data);
+      }
+      return res;
+    } catch (error) {
+      console.warn('Failed to sync score progress', error);
+      pendingScoreDelta += delta;
+      if (!scoreSyncTimer) {
+        scoreSyncTimer = setTimeout(() => { scoreSyncTimer = null; flushScoreSync().catch(() => {}); }, SCORE_SYNC_DELAY * 2);
+      }
+      return null;
+    }
+  }
+
+  function registerScoreGain(amount, context = {}) {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const gain = Math.round(amount);
+    State.score = Math.max(0, Math.round(State.score + gain));
+    enqueueScoreSync(gain, context);
+  }
+
+  async function syncProfile(update = {}, { silent = false } = {}) {
+    if (!update || typeof update !== 'object') return null;
+    const payload = {};
+    if (Object.prototype.hasOwnProperty.call(update, 'province')) {
+      payload.province = update.province || '';
+    }
+    if (Object.prototype.hasOwnProperty.call(update, 'group')) {
+      if (update.group == null) {
+        payload.group = null;
+      } else {
+        const groupObj = update.group;
+        const id = groupObj.id || groupObj.groupId || groupObj.slug || groupObj.name || '';
+        const name = groupObj.name || groupObj.title || id;
+        payload.group = { id, name };
+      }
+    }
+    if (!Object.keys(payload).length) return null;
+    try {
+      const res = await Api.updateProfile(payload);
+      if (!res || res.ok === false) {
+        if (!silent) toast(res?.message || 'خطا در ذخیره تغییرات پروفایل');
+        return false;
+      }
+      if (res.data) {
+        applyLeaderboardData(res.data);
+      }
+      return true;
+    } catch (err) {
+      console.warn('Failed to sync profile', err);
+      if (!silent) toast('خطا در برقراری ارتباط با سرور');
+      return false;
+    }
+  }
+
   const FALLBACK_GROUP_BATTLE_REWARD_CONFIG = {
     winner: { coins: DEFAULT_GROUP_BATTLE_REWARDS.winner.coins, score: DEFAULT_GROUP_BATTLE_REWARDS.winner.score },
     loser: { coins: DEFAULT_GROUP_BATTLE_REWARDS.loser.coins, score: DEFAULT_GROUP_BATTLE_REWARDS.loser.score },
@@ -601,7 +823,7 @@ function populateProvinceOptions(selectEl, placeholder){
       setTimeout(()=>document.getElementById('first-province')?.focus(), 50);
     }
 
-    document.getElementById('btn-confirm-province')?.addEventListener('click', () => {
+    document.getElementById('btn-confirm-province')?.addEventListener('click', async () => {
       const sel = document.getElementById('first-province');
       const val = sel?.value || '';
       if (!val) { toast('لطفاً یک استان انتخاب کن'); return; }
@@ -612,6 +834,10 @@ function populateProvinceOptions(selectEl, placeholder){
       renderProvinceSelect();
       closeModal('#modal-province-select');
       toast('استان شما ذخیره شد');
+      const synced = await syncProfile({ province: val }, { silent: true });
+      if (!synced) {
+        toast('خطا در همگام‌سازی استان با سرور');
+      }
     });
 
     document.getElementById('btn-edit-profile')?.addEventListener('click', () => {
@@ -1976,7 +2202,7 @@ function openCreateGroup(){
       <button id="btn-save-group" class="btn btn-group w-full"><i class="fas fa-check ml-2"></i> ایجاد گروه</button>
     </div>`;
   showDetailPopup('ایجاد گروه جدید', content);
-  $('#btn-save-group').addEventListener('click', () => {
+  $('#btn-save-group').addEventListener('click', async () => {
     const name = $('#new-group-name').value.trim();
     if(!name){ toast('نام گروه را وارد کنید'); return; }
     const newGroup = {
@@ -2009,6 +2235,10 @@ function openCreateGroup(){
     });
     $('#btn-save-group').disabled = true;
     toast('گروه با موفقیت ایجاد شد');
+    const synced = await syncProfile({ group: { id: newGroup.id, name } }, { silent: true });
+    if (!synced) {
+      toast('خطا در همگام‌سازی گروه با سرور');
+    }
   });
 }
   
@@ -2187,7 +2417,7 @@ function startQuizTimerCountdown(){
     const vipBonus = ok && Server.subscription.active ? Math.round(basePoints * 0.2) : 0; // VIP from server
     const earned = ok ? Math.floor((basePoints + timeBonus + vipBonus) * (boostActive ? 2 : 1)) : 0;
     if(ok){
-      State.score += earned;
+      registerScoreGain(earned, { reason: 'question_correct' });
       State.coins += baseCoins;
       State.quiz.sessionEarned += earned;
       State.quiz.correctStreak = (State.quiz.correctStreak || 0) + 1;
@@ -2311,6 +2541,7 @@ function startQuizTimerCountdown(){
       duelSummaryEl.innerHTML = '';
     }
     hideDuelAddFriendCTA();
+    await flushScoreSync({ reason: 'quiz_complete' });
     saveState();
     navTo('results');
     AdManager.maybeShowInterstitial('post_quiz');
@@ -2329,7 +2560,7 @@ function startQuizTimerCountdown(){
     const coinsReward = coinUnit * State.streak;
     const pointsReward = pointUnit * State.streak;
     State.coins += coinsReward;
-    State.score += pointsReward;
+    registerScoreGain(pointsReward, { reason: 'streak_reward' });
     saveState(); renderDashboard(); renderHeader();
     const rewardParts = [];
     if (coinsReward > 0) rewardParts.push(`${faNum(coinsReward)} سکه`);
@@ -4629,16 +4860,6 @@ async function startPurchaseCoins(pkgId){
     closeModal('#modal-profile');
     toast('ذخیره شد ✅');
   });
-  $('#btn-confirm-province')?.addEventListener('click', () => {
-    const p = $('#first-province').value;
-    if(!p){ toast('لطفاً استان خود را انتخاب کنید'); return; }
-    State.user.province = p;
-    saveState();
-    renderDashboard();
-    renderProvinceSelect();
-    closeModal('#modal-province-select');
-    toast('استان ثبت شد ✅');
-  });
   $('#btn-clear')?.addEventListener('click', ()=>{ if(confirm('همهٔ داده‌ها حذف شود؟')){ localStorage.removeItem(STORAGE_KEY); location.reload(); } });
   
   // Leaderboard Tabs
@@ -5578,16 +5799,29 @@ async function startPurchaseCoins(pkgId){
     renderDashboard();
   });
 
-  function handleProvinceJoin(province) {
+  async function handleProvinceJoin(province) {
     if (!province || !province.name) {
       toast('اطلاعات استان در دسترس نیست');
       return;
     }
-    toast(`ثبت‌نام در مسابقه ${province.name} با موفقیت انجام شد!`);
+    if (State.user.province === province.name) {
+      toast('از قبل عضو این استان هستید');
+      return;
+    }
+    State.user.province = province.name;
+    saveState();
+    renderHeader();
+    renderDashboard();
+    renderProvinceSelect();
+    toast(`استان ${province.name} انتخاب شد ✅`);
     logEvent('province_match_join', {
       province: province.name,
       provinceId: province.id || province.code || province.slug || undefined
     });
+    const synced = await syncProfile({ province: province.name }, { silent: true });
+    if (!synced) {
+      toast('ذخیره استان در سرور با خطا مواجه شد');
+    }
   }
 
   function renderProvinceSelect() {
@@ -6343,7 +6577,7 @@ function renderGroupBattleCard(list, userGroup) {
 
       if (rewardSummary?.userReward?.applied) {
         State.coins += Number(rewardSummary.userReward.coins || 0);
-        State.score += Number(rewardSummary.userReward.score || 0);
+        registerScoreGain(Number(rewardSummary.userReward.score || 0), { reason: 'group_battle' });
       }
 
       if (response.meta?.limits?.groupBattles) {
@@ -6389,30 +6623,34 @@ function renderGroupBattleCard(list, userGroup) {
 
 
 
-function deleteGroup(groupId) {
+async function deleteGroup(groupId) {
   const groupIndex = State.groups.findIndex(g => g.id === groupId);
   if (groupIndex === -1) return;
-  
+
   const group = State.groups[groupIndex];
-  
+
   // Remove group from state
   State.groups.splice(groupIndex, 1);
-  
+
   // Clear user's group assignment
   State.user.group = '';
-  
+
   saveState();
   renderGroupSelect();
   renderDashboard();
-  
+
   toast('<i class="fas fa-check-circle ml-2"></i> گروه با موفقیت حذف شد');
   logEvent('group_deleted', { group: group.name });
+  const synced = await syncProfile({ group: null }, { silent: true });
+  if (!synced) {
+    toast('خطا در به‌روزرسانی عضویت گروه روی سرور');
+  }
 }
 
-function leaveGroup(groupId) {
+async function leaveGroup(groupId) {
   const group = State.groups.find(g => g.id === groupId);
   if (!group) return;
-  
+
   // Remove user from member list
   group.memberList = group.memberList?.filter(m => m !== State.user.name) || [];
   group.members = Math.max(0, group.members - 1);
@@ -6423,9 +6661,13 @@ function leaveGroup(groupId) {
   saveState();
   renderGroupSelect();
   renderDashboard();
-  
+
   toast('<i class="fas fa-check-circle ml-2"></i> از گروه خارج شدید');
   logEvent('group_left', { group: group.name });
+  const synced = await syncProfile({ group: null }, { silent: true });
+  if (!synced) {
+    toast('خروج از گروه در سرور ثبت نشد');
+  }
 }
   renderProvinceSelect();
   renderGroupSelect();
@@ -6689,6 +6931,7 @@ export async function bootstrap() {
     renderProvinceSelect();
     buildSetupFromAdmin();
     applyConfigToUI({ checkDailyReset });
+    await refreshLeaderboard({ silent: true });
     await syncGroupsFromServer({ silent: true });
   }
   catch (e) {

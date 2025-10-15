@@ -6,6 +6,8 @@ const questionsController = require('../controllers/questions.controller');
 const AdModel = require('../models/Ad');
 const QuestionService = require('../services/questionService');
 const telegramController = require('../controllers/telegram.controller');
+const leaderboardController = require('../controllers/leaderboard.controller');
+const { protect, optionalAuth } = require('../middleware/auth');
 const { resolveCategory } = require('../config/categories');
 const { recordAnswerEvent } = require('../controllers/answers');
 const { mapCategoryDocument } = require('../services/publicContent');
@@ -188,6 +190,10 @@ router.post('/answers', async (req, res, next) => {
     next(error);
   }
 });
+
+router.get('/leaderboard', optionalAuth, leaderboardController.overview);
+router.post('/progress', protect, leaderboardController.recordProgress);
+router.patch('/profile', protect, leaderboardController.updateProfile);
 
 router.get('/categories', async (req, res) => {
   try {

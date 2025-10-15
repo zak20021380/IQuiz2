@@ -71,8 +71,7 @@ app.use(cors());
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 }));
 
 // Static + friendly routes
-<<<<<<< HEAD
-app.use(express.static(path.join(__dirname, '..', '..'))); // => /var/www/king-ofiq/bot
+app.use(express.static(path.join(__dirname, '..', '..')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'Admin-Panel.html')));
 app.get('/bot',   (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'IQuiz-bot.html')));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -93,32 +92,6 @@ safeMount(app, '/api/admin/questions', './routes/admin/questions',        'admin
 safeMount(app, '/api/admin/metrics',   './routes/admin/metrics',          'admin/metrics');
 safeMount(app, '/api/admin/shop',      './routes/admin/shop',             'admin/shop');
 safeMount(app, '/api/admin/settings',  './routes/admin/settings',         'admin/settings');
-=======
-app.use(express.static(path.join(__dirname, '..', '..')));
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'public', 'Admin-Panel.html')));
-app.get('/bot', (req, res) => res.sendFile(path.join(__dirname, '..', '..', 'IQuiz-bot.html')));
-app.get('/favicon.ico', (req, res) => res.status(204).end());
-app.get('/healthz', (req, res) => res.json({ ok: true, status: 'healthy' }));
-
-// Regular API routes (order matters)
-app.use('/api/auth', require('./routes/auth.routes'));
-app.use('/api/categories', require('./routes/categories.routes'));
-app.use('/api/questions', require('./routes/questions.routes'));
-app.use('/api/users', require('./routes/users.routes'));
-app.use('/api/achievements', require('./routes/achievements.routes'));
-app.use('/api/ads', require('./routes/ads.routes'));
-app.use('/api/analytics', require('./routes/analytics.routes'));
-app.use('/api/group-battles', require('./routes/group-battles.routes'));
-app.use('/api/duels', require('./routes/duels.routes'));
-app.use('/api/limits', require('./routes/limits.routes'));
-app.use('/api/admin/questions', require('./routes/admin/questions'));
-app.use('/api/admin/metrics', require('./routes/admin/metrics'));
-app.use('/api/admin/shop', require('./routes/admin/shop'));
-app.use('/api', require('./routes/admin.settings.routes'));
-app.use('/api/public', require('./routes/public.routes'));
-app.use('/api/jservice', jserviceRoutes);
-app.use('/api/wallet', walletRoutes);
->>>>>>> 36f7954979fb0873f479850eb70c16f26119b10c
 
 // مهم برای ربات
 safeMount(app, '/api/public',          './routes/public.routes',          'public.routes');

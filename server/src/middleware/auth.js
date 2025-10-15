@@ -22,3 +22,20 @@ exports.adminOnly = (req, res, next) => {
   if (req.user?.role !== 'admin') return res.status(403).json({ ok:false, message:'Forbidden' });
   next();
 };
+
+exports.optionalAuth = async (req, res, next) => {
+  try {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
+    if (!token) return next();
+    const decoded = jwt.verify(token, jwtConfig.secret);
+    if (!decoded?.id) return next();
+    const user = await User.findById(decoded.id);
+    if (user) {
+      req.user = user;
+    }
+  } catch (err) {
+    // ignore invalid tokens for optional auth
+  }
+  next();
+};

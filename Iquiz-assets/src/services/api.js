@@ -49,6 +49,18 @@ export async function groupBattles() {
   return await Net.jget(GROUP_BATTLES_BASE);
 }
 
+export async function leaderboard() {
+  return await Net.jget(`${API_BASE}/leaderboard`);
+}
+
+export async function submitProgress(payload) {
+  return await Net.jpost(`${API_BASE}/progress`, payload);
+}
+
+export async function updateProfile(payload) {
+  return await Net.jpatch(`${API_BASE}/profile`, payload);
+}
+
 export async function startGroupBattle(payload) {
   return await Net.jpost(GROUP_BATTLES_BASE, payload);
 }
@@ -102,6 +114,9 @@ const Api = {
   duelDeclineInvite,
   duelAssignCategory,
   duelSubmitRound,
-  recordAnswers
+  recordAnswers,
+  leaderboard,
+  submitProgress,
+  updateProfile
 };
 export default Api;
