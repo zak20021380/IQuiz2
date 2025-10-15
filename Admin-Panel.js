@@ -123,8 +123,6 @@ const CATEGORY_STATUS_SUFFIX = {
   disabled: ' (غیرفعال)'
 };
 
-const ADMIN_SETTINGS_STORAGE_KEY = 'iquiz_admin_settings_v1';
-
 const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
   {
     order: 1,
@@ -719,6 +717,66 @@ const DEFAULT_SHOP_PRICING = Object.freeze({
   coins: [],
   vip: [],
 });
+
+const DEFAULT_ADMIN_SETTINGS = Object.freeze({
+  general: Object.freeze({
+    appName: 'Quiz WebApp Pro',
+    language: 'fa',
+    questionTime: 30,
+    maxQuestions: 10,
+  }),
+  rewards: Object.freeze({
+    pointsCorrect: 100,
+    coinsCorrect: 5,
+    pointsStreak: 50,
+    coinsStreak: 10,
+    groupBattleRewards: DEFAULT_GROUP_BATTLE_REWARDS,
+    duelRewards: DEFAULT_DUEL_REWARDS,
+  }),
+  shop: Object.freeze({
+    enabled: true,
+    currency: 'IRR',
+    lowBalanceThreshold: 0,
+    quickTopup: true,
+    quickPurchase: true,
+    hero: Object.freeze({
+      title: 'به فروشگاه ایکویز خوش آمدید',
+      subtitle: 'هر روز پیشنهادهای تازه و کلیدهای بیشتر دریافت کنید.',
+      ctaText: 'مشاهده پیشنهادها',
+      ctaLink: '#wallet',
+    }),
+    packages: Object.freeze({
+      keys: [],
+      wallet: [],
+    }),
+    vip: Object.freeze({
+      enabled: true,
+      autoRenew: true,
+      autoApprove: true,
+      billingCycle: 'monthly',
+      price: 0,
+      trialDays: 0,
+      slots: 0,
+      customNote: '',
+      perks: [],
+    }),
+    vipPlans: [],
+    support: Object.freeze({
+      message: '',
+      link: '',
+    }),
+    pricing: DEFAULT_SHOP_PRICING,
+  }),
+  updatedAt: 0,
+});
+
+function cloneAdminSettings(settings = DEFAULT_ADMIN_SETTINGS) {
+  try {
+    return JSON.parse(JSON.stringify(settings));
+  } catch (_) {
+    return JSON.parse(JSON.stringify(DEFAULT_ADMIN_SETTINGS));
+  }
+}
 const settingsSaveButton = $('#settings-save-button');
 const generalAppNameInput = $('#settings-app-name');
 const generalLanguageSelect = $('#settings-language');
@@ -6298,19 +6356,6 @@ function getCheckboxValue(input, fallback = false) {
   return !!input.checked;
 }
 
-function readStoredSettings() {
-  if (typeof localStorage === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(ADMIN_SETTINGS_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') return parsed;
-  } catch (_) {
-    // ignore
-  }
-  return null;
-}
-
 function setSelectValue(select, value) {
   if (!select || value == null) return;
   const stringValue = String(value);
@@ -7294,25 +7339,6 @@ function collectShopSettingsSnapshot(options = {}) {
   return { snapshot, errors: pricingResult.errors };
 }
 
-function collectSettingsSnapshot() {
-  const { snapshot: shop } = collectShopSettingsSnapshot();
-  return {
-    general: collectGeneralSettings(),
-    rewards: collectRewardSettings(),
-    shop,
-    updatedAt: Date.now()
-  };
-}
-
-function persistSettings(snapshot) {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(snapshot));
-  } catch (_) {
-    // ignore storage quota errors
-  }
-}
-
 async function fetchServerSettings(options = {}) {
   const { showErrorToast = false } = options || {};
   try {
@@ -7373,24 +7399,18 @@ async function fetchServerSettings(options = {}) {
 async function loadServerSettings(options = {}) {
   const settings = await fetchServerSettings(options);
   if (settings) {
-    serverSettingsCache = settings;
-    applySettingsSnapshot(settings);
-    persistSettings(settings);
-    return settings;
+    serverSettingsCache = cloneAdminSettings(settings);
+    applySettingsSnapshot(serverSettingsCache);
+    return serverSettingsCache;
   }
   return null;
 }
 
-async function initializeSettingsFromStorage() {
-  const serverSettings = await loadServerSettings();
-  if (serverSettings) {
-    return;
-  }
-  const saved = readStoredSettings();
-  if (saved) {
-    serverSettingsCache = saved;
-    applySettingsSnapshot(saved);
-  }
+async function initializeSettings() {
+  const serverSettings = await loadServerSettings({ showErrorToast: true });
+  if (serverSettings) return;
+  serverSettingsCache = cloneAdminSettings();
+  applySettingsSnapshot(serverSettingsCache);
 }
 
 async function handleSettingsSave() {
@@ -7442,9 +7462,7 @@ async function handleSettingsSave() {
   }
 
   const updatedAt = Date.now();
-  const baseSettings = serverSettingsCache && typeof serverSettingsCache === 'object'
-    ? serverSettingsCache
-    : readStoredSettings() || {};
+  const baseSettings = cloneAdminSettings(serverSettingsCache);
   const shopSnapshot = shopResult.snapshot || {};
   const snapshotPricing = shopSnapshot.pricing || {};
   const coinsPricing = Array.isArray(snapshotPricing.coins)
@@ -7494,7 +7512,7 @@ async function handleSettingsSave() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(requestPayload),
+      body: JSON.stringify({ data: requestPayload }),
     });
 
     let responsePayload = null;
@@ -7526,15 +7544,14 @@ async function handleSettingsSave() {
     const persisted = responsePayload && typeof responsePayload === 'object' && responsePayload.data && typeof responsePayload.data === 'object'
       ? responsePayload.data
       : requestPayload;
-    persistSettings(persisted);
-    applySettingsSnapshot(persisted);
     showToast('تنظیمات ذخیره شد و اعمال شد', 'success');
 
     const refreshed = await loadServerSettings({ showErrorToast: true });
-    const detail = refreshed || persisted;
-    if (detail) {
-      serverSettingsCache = detail;
+    if (!refreshed) {
+      serverSettingsCache = cloneAdminSettings(persisted);
+      applySettingsSnapshot(serverSettingsCache);
     }
+    const detail = serverSettingsCache;
     markShopUpdated();
     updateShopSummary();
     if (detail) {
@@ -7562,7 +7579,7 @@ if (settingsSaveButton) {
   });
 }
 
-initializeSettingsFromStorage().catch((error) => {
+initializeSettings().catch((error) => {
   console.warn('Failed to initialize admin settings', error);
 });
 

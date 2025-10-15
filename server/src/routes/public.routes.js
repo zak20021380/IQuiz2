@@ -12,6 +12,7 @@ const { resolveCategory } = require('../config/categories');
 const { recordAnswerEvent } = require('../controllers/answers');
 const { mapCategoryDocument } = require('../services/publicContent');
 const { sanitizeDifficulty } = require('../utils');
+const { getAdminSettingsSnapshot } = require('../config/adminSettings');
 
 const {
   getFallbackCategories,
@@ -140,6 +141,16 @@ function mapAdForPublic(ad) {
 
 router.get('/config', (req, res) => {
   res.json(getFallbackConfig());
+});
+
+router.get('/admin-settings', (req, res) => {
+  try {
+    const data = getAdminSettingsSnapshot();
+    res.json({ ok: true, data });
+  } catch (error) {
+    logger.error('[public] failed to load admin settings snapshot', error);
+    res.status(500).json({ ok: false, message: 'failed to load admin settings' });
+  }
 });
 
 router.post('/questions/submit', questionsController.submitPublic);
