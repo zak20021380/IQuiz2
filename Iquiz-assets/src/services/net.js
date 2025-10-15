@@ -65,5 +65,29 @@ export async function jpost(url, data, timeoutMs = 12000) {
   }
 }
 
-const Net = { jget, jpost, setAuthToken };
+export async function jpatch(url, data, timeoutMs = 12000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: buildHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(data),
+      signal: ctrl.signal,
+    });
+    const txt = await res.text();
+    if (!txt) return null;
+    try {
+      return JSON.parse(txt);
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const Net = { jget, jpost, jpatch, setAuthToken };
 export default Net;
