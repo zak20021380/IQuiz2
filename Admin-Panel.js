@@ -293,8 +293,6 @@ function resolveStaticCategoryDefinition(candidate) {
 function mergeCategoryWithStaticDefinition(category) {
   if (!category) return null;
   const canonical = resolveStaticCategoryDefinition(category);
-  if (!canonical) return null;
-
   const aliasSet = new Set();
   if (Array.isArray(category.aliases)) {
     category.aliases.forEach((alias) => {
@@ -302,6 +300,33 @@ function mergeCategoryWithStaticDefinition(category) {
       if (normalized) aliasSet.add(normalized);
     });
   }
+  if (!canonical) {
+    const name = typeof category.name === 'string' ? category.name.trim() : '';
+    const displayName = typeof category.displayName === 'string' ? category.displayName.trim() : '';
+    if (name) aliasSet.add(name);
+    if (displayName) aliasSet.add(displayName);
+    const icon = typeof category.icon === 'string' && category.icon.trim() ? category.icon.trim() : 'fa-layer-group';
+    const color = typeof category.color === 'string' && category.color.trim() ? category.color.trim() : 'blue';
+    const slug = typeof category.slug === 'string' ? category.slug : (category._id || '');
+    const provider = typeof category.provider === 'string' && category.provider.trim() ? category.provider.trim() : 'manual';
+    const providerCategoryId = typeof category.providerCategoryId === 'string' && category.providerCategoryId.trim()
+      ? category.providerCategoryId.trim()
+      : slug;
+    return {
+      ...category,
+      name: name || displayName || 'دسته‌بندی',
+      displayName: displayName || name || 'دسته‌بندی',
+      title: displayName || name || 'دسته‌بندی',
+      slug,
+      provider,
+      providerCategoryId,
+      icon,
+      color,
+      description: typeof category.description === 'string' ? category.description.trim() : '',
+      aliases: Array.from(aliasSet)
+    };
+  }
+
   if (Array.isArray(canonical.aliases)) {
     canonical.aliases.forEach((alias) => {
       const normalized = typeof alias === 'string' ? alias.trim() : '';
@@ -314,26 +339,38 @@ function mergeCategoryWithStaticDefinition(category) {
   const description = category.description && String(category.description).trim()
     ? String(category.description).trim()
     : (canonical.description || '');
+  const icon = typeof category.icon === 'string' && category.icon.trim()
+    ? category.icon.trim()
+    : canonical.icon;
+  const color = typeof category.color === 'string' && category.color.trim()
+    ? category.color.trim()
+    : canonical.color;
+  const provider = typeof category.provider === 'string' && category.provider.trim()
+    ? category.provider.trim()
+    : (canonical.provider || 'manual');
+  const providerCategoryId = typeof category.providerCategoryId === 'string' && category.providerCategoryId.trim()
+    ? category.providerCategoryId.trim()
+    : (canonical.providerCategoryId || canonical.slug);
 
   return {
     ...category,
-    name: canonical.name,
-    displayName: canonical.displayName,
-    title: canonical.displayName,
-    slug: canonical.slug,
-    provider: canonical.provider || category.provider || 'manual',
-    providerCategoryId: canonical.providerCategoryId || canonical.slug,
-    icon: canonical.icon,
-    color: canonical.color,
+    name: category.name ? String(category.name) : canonical.name,
+    displayName: category.displayName ? String(category.displayName) : canonical.displayName,
+    title: category.displayName || canonical.displayName || category.name || canonical.name,
+    slug: category.slug ? String(category.slug) : canonical.slug,
+    provider,
+    providerCategoryId,
+    icon,
+    color,
     description,
-    order: canonical.order,
+    order: Number.isFinite(Number(category.order)) ? Number(category.order) : canonical.order,
     aliases: Array.from(aliasSet)
   };
 }
 
-const CATEGORY_MANAGEMENT_LOCKED = true;
-const CATEGORY_LOCKED_MESSAGE = `دسته‌بندی‌های پیش‌فرض (${STATIC_CATEGORY_LIST_LABEL}) قابل افزودن یا حذف نیستند.`;
-const CATEGORY_LOCKED_DESCRIPTION = `دسته‌بندی‌های پیش‌فرض شامل ${STATIC_CATEGORY_LIST_LABEL} هستند و به صورت خودکار مدیریت می‌شوند. در صورت نیاز به بروزرسانی با تیم فنی هماهنگ کنید.`;
+const CATEGORY_MANAGEMENT_LOCKED = false;
+const CATEGORY_LOCKED_MESSAGE = 'برای مدیریت دسته‌بندی‌ها ابتدا وارد شوید.';
+const CATEGORY_LOCKED_DESCRIPTION = 'برای افزودن یا حذف دسته‌بندی باید دسترسی مدیریتی فعال باشد.';
 
 const questionsCache = new Map();
 
@@ -2236,8 +2273,7 @@ function sanitizeCategoryList(list) {
     return aLabel.localeCompare(bLabel, 'fa');
   });
 
-  const limit = STATIC_CATEGORY_DEFINITIONS.length;
-  return limit > 0 ? normalized.slice(0, limit) : normalized;
+  return normalized;
 }
 
 function categoryOptionLabel(category) {

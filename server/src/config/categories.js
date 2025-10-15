@@ -1,3 +1,5 @@
+const ALLOWED_COLORS = new Set(['blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'red', 'teal', 'indigo']);
+
 const CATEGORY_DEFINITIONS = Object.freeze([
   {
     order: 1,
@@ -81,28 +83,55 @@ const CATEGORY_DEFINITIONS = Object.freeze([
   }
 ]);
 
+function sanitizeString(value, fallback = '') {
+  if (value === undefined || value === null) return fallback;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+function sanitizeColor(value, fallback = 'blue') {
+  const normalized = sanitizeString(value).toLowerCase();
+  return ALLOWED_COLORS.has(normalized) ? normalized : fallback;
+}
+
+function slugify(value, fallback = 'category') {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9\u0600-\u06FF-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || fallback;
+}
+
+function sanitizeAliases(aliases, defaults = []) {
+  const source = Array.isArray(aliases) ? aliases : [];
+  const fallback = Array.isArray(defaults) ? defaults : [];
+  const normalized = [...source, ...fallback]
+    .map((alias) => sanitizeString(alias))
+    .filter((alias) => alias.length > 0);
+  return Array.from(new Set(normalized));
+}
+
+function normalizeOrder(value, fallback = 0) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return numeric;
+}
+
 const CATEGORIES = Object.freeze(
   CATEGORY_DEFINITIONS.map((category) => {
-    const order = Number.isFinite(Number(category.order)) ? Number(category.order) : 0;
-    const slug = String(category.slug || '').trim();
-    const name = category.name || category.displayName || slug || 'Category';
-    const displayName = category.displayName || name;
-    const description = category.description || '';
-    const icon = category.icon || 'fa-layer-group';
-    const color = category.color || 'blue';
-    const provider = category.provider || 'ai-gen';
-    const providerCategoryId = category.providerCategoryId || slug;
-    const aliases = Array.isArray(category.aliases)
-      ? category.aliases
-      : [];
-
-    const normalizedAliases = Array.from(
-      new Set(
-        [...aliases, displayName, name]
-          .map((alias) => String(alias ?? '').trim())
-          .filter((alias) => alias.length > 0)
-      )
-    );
+    const order = normalizeOrder(category.order, 0);
+    const slug = sanitizeString(category.slug);
+    const name = sanitizeString(category.name, category.displayName || slug || 'Category');
+    const displayName = sanitizeString(category.displayName, name);
+    const description = sanitizeString(category.description);
+    const icon = sanitizeString(category.icon, 'fa-layer-group');
+    const color = sanitizeColor(category.color);
+    const provider = sanitizeString(category.provider, 'ai-gen');
+    const providerCategoryId = sanitizeString(category.providerCategoryId, slug || name);
+    const aliases = sanitizeAliases(category.aliases, [displayName, name]);
 
     return Object.freeze({
       order,
@@ -112,7 +141,7 @@ const CATEGORIES = Object.freeze(
       description,
       icon,
       color,
-      aliases: normalizedAliases,
+      aliases,
       provider,
       providerCategoryId
     });
@@ -158,7 +187,27 @@ function resolveCategory(input) {
   if (typeof input === 'string') {
     const key = normalizeCategoryKey(input);
     if (!key) return null;
-    return CATEGORY_LOOKUP_BY_ALIAS[key] || null;
+    if (CATEGORY_LOOKUP_BY_ALIAS[key]) {
+      return CATEGORY_LOOKUP_BY_ALIAS[key];
+    }
+
+    const label = sanitizeString(input);
+    if (!label) return null;
+    const slug = slugify(label);
+    const aliases = sanitizeAliases([label], [slug]);
+
+    return Object.freeze({
+      order: Number.MAX_SAFE_INTEGER,
+      slug,
+      name: label,
+      displayName: label,
+      description: '',
+      icon: 'fa-layer-group',
+      color: 'blue',
+      aliases,
+      provider: 'manual',
+      providerCategoryId: slug
+    });
   }
 
   if (typeof input === 'object') {
@@ -189,6 +238,40 @@ function resolveCategory(input) {
       const match = resolveCategory(candidate);
       if (match) return match;
     }
+
+    const name = sanitizeString(input.name, input.displayName);
+    const displayName = sanitizeString(input.displayName, name);
+    const slugSource =
+      input.slug
+      || input.providerCategoryId
+      || input.id
+      || displayName
+      || name;
+    const slug = slugify(slugSource);
+    if (!slug && !name && !displayName) {
+      return null;
+    }
+
+    const description = sanitizeString(input.description);
+    const icon = sanitizeString(input.icon, 'fa-layer-group');
+    const color = sanitizeColor(input.color);
+    const provider = sanitizeString(input.provider, 'manual');
+    const providerCategoryId = sanitizeString(input.providerCategoryId, slug);
+    const order = normalizeOrder(input.order, Number.MAX_SAFE_INTEGER);
+    const aliases = sanitizeAliases(input.aliases, [slug, providerCategoryId, displayName, name]);
+
+    return Object.freeze({
+      order,
+      slug,
+      name: name || displayName || slug || 'Category',
+      displayName: displayName || name || slug || 'Category',
+      description,
+      icon,
+      color,
+      aliases,
+      provider,
+      providerCategoryId
+    });
   }
 
   return null;
