@@ -311,79 +311,122 @@ function normalizeSettings(raw) {
   };
 }
 
-function readRawSettings() {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
-    return null;
-  }
-  try {
-    const raw = window.localStorage.getItem(ADMIN_SETTINGS_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (err) {
-    console.warn('[admin-settings] failed to parse stored settings', err);
-    return null;
-  }
-}
+const ADMIN_SETTINGS_ENDPOINT = '/api/public/admin-settings';
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const MIN_REFRESH_INTERVAL_MS = 30 * 1000;
 
-let cachedSettings = null;
+let cachedSettings = normalizeSettings(DEFAULT_SETTINGS);
+let lastFetchedAt = 0;
+let fetchPromise = null;
+let listenersAttached = false;
+const subscribers = new Set();
 
-function applyAndCache(settings) {
-  cachedSettings = normalizeSettings(settings || readRawSettings() || DEFAULT_SETTINGS);
-  return cachedSettings;
-}
-
-function handleUpdateFromEvent(payload, callback) {
-  const next = applyAndCache(payload || readRawSettings() || DEFAULT_SETTINGS);
-  if (typeof callback === 'function') {
+function notifySubscribers(settings) {
+  subscribers.forEach((subscriber) => {
+    if (typeof subscriber !== 'function') return;
     try {
-      callback(next);
+      subscriber(settings);
     } catch (err) {
       console.error('[admin-settings] callback error', err);
     }
+  });
+}
+
+function applyAndCache(settings) {
+  cachedSettings = normalizeSettings(settings || DEFAULT_SETTINGS);
+  notifySubscribers(cachedSettings);
+  return cachedSettings;
+}
+
+async function fetchAdminSettingsFromServer() {
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') {
+    return cachedSettings;
   }
-  return next;
+  try {
+    const response = await window.fetch(ADMIN_SETTINGS_ENDPOINT, { credentials: 'include' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json().catch(() => ({}));
+    const data = payload && typeof payload === 'object'
+      ? (payload.data && typeof payload.data === 'object' ? payload.data : payload)
+      : {};
+    if (data && typeof data === 'object') {
+      lastFetchedAt = Date.now();
+      return applyAndCache(data);
+    }
+  } catch (error) {
+    console.warn('[admin-settings] failed to fetch settings from server', error);
+  }
+  return cachedSettings;
+}
+
+export function refreshAdminSettings(options = {}) {
+  const { force = false } = options;
+  if (!force && fetchPromise) {
+    return fetchPromise;
+  }
+  if (!force && Date.now() - lastFetchedAt < MIN_REFRESH_INTERVAL_MS) {
+    return Promise.resolve(cachedSettings);
+  }
+  fetchPromise = fetchAdminSettingsFromServer().finally(() => {
+    fetchPromise = null;
+  });
+  return fetchPromise;
+}
+
+function ensureEventListeners() {
+  if (listenersAttached || typeof window === 'undefined') {
+    return;
+  }
+  listenersAttached = true;
+
+  const handleCustomUpdate = (event) => {
+    if (!event || typeof event !== 'object') return;
+    applyAndCache(event.detail || cachedSettings);
+  };
+
+  window.addEventListener('iquiz-admin-settings-updated', handleCustomUpdate);
+
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        refreshAdminSettings({ force: true }).catch(() => {});
+      }
+    });
+  }
+
+  if (AUTO_REFRESH_INTERVAL_MS > 0 && typeof window.setInterval === 'function') {
+    window.setInterval(() => {
+      refreshAdminSettings({ force: true }).catch(() => {});
+    }, AUTO_REFRESH_INTERVAL_MS);
+  }
 }
 
 export function getAdminSettings() {
-  if (!cachedSettings) {
-    cachedSettings = applyAndCache(readRawSettings() || DEFAULT_SETTINGS);
-  }
   return cachedSettings;
 }
 
 export function subscribeToAdminSettings(callback) {
-  if (typeof window === 'undefined') {
-    return () => {};
-  }
-  const customHandler = (event) => {
-    handleUpdateFromEvent(event?.detail, callback);
-  };
-  const storageHandler = (event) => {
-    if (event?.key && event.key !== ADMIN_SETTINGS_STORAGE_KEY) return;
-    try {
-      const parsed = event?.newValue ? JSON.parse(event.newValue) : readRawSettings();
-      handleUpdateFromEvent(parsed, callback);
-    } catch (err) {
-      console.warn('[admin-settings] storage event parse failed', err);
-    }
-  };
-  window.addEventListener('iquiz-admin-settings-updated', customHandler);
-  window.addEventListener('storage', storageHandler);
-
-  const initial = getAdminSettings();
   if (typeof callback === 'function') {
+    subscribers.add(callback);
     try {
-      callback(initial);
+      callback(cachedSettings);
     } catch (err) {
       console.error('[admin-settings] callback error', err);
     }
   }
 
+  ensureEventListeners();
+  refreshAdminSettings().catch(() => {});
+
   return () => {
-    window.removeEventListener('iquiz-admin-settings-updated', customHandler);
-    window.removeEventListener('storage', storageHandler);
+    subscribers.delete(callback);
   };
 }
+
+ensureEventListeners();
+refreshAdminSettings().catch(() => {});
 
 export {
   ADMIN_SETTINGS_STORAGE_KEY,

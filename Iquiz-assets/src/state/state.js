@@ -1,11 +1,11 @@
-import { getAdminSettings } from '../config/admin-settings.js';
+import { getAdminSettings, subscribeToAdminSettings } from '../config/admin-settings.js';
 
 const STORAGE_KEY = 'quiz_webapp_pro_state_v2_fa';
 
-const ADMIN_SETTINGS = getAdminSettings();
-const GENERAL_SETTINGS = ADMIN_SETTINGS?.general || {};
-const DEFAULT_QUESTION_TIME = Math.max(5, Number(GENERAL_SETTINGS.questionTime) || 30);
-const DEFAULT_MAX_QUESTIONS = Math.max(3, Number(GENERAL_SETTINGS.maxQuestions) || 10);
+let ADMIN_SETTINGS = getAdminSettings();
+let GENERAL_SETTINGS = ADMIN_SETTINGS?.general || {};
+let DEFAULT_QUESTION_TIME = Math.max(5, Number(GENERAL_SETTINGS.questionTime) || 30);
+let DEFAULT_MAX_QUESTIONS = Math.max(3, Number(GENERAL_SETTINGS.maxQuestions) || 10);
 
 const ROSTER_ROLES = ['دانش عمومی','رهبر استراتژی','متخصص علوم','استاد ادبیات','تحلیل‌گر داده','هوش تاریخی','ریاضی‌دان','کارشناس فناوری','حل مسئله سریع','هوش مصنوعی'];
 const ROSTER_FIRST_NAMES = ['آرمان','نیلوفر','شروین','فرناز','پارسا','یاسمن','کاوه','مینا','هومن','هستی','رامتین','سولماز','آرین','بهاره','پریسا','بردیا','کیانا','مانی','ترانه','هانیه'];
@@ -273,6 +273,28 @@ function isUserGroupAdmin(){
 function isUserInGroup(){
   return !!State.user.group || !!getUserGroup();
 }
+
+function applyAdminGeneralSettings(settings) {
+  ADMIN_SETTINGS = settings || {};
+  GENERAL_SETTINGS = ADMIN_SETTINGS?.general || {};
+  const nextQuestionTime = Math.max(5, Number(GENERAL_SETTINGS.questionTime) || 30);
+  const nextMaxQuestions = Math.max(3, Number(GENERAL_SETTINGS.maxQuestions) || 10);
+  DEFAULT_QUESTION_TIME = nextQuestionTime;
+  DEFAULT_MAX_QUESTIONS = nextMaxQuestions;
+
+  if (State && State.quiz) {
+    State.quiz.baseDuration = nextQuestionTime;
+    if (!State.quiz.inProgress) {
+      State.quiz.duration = nextQuestionTime;
+      State.quiz.remain = nextQuestionTime;
+    }
+    State.quiz.maxQuestions = nextMaxQuestions;
+  }
+}
+
+subscribeToAdminSettings((next) => {
+  applyAdminGeneralSettings(next);
+});
 
 ensureGroupRosters();
 
