@@ -14,7 +14,8 @@ const CATEGORY_COLOR_HEX = {
   purple: '#a855f7',
   yellow: '#facc15',
   red: '#f87171',
-  pink: '#f472b6'
+  pink: '#f472b6',
+  green: '#22c55e'
 };
 
 const FALLBACK_CATEGORY_DATA = Array.from(CATEGORIES)
@@ -434,6 +435,11 @@ function getFallbackCategories() {
   }));
 }
 
+function normalizeColorKey(value) {
+  const key = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return CATEGORY_COLOR_HEX[key] ? key : 'blue';
+}
+
 function mapCategoryDocument(doc) {
   if (!doc) return null;
   const id = doc._id ? String(doc._id) : doc.id;
@@ -445,23 +451,43 @@ function mapCategoryDocument(doc) {
     name: doc.name,
     displayName: doc.displayName,
     title: doc.title,
-    aliases: doc.aliases
-  });
-  if (!canonical) return null;
-  const colorKey = canonical.color || 'blue';
+    aliases: doc.aliases,
+    description: doc.description,
+    icon: doc.icon,
+    color: doc.color,
+    provider: doc.provider,
+    order: doc.order
+  }) || null;
+
+  const slug = canonical?.slug || (typeof doc.slug === 'string' ? doc.slug : id);
+  const name = canonical?.name || (typeof doc.name === 'string' ? doc.name : 'Category');
+  const displayName = canonical?.displayName || (typeof doc.displayName === 'string' ? doc.displayName : name);
+  const description = typeof doc.description === 'string' && doc.description.trim()
+    ? doc.description.trim()
+    : canonical?.description || '';
+  const icon = (typeof doc.icon === 'string' && doc.icon.trim())
+    ? doc.icon.trim()
+    : canonical?.icon || 'fa-layer-group';
+  const colorKey = normalizeColorKey(canonical?.color || doc.color);
+  const provider = canonical?.provider || doc.provider || 'manual';
+  const providerCategoryId = canonical?.providerCategoryId || doc.providerCategoryId || slug;
+  const order = Number.isFinite(Number(doc.order))
+    ? Number(doc.order)
+    : (Number.isFinite(Number(canonical?.order)) ? Number(canonical.order) : 0);
+
   return {
     id,
-    slug: canonical.slug,
-    title: canonical.displayName || canonical.name,
-    name: canonical.name,
-    displayName: canonical.displayName || canonical.name,
-    description: doc.description || canonical.description || '',
-    icon: canonical.icon || 'fa-layer-group',
+    slug,
+    title: displayName || name,
+    name,
+    displayName: displayName || name,
+    description,
+    icon,
     color: CATEGORY_COLOR_HEX[colorKey] || CATEGORY_COLOR_HEX.blue,
     colorKey,
-    provider: canonical.provider || 'ai-gen',
-    providerCategoryId: canonical.providerCategoryId || canonical.slug,
-    order: canonical.order,
+    provider,
+    providerCategoryId,
+    order,
     isActive: status !== 'disabled',
     difficulties: cloneDifficulties()
   };

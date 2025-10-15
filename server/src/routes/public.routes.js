@@ -208,10 +208,25 @@ router.patch('/profile', protect, leaderboardController.updateProfile);
 
 router.get('/categories', async (req, res) => {
   try {
-    const data = await getFallbackCategories();   // فقط fallback
-    return res.json(data);
+    const docs = await Category.find({ status: { $ne: 'disabled' } })
+      .sort({ order: 1, createdAt: -1 })
+      .lean();
+    const mapped = docs
+      .map((doc) => mapCategoryDocument(doc))
+      .filter(Boolean);
+    if (mapped.length > 0) {
+      return res.json(mapped);
+    }
   } catch (error) {
-    return res.json([]); // در بدترین حالت خالی
+    logger.warn(`[public] failed to load categories from database: ${error.message}`);
+  }
+
+  try {
+    const fallback = await getFallbackCategories();
+    return res.json(fallback);
+  } catch (error) {
+    logger.warn(`[public] failed to load fallback categories: ${error.message}`);
+    return res.json([]);
   }
 });
 
