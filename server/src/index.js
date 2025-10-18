@@ -86,6 +86,7 @@ safeMount(app, '/api/achievements',    './routes/achievements.routes',    'achie
 safeMount(app, '/api/ads',             './routes/ads.routes',             'ads.routes');
 safeMount(app, '/api/analytics',       './routes/analytics.routes',       'analytics.routes');
 safeMount(app, '/api/group-battles',   './routes/group-battles.routes',   'group-battles.routes');
+safeMount(app, '/api/groups',          './routes/groups.routes',          'groups.routes');
 safeMount(app, '/api/duels',           './routes/duels.routes',           'duels.routes');
 safeMount(app, '/api/limits',          './routes/limits.routes',          'limits.routes');
 safeMount(app, '/api/admin/questions', './routes/admin/questions',        'admin/questions');

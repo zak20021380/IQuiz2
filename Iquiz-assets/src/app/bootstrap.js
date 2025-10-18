@@ -2100,7 +2100,6 @@ function populateProvinceOptions(selectEl, placeholder){
     const currentGroupName = userGroup?.name || State.user.group || '';
     const isAdmin = group.admin === State.user.name;
     const isMember = (userGroup?.id === group.id) || State.user.group === group.name;
-    const requested = group.requests?.includes(State.user.id);
     const wins = Number.isFinite(Number(group.wins)) ? Number(group.wins) : 0;
     const losses = Number.isFinite(Number(group.losses)) ? Number(group.losses) : 0;
     const totalMatches = Math.max(0, wins + losses);
@@ -2243,8 +2242,8 @@ function populateProvinceOptions(selectEl, placeholder){
         </button>`;
     } else if (!isMember && !isUserInGroup()) {
       content += `
-        <button id="btn-join-group" class="btn btn-group w-full mt-4" ${requested ? 'disabled' : ''}>
-          <i class="fas fa-user-plus ml-2"></i> ${requested ? 'در انتظار تایید' : 'درخواست عضویت'}
+        <button id="btn-join-group" class="btn btn-group w-full mt-4">
+          <i class="fas fa-user-plus ml-2"></i> پیوستن به گروه
         </button>`;
     } else if (!isMember && isUserInGroup()) {
       const joinedGroupLabel = currentGroupName ? `«${currentGroupName}»` : 'گروه فعلی خود';
@@ -2256,7 +2255,7 @@ function populateProvinceOptions(selectEl, placeholder){
 
     showDetailPopup('جزئیات گروه', content);
 
-    $('#btn-join-group')?.addEventListener('click', () => requestJoinGroup(group.id));
+    $('#btn-join-group')?.addEventListener('click', () => joinGroupOnServer(group.id));
     $('#btn-copy-group-link')?.addEventListener('click', async () => {
       const ok = await copyToClipboard(inviteLink);
       toast(ok ? '<i class="fas fa-check-circle ml-2"></i>لینک گروه کپی شد' : 'کپی لینک با خطا مواجه شد');
@@ -2296,24 +2295,47 @@ function populateProvinceOptions(selectEl, placeholder){
     });
   }
 
-function requestJoinGroup(groupId){
-  // Check if user is already in a group
+async function joinGroupOnServer(groupId) {
   if (isUserInGroup()) {
     toast('شما در حال حاضر عضو یک گروه هستید. ابتدا باید از گروه فعلی خارج شوید.');
     return;
   }
-  
-  const group = State.groups.find(g=>g.id===groupId);
-  if(!group) return;
-  group.requests = group.requests || [];
-  if(group.requests.includes(State.user.id)){
-    toast('درخواست شما قبلا ثبت شده است');
+
+  const group = State.groups.find(g => g.id === groupId || g.groupId === groupId);
+  if (!group) {
+    toast('گروه مورد نظر یافت نشد');
     return;
   }
-  group.requests.push(State.user.id);
-  toast(`درخواست عضویت به ${group.name} ارسال شد`);
-  logEvent('group_join_request', { group: group.name });
-  closeDetailPopup();
+
+  const joinBtn = $('#btn-join-group');
+  const originalLabel = joinBtn?.innerHTML;
+  if (joinBtn) {
+    joinBtn.disabled = true;
+    joinBtn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> در حال پیوستن...';
+  }
+
+  try {
+    const res = await Api.joinGroup(group.groupId || group.id);
+    if (!res || res.ok === false) {
+      toast(res?.message || 'خطا در عضویت در گروه');
+      return;
+    }
+
+    const updatedGroup = applyGroupServerUpdate(res) || group;
+    const groupName = updatedGroup?.name || group.name;
+    const finalGroupId = updatedGroup?.id || updatedGroup?.groupId || group.groupId || group.id;
+    toast(`<i class="fas fa-check-circle ml-2"></i> به گروه ${groupName} پیوستید`);
+    logEvent('group_joined', { group: groupName, groupId: finalGroupId });
+    closeDetailPopup();
+  } catch (err) {
+    console.warn('Failed to join group', err);
+    toast('خطا در عضویت در گروه');
+  } finally {
+    if (joinBtn) {
+      joinBtn.disabled = false;
+      if (originalLabel) joinBtn.innerHTML = originalLabel;
+    }
+  }
 }
 
   function openDuelRequest(group){
@@ -2345,12 +2367,11 @@ function requestJoinGroup(groupId){
   }
 
 function openCreateGroup(){
-  // Check if user is already in a group
   if (isUserInGroup()) {
     toast('شما در حال حاضر عضو یک گروه هستید. ابتدا باید از گروه فعلی خارج شوید.');
     return;
   }
-  
+
   const content = `
     <div class="space-y-4">
       <input id="new-group-name" class="form-input" placeholder="نام گروه">
@@ -2359,48 +2380,98 @@ function openCreateGroup(){
         <div class="flex">
           <input id="new-group-link" class="form-input flex-1" readonly>
           <button id="btn-copy-link" class="btn btn-secondary ml-2"><i class="fas fa-copy"></i></button>
+          <button id="btn-share-group-link" class="btn btn-group ml-2"><i class="fas fa-paper-plane"></i></button>
         </div>
         <div class="text-xs opacity-80">این لینک را برای دعوت دوستان خود به اشتراک بگذارید</div>
       </div>
       <button id="btn-save-group" class="btn btn-group w-full"><i class="fas fa-check ml-2"></i> ایجاد گروه</button>
     </div>`;
+
   showDetailPopup('ایجاد گروه جدید', content);
-  $('#btn-save-group').addEventListener('click', async () => {
-    const name = $('#new-group-name').value.trim();
-    if(!name){ toast('نام گروه را وارد کنید'); return; }
-    const newGroup = {
-      id: 'g'+(State.groups.length+1),
-      name,
-      score: 0,
-      members: 1,
-      admin: State.user.name,
-      wins: 0,
-      losses: 0,
-      created: new Date().toLocaleDateString('fa-IR'),
-      memberList: [State.user.name],
-      requests: [],
-      matches: []
-    };
-    State.groups.push(newGroup);
-    ensureGroupRosters();
-    State.user.group = name;
-    saveState();
-    renderGroupSelect();
-    renderDashboard();
-    renderProvinceSelect();
-    logEvent('group_created', { group: name });
-    const link = location.origin + '/?join=' + newGroup.id;
-    $('#new-group-link').value = link;
-    $('#invite-container').classList.remove('hidden');
-    $('#btn-copy-link').addEventListener('click', () => {
-      navigator.clipboard.writeText(link);
-      toast('لینک کپی شد');
-    });
-    $('#btn-save-group').disabled = true;
-    toast('گروه با موفقیت ایجاد شد');
-    const synced = await syncProfile({ group: { id: newGroup.id, name } }, { silent: true });
-    if (!synced) {
-      toast('خطا در همگام‌سازی گروه با سرور');
+
+  $('#btn-save-group')?.addEventListener('click', async () => {
+    const nameInput = $('#new-group-name');
+    const name = nameInput?.value?.trim();
+    if (!name) {
+      toast('نام گروه را وارد کنید');
+      return;
+    }
+
+    const btn = $('#btn-save-group');
+    const originalLabel = btn?.innerHTML;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> در حال ایجاد...';
+    }
+
+    try {
+      const res = await Api.createGroup({ name });
+      if (!res || res.ok === false) {
+        toast(res?.message || 'خطا در ایجاد گروه');
+        if (btn && originalLabel) {
+          btn.disabled = false;
+          btn.innerHTML = originalLabel;
+        }
+        return;
+      }
+
+      const updatedGroup = applyGroupServerUpdate(res);
+      const finalGroup = updatedGroup || getUserGroup() || State.groups.find(g => g.name === name);
+      const groupName = finalGroup?.name || name;
+      const groupId = finalGroup?.id || finalGroup?.groupId || '';
+
+      toast('<i class="fas fa-check-circle ml-2"></i> گروه با موفقیت ایجاد شد');
+      logEvent('group_created', { group: groupName, groupId });
+
+      const payload = groupId ? `group_${groupId}` : '';
+      const inviteLinks = buildTelegramStartLinks(payload);
+      const fallbackLink = groupId
+        ? `${location.origin}${location.pathname}?join=${encodeURIComponent(groupId)}`
+        : location.href;
+
+      $('#invite-container')?.classList.remove('hidden');
+      const linkInput = $('#new-group-link');
+      if (linkInput) {
+        linkInput.value = inviteLinks.web || fallbackLink;
+      }
+
+      $('#btn-copy-link')?.addEventListener('click', async () => {
+        const ok = await copyToClipboard(inviteLinks.web || fallbackLink);
+        toast(ok ? '<i class="fas fa-check-circle ml-2"></i>لینک گروه کپی شد' : 'کپی لینک با خطا مواجه شد');
+      });
+
+      $('#btn-share-group-link')?.addEventListener('click', async () => {
+        vibrate(10);
+        const appName = getAppName();
+        const text = `به گروه ${groupName} در ${appName} بپیوندید!`;
+        const shareMessage = `${text} اگر تلگرام به‌طور خودکار باز نشد از این لینک استفاده کن: ${fallbackLink}`;
+        try {
+          if (navigator.share) {
+            await navigator.share({
+              title: `دعوت به گروه ${groupName}`,
+              text: shareMessage,
+              url: inviteLinks.web || fallbackLink,
+            });
+            toast('<i class="fas fa-check-circle ml-2"></i>لینک گروه ارسال شد');
+            return;
+          }
+        } catch (err) {
+          console.warn('navigator.share group link failed', err);
+        }
+        await shareOnTelegram(inviteLinks.web || fallbackLink, shareMessage);
+      });
+
+      if (btn) {
+        btn.innerHTML = '<i class="fas fa-check ml-2"></i> گروه ایجاد شد';
+        btn.disabled = true;
+      }
+    } catch (err) {
+      console.warn('Failed to create group', err);
+      toast('خطا در ایجاد گروه');
+      if (btn && originalLabel) {
+        btn.disabled = false;
+        btn.innerHTML = originalLabel;
+      }
     }
   });
 }
@@ -6146,6 +6217,63 @@ async function syncGroupsFromServer({ silent = false } = {}) {
   }
 }
 
+function applyGroupServerUpdate(response) {
+  if (!response || typeof response !== 'object') return null;
+
+  if (response.meta?.overview) {
+    applyLeaderboardData(response.meta.overview);
+  }
+
+  let updatedGroup = null;
+  let groupsChanged = false;
+
+  if (Array.isArray(response.meta?.groups)) {
+    const normalized = response.meta.groups.map(normalizeGroupFromServer).filter(Boolean);
+    State.groups = normalized;
+    ensureGroupRosters();
+    groupsChanged = true;
+
+    const userGroupId = State.user?.groupId || '';
+    if (userGroupId) {
+      updatedGroup = normalized.find((group) => group.id === userGroupId || group.groupId === userGroupId) || null;
+    }
+  } else if (response.data) {
+    const normalizedGroup = normalizeGroupFromServer(response.data);
+    if (normalizedGroup) {
+      const idx = State.groups.findIndex((g) => g.id === normalizedGroup.id);
+      if (idx >= 0) {
+        State.groups[idx] = normalizedGroup;
+      } else {
+        State.groups.push(normalizedGroup);
+      }
+      ensureGroupRosters();
+      groupsChanged = true;
+      updatedGroup = normalizedGroup;
+    }
+  }
+
+  if (response.meta?.removedGroupId) {
+    const removedId = response.meta.removedGroupId;
+    const before = State.groups.length;
+    State.groups = State.groups.filter((group) => group.id !== removedId && group.groupId !== removedId);
+    if (State.groups.length !== before) {
+      ensureGroupRosters();
+      groupsChanged = true;
+    }
+    if (updatedGroup && (updatedGroup.id === removedId || updatedGroup.groupId === removedId)) {
+      updatedGroup = null;
+    }
+  }
+
+  if (groupsChanged) {
+    saveState();
+    renderGroupSelect();
+    renderDashboard();
+  }
+
+  return updatedGroup;
+}
+
 function getBattleParticipants(hostGroup, opponentGroup) {
   ensureGroupRosters();
 
@@ -6753,49 +6881,68 @@ function renderGroupBattleCard(list, userGroup) {
 
 
 async function deleteGroup(groupId) {
-  const groupIndex = State.groups.findIndex(g => g.id === groupId);
-  if (groupIndex === -1) return;
+  const group = State.groups.find(g => g.id === groupId || g.groupId === groupId);
+  if (!group) return;
 
-  const group = State.groups[groupIndex];
+  const btn = $('#btn-delete-group-detail');
+  const originalLabel = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> در حال حذف...';
+  }
 
-  // Remove group from state
-  State.groups.splice(groupIndex, 1);
+  try {
+    const res = await Api.deleteGroup(group.groupId || group.id);
+    if (!res || res.ok === false) {
+      toast(res?.message || 'خطا در حذف گروه');
+      return;
+    }
 
-  // Clear user's group assignment
-  State.user.group = '';
-
-  saveState();
-  renderGroupSelect();
-  renderDashboard();
-
-  toast('<i class="fas fa-check-circle ml-2"></i> گروه با موفقیت حذف شد');
-  logEvent('group_deleted', { group: group.name });
-  const synced = await syncProfile({ group: null }, { silent: true });
-  if (!synced) {
-    toast('خطا در به‌روزرسانی عضویت گروه روی سرور');
+    applyGroupServerUpdate(res);
+    toast('<i class="fas fa-check-circle ml-2"></i> گروه با موفقیت حذف شد');
+    logEvent('group_deleted', { group: group.name, groupId: group.groupId || group.id });
+    closeDetailPopup();
+  } catch (err) {
+    console.warn('Failed to delete group', err);
+    toast('خطا در حذف گروه');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      if (originalLabel) btn.innerHTML = originalLabel;
+    }
   }
 }
 
 async function leaveGroup(groupId) {
-  const group = State.groups.find(g => g.id === groupId);
+  const group = State.groups.find(g => g.id === groupId || g.groupId === groupId);
   if (!group) return;
 
-  // Remove user from member list
-  group.memberList = group.memberList?.filter(m => m !== State.user.name) || [];
-  group.members = Math.max(0, group.members - 1);
-  
-  // Clear user's group assignment
-  State.user.group = '';
-  
-  saveState();
-  renderGroupSelect();
-  renderDashboard();
+  const btn = $('#btn-leave-group-detail');
+  const originalLabel = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> در حال خروج...';
+  }
 
-  toast('<i class="fas fa-check-circle ml-2"></i> از گروه خارج شدید');
-  logEvent('group_left', { group: group.name });
-  const synced = await syncProfile({ group: null }, { silent: true });
-  if (!synced) {
-    toast('خروج از گروه در سرور ثبت نشد');
+  try {
+    const res = await Api.leaveGroup(group.groupId || groupId);
+    if (!res || res.ok === false) {
+      toast(res?.message || 'خطا در خروج از گروه');
+      return;
+    }
+
+    applyGroupServerUpdate(res);
+    toast('<i class="fas fa-check-circle ml-2"></i> از گروه خارج شدید');
+    logEvent('group_left', { group: group.name, groupId: group.groupId || groupId });
+    closeDetailPopup();
+  } catch (err) {
+    console.warn('Failed to leave group', err);
+    toast('خروج از گروه با خطا مواجه شد');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      if (originalLabel) btn.innerHTML = originalLabel;
+    }
   }
 }
   renderProvinceSelect();

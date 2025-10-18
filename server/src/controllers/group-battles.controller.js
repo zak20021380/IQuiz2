@@ -1,18 +1,13 @@
 const Group = require('../models/Group');
 const GroupBattle = require('../models/GroupBattle');
 const { ensureDefaultGroups } = require('../services/groupSeed');
-const { simulateGroupBattle, applyBattleRewards, ensureRoster } = require('../services/groupBattle');
+const { simulateGroupBattle, applyBattleRewards } = require('../services/groupBattle');
+const { loadGroups, serializeGroup } = require('../services/groups');
 
 exports.listGroups = async (req, res, next) => {
   try {
-    await ensureDefaultGroups();
-    const groups = await Group.find().sort({ score: -1, wins: -1, name: 1 });
-    groups.forEach((group) => ensureRoster(group));
-    const dirty = groups.filter((group) => group.isModified());
-    if (dirty.length) {
-      await Promise.all(dirty.map((group) => group.save()));
-    }
-    res.json({ ok: true, data: groups.map((group) => group.toJSON()) });
+    const groups = await loadGroups();
+    res.json({ ok: true, data: groups.map((group) => serializeGroup(group)) });
   } catch (err) {
     next(err);
   }
@@ -64,13 +59,13 @@ exports.create = async (req, res, next) => {
       rewards,
     });
 
-    const groups = await Group.find().sort({ score: -1, wins: -1, name: 1 });
+    const groups = await loadGroups();
 
     res.status(201).json({
       ok: true,
       data: battleDoc.toJSON(),
       meta: {
-        groups: groups.map((group) => group.toJSON()),
+        groups: groups.map((group) => serializeGroup(group)),
       },
     });
   } catch (err) {
