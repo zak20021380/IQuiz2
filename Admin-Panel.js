@@ -19,6 +19,56 @@ const apiFetch = (path, opts = {}) => {
   return fetch(apiPath(path), options);
 };
 
+const ADMIN_SETTINGS_STORAGE_KEY = 'iquiz_admin_settings_v1';
+const ADMIN_SETTINGS_BROADCAST_CHANNEL = 'iquiz_admin_settings_sync';
+const ADMIN_SETTINGS_BROADCAST_TYPE = 'admin-settings:update';
+const adminSettingsBroadcastId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+  ? (() => { try { return crypto.randomUUID(); } catch (_) { return `admin_${Math.random().toString(36).slice(2)}`; } })()
+  : `admin_${Math.random().toString(36).slice(2)}`;
+
+let adminSettingsBroadcastChannel = null;
+
+function ensureAdminSettingsBroadcastChannel() {
+  if (adminSettingsBroadcastChannel !== null) {
+    return adminSettingsBroadcastChannel || null;
+  }
+  if (typeof BroadcastChannel !== 'function') {
+    adminSettingsBroadcastChannel = false;
+    return null;
+  }
+  try {
+    adminSettingsBroadcastChannel = new BroadcastChannel(ADMIN_SETTINGS_BROADCAST_CHANNEL);
+  } catch (error) {
+    console.warn('Failed to create BroadcastChannel for admin settings', error);
+    adminSettingsBroadcastChannel = false;
+  }
+  return adminSettingsBroadcastChannel || null;
+}
+
+function buildAdminSettingsBroadcastPayload(settings) {
+  if (!settings || typeof settings !== 'object') return null;
+  const updatedAt = Number.isFinite(Number(settings.updatedAt)) ? Number(settings.updatedAt) : Date.now();
+  return {
+    type: ADMIN_SETTINGS_BROADCAST_TYPE,
+    version: 1,
+    origin: adminSettingsBroadcastId,
+    updatedAt,
+    data: settings,
+  };
+}
+
+function broadcastAdminSettingsUpdate(settings) {
+  const payload = buildAdminSettingsBroadcastPayload(settings);
+  if (!payload) return;
+  const channel = ensureAdminSettingsBroadcastChannel();
+  if (channel && typeof channel.postMessage === 'function') {
+    try { channel.postMessage(payload); } catch (_) {}
+  }
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try { window.localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(payload)); } catch (_) {}
+  }
+}
+
 // --------------- CONFIG ---------------
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -7437,6 +7487,7 @@ async function loadServerSettings(options = {}) {
   if (settings) {
     serverSettingsCache = cloneAdminSettings(settings);
     applySettingsSnapshot(serverSettingsCache);
+    broadcastAdminSettingsUpdate(serverSettingsCache);
     return serverSettingsCache;
   }
   return null;
@@ -7591,6 +7642,7 @@ async function handleSettingsSave() {
     markShopUpdated();
     updateShopSummary();
     if (detail) {
+      broadcastAdminSettingsUpdate(detail);
       try {
         window.dispatchEvent(new CustomEvent('iquiz-admin-settings-updated', { detail }));
       } catch (_) {}
