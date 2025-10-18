@@ -2,6 +2,8 @@ const { randomUUID } = require('crypto');
 const logger = require('../config/logger');
 const QuestionService = require('./questionService');
 const { getDuelRewardConfig } = require('../config/adminSettings');
+const DuelResult = require('../models/DuelResult');
+const DuelStats = require('../models/DuelStats');
 
 const MAX_DUEL_QUESTIONS = 20;
 const DEFAULT_ROUNDS = 2;
@@ -243,8 +245,42 @@ function pushHistory(userId, entry) {
   store.history.set(userId, list.slice(0, 20));
 }
 
-function computeStats(userId) {
-  const history = store.history.get(userId) || [];
+function normalizeHistoryEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const resolvedAt = entry.resolvedAt instanceof Date ? entry.resolvedAt.getTime() : entry.resolvedAt;
+  const startedAt = entry.startedAt instanceof Date ? entry.startedAt.getTime() : entry.startedAt;
+  const deadline = entry.deadline instanceof Date ? entry.deadline.getTime() : entry.deadline;
+  return {
+    id: entry.id,
+    opponent: entry.opponent,
+    opponentScore: entry.opponentScore || 0,
+    yourScore: entry.yourScore || 0,
+    outcome: entry.outcome || 'draw',
+    reason: entry.reason || (entry.outcome === 'draw' ? 'draw' : 'score'),
+    resolvedAt: Number.isFinite(resolvedAt) ? resolvedAt : Date.now(),
+    startedAt: Number.isFinite(startedAt) ? startedAt : undefined,
+    deadline: Number.isFinite(deadline) ? deadline : undefined,
+  };
+}
+
+function mergeHistoryLists(persisted = [], memory = []) {
+  const combined = [];
+  const seen = new Set();
+  const addEntry = (entry) => {
+    const normalized = normalizeHistoryEntry(entry);
+    if (!normalized || !normalized.id) return;
+    const key = `${normalized.id}:${normalized.resolvedAt || 0}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    combined.push(normalized);
+  };
+  persisted.forEach(addEntry);
+  memory.forEach(addEntry);
+  combined.sort((a, b) => (b.resolvedAt || 0) - (a.resolvedAt || 0));
+  return combined.slice(0, 20);
+}
+
+function computeStatsFromHistory(history = []) {
   let wins = 0;
   let losses = 0;
   let draws = 0;
@@ -296,14 +332,147 @@ function collectPendingDuels(userId) {
   return pending.filter((entry) => !entry.deadline || entry.deadline > now);
 }
 
-function buildOverview(user) {
+async function loadPersistedHistory(userId) {
+  if (!userId) return [];
+  try {
+    const docs = await DuelResult.find({ userId })
+      .sort({ resolvedAt: -1 })
+      .limit(20)
+      .lean();
+    return docs.map((doc) => ({
+      id: doc.duelId,
+      opponent: doc.opponentName || 'حریف',
+      opponentScore: doc.opponentScore || 0,
+      yourScore: doc.yourScore || 0,
+      outcome: doc.outcome || 'draw',
+      reason: doc.reason || (doc.outcome === 'draw' ? 'draw' : 'score'),
+      resolvedAt: doc.resolvedAt instanceof Date ? doc.resolvedAt.getTime() : doc.resolvedAt,
+      startedAt: doc.startedAt instanceof Date ? doc.startedAt.getTime() : doc.startedAt,
+      deadline: doc.deadline instanceof Date ? doc.deadline.getTime() : doc.deadline,
+    }));
+  } catch (error) {
+    logger.warn(`[duel] failed to load duel history for ${userId}: ${error.message}`);
+    return [];
+  }
+}
+
+async function loadPersistedStats(userId) {
+  if (!userId) return null;
+  try {
+    const doc = await DuelStats.findOne({ userId }).lean();
+    if (!doc) return null;
+    return {
+      wins: Number.isFinite(doc.wins) ? Math.max(0, Math.round(doc.wins)) : 0,
+      losses: Number.isFinite(doc.losses) ? Math.max(0, Math.round(doc.losses)) : 0,
+      draws: Number.isFinite(doc.draws) ? Math.max(0, Math.round(doc.draws)) : 0,
+    };
+  } catch (error) {
+    logger.warn(`[duel] failed to load duel stats for ${userId}: ${error.message}`);
+    return null;
+  }
+}
+
+async function buildOverview(user) {
   const normalized = sanitizeUser(user);
-  return {
-    invites: collectInvitesForUser(normalized.id),
-    pending: collectPendingDuels(normalized.id),
-    history: (store.history.get(normalized.id) || []).map((entry) => ({ ...entry })),
-    stats: computeStats(normalized.id)
+  const userId = normalized.id;
+  const invites = collectInvitesForUser(userId);
+  const pending = collectPendingDuels(userId);
+  const memoryHistory = (store.history.get(userId) || []).map((entry) => ({ ...entry }));
+  const [persistedHistory, persistedStats] = await Promise.all([
+    loadPersistedHistory(userId),
+    loadPersistedStats(userId),
+  ]);
+  const history = mergeHistoryLists(persistedHistory, memoryHistory);
+  const stats = persistedStats || computeStatsFromHistory(history);
+  return { invites, pending, history, stats };
+}
+
+async function persistDuelStats({ duel, userId, opponentId, yourTotals, opponentTotals, outcome, resolvedAt }) {
+  if (!userId) return;
+  const opponent = opponentId ? duel.participants[opponentId] || {} : {};
+  const isVirtual = typeof userId === 'string' && userId.startsWith('op-');
+  if (isVirtual) return; // Skip synthetic opponents
+
+  const payload = {
+    duelId: duel.id,
+    userId,
+    opponentId: opponentId || '',
+    opponentName: opponent.name || 'حریف',
+    opponentAvatar: opponent.avatar || '',
+    outcome,
+    reason: outcome === 'draw' ? 'draw' : 'score',
+    yourScore: yourTotals?.earned || 0,
+    opponentScore: opponentTotals?.earned || 0,
+    startedAt: duel.startedAt ? new Date(duel.startedAt) : undefined,
+    deadline: duel.deadline ? new Date(duel.deadline) : undefined,
+    resolvedAt: new Date(resolvedAt),
   };
+
+  try {
+    await DuelResult.findOneAndUpdate(
+      { duelId: duel.id, userId },
+      { $set: payload },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  } catch (error) {
+    logger.warn(`[duel] failed to persist duel result for ${userId}: ${error.message}`);
+  }
+
+  const inc = {};
+  if (outcome === 'win') inc.wins = 1;
+  else if (outcome === 'loss') inc.losses = 1;
+  else if (outcome === 'draw') inc.draws = 1;
+
+  const update = {
+    $setOnInsert: { userId },
+    $set: { lastUpdated: new Date(resolvedAt) },
+  };
+  if (Object.keys(inc).length) {
+    update.$inc = inc;
+  }
+
+  try {
+    await DuelStats.findOneAndUpdate(
+      { userId },
+      update,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  } catch (error) {
+    logger.warn(`[duel] failed to update duel stats for ${userId}: ${error.message}`);
+  }
+}
+
+async function persistDuelOutcomes(duel, userId, totals, outcome, resolvedAt) {
+  const opponentId = getOpponentId(duel, userId);
+  const tasks = [];
+  tasks.push(
+    persistDuelStats({
+      duel,
+      userId,
+      opponentId,
+      yourTotals: totals.you,
+      opponentTotals: totals.opponent,
+      outcome,
+      resolvedAt,
+    })
+  );
+
+  if (opponentId) {
+    const challengerOutcome = outcome === 'win' ? 'loss' : outcome === 'loss' ? 'win' : 'draw';
+    tasks.push(
+      persistDuelStats({
+        duel,
+        userId: opponentId,
+        opponentId: userId,
+        yourTotals: totals.opponent,
+        opponentTotals: totals.you,
+        outcome: challengerOutcome,
+        resolvedAt,
+      })
+    );
+  }
+
+  await Promise.all(tasks);
 }
 
 async function ensureRoundCategory(duel, roundIndex, payload = {}) {
@@ -337,7 +506,7 @@ async function ensureRoundCategory(duel, roundIndex, payload = {}) {
   };
 }
 
-function finalizeDuel(duel, userId) {
+async function finalizeDuel(duel, userId) {
   const opponentId = getOpponentId(duel, userId);
   const totals = getTotalsForDuel(duel, userId, opponentId);
   const outcome = totals.you.earned > totals.opponent.earned
@@ -382,6 +551,8 @@ function finalizeDuel(duel, userId) {
   }
 
   const rewards = buildDuelRewardSummary(outcome);
+
+  await persistDuelOutcomes(duel, userId, totals, outcome, resolvedAt);
 
   return {
     duelId: duel.id,
@@ -448,11 +619,11 @@ async function createMatchmakingDuel(payload = {}) {
 
   return {
     duel: serializeDuelForUser(duel, user.id),
-    overview: buildOverview(user)
+    overview: await buildOverview(user)
   };
 }
 
-function createInvite(payload = {}) {
+async function createInvite(payload = {}) {
   const from = sanitizeUser(payload.from || payload.user);
   const target = sanitizeUser({ id: payload.targetId, name: payload.targetName, avatar: payload.targetAvatar });
   const id = randomUUID();
@@ -480,17 +651,17 @@ function createInvite(payload = {}) {
       deadline,
       source: 'invite'
     },
-    overview: buildOverview(target)
+    overview: await buildOverview(target)
   };
 }
 
-function declineInvite(inviteId, user) {
+async function declineInvite(inviteId, user) {
   const invite = store.invites.get(inviteId);
   if (!invite) {
     throw new Error('invite_not_found');
   }
   invite.status = 'declined';
-  return { overview: buildOverview(user) };
+  return { overview: await buildOverview(user) };
 }
 
 async function acceptInvite(inviteId, payload = {}) {
@@ -519,7 +690,7 @@ async function acceptInvite(inviteId, payload = {}) {
   }
   return {
     duel: serializeDuelForUser(duel, accepter.id),
-    overview: buildOverview(accepter)
+    overview: await buildOverview(accepter)
   };
 }
 
@@ -564,7 +735,7 @@ async function submitRoundResult(duelId, roundIndex, payload = {}) {
   const finished = duel.rounds.every((item) => item.results[user.id]);
   let summary = null;
   if (finished) {
-    summary = finalizeDuel(duel, user.id);
+    summary = await finalizeDuel(duel, user.id);
   }
 
   return {
@@ -580,7 +751,7 @@ async function submitRoundResult(duelId, roundIndex, payload = {}) {
     },
     totals,
     summary,
-    overview: buildOverview(user)
+    overview: await buildOverview(user)
   };
 }
 
@@ -601,7 +772,7 @@ async function assignRoundCategory(duelId, roundIndex, payload = {}) {
       categoryTitle: roundInfo.categoryTitle,
       totalQuestions: roundInfo.totalQuestions
     },
-    overview: buildOverview(user)
+    overview: await buildOverview(user)
   };
 }
 

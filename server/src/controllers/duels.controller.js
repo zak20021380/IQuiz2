@@ -19,7 +19,7 @@ function extractUser(req) {
 
 exports.overview = async (req, res, next) => {
   try {
-    const overview = duelEngine.buildOverview({
+    const overview = await duelEngine.buildOverview({
       id: req.query.userId,
       name: req.query.userName,
       avatar: req.query.avatar
