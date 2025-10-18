@@ -36,7 +36,7 @@ import {
   getCategoryDifficultyPool
 } from '../state/admin.js';
 import { loadState, saveState } from '../state/persistence.js';
-import { setGuestId } from '../utils/guest.js';
+import { setGuestId, getGuestId } from '../utils/guest.js';
 import {
   initFromAdmin,
   buildSetupFromAdmin,
@@ -176,8 +176,25 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     }
 
     if (payload.user && typeof payload.user === 'object') {
+      if (payload.user.id) {
+        State.user.id = String(payload.user.id);
+      }
       if (payload.user.score != null && Number.isFinite(Number(payload.user.score))) {
         State.score = Math.max(0, Math.round(Number(payload.user.score)));
+      }
+      if (payload.user.coins != null && Number.isFinite(Number(payload.user.coins))) {
+        State.coins = Math.max(0, Math.round(Number(payload.user.coins)));
+      }
+      if (payload.user.name) {
+        State.user.name = payload.user.name;
+      } else if (!State.user.name && payload.user.username) {
+        State.user.name = payload.user.username;
+      }
+      if (payload.user.username) {
+        State.user.username = payload.user.username;
+      }
+      if (payload.user.avatar) {
+        State.user.avatar = payload.user.avatar;
       }
       if (payload.user.province != null) {
         State.user.province = payload.user.province || '';
@@ -185,6 +202,9 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
       if (payload.user.group != null || payload.user.groupName != null) {
         const groupName = payload.user.group || payload.user.groupName || '';
         State.user.group = groupName;
+      }
+      if (payload.user.groupId != null) {
+        State.user.groupId = payload.user.groupId || '';
       }
       if (payload.user.id && Array.isArray(State.leaderboard)) {
         const idx = State.leaderboard.findIndex(entry => entry.id === payload.user.id);
@@ -4848,17 +4868,76 @@ async function startPurchaseCoins(pkgId){
     openModal('#modal-profile');
   });
   $('[data-close="#modal-profile"]')?.addEventListener('click', ()=>closeModal('#modal-profile'));
-  $('#btn-save-profile')?.addEventListener('click', ()=>{
-    const n = $('#inp-name').value.trim();
-    if(n) State.user.name = n;
+  $('#btn-save-profile')?.addEventListener('click', async () => {
+    const nameInput = $('#inp-name');
+    const btn = $('#btn-save-profile');
+    const n = nameInput?.value.trim();
+    if (!n) {
+      toast('لطفاً نام خود را وارد کن');
+      nameInput?.focus();
+      return;
+    }
 
-    // استان قابل تغییر نیست، بنابراین مقدار آن ذخیره نمی‌شود
+    const originalLabel = btn?.innerHTML;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="flex items-center gap-2 justify-center"><span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span><span>در حال ذخیره...</span></span>';
+    }
 
-    saveState();
-    renderHeader();
-    renderDashboard();
-    closeModal('#modal-profile');
-    toast('ذخیره شد ✅');
+    try {
+      const payload = { name: n, guestId: getGuestId() };
+      if (State.user.province) {
+        payload.province = State.user.province;
+      }
+
+      const response = await Api.registerProfile(payload);
+      if (!response || response.ok === false) {
+        toast(response?.message || 'ثبت پروفایل با خطا مواجه شد');
+        return;
+      }
+
+      if (response.token) {
+        Net.setAuthToken(response.token);
+      }
+
+      if (response.data?.user) {
+        const user = response.data.user;
+        State.user.id = user.id || State.user.id || 'guest';
+        State.user.name = user.name || n;
+        State.user.username = user.username || State.user.username || '';
+        State.user.avatar = user.avatar || State.user.avatar;
+        State.user.province = user.province || State.user.province || '';
+        State.user.group = user.groupName || user.group || State.user.group || '';
+        State.user.groupId = user.groupId || State.user.groupId || '';
+        if (user.score != null && Number.isFinite(Number(user.score))) {
+          State.score = Math.max(0, Math.round(Number(user.score)));
+        }
+        if (user.coins != null && Number.isFinite(Number(user.coins))) {
+          State.coins = Math.max(0, Math.round(Number(user.coins)));
+        }
+      } else {
+        State.user.name = n;
+      }
+
+      if (response.data?.leaderboard) {
+        applyLeaderboardData(response.data.leaderboard);
+      } else {
+        saveState();
+        renderHeader();
+        renderDashboard();
+      }
+
+      closeModal('#modal-profile');
+      toast('پروفایل ذخیره شد ✅');
+    } catch (error) {
+      console.error('Failed to register profile', error);
+      toast('خطا در ثبت پروفایل کاربر');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalLabel || 'ذخیره';
+      }
+    }
   });
   $('#btn-clear')?.addEventListener('click', ()=>{ if(confirm('همهٔ داده‌ها حذف شود؟')){ localStorage.removeItem(STORAGE_KEY); location.reload(); } });
   

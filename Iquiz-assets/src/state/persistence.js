@@ -7,6 +7,25 @@ function loadState(){
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
     if (stored) Object.assign(State, stored);
+    if (!State.user || typeof State.user !== 'object') {
+      State.user = {
+        id: 'guest',
+        name: 'کاربر مهمان',
+        username: '',
+        avatar: 'https://i.pravatar.cc/120?img=12',
+        province: '',
+        group: '',
+        groupId: ''
+      };
+    } else {
+      State.user.id = State.user.id || 'guest';
+      State.user.name = State.user.name || 'کاربر مهمان';
+      State.user.username = State.user.username || '';
+      State.user.avatar = State.user.avatar || 'https://i.pravatar.cc/120?img=12';
+      State.user.province = State.user.province || '';
+      State.user.group = State.user.group || '';
+      State.user.groupId = State.user.groupId || '';
+    }
     if (!State.groupBattle || typeof State.groupBattle !== 'object') {
       State.groupBattle = { selectedHostId: '', selectedOpponentId: '', lastResult: null };
     } else {

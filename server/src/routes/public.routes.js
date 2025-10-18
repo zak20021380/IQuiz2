@@ -202,6 +202,8 @@ router.post('/answers', async (req, res, next) => {
   }
 });
 
+router.post('/register', leaderboardController.registerGuest);
+
 router.get('/leaderboard', optionalAuth, leaderboardController.overview);
 router.post('/progress', protect, leaderboardController.recordProgress);
 router.patch('/profile', protect, leaderboardController.updateProfile);
