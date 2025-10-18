@@ -61,6 +61,10 @@ export async function updateProfile(payload) {
   return await Net.jpatch(`${API_BASE}/profile`, payload);
 }
 
+export async function registerProfile(payload) {
+  return await Net.jpost(`${API_BASE}/register`, payload);
+}
+
 export async function startGroupBattle(payload) {
   return await Net.jpost(GROUP_BATTLES_BASE, payload);
 }
@@ -117,6 +121,7 @@ const Api = {
   recordAnswers,
   leaderboard,
   submitProgress,
-  updateProfile
+  updateProfile,
+  registerProfile,
 };
 export default Api;

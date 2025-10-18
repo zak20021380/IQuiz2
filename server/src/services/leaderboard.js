@@ -331,7 +331,11 @@ async function buildOverviewPayload(userDoc) {
       : null;
     result.user = {
       id: userDoc._id ? userDoc._id.toString() : undefined,
+      name: userDoc.name || userDoc.username || '',
+      username: userDoc.username || '',
+      avatar: userDoc.avatar || '',
       score: sanitizeScore(userDoc.score),
+      coins: sanitizeScore(userDoc.coins),
       province: userDoc.province || '',
       groupId: userDoc.groupId || '',
       group: userDoc.groupName || '',

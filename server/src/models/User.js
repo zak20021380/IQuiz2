@@ -18,10 +18,11 @@ const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, trim: true },
     name:     { type: String, trim: true, default: function () { return this.username; } },
+    guestId:  { type: String, trim: true, unique: true, sparse: true, index: true },
     email:    {
       type: String,
       required: function requiredEmail() {
-        return !this.telegramId;
+        return !this.telegramId && !this.guestId;
       },
       unique: true,
       sparse: true,
@@ -31,7 +32,7 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: function requiredPassword() {
-        return !this.telegramId;
+        return !this.telegramId && !this.guestId;
       },
       minlength: 6,
       select: false
