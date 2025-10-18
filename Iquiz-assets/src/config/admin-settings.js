@@ -1,4 +1,17 @@
 const ADMIN_SETTINGS_STORAGE_KEY = 'iquiz_admin_settings_v1';
+const ADMIN_SETTINGS_BROADCAST_CHANNEL = 'iquiz_admin_settings_sync';
+const ADMIN_SETTINGS_BROADCAST_TYPE = 'admin-settings:update';
+
+function createInstanceId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch (_) {}
+  }
+  return `inst_${Math.random().toString(36).slice(2)}`;
+}
+
+const ADMIN_SETTINGS_INSTANCE_ID = createInstanceId();
 
 const DEFAULT_GENERAL = Object.freeze({
   appName: 'Quiz WebApp Pro',
@@ -311,12 +324,133 @@ function normalizeSettings(raw) {
   };
 }
 
+let localStorageSupported = null;
+
+function hasLocalStorageSupport() {
+  if (localStorageSupported !== null) return localStorageSupported;
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      localStorageSupported = false;
+      return localStorageSupported;
+    }
+    const testKey = '__admin_settings_test__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+    localStorageSupported = true;
+  } catch (_) {
+    localStorageSupported = false;
+  }
+  return localStorageSupported;
+}
+
+function buildBroadcastPayload(settings) {
+  if (!settings || typeof settings !== 'object') return null;
+  const updatedAt = Number.isFinite(Number(settings.updatedAt))
+    ? Number(settings.updatedAt)
+    : Date.now();
+  return {
+    type: ADMIN_SETTINGS_BROADCAST_TYPE,
+    version: 1,
+    origin: ADMIN_SETTINGS_INSTANCE_ID,
+    updatedAt,
+    data: settings,
+  };
+}
+
+function parseBroadcastPayload(raw) {
+  if (!raw) return null;
+  let payload = raw;
+  if (typeof raw === 'string') {
+    try {
+      payload = JSON.parse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+  if (!payload || typeof payload !== 'object') return null;
+  if (payload.general || payload.rewards || payload.shop) {
+    const updatedAt = Number.isFinite(Number(payload.updatedAt)) ? Number(payload.updatedAt) : Date.now();
+    return {
+      type: ADMIN_SETTINGS_BROADCAST_TYPE,
+      origin: null,
+      updatedAt,
+      data: payload,
+    };
+  }
+  if (!payload.data || typeof payload.data !== 'object') return null;
+  return {
+    type: typeof payload.type === 'string' ? payload.type : ADMIN_SETTINGS_BROADCAST_TYPE,
+    origin: typeof payload.origin === 'string' ? payload.origin : null,
+    updatedAt: Number.isFinite(Number(payload.updatedAt)) ? Number(payload.updatedAt) : Date.now(),
+    data: payload.data,
+  };
+}
+
+function persistBroadcastPayload(payload) {
+  if (!payload || !hasLocalStorageSupport()) return;
+  try {
+    window.localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(payload));
+  } catch (_) {}
+}
+
+function readPersistedSettings() {
+  if (!hasLocalStorageSupport()) return null;
+  try {
+    const raw = window.localStorage.getItem(ADMIN_SETTINGS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = parseBroadcastPayload(raw);
+    if (!parsed || !parsed.data) return null;
+    const normalized = normalizeSettings(parsed.data);
+    const updatedAt = Number.isFinite(parsed.updatedAt) ? parsed.updatedAt : normalized.updatedAt;
+    return { settings: normalized, updatedAt };
+  } catch (error) {
+    console.warn('[admin-settings] failed to read cached settings', error);
+  }
+  return null;
+}
+
+let broadcastChannel = null;
+
+function ensureBroadcastChannel() {
+  if (broadcastChannel !== null) return broadcastChannel || null;
+  if (typeof window === 'undefined' || typeof window.BroadcastChannel !== 'function') {
+    broadcastChannel = false;
+    return null;
+  }
+  try {
+    const channel = new BroadcastChannel(ADMIN_SETTINGS_BROADCAST_CHANNEL);
+    channel.onmessage = (event) => {
+      const parsed = parseBroadcastPayload(event?.data);
+      if (!parsed || !parsed.data) return;
+      if (parsed.origin && parsed.origin === ADMIN_SETTINGS_INSTANCE_ID) return;
+      if (parsed.type && parsed.type !== ADMIN_SETTINGS_BROADCAST_TYPE) return;
+      applyAndCache(parsed.data, { skipBroadcast: true, skipPersist: true });
+    };
+    broadcastChannel = channel;
+    return channel;
+  } catch (error) {
+    console.warn('[admin-settings] failed to create BroadcastChannel', error);
+    broadcastChannel = false;
+    return null;
+  }
+}
+
+function broadcastSettingsUpdate(payload) {
+  if (!payload) return;
+  const channel = ensureBroadcastChannel();
+  if (!channel || typeof channel.postMessage !== 'function') return;
+  try {
+    channel.postMessage(payload);
+  } catch (_) {}
+}
+
 const ADMIN_SETTINGS_ENDPOINT = '/api/public/admin-settings';
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const MIN_REFRESH_INTERVAL_MS = 30 * 1000;
 
-let cachedSettings = normalizeSettings(DEFAULT_SETTINGS);
-let lastFetchedAt = 0;
+const persistedSettings = readPersistedSettings();
+let cachedSettings = persistedSettings?.settings || normalizeSettings(DEFAULT_SETTINGS);
+let lastFetchedAt = persistedSettings?.updatedAt || 0;
 let fetchPromise = null;
 let listenersAttached = false;
 const subscribers = new Set();
@@ -332,8 +466,25 @@ function notifySubscribers(settings) {
   });
 }
 
-function applyAndCache(settings) {
-  cachedSettings = normalizeSettings(settings || DEFAULT_SETTINGS);
+function applyAndCache(settings, options = {}) {
+  const { skipBroadcast = false, skipPersist = false } = options;
+  const normalized = normalizeSettings(settings || DEFAULT_SETTINGS);
+  const timestamp = Number.isFinite(Number(normalized.updatedAt)) ? Number(normalized.updatedAt) : Date.now();
+  const now = Date.now();
+  lastFetchedAt = Math.max(lastFetchedAt, timestamp, now);
+  cachedSettings = normalized;
+
+  let payload = null;
+  if (!skipBroadcast || !skipPersist) {
+    payload = buildBroadcastPayload(normalized);
+  }
+  if (!skipPersist && payload) {
+    persistBroadcastPayload(payload);
+  }
+  if (!skipBroadcast && payload) {
+    broadcastSettingsUpdate(payload);
+  }
+
   notifySubscribers(cachedSettings);
   return cachedSettings;
 }
@@ -352,7 +503,6 @@ async function fetchAdminSettingsFromServer() {
       ? (payload.data && typeof payload.data === 'object' ? payload.data : payload)
       : {};
     if (data && typeof data === 'object') {
-      lastFetchedAt = Date.now();
       return applyAndCache(data);
     }
   } catch (error) {
@@ -387,6 +537,19 @@ function ensureEventListeners() {
   };
 
   window.addEventListener('iquiz-admin-settings-updated', handleCustomUpdate);
+
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('storage', (event) => {
+      if (!event || event.key !== ADMIN_SETTINGS_STORAGE_KEY || !event.newValue) return;
+      const parsed = parseBroadcastPayload(event.newValue);
+      if (!parsed || !parsed.data) return;
+      if (parsed.origin && parsed.origin === ADMIN_SETTINGS_INSTANCE_ID) return;
+      if (parsed.type && parsed.type !== ADMIN_SETTINGS_BROADCAST_TYPE) return;
+      applyAndCache(parsed.data, { skipBroadcast: true, skipPersist: true });
+    });
+  }
+
+  ensureBroadcastChannel();
 
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('visibilitychange', () => {
