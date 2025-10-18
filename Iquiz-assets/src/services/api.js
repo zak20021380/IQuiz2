@@ -3,6 +3,7 @@ import { getGuestId } from '../utils/guest.js';
 
 export const API_BASE = '/api/public';
 const GROUP_BATTLES_BASE = '/api/group-battles';
+const GROUPS_BASE = '/api/groups';
 const DUELS_BASE = '/api/duels';
 
 export async function config() {
@@ -42,7 +43,26 @@ export async function provinces() {
 }
 
 export async function groups() {
-  return await Net.jget(`${GROUP_BATTLES_BASE}/groups`);
+  return await Net.jget(GROUPS_BASE);
+}
+
+export async function createGroup(payload) {
+  return await Net.jpost(GROUPS_BASE, payload);
+}
+
+export async function joinGroup(groupId) {
+  if (!groupId) return null;
+  return await Net.jpost(`${GROUPS_BASE}/${groupId}/join`, {});
+}
+
+export async function leaveGroup(groupId) {
+  if (!groupId) return null;
+  return await Net.jpost(`${GROUPS_BASE}/${groupId}/leave`, {});
+}
+
+export async function deleteGroup(groupId) {
+  if (!groupId) return null;
+  return await Net.jdel(`${GROUPS_BASE}/${groupId}`);
 }
 
 export async function groupBattles() {
@@ -109,6 +129,10 @@ const Api = {
   questions,
   provinces,
   groups,
+  createGroup,
+  joinGroup,
+  leaveGroup,
+  deleteGroup,
   groupBattles,
   startGroupBattle,
   duelOverview,
