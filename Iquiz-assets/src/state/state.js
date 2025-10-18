@@ -164,7 +164,6 @@ const State = {
   ],
   provinces: [],
   groups: [],
-  ads: { banner: [], native: [], interstitial: [], rewarded: [] },
   quiz:{
     inProgress:false, answered:false, correctIndex:-1,
     duration:DEFAULT_QUESTION_TIME, remain:DEFAULT_QUESTION_TIME, timer:null,

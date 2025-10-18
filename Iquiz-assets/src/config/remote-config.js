@@ -7,15 +7,6 @@ export const RemoteConfig = {
 
   provinceTargeting: { enabled: true, allow: ['تهران','کردستان','آذربایجان غربی','اصفهان'] },
 
-  ads: {
-    enabled: true,
-    placements: { banner:true, native:true, interstitial:true, rewarded:true },
-    freqCaps: { interstitialPerSession: 2, rewardedPerSession: 3 },
-    interstitialCooldownMs: 60_000,
-    rewardedMinWatchMs: 7_000,
-    session: { interstitialShown: 0, rewardedShown: 0, lastInterstitialAt: 0 }
-  },
-
   pricing: {
     usdToToman: 70_000,
 
@@ -46,10 +37,7 @@ export const RemoteConfig = {
     }
   },
 
-  abOverrides: {
-    A: { ads:{ freqCaps:{ interstitialPerSession:2 } } },
-    B: { ads:{ freqCaps:{ interstitialPerSession:1 } } }
-  },
+  abOverrides: {},
 
   gameLimits: {
     matches: { daily: 3, vipMultiplier: 2, recoveryTime: 2 * 60 * 60 * 1000 },

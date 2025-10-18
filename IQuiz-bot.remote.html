@@ -49,10 +49,18 @@
       </button>
     </div>
   </header>
-  <!-- Banner Ad Placeholder (CLS-safe) -->
-  <div id="ad-banner" class="ad-banner-slot safe">
-    <div class="ad-banner-inner relative overflow-hidden max-w-md">
-      <div class="ad-skeleton w-full text-center select-none">محل بنر ۳۲۰×۵۰/۱۰۰</div>
+  <!-- Focus Spotlight -->
+  <div id="focus-banner" class="focus-banner safe" aria-live="polite">
+    <div class="focus-banner-card">
+      <div class="focus-banner-icon" aria-hidden="true"><i class="fas fa-compass"></i></div>
+      <div class="focus-banner-text">
+        <h3 class="focus-banner-title">آماده شروع چالش امروز هستی؟</h3>
+        <p class="focus-banner-sub">برای حفظ استریک روزانه همین حالا یک مسابقه جدید آغاز کن.</p>
+      </div>
+      <button type="button" id="focus-banner-action" class="focus-banner-action btn btn-primary w-auto px-4 py-2 text-sm">
+        <i class="fas fa-play ml-1" aria-hidden="true"></i>
+        <span class="focus-banner-action-label">شروع سریع</span>
+      </button>
     </div>
   </div>
   <!-- Pages -->
@@ -223,9 +231,15 @@
         </div>
       </div>
       
-      <!-- Native Ad (CLS-safe placeholder) -->
-      <div id="ad-native-dashboard" class="ad-native-slot relative overflow-hidden">
-        <div class="ad-skeleton">تبلیغ همسان</div>
+      <!-- Motivation Card -->
+      <div id="dashboard-spotlight" class="insight-card" aria-live="polite">
+        <div class="insight-card-body">
+          <div class="insight-card-icon" aria-hidden="true"><i class="fas fa-lightbulb"></i></div>
+          <div>
+            <h3 class="insight-card-title">نکته پیشرفت</h3>
+            <p class="insight-card-sub">با تکمیل چالش روز، استریک خود را تثبیت کن و سکه بیشتری بگیر.</p>
+          </div>
+        </div>
       </div>
       
       <!-- Daily -->
@@ -552,9 +566,15 @@
         <div id="lb-individual" class="lb-content">
           <div id="lb-list" class="space-y-3"></div>
           <div id="my-rank-card" class="hidden mt-4"></div>
-          <!-- Native ad inline -->
-          <div id="ad-native-lb" class="ad-native-slot mt-4 relative overflow-hidden">
-            <div class="ad-skeleton">تبلیغ همسان</div>
+          <!-- Leaderboard Insight -->
+          <div id="leaderboard-spotlight" class="insight-card mt-4" aria-live="polite">
+            <div class="insight-card-body">
+              <div class="insight-card-icon" aria-hidden="true"><i class="fas fa-flag-checkered"></i></div>
+              <div>
+                <h4 class="insight-card-title">گزارش عملکرد</h4>
+                <p class="insight-card-sub">با یک مسابقه دیگر می‌توانی رتبه هفتگی خود را تثبیت کنی.</p>
+              </div>
+            </div>
           </div>
         </div>
         <div id="lb-province" class="lb-content hidden">
@@ -1090,23 +1110,23 @@
       </button>
     </section>
   <!-- Bottom Nav -->
-  <nav class="glass safe sticky bottom-0 z-50 w-full shadow-lg">
-    <div class="max-w-md mx-auto grid grid-cols-4">
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="dashboard" aria-label="خانه">
-        <i class="fas fa-home text-xl mb-1"></i>
-        <div class="text-xs">خانه</div>
+  <nav class="bottom-nav glass safe sticky bottom-0 z-50 w-full shadow-lg" aria-label="پیمایش اصلی">
+    <div class="bottom-nav-grid max-w-md mx-auto">
+      <button class="nav-item" data-tab="dashboard" aria-label="خانه">
+        <i class="fas fa-home"></i>
+        <span class="nav-label">خانه</span>
       </button>
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="quiz" aria-label="مسابقه">
-        <i class="fas fa-gamepad text-xl mb-1"></i>
-        <div class="text-xs">مسابقه</div>
+      <button class="nav-item" data-tab="quiz" aria-label="مسابقه">
+        <i class="fas fa-gamepad"></i>
+        <span class="nav-label">مسابقه</span>
       </button>
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="leaderboard" aria-label="لیدربورد">
-        <i class="fas fa-chart-line text-xl mb-1"></i>
-        <div class="text-xs">لیدربورد</div>
+      <button class="nav-item" data-tab="leaderboard" aria-label="لیدربورد">
+        <i class="fas fa-chart-line"></i>
+        <span class="nav-label">لیدربورد</span>
       </button>
-      <button class="py-4 text-center hover:bg-white/10 transition nav-item" data-tab="shop" aria-label="فروشگاه">
-        <i class="fas fa-store text-xl mb-1"></i>
-        <div class="text-xs">فروشگاه</div>
+      <button class="nav-item" data-tab="shop" aria-label="فروشگاه">
+        <i class="fas fa-store"></i>
+        <span class="nav-label">فروشگاه</span>
       </button>
     </div>
   </nav>
@@ -1421,28 +1441,6 @@
     </div>
   </div>
 </div>
-
-  <!-- Interstitial Ad -->
-  <div id="modal-interstitial" class="interstitial" aria-modal="true" role="dialog" aria-label="تبلیغ میانی">
-    <div class="interstitial-card glass w-full h-full max-w-md max-h-[80vh]">
-      <button id="interstitial-close" class="ad-close" aria-label="بستن تبلیغ"><i class="fas fa-times"></i></button>
-      <iframe id="interstitial-frame" title="Interstitial Ad" class="w-full h-full" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe>
-    </div>
-  </div>
-  
-  <!-- Rewarded Ad -->
-  <div id="modal-rewarded" class="rewarded" aria-modal="true" role="dialog" aria-label="تبلیغ ویدیویی">
-    <div class="rewarded-card glass w-full h-full max-w-md max-h-[80vh] relative">
-      <button id="rewarded-close" class="ad-close" aria-label="بستن ویدیو"><i class="fas fa-times"></i></button>
-      <video id="rewarded-video" class="w-full h-full object-cover" playsinline controls preload="metadata">
-        <source src="" type="video/mp4">
-      </video>
-      <div class="absolute bottom-2 right-2 left-2 flex items-center justify-between">
-        <div id="rewarded-countdown" class="chip">در حال بارگذاری...</div>
-        <button id="rewarded-claim" class="btn btn-primary w-auto px-4 py-2 disabled:opacity-50" disabled aria-label="دریافت پاداش">دریافت پاداش</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Duel Rule Modal -->
   <div id="duel-rule-modal" class="duel-rule-modal" aria-hidden="true" role="dialog" aria-labelledby="duel-rule-title" aria-describedby="duel-rule-desc">

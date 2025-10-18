@@ -1780,8 +1780,8 @@ function populateProvinceOptions(selectEl, placeholder){
     NAV_PAGES.forEach(p=>$('#page-'+p)?.classList.add('hidden'));
     $('#page-'+page)?.classList.remove('hidden'); $('#page-'+page)?.classList.add('fade-in');
     $$('nav [data-tab]').forEach(b=>{ b.classList.toggle('bg-white/10', b.dataset.tab===page); b.classList.toggle('active', b.dataset.tab===page); });
-    if(page==='dashboard') { renderDashboard(); AdManager.renderNative('#ad-native-dashboard'); }
-    if(page==='leaderboard'){ renderLeaderboard(); AdManager.renderNative('#ad-native-lb'); }
+    if(page==='dashboard') { renderDashboard(); AdManager.renderNative('#dashboard-spotlight'); }
+    if(page==='leaderboard'){ renderLeaderboard(); AdManager.renderNative('#leaderboard-spotlight'); }
     if(page==='shop'){ renderShop(); }
     if(page==='wallet'){ renderWallet(); }
     if(page==='vip'){ renderVipPlans(); updateVipUI(); }
@@ -4435,250 +4435,130 @@ async function startPurchaseCoins(pkgId){
     }
   }
   
-  // ===== Ads Manager =====
+  // ===== Engagement Highlights =====
   const AdManager = {
-    enabled(){ return RemoteConfig.ads.enabled && !Server.subscription.active; },
-    getLocalAd(placement){
-      const ads = State.ads?.[placement] || [];
-      const now = Date.now();
-      const province = Server.user.province || State.user.province;
-      return ads.find(a => {
-        const start = new Date(a.startDate).getTime();
-        const end = new Date(a.endDate).getTime();
-        const targets = a.provinces || [];
-        return now >= start && now <= end && (targets.length === 0 || targets.includes(province));
-      }) || null;
-    },
-    // Banner
-    async renderBanner(){
-      const slot = $('#ad-banner .ad-banner-inner'); if(!slot) return;
-      slot.innerHTML = ''; // reserved height stays via parent
-      const local = this.getLocalAd('banner');
-      if(local){
-        const w=document.createElement('a');
-        w.href=local.landing; w.target='_blank';
-        w.className='w-full h-full block relative';
-        w.innerHTML=`<img src="${local.creative}" alt="banner ad" class="w-full h-full object-cover">`;
-        const close=document.createElement('button'); close.className='ad-close'; close.innerHTML='<i class="fas fa-times"></i>';
-        close.setAttribute('aria-label','بستن بنر');
-        close.onclick=()=>{ slot.innerHTML='<div class="ad-skeleton">بنر بسته شد</div>'; logEvent('ad_close',{placement:'banner', local:true}); };
-        w.appendChild(close); slot.appendChild(w);
-        logEvent('ad_impression',{placement:'banner', local:true});
-        w.addEventListener('click',()=>logEvent('ad_click',{placement:'banner', local:true}),{once:true});
-        return;
-      }
-      if(!this.enabled() || !RemoteConfig.ads.placements.banner){
-        slot.innerHTML = `<div class="ad-skeleton">${Server.subscription.active ? 'وی‌آی‌پی: بدون تبلیغ' : 'تبلیغ غیرفعال'}</div>`;
-        return;
-      }
-      // Try remote, else fallback card
-      try{
-        const res = await Net.jget('/api/public/ads?placement=banner&province='+encodeURIComponent(Server.user.province||State.user.province));
-        const data = res?.data ?? res;
-        if(data && data.creativeUrl){
-          const link = document.createElement('a'); link.className='w-full h-full block relative'; link.href = data.landingUrl || '#'; link.target = '_blank';
-          link.innerHTML = `<img src="${data.creativeUrl}" alt="sponsor banner" class="w-full h-full object-cover">`;
-          const close = document.createElement('button'); close.className='ad-close'; close.innerHTML='<i class="fas fa-times"></i>'; close.setAttribute('aria-label','بستن بنر');
-          close.onclick=()=>{ slot.innerHTML=`<div class="ad-skeleton">بنر بسته شد</div>`; logEvent('ad_close',{placement:'banner'}); };
-          link.appendChild(close);
-          slot.appendChild(link);
-          logEvent('ad_impression',{placement:'banner'});
-          link.addEventListener('click',()=>logEvent('ad_click',{placement:'banner'}),{once:true});
-          return;
+    renderBanner(){
+      const container = $('#focus-banner');
+      if(!container) return;
+      const iconEl = container.querySelector('.focus-banner-icon i');
+      const titleEl = container.querySelector('.focus-banner-title');
+      const subEl = container.querySelector('.focus-banner-sub');
+      const actionBtn = $('#focus-banner-action');
+      const actionLabel = actionBtn?.querySelector('.focus-banner-action-label');
+      const pendingDuels = Array.isArray(State.pendingDuels) ? State.pendingDuels.length : 0;
+      const streak = Math.max(0, Number(State.streak) || 0);
+
+      const setAction = (iconClass, label, handler) => {
+        if(actionBtn){
+          const icon = actionBtn.querySelector('i');
+          if(icon){ icon.className = `fas ${iconClass} ml-1`; icon.setAttribute('aria-hidden', 'true'); }
+          if(actionLabel){ actionLabel.textContent = label; }
+          actionBtn.onclick = handler;
         }
-      }catch{}
-      // Fallback
-      slot.innerHTML = `<a href="#" class="w-full h-full flex items-center justify-between px-4" aria-label="اسپانسر محلی">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-r from-amber-300 to-orange-400"></div>
-          <div class="text-sm"><div class="font-bold">کد تخفیف همشهری</div><div class="opacity-80">SANANDAJ10</div></div>
-        </div>
-        <i class="fas fa-arrow-left opacity-80"></i>
-      </a>`;
-      logEvent('ad_impression',{placement:'banner', fallback:true});
+      };
+
+      if(pendingDuels > 0){
+        if(iconEl){ iconEl.className = 'fas fa-swords'; iconEl.setAttribute('aria-hidden', 'true'); }
+        if(titleEl) titleEl.textContent = 'نبردهای منتظر پاسخ';
+        if(subEl) subEl.textContent = `${faNum(pendingDuels)} نبرد در انتظار پاسخ توست؛ با ورود سریع امتیاز تیم را حفظ کن.`;
+        setAction('fa-swords', 'مشاهده نبردها', () => navTo('duel'));
+        return;
+      }
+
+      if(streak > 0){
+        if(iconEl){ iconEl.className = 'fas fa-fire'; iconEl.setAttribute('aria-hidden', 'true'); }
+        if(titleEl) titleEl.textContent = `استریک ${faNum(streak)} روزه را حفظ کن`;
+        if(subEl) subEl.textContent = 'یک مسابقه تازه شروع کن تا شعله استریک خاموش نشود.';
+        setAction('fa-play', 'شروع مسابقه', () => { navTo('quiz'); openSetupSheet(); });
+        return;
+      }
+
+      if(iconEl){ iconEl.className = 'fas fa-compass'; iconEl.setAttribute('aria-hidden', 'true'); }
+      if(titleEl) titleEl.textContent = 'اولین مسابقه امروز';
+      if(subEl) subEl.textContent = 'با شروع یک کوییز جدید، استریک روزانه و پاداش‌ها فعال می‌شوند.';
+      setAction('fa-play', 'شروع سریع', () => { navTo('quiz'); openSetupSheet(); });
     },
-    // Native
-    async renderNative(selector){
-      const slot = document.querySelector(selector); if(!slot) return;
-      slot.innerHTML = '<div class="ad-skeleton">تبلیغ همسان</div>';
-      const local=this.getLocalAd('native');
-      if(local){
-        slot.innerHTML=`<div class="w-full flex items-center gap-3 p-3 relative">
-            <img src="${local.creative}" class="w-16 h-16 rounded-2xl object-cover" alt="ad">
-            <div class="flex-1">
-              <div class="font-bold">تبلیغ اسپانسری</div>
-              <div class="text-xs opacity-80">${new URL(local.landing).hostname}</div>
+
+    renderNative(selector){
+      const slot = document.querySelector(selector);
+      if(!slot) return;
+      if(!slot.querySelector('.insight-card-body')){
+        slot.innerHTML = `
+          <div class="insight-card-body">
+            <div class="insight-card-icon" aria-hidden="true"><i class="fas fa-lightbulb"></i></div>
+            <div>
+              <h3 class="insight-card-title">نکته سریع</h3>
+              <p class="insight-card-sub">برای دیدن تازه‌ترین نکات، یک مسابقه جدید شروع کن.</p>
             </div>
-            <a role="button" href="${local.landing}" class="btn btn-primary w-auto px-4 py-2 text-sm" aria-label="مشاهده">مشاهده</a>
           </div>`;
-        logEvent('ad_impression',{placement:'native', local:true});
-        slot.querySelector('a')?.addEventListener('click',()=>logEvent('ad_click',{placement:'native', local:true}),{once:true});
-        return;
       }
-      if(!this.enabled() || !RemoteConfig.ads.placements.native){ slot.innerHTML = '<div class="ad-skeleton">—</div>'; return; }
-      try{
-        const res = await Net.jget('/api/public/ads?placement=native&province='+encodeURIComponent(Server.user.province||State.user.province));
-        const data = res?.data ?? res;
-        if(data && (data.headline || data.imageUrl || data.landingUrl)){
-          const headline = data.headline || 'پیشنهاد ویژه';
-          const description = data.description || 'اسپانسر رسمی رقابت امروز';
-          const imageUrl = data.imageUrl || 'https://picsum.photos/seed/iquiz-native/88/88';
-          const landingUrl = data.landingUrl || '#';
-          const ctaLabel = data.ctaLabel || 'مشاهده';
-          slot.innerHTML = `<div class="w-full flex items-center gap-3 p-3 relative">
-            <img src="${imageUrl}" class="w-16 h-16 rounded-2xl object-cover" alt="ad">
-            <div class="flex-1">
-              <div class="font-bold">${headline}</div>
-              <div class="text-xs opacity-80">${description}</div>
-            </div>
-            <a role="button" href="${landingUrl}" target="_blank" rel="noopener" class="btn btn-primary w-auto px-4 py-2 text-sm" aria-label="${ctaLabel}">${ctaLabel}</a>
-          </div>`;
-          logEvent('ad_impression',{placement:'native'});
-          slot.querySelector('a')?.addEventListener('click',()=>logEvent('ad_click',{placement:'native'}),{once:true});
-          return;
-        }
-      }catch{}
-      // Fallback to sponsor
-      slot.innerHTML = $('#sponsor-card').outerHTML;
-      logEvent('ad_impression',{placement:'native', fallback:true});
-    },
-    // Interstitial (frequency capping)
-    async maybeShowInterstitial(trigger){
-      const allowedTrigger = 'app_open';
-      if(trigger !== allowedTrigger) return;
-      if(!this.enabled() || !RemoteConfig.ads.placements.interstitial) return;
-      const now = Date.now();
-      const storageKey = 'iquiz_interstitial_last_shown';
-      const dayMs = 24 * 60 * 60 * 1000;
-      let lastShown = 0;
-      try {
-        const stored = window.localStorage?.getItem(storageKey);
-        if(stored) lastShown = Number(stored) || 0;
-      } catch {}
-      if(lastShown && (now - lastShown) < dayMs) return;
-      const caps = RemoteConfig.ads.freqCaps; const sess = RemoteConfig.ads.session;
-      if(sess.interstitialShown >= caps.interstitialPerSession) return;
-      if(now - sess.lastInterstitialAt < RemoteConfig.ads.interstitialCooldownMs) return;
-      const modal = $('#modal-interstitial'); const frame = $('#interstitial-frame');
-      if(!modal || !frame) return;
-      let local = this.getLocalAd('interstitial');
-      if(local && !local.creative){ local = null; }
-      let creativeReady = false;
-      let isLocal = false;
+      const icon = slot.querySelector('.insight-card-icon i');
+      const title = slot.querySelector('.insight-card-title');
+      const sub = slot.querySelector('.insight-card-sub');
 
-      frame.removeAttribute('src');
-      frame.removeAttribute('srcdoc');
-      frame.src = 'about:blank';
-
-      if(local){
-        frame.removeAttribute('srcdoc');
-        frame.src = local.creative;
-        creativeReady = true;
-        isLocal = true;
-      } else {
-        let remote = null;
-        try{
-          const res = await Net.jget('/api/public/ads?placement=interstitial&province='+encodeURIComponent(Server.user.province||State.user.province));
-          remote = res?.data ?? res;
-        }catch{}
-        const creativeUrlRaw = remote?.creativeUrl ?? remote?.creative ?? '';
-        const creativeUrl = typeof creativeUrlRaw === 'string' ? creativeUrlRaw : '';
-        const creativeType = (remote?.creativeType || '').toLowerCase();
-        if(creativeType === 'html' && creativeUrl){
-          frame.removeAttribute('src');
-          frame.srcdoc = creativeUrl;
-          creativeReady = true;
-        } else if(creativeUrl && creativeUrl.trim().startsWith('<')){
-          frame.removeAttribute('src');
-          frame.srcdoc = creativeUrl;
-          creativeReady = true;
-        } else if(creativeUrl){
-          frame.removeAttribute('srcdoc');
-          frame.src = creativeUrl;
-          creativeReady = true;
-        }
-      }
-
-      if(!creativeReady){
-        frame.src = 'about:blank';
-        frame.removeAttribute('srcdoc');
-        logEvent('ad_no_fill',{placement:'interstitial', trigger});
-        return;
-      }
-
-      sess.interstitialShown += 1;
-      sess.lastInterstitialAt = now;
-      logEvent('ad_impression',{placement:'interstitial', trigger, local:isLocal});
-      modal.classList.add('show');
-      try { window.localStorage?.setItem(storageKey, String(now)); } catch {}
-      let closed=false;
-      function close(){ if(closed) return; closed=true; modal.classList.remove('show'); frame.src='about:blank'; frame.removeAttribute('srcdoc'); logEvent('ad_close',{placement:'interstitial'}); }
-      $('#interstitial-close').onclick = close;
-      setTimeout(()=>{ if(!closed){ close(); } }, 10_000);
-    },
-    // Rewarded
-    async showRewarded({reward='coins', amount=20}={}){
-      if(!this.enabled() || !RemoteConfig.ads.placements.rewarded){ toast('تبلیغ در دسترس نیست'); return false; }
-      const sess = RemoteConfig.ads.session; if(sess.rewardedShown >= RemoteConfig.ads.freqCaps.rewardedPerSession){ toast('سقف تماشای ویدیو امروز تکمیل شده'); return false; }
-      if(Server.subscription.active){ toast('در VIP تبلیغات نمایش داده نمی‌شود'); return false; }
-      sess.rewardedShown++;
-      const modal = $('#modal-rewarded'); const vid = $('#rewarded-video'); const claim = $('#rewarded-claim'); const cd = $('#rewarded-countdown');
-      const local = this.getLocalAd('rewarded');
-      let videoSrc = null; let rewardType = reward; let rewardAmount = amount; let landingUrl = '#';
-      if(local){
-        videoSrc = local.creative;
-        if(local.reward){ rewardType = String(local.reward).toLowerCase(); }
-        if(Number.isFinite(Number(local.amount))){ rewardAmount = Number(local.amount); }
-        if(local.landing){ landingUrl = local.landing; }
-      } else {
-        try{
-          const res = await Net.jget('/api/public/ads?placement=rewarded&province='+encodeURIComponent(Server.user.province||State.user.province));
-          const data = res?.data ?? res;
-          if(data){
-            if(data.videoUrl) videoSrc = data.videoUrl;
-            if(data.rewardType) rewardType = String(data.rewardType).toLowerCase();
-            if(Number.isFinite(Number(data.rewardAmount))) rewardAmount = Number(data.rewardAmount);
-            if(data.landingUrl) landingUrl = data.landingUrl;
+      if(selector.includes('dashboard')){
+        const packs = Array.isArray(RemoteConfig?.pricing?.keys) ? RemoteConfig.pricing.keys : [];
+        const sorted = packs
+          .map(p => Number(p?.priceGame))
+          .filter(v => Number.isFinite(v) && v > 0)
+          .sort((a,b)=>a-b);
+        const coins = Math.max(0, Number(State.coins) || 0);
+        if(sorted.length){
+          const cheapest = sorted[0];
+          if(coins >= cheapest){
+            if(icon){ icon.className = 'fas fa-key'; icon.setAttribute('aria-hidden', 'true'); }
+            if(title) title.textContent = 'موجودی آماده خرید کلید';
+            if(sub) sub.textContent = 'با موجودی فعلی می‌توانی یکی از بسته‌های کلید را همین حالا تهیه کنی.';
+          } else {
+            const diff = Math.max(1, Math.ceil(cheapest - coins));
+            if(icon){ icon.className = 'fas fa-coins'; icon.setAttribute('aria-hidden', 'true'); }
+            if(title) title.textContent = 'در آستانه خرید کلید';
+            if(sub) sub.textContent = `فقط ${faNum(diff)} سکه دیگر لازم است تا بسته بعدی را باز کنی.`;
           }
-        }catch{}
+        } else {
+          if(icon){ icon.className = 'fas fa-lightbulb'; icon.setAttribute('aria-hidden', 'true'); }
+          if(title) title.textContent = 'چالش تازه بساز';
+          if(sub) sub.textContent = 'با انجام مسابقه‌های بیشتر، سکه و امتیاز جمع کن.';
+        }
+        return;
       }
-      if(!videoSrc){
-        vid.removeAttribute('src'); vid.querySelector('source').src=''; vid.load();
-        cd.textContent = 'اسپانسر محلی — پخش نمادین';
-      } else {
-        vid.querySelector('source').src = videoSrc; vid.load();
+
+      if(selector.includes('leaderboard')){
+        const leaderboard = Array.isArray(State.leaderboard) ? State.leaderboard : [];
+        const meId = State.user?.id || 'me';
+        const me = { id: meId, name: State.user?.name || 'شما', score: Math.max(0, Number(State.score) || 0) };
+        const ranked = [...leaderboard.filter(x => x && x.id !== meId), me]
+          .sort((a,b)=> (Number(b?.score)||0) - (Number(a?.score)||0));
+        const myIndex = ranked.findIndex(x => x.id === meId);
+        const ahead = myIndex > 0 ? ranked[myIndex - 1] : null;
+        if(ahead && Number.isFinite(Number(ahead.score))){
+          const diff = Math.max(1, Math.ceil(Number(ahead.score) - me.score + 1));
+          if(icon){ icon.className = 'fas fa-arrow-trend-up'; icon.setAttribute('aria-hidden', 'true'); }
+          if(title) title.textContent = 'فاصله تا رتبه بالاتر';
+          if(sub) sub.textContent = `با ${faNum(diff)} امتیاز بیشتر از ${ahead.name || 'رقیب'} جلو می‌زنی.`;
+        } else {
+          if(icon){ icon.className = 'fas fa-trophy'; icon.setAttribute('aria-hidden', 'true'); }
+          if(title) title.textContent = 'صدر جدول در دستان توست';
+          if(sub) sub.textContent = 'با ادامه همین ریتم، جایگاه اول محفوظ می‌ماند.';
+        }
       }
-      claim.disabled = true; let canClaimAt = Date.now()+RemoteConfig.ads.rewardedMinWatchMs;
-      const t = setInterval(()=>{
-        const left = Math.max(0, Math.ceil((canClaimAt - Date.now())/1000));
-        cd.textContent = left>0 ? `پس از ${faNum(left)} ثانیه می‌توانی پاداش بگیری` : 'می‌توانی پاداش بگیری';
-        if(left<=0){ claim.disabled=false; clearInterval(t); }
-      }, 250);
-      modal.classList.add('show');
-      return new Promise(resolve=>{
-        function cleanup(ok){ modal.classList.remove('show'); vid.pause(); claim.disabled=true; resolve(!!ok); }
-        $('#rewarded-close').onclick=()=>{ logEvent('ad_close',{placement:'rewarded'}); cleanup(false); };
-        claim.onclick=async ()=>{
-          cleanup(true);
-          if(rewardType==='coins'){ adjustCoins(rewardAmount, { reason: 'ad_reward' }); renderTopBars(); saveState(); }
-          if(rewardType==='life'){ const livesToAdd = Math.max(1, Math.round(rewardAmount||1)); State.lives += livesToAdd; renderTopBars(); saveState(); }
-          await logEvent('ad_completed',{placement:'rewarded', reward:rewardType, amount:rewardAmount});
-          await logEvent('reward_granted',{reward:rewardType, amount:rewardAmount});
-          const rewardName = rewardType==='coins'?'سکه':(rewardType==='life'?'کلید':'پاداش');
-          toast(`<i class="fas fa-check ml-1"></i> پاداش دریافت شد: ${faNum(rewardAmount)} ${rewardName}`);
-          const safeLanding = typeof landingUrl==='string' && /^https?:\/\//i.test(landingUrl);
-          if(safeLanding){ setTimeout(()=>window.open(landingUrl,'_blank','noopener'),300); }
-          SFX.coin();
-        };
-      });
     },
+
+    maybeShowInterstitial(){
+      return false;
+    },
+
+    async showRewarded(){
+      toast('پاداش‌های تمرینی بدون نیاز به ویدیو فعال هستند.');
+      return false;
+    },
+
     async refreshAll(){
       this.renderBanner();
-      this.renderNative('#ad-native-dashboard');
-      this.renderNative('#ad-native-lb');
+      this.renderNative('#dashboard-spotlight');
+      this.renderNative('#leaderboard-spotlight');
     }
   };
-  
   // ===== Notifications / Modals / Theme =====
   function openModal(sel){ const m=$(sel); m.classList.add('show'); }
   function closeModal(sel){ const m=$(sel); m.classList.remove('show'); }
