@@ -611,27 +611,56 @@
           <span class="chip"><i class="fas fa-key ml-1"></i> شما: <b id="keys-count">۰</b></span>
         </div>
 
-        <div id="shop-keys-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div id="shop-keys-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 auto-rows-fr">
           <!-- k1 -->
-          <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k1" title="خرید ۱ کلید">
-            <div class="text-xs opacity-80" data-package-label>بسته کوچک</div>
-            <div class="font-extrabold text-lg"><span data-amount>۱</span> کلید</div>
-            <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۳۰</span> سکه</div>
+          <button class="product-card shop-key-card shop-key-card--starter group" data-buy-key="k1" title="خرید ۱ کلید">
+            <span class="shop-key-card__badge">شروع سریع</span>
+            <div class="shop-key-card__header">
+              <span class="shop-key-card__icon"><i class="fas fa-bolt"></i></span>
+              <div class="shop-key-card__content">
+                <div class="shop-key-card__amount"><span data-amount>۱</span> کلید</div>
+                <div class="shop-key-card__label" data-package-label>بسته کوچک</div>
+                <p class="shop-key-card__subtitle">مناسب برای شروع ایکویز!</p>
+              </div>
+            </div>
+            <div class="shop-key-card__footer">
+              <div class="shop-key-card__price"><i class="fas fa-coins"></i><span data-price>۳۰</span> سکه</div>
+              <span class="shop-key-card__cta">خرید سریع</span>
+            </div>
           </button>
 
           <!-- k3 -->
-          <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k3" title="خرید ۳ کلید">
-            <div class="ribbon">به‌صرفه</div>
-            <div class="text-xs opacity-80" data-package-label>بسته اقتصادی</div>
-            <div class="font-extrabold text-lg"><span data-amount>۳</span> کلید</div>
-            <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۸۰</span> سکه</div>
+          <button class="product-card shop-key-card shop-key-card--value group" data-buy-key="k3" title="خرید ۳ کلید">
+            <span class="shop-key-card__badge shop-key-card__badge--highlight">پیشنهاد ویژه</span>
+            <div class="shop-key-card__header">
+              <span class="shop-key-card__icon"><i class="fas fa-gem"></i></span>
+              <div class="shop-key-card__content">
+                <div class="shop-key-card__amount"><span data-amount>۳</span> کلید</div>
+                <div class="shop-key-card__label" data-package-label>بسته اقتصادی</div>
+                <p class="shop-key-card__subtitle">بهترین نسبت قیمت به کلید برای بازی روزانه.</p>
+              </div>
+            </div>
+            <div class="shop-key-card__footer">
+              <div class="shop-key-card__price"><i class="fas fa-coins"></i><span data-price>۸۰</span> سکه</div>
+              <span class="shop-key-card__cta">انتخاب محبوب</span>
+            </div>
           </button>
 
           <!-- k10 -->
-          <button class="product-card glass-dark rounded-2xl p-3 border border-white/15 hover:bg-white/15 transition text-right min-h-[92px] flex flex-col justify-between" data-buy-key="k10" title="خرید ۱۰ کلید">
-            <div class="text-xs opacity-80" data-package-label>بسته بزرگ</div>
-            <div class="font-extrabold text-lg"><span data-amount>۱۰</span> کلید</div>
-            <div class="text-xs opacity-90"><i class="fas fa-coins text-yellow-300 ml-1"></i> <span data-price>۲۵۰</span> سکه</div>
+          <button class="product-card shop-key-card shop-key-card--pro group" data-buy-key="k10" title="خرید ۱۰ کلید">
+            <span class="shop-key-card__badge">برای رکورددارها</span>
+            <div class="shop-key-card__header">
+              <span class="shop-key-card__icon"><i class="fas fa-medal"></i></span>
+              <div class="shop-key-card__content">
+                <div class="shop-key-card__amount"><span data-amount>۱۰</span> کلید</div>
+                <div class="shop-key-card__label" data-package-label>بسته بزرگ</div>
+                <p class="shop-key-card__subtitle">مناسب بازیکنان حرفه‌ای و رقابت‌های پشت‌سرهم.</p>
+              </div>
+            </div>
+            <div class="shop-key-card__footer">
+              <div class="shop-key-card__price"><i class="fas fa-coins"></i><span data-price>۲۵۰</span> سکه</div>
+              <span class="shop-key-card__cta">سود طولانی</span>
+            </div>
           </button>
         </div>
 
