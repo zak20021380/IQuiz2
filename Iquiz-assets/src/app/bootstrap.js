@@ -95,6 +95,94 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
 
   const enNum = n => Number(n).toLocaleString('en-US');
 
+  const PROVINCE_ONBOARDING_KEY = 'iquiz_province_onboarding_v1';
+  const DEFAULT_PROVINCES = [
+    'آذربایجان شرقی',
+    'آذربایجان غربی',
+    'اردبیل',
+    'اصفهان',
+    'البرز',
+    'ایلام',
+    'بوشهر',
+    'تهران',
+    'چهارمحال و بختیاری',
+    'خراسان جنوبی',
+    'خراسان رضوی',
+    'خراسان شمالی',
+    'خوزستان',
+    'زنجان',
+    'سمنان',
+    'سیستان و بلوچستان',
+    'فارس',
+    'قزوین',
+    'قم',
+    'کردستان',
+    'کرمان',
+    'کرمانشاه',
+    'کهگیلویه و بویراحمد',
+    'گلستان',
+    'گیلان',
+    'لرستان',
+    'مازندران',
+    'مرکزی',
+    'هرمزگان',
+    'همدان',
+    'یزد'
+  ];
+  let provincePromptShown = false;
+
+  function getProvinceOptions() {
+    const options = new Map();
+    if (Array.isArray(State.provinces)) {
+      State.provinces.forEach(province => {
+        const name = (province?.name || province?.title || '').trim();
+        if (!name) return;
+        if (!options.has(name)) {
+          options.set(name, {
+            id: province?.id || province?._id || province?.code || province?.slug || name,
+            name,
+          });
+        }
+      });
+    }
+    if (options.size > 0) {
+      return Array.from(options.values());
+    }
+    return DEFAULT_PROVINCES.map(name => ({ id: name, name }));
+  }
+
+  function hasProvinceOnboarded() {
+    try {
+      return window.localStorage?.getItem(PROVINCE_ONBOARDING_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  function setProvinceOnboarded() {
+    try {
+      window.localStorage?.setItem(PROVINCE_ONBOARDING_KEY, '1');
+    } catch {}
+  }
+
+  function maybePromptProvinceSelection({ focus = false } = {}) {
+    if (provincePromptShown) return;
+    if (State.user.province) {
+      setProvinceOnboarded();
+      return;
+    }
+    if (hasProvinceOnboarded()) return;
+    const provinces = getProvinceOptions();
+    if (!provinces.length) return;
+    const modal = document.getElementById('modal-province-select');
+    if (!modal) return;
+    provincePromptShown = true;
+    modal.classList.add('show');
+    if (focus) {
+      setTimeout(() => document.getElementById('first-province')?.focus(), 120);
+    }
+  }
+
   const SCORE_SYNC_DELAY = 1500;
   let pendingScoreDelta = 0;
   let scoreSyncTimer = null;
@@ -169,6 +257,9 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
           members: Number(province.members) || 0,
         }))
         .filter(entry => entry.name);
+      populateProvinceOptions(document.getElementById('first-province'), 'استان خود را انتخاب کنید');
+      populateProvinceOptions(document.getElementById('sel-province'));
+      maybePromptProvinceSelection();
     }
 
     if (Array.isArray(payload.groups)) {
@@ -641,7 +732,6 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
 function populateProvinceOptions(selectEl, placeholder){
     if(!selectEl) return;
 
-    // Save the currently selected value if any
     const prevValue = selectEl.value;
     selectEl.innerHTML = '';
 
@@ -654,13 +744,13 @@ function populateProvinceOptions(selectEl, placeholder){
       selectEl.appendChild(opt);
     }
 
-    // Check if provinces exist
-    if(!State.provinces || State.provinces.length === 0){
+    const provinces = getProvinceOptions();
+    if(provinces.length === 0){
       console.warn('No provinces available to populate');
       return;
     }
 
-    State.provinces
+    provinces
       .slice()
       .sort((a,b)=>a.name.localeCompare(b.name, 'fa'))
       .forEach(p => {
@@ -670,7 +760,6 @@ function populateProvinceOptions(selectEl, placeholder){
         selectEl.appendChild(option);
       });
 
-    // Restore previous selection if it exists
     if(prevValue && Array.from(selectEl.options).some(opt => opt.value === prevValue)){
       selectEl.value = prevValue;
     }
@@ -825,9 +914,9 @@ function populateProvinceOptions(selectEl, placeholder){
     }
   })();
 
-    (function setupProvinceSelect(){
-    function openModal(sel){ document.querySelector(sel).classList.add('show'); }
-    function closeModal(sel){ document.querySelector(sel).classList.remove('show'); }
+  (function setupProvinceSelect(){
+    function openModal(sel){ document.querySelector(sel)?.classList.add('show'); }
+    function closeModal(sel){ document.querySelector(sel)?.classList.remove('show'); }
 
     function fillAllProvinceSelects(){
       populateProvinceOptions(document.getElementById('first-province'), 'استان خود را انتخاب کنید');
@@ -838,9 +927,10 @@ function populateProvinceOptions(selectEl, placeholder){
 
     fillAllProvinceSelects();
 
-    if (!State.user.province && Array.isArray(State.provinces) && State.provinces.length){
-      openModal('#modal-province-select');
-      setTimeout(()=>document.getElementById('first-province')?.focus(), 50);
+    if (State.user.province) {
+      setProvinceOnboarded();
+    } else {
+      maybePromptProvinceSelection({ focus: true });
     }
 
     document.getElementById('btn-confirm-province')?.addEventListener('click', async () => {
@@ -854,6 +944,7 @@ function populateProvinceOptions(selectEl, placeholder){
       renderProvinceSelect();
       closeModal('#modal-province-select');
       toast('استان شما ذخیره شد');
+      setProvinceOnboarded();
       const synced = await syncProfile({ province: val }, { silent: true });
       if (!synced) {
         toast('خطا در همگام‌سازی استان با سرور');
@@ -4409,36 +4500,56 @@ async function startPurchaseCoins(pkgId){
       const caps = RemoteConfig.ads.freqCaps; const sess = RemoteConfig.ads.session;
       if(sess.interstitialShown >= caps.interstitialPerSession) return;
       if(now - sess.lastInterstitialAt < RemoteConfig.ads.interstitialCooldownMs) return;
-      sess.interstitialShown++; sess.lastInterstitialAt=now;
       const modal = $('#modal-interstitial'); const frame = $('#interstitial-frame');
-      const local = this.getLocalAd('interstitial');
-      logEvent('ad_impression',{placement:'interstitial', trigger, local:!!local});
+      if(!modal || !frame) return;
+      let local = this.getLocalAd('interstitial');
+      if(local && !local.creative){ local = null; }
+      let creativeReady = false;
+      let isLocal = false;
+
+      frame.removeAttribute('src');
+      frame.removeAttribute('srcdoc');
+      frame.src = 'about:blank';
+
       if(local){
         frame.removeAttribute('srcdoc');
         frame.src = local.creative;
+        creativeReady = true;
+        isLocal = true;
       } else {
         let remote = null;
         try{
           const res = await Net.jget('/api/public/ads?placement=interstitial&province='+encodeURIComponent(Server.user.province||State.user.province));
           remote = res?.data ?? res;
         }catch{}
-        const creativeUrl = remote?.creativeUrl ? String(remote.creativeUrl) : '';
+        const creativeUrlRaw = remote?.creativeUrl ?? remote?.creative ?? '';
+        const creativeUrl = typeof creativeUrlRaw === 'string' ? creativeUrlRaw : '';
         const creativeType = (remote?.creativeType || '').toLowerCase();
         if(creativeType === 'html' && creativeUrl){
           frame.removeAttribute('src');
           frame.srcdoc = creativeUrl;
+          creativeReady = true;
         } else if(creativeUrl && creativeUrl.trim().startsWith('<')){
           frame.removeAttribute('src');
           frame.srcdoc = creativeUrl;
+          creativeReady = true;
         } else if(creativeUrl){
           frame.removeAttribute('srcdoc');
           frame.src = creativeUrl;
-        } else {
-          frame.removeAttribute('src');
-          frame.src = 'about:blank';
-          frame.srcdoc = `<style>body{margin:0;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;font-family:sans-serif}</style><div>تبلیغ محلی</div>`;
+          creativeReady = true;
         }
       }
+
+      if(!creativeReady){
+        frame.src = 'about:blank';
+        frame.removeAttribute('srcdoc');
+        logEvent('ad_no_fill',{placement:'interstitial', trigger});
+        return;
+      }
+
+      sess.interstitialShown += 1;
+      sess.lastInterstitialAt = now;
+      logEvent('ad_impression',{placement:'interstitial', trigger, local:isLocal});
       modal.classList.add('show');
       try { window.localStorage?.setItem(storageKey, String(now)); } catch {}
       let closed=false;
@@ -7029,23 +7140,7 @@ async function init(){
       applyExpiredDuelPenalties({ skipRender: true });
       renderHeader(); renderDashboard(); navTo('dashboard');
 
-      if(!State.user.province){
-        const sel = $('#first-province');
-        if(sel && Array.isArray(State.provinces) && State.provinces.length){
-          populateProvinceOptions(sel, 'استان خود را انتخاب کنید');
-
-          if(sel.options.length <= 1){
-            State.provinces.forEach(p => {
-              const option = document.createElement('option');
-              option.value = p.name;
-              option.textContent = p.name;
-              sel.appendChild(option);
-            });
-          }
-
-          openModal('#modal-province-select');
-        }
-      }
+      maybePromptProvinceSelection({ focus: true });
 
       checkDailyReset();
       setInterval(checkDailyReset, 1000);
