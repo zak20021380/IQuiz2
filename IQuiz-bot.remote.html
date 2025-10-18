@@ -1289,15 +1289,33 @@
   </div>
 
   <!-- Province Select Modal -->
-  <div id="modal-province-select" class="modal">
-    <div class="glass rounded-3xl p-5 w-full max-w-md text-center">
-      <div class="text-xl font-extrabold mb-4">انتخاب استان</div>
-      <div class="select-wrapper mb-4">
-        <select id="first-province" class="modern-select">
-          <option value="" disabled selected>استان خود را انتخاب کنید</option>
-        </select>
+  <div id="modal-province-select" class="modal province-onboarding" aria-modal="true" role="dialog" aria-labelledby="province-onboarding-title">
+    <div class="province-onboarding-card">
+      <div class="province-onboarding-header">
+        <div class="province-onboarding-icon">
+          <i class="fas fa-map-marker-alt"></i>
+        </div>
+        <div class="province-onboarding-texts">
+          <h2 id="province-onboarding-title">انتخاب استان شما</h2>
+          <p>برای نمایش دقیق رتبه‌ها، پیشنهادهای محلی و مسابقات ویژه، استان محل سکونت خود را انتخاب کن.</p>
+        </div>
       </div>
-      <button id="btn-confirm-province" class="btn btn-province">تایید</button>
+      <div class="province-onboarding-body">
+        <label for="first-province" class="province-onboarding-label">استان محل سکونت</label>
+        <div class="province-onboarding-select">
+          <i class="fas fa-location-dot"></i>
+          <select id="first-province" class="province-onboarding-field" aria-required="true">
+            <option value="" disabled selected>در کدام استان زندگی می‌کنی؟</option>
+          </select>
+        </div>
+        <div class="province-onboarding-hint">
+          انتخاب استان تجربه بازی و رقابت‌های استانی را شخصی‌سازی می‌کند.
+        </div>
+      </div>
+      <button id="btn-confirm-province" class="province-onboarding-submit">
+        <span>شروع تجربه من</span>
+        <i class="fas fa-arrow-left-long"></i>
+      </button>
     </div>
   </div>
 

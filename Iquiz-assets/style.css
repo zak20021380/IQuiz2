@@ -130,6 +130,39 @@
     #timer-text.timer-boost{ animation:timerTextGlow .85s ease; }
     .modal{ position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.45); z-index:70; padding:1rem }
     .modal.show{ display:grid }
+    .province-onboarding{ padding:clamp(1rem, 6vw, 2.5rem); background:rgba(8,15,35,0.72); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
+    .province-onboarding-card{ position:relative; width:min(520px, calc(100vw - 1.5rem)); border-radius:1.85rem; padding:clamp(1.5rem, 4.5vw, 2.4rem); background:linear-gradient(160deg, rgba(15,23,42,0.95), rgba(59,130,246,0.35)); border:1px solid rgba(148,163,184,0.35); box-shadow:0 32px 80px rgba(15,23,42,0.45); display:flex; flex-direction:column; gap:clamp(1.2rem, 3vw, 1.75rem); color:#fff; overflow:hidden; }
+    .province-onboarding-card::before{ content:''; position:absolute; inset:auto -20% -35% auto; width:320px; height:320px; background:radial-gradient(circle at center, rgba(59,130,246,0.4), transparent 70%); opacity:.8; pointer-events:none; }
+    .province-onboarding-header{ display:flex; align-items:flex-start; gap:1rem; position:relative; z-index:1; }
+    .province-onboarding-icon{ width:3.6rem; height:3.6rem; border-radius:1.25rem; display:flex; align-items:center; justify-content:center; background:linear-gradient(140deg, rgba(236,72,153,0.92), rgba(59,130,246,0.9)); color:#fff; font-size:1.5rem; box-shadow:0 18px 36px rgba(59,130,246,0.35); flex-shrink:0; }
+    .province-onboarding-texts{ display:flex; flex-direction:column; gap:.55rem; }
+    .province-onboarding-texts h2{ font-size:1.45rem; font-weight:900; letter-spacing:-0.01em; margin:0; }
+    .province-onboarding-texts p{ margin:0; font-size:.9rem; line-height:1.9; opacity:.85; }
+    .province-onboarding-body{ display:flex; flex-direction:column; gap:.95rem; position:relative; z-index:1; }
+    .province-onboarding-label{ font-size:.82rem; font-weight:700; opacity:.78; margin:0; text-align:right; }
+    .province-onboarding-select{ position:relative; display:flex; align-items:center; gap:.75rem; border-radius:1.35rem; padding:.9rem 1rem; background:linear-gradient(145deg, rgba(15,23,42,0.9), rgba(15,23,42,0.6)); border:1px solid rgba(148,163,184,0.3); box-shadow:0 20px 45px rgba(15,23,42,0.35); }
+    .province-onboarding-select i{ font-size:1.1rem; color:rgba(129,140,248,0.85); }
+    .province-onboarding-field{ flex:1; appearance:none; -webkit-appearance:none; -moz-appearance:none; background:transparent; border:none; color:#fff; font-weight:800; font-size:1rem; line-height:1.7; text-align:right; padding-inline-start:.25rem; cursor:pointer; }
+    .province-onboarding-field:focus{ outline:none; }
+    .province-onboarding-field option{ background:rgba(15,23,42,0.95); color:#fff; font-weight:600; }
+    .province-onboarding-field option[disabled]{ color:rgba(209,213,219,0.65); }
+    .province-onboarding-select::after{ content:'\f107'; font-family:'Font Awesome 6 Free'; font-weight:900; position:absolute; left:1.25rem; top:50%; transform:translateY(-50%); color:rgba(226,232,240,0.75); pointer-events:none; font-size:.95rem; }
+    .province-onboarding-hint{ font-size:.78rem; line-height:1.8; opacity:.75; background:rgba(15,23,42,0.45); border:1px dashed rgba(148,163,184,0.35); border-radius:1.15rem; padding:.85rem 1rem; }
+    .province-onboarding-submit{ border:none; border-radius:1.35rem; padding:1rem 1.15rem; display:flex; align-items:center; justify-content:center; gap:.65rem; font-weight:800; font-size:1rem; color:#0f172a; background:linear-gradient(135deg, rgba(129,140,248,0.95), rgba(56,189,248,0.95)); box-shadow:0 24px 50px rgba(56,189,248,0.35); cursor:pointer; transition:transform .2s ease, box-shadow .2s ease; position:relative; z-index:1; }
+    .province-onboarding-submit i{ font-size:1rem; }
+    .province-onboarding-submit:hover{ transform:translateY(-2px); box-shadow:0 30px 60px rgba(56,189,248,0.4); }
+    .province-onboarding-submit:active{ transform:scale(.99); }
+    @media(max-width:520px){
+      .province-onboarding-card{ gap:1.25rem; border-radius:1.6rem; }
+      .province-onboarding-header{ flex-direction:column; text-align:center; align-items:center; gap:.85rem; }
+      .province-onboarding-icon{ width:3.2rem; height:3.2rem; }
+      .province-onboarding-texts h2{ font-size:1.3rem; }
+      .province-onboarding-texts p{ font-size:.88rem; }
+      .province-onboarding-select{ flex-direction:row-reverse; padding:.85rem .95rem; }
+      .province-onboarding-select::after{ left:.95rem; }
+      .province-onboarding-field{ font-size:.96rem; }
+      .province-onboarding-submit{ font-size:.95rem; padding:.9rem 1.05rem; }
+    }
     .sheet{ position:fixed; inset-inline:0; bottom:0; transform:translateY(100%); transition:transform .35s ease; z-index:60; pointer-events:none }
     .sheet.show{ transform:translateY(0); pointer-events:auto }
     .confetti{ position:fixed; inset:0; pointer-events:none; z-index:80 }
