@@ -6,7 +6,10 @@ const SERVER_STORAGE_KEY = 'server_state';
 function loadState(){
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-    if (stored) Object.assign(State, stored);
+    if (stored && typeof stored === 'object') {
+      const { coins, score, keys, ...rest } = stored;
+      Object.assign(State, rest);
+    }
     if (!State.user || typeof State.user !== 'object') {
       State.user = {
         id: 'guest',
@@ -179,10 +182,26 @@ function loadState(){
     State.duelOpponent = null;
   }
   ensureGroupRosters();
+
+  if (!Number.isFinite(State.score)) {
+    State.score = 0;
+  }
+  if (!Number.isFinite(State.coins)) {
+    State.coins = 0;
+  }
+  if (!Number.isFinite(State.keys)) {
+    State.keys = 0;
+  }
 }
 
 function saveState(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(State));
+  try {
+    const snapshot = JSON.parse(JSON.stringify(State));
+    delete snapshot.score;
+    delete snapshot.coins;
+    delete snapshot.keys;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {}
   localStorage.setItem(SERVER_STORAGE_KEY, JSON.stringify({
     limits: Server.limits,
     pass: Server.pass

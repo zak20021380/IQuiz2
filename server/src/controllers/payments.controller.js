@@ -242,7 +242,17 @@ exports.createInternalPayment = async (req, res, next) => {
         await req.user.save();
       }
 
-      return res.json({ ok: true, data: { txnId: String(payment._id), wallet: { coins: newBalance } } });
+      const currentKeys = Number.isFinite(Number(req.user.keys)) ? Number(req.user.keys) : 0;
+      return res.json({
+        ok: true,
+        data: {
+          txnId: String(payment._id),
+          wallet: {
+            coins: newBalance,
+            keys: currentKeys,
+          },
+        },
+      });
     }
 
     const tierInput = sanitizeString(req.body?.tier);

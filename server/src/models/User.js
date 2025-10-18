@@ -39,6 +39,7 @@ const userSchema = new mongoose.Schema(
     },
     role:     { type: String, enum: ['user', 'vip', 'admin'], default: 'user' },
     coins:    { type: Number, default: 0 },
+    keys:     { type: Number, default: 0 },
     score:    { type: Number, default: 0 },
     status:   { type: String, enum: ['active', 'blocked', 'pending'], default: 'active' },
     province: { type: String, trim: true, default: '' },

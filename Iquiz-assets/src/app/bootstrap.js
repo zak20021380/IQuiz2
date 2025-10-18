@@ -183,10 +183,10 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     }
   }
 
-  const SCORE_SYNC_DELAY = 1500;
-  let pendingScoreDelta = 0;
-  let scoreSyncTimer = null;
-  let lastScoreContext = { reason: 'gameplay' };
+  const PROGRESS_SYNC_DELAY = 1500;
+  const pendingProgress = { score: 0, coins: 0, keys: 0 };
+  let progressSyncTimer = null;
+  let lastProgressContext = { reason: 'gameplay' };
 
   function getCurrentGroupContext() {
     const group = getUserGroup();
@@ -276,6 +276,9 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
       if (payload.user.coins != null && Number.isFinite(Number(payload.user.coins))) {
         State.coins = Math.max(0, Math.round(Number(payload.user.coins)));
       }
+      if (payload.user.keys != null && Number.isFinite(Number(payload.user.keys))) {
+        State.keys = Math.max(0, Math.round(Number(payload.user.keys)));
+      }
       if (payload.user.name) {
         State.user.name = payload.user.name;
       } else if (!State.user.name && payload.user.username) {
@@ -341,36 +344,61 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     }
   }
 
-  function enqueueScoreSync(delta, context = {}) {
-    if (!Number.isFinite(delta) || delta === 0) return;
-    pendingScoreDelta += Math.round(delta);
+  function enqueueProgressSync(deltaInput = {}, context = {}) {
+    let scoreDelta = 0;
+    let coinDelta = 0;
+    let keyDelta = 0;
+
+    if (Number.isFinite(deltaInput)) {
+      scoreDelta = Math.round(deltaInput);
+    } else if (deltaInput && typeof deltaInput === 'object') {
+      if (Number.isFinite(deltaInput.scoreDelta)) scoreDelta = Math.round(deltaInput.scoreDelta);
+      if (Number.isFinite(deltaInput.coinDelta)) coinDelta = Math.round(deltaInput.coinDelta);
+      if (Number.isFinite(deltaInput.keyDelta)) keyDelta = Math.round(deltaInput.keyDelta);
+    }
+
+    if (!scoreDelta && !coinDelta && !keyDelta) return;
+
+    pendingProgress.score += scoreDelta;
+    pendingProgress.coins += coinDelta;
+    pendingProgress.keys += keyDelta;
+
     const groupCtx = getCurrentGroupContext();
-    lastScoreContext = {
-      reason: context.reason || lastScoreContext.reason || 'gameplay',
+    lastProgressContext = {
+      reason: context.reason || lastProgressContext.reason || 'gameplay',
       province: State.user.province || '',
       groupId: groupCtx.id,
       groupName: groupCtx.name,
     };
-    if (scoreSyncTimer) clearTimeout(scoreSyncTimer);
-    scoreSyncTimer = setTimeout(() => { scoreSyncTimer = null; flushScoreSync().catch(() => {}); }, SCORE_SYNC_DELAY);
+
+    if (progressSyncTimer) clearTimeout(progressSyncTimer);
+    progressSyncTimer = setTimeout(() => { progressSyncTimer = null; flushProgressSync().catch(() => {}); }, PROGRESS_SYNC_DELAY);
   }
 
-  async function flushScoreSync(forceContext = {}) {
-    if (!pendingScoreDelta) return null;
-    const delta = pendingScoreDelta;
-    pendingScoreDelta = 0;
-    if (scoreSyncTimer) {
-      clearTimeout(scoreSyncTimer);
-      scoreSyncTimer = null;
+  async function flushProgressSync(forceContext = {}) {
+    const hasPending = pendingProgress.score || pendingProgress.coins || pendingProgress.keys;
+    if (!hasPending) return null;
+
+    const delta = { ...pendingProgress };
+    pendingProgress.score = 0;
+    pendingProgress.coins = 0;
+    pendingProgress.keys = 0;
+
+    if (progressSyncTimer) {
+      clearTimeout(progressSyncTimer);
+      progressSyncTimer = null;
     }
-    const context = { ...lastScoreContext, ...forceContext };
-    const payload = {
-      scoreDelta: delta,
-      province: context.province || State.user.province || '',
-    };
+
+    const context = { ...lastProgressContext, ...forceContext };
+    const payload = {};
+    if (delta.score) payload.scoreDelta = delta.score;
+    if (delta.coins) payload.coinDelta = delta.coins;
+    if (delta.keys) payload.keyDelta = delta.keys;
+    payload.province = context.province || State.user.province || '';
     if (context.groupId || context.groupName) {
       payload.group = { id: context.groupId || context.groupName, name: context.groupName || context.groupId };
     }
+
     try {
       const res = await Api.submitProgress(payload);
       if (res?.ok !== false && res?.data) {
@@ -379,9 +407,11 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
       return res;
     } catch (error) {
       console.warn('Failed to sync score progress', error);
-      pendingScoreDelta += delta;
-      if (!scoreSyncTimer) {
-        scoreSyncTimer = setTimeout(() => { scoreSyncTimer = null; flushScoreSync().catch(() => {}); }, SCORE_SYNC_DELAY * 2);
+      pendingProgress.score += delta.score;
+      pendingProgress.coins += delta.coins;
+      pendingProgress.keys += delta.keys;
+      if (!progressSyncTimer) {
+        progressSyncTimer = setTimeout(() => { progressSyncTimer = null; flushProgressSync().catch(() => {}); }, PROGRESS_SYNC_DELAY * 2);
       }
       return null;
     }
@@ -391,7 +421,29 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     if (!Number.isFinite(amount) || amount <= 0) return;
     const gain = Math.round(amount);
     State.score = Math.max(0, Math.round(State.score + gain));
-    enqueueScoreSync(gain, context);
+    enqueueProgressSync({ scoreDelta: gain }, context);
+  }
+
+  function adjustCoins(delta, context = {}) {
+    if (!Number.isFinite(delta) || delta === 0) return;
+    const before = Number.isFinite(State.coins) ? Math.round(State.coins) : 0;
+    const after = Math.max(0, Math.round(before + delta));
+    State.coins = after;
+    const applied = after - before;
+    if (applied) {
+      enqueueProgressSync({ coinDelta: applied }, context);
+    }
+  }
+
+  function adjustKeys(delta, context = {}) {
+    if (!Number.isFinite(delta) || delta === 0) return;
+    const before = Number.isFinite(State.keys) ? Math.round(State.keys) : 0;
+    const after = Math.max(0, Math.round(before + delta));
+    State.keys = after;
+    const applied = after - before;
+    if (applied) {
+      enqueueProgressSync({ keyDelta: applied }, context);
+    }
   }
 
   async function syncProfile(update = {}, { silent = false } = {}) {
@@ -2529,7 +2581,7 @@ function startQuizTimerCountdown(){
     const earned = ok ? Math.floor((basePoints + timeBonus + vipBonus) * (boostActive ? 2 : 1)) : 0;
     if(ok){
       registerScoreGain(earned, { reason: 'question_correct' });
-      State.coins += baseCoins;
+      if (baseCoins) adjustCoins(baseCoins, { reason: 'question_correct' });
       State.quiz.sessionEarned += earned;
       State.quiz.correctStreak = (State.quiz.correctStreak || 0) + 1;
       SFX.correct(); vibrate(30);
@@ -2652,7 +2704,7 @@ function startQuizTimerCountdown(){
       duelSummaryEl.innerHTML = '';
     }
     hideDuelAddFriendCTA();
-    await flushScoreSync({ reason: 'quiz_complete' });
+    await flushProgressSync({ reason: 'quiz_complete' });
     saveState();
     navTo('results');
     AdManager.maybeShowInterstitial('post_quiz');
@@ -2670,7 +2722,7 @@ function startQuizTimerCountdown(){
     const pointUnit = Math.max(0, Number(streakRewards.pointsStreak) || 0);
     const coinsReward = coinUnit * State.streak;
     const pointsReward = pointUnit * State.streak;
-    State.coins += coinsReward;
+    adjustCoins(coinsReward, { reason: 'streak_reward' });
     registerScoreGain(pointsReward, { reason: 'streak_reward' });
     saveState(); renderDashboard(); renderHeader();
     const rewardParts = [];
@@ -3676,8 +3728,8 @@ function buyKeys(packId){
     return;
   }
 
-  State.coins -= pack.priceGame;
-  State.keys = (State.keys || 0) + pack.amount;
+  adjustCoins(-pack.priceGame, { reason: 'keys_purchase' });
+  if (pack.amount) adjustKeys(pack.amount, { reason: 'keys_purchase' });
 
   saveState();
   renderHeader();       // برای آپدیت سکه در هدر
@@ -3696,6 +3748,7 @@ function buyKeys(packId){
       ['سکه باقی‌مانده', faNum(State.coins)]
     ]
   });
+  shootConfetti();
   const shop = getShopConfig();
   const template = shop.messaging?.success || '';
   const successMsg = template
@@ -3717,7 +3770,7 @@ document.addEventListener('click', (e) => {
     const price = { life:30, boost:50, hint:20, streak:40 }[item];
     if(price==null) return;
     if(State.coins < price){ toast('<i class="fas fa-exclamation-circle ml-2"></i>سکه کافی نیست'); return; }
-    State.coins -= price;
+    adjustCoins(-price, { reason: `shop_${item}_purchase` });
     if(item==='life') State.lives += 1;
     if(item==='boost') State.boostUntil = Date.now() + 10*60*1000;
     if(item==='hint') { /* Hint logic */ }
@@ -4188,11 +4241,16 @@ async function handleGatewayReturn(statusParam, paymentId, extra = {}){
   // ===== Payments & Subscription =====
   async function refreshWallet(){
     const data = await Net.jget('/api/wallet');
-    if(data && typeof data.coins==='number'){ 
-      Server.wallet.coins = data.coins; 
-      $('#hdr-wallet').textContent = faNum(Server.wallet.coins); 
-      $('#stat-wallet').textContent = faNum(Server.wallet.coins); 
-      $('#wallet-balance').textContent = faNum(Server.wallet.coins); 
+    if(data && typeof data.coins==='number'){
+      Server.wallet.coins = data.coins;
+      $('#hdr-wallet').textContent = faNum(Server.wallet.coins);
+      $('#stat-wallet').textContent = faNum(Server.wallet.coins);
+      $('#wallet-balance').textContent = faNum(Server.wallet.coins);
+      renderShopBalances();
+    }
+    if (data && typeof data.keys === 'number') {
+      State.keys = Math.max(0, Math.round(Number(data.keys)));
+      renderShopBalances();
     }
   }
   
@@ -4288,6 +4346,7 @@ async function startPurchaseCoins(pkgId){
         ['سکه‌های فعلی', faNum(Server.wallet.coins)]
       ]
     });
+    shootConfetti();
     await logEvent('purchase_succeeded', { kind:'coins', pkgId, txnId, priceToman:priceTmn });
     SFX.coin();
   } else {
@@ -4601,7 +4660,7 @@ async function startPurchaseCoins(pkgId){
         $('#rewarded-close').onclick=()=>{ logEvent('ad_close',{placement:'rewarded'}); cleanup(false); };
         claim.onclick=async ()=>{
           cleanup(true);
-          if(rewardType==='coins'){ State.coins += rewardAmount; renderTopBars(); saveState(); }
+          if(rewardType==='coins'){ adjustCoins(rewardAmount, { reason: 'ad_reward' }); renderTopBars(); saveState(); }
           if(rewardType==='life'){ const livesToAdd = Math.max(1, Math.round(rewardAmount||1)); State.lives += livesToAdd; renderTopBars(); saveState(); }
           await logEvent('ad_completed',{placement:'rewarded', reward:rewardType, amount:rewardAmount});
           await logEvent('reward_granted',{reward:rewardType, amount:rewardAmount});
@@ -6766,7 +6825,7 @@ function renderGroupBattleCard(list, userGroup) {
       State.groupBattle.selectedOpponentId = opponentGroup.id;
 
       if (rewardSummary?.userReward?.applied) {
-        State.coins += Number(rewardSummary.userReward.coins || 0);
+        adjustCoins(Number(rewardSummary.userReward.coins || 0), { reason: 'group_battle' });
         registerScoreGain(Number(rewardSummary.userReward.score || 0), { reason: 'group_battle' });
       }
 

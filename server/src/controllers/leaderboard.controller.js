@@ -95,12 +95,27 @@ exports.recordProgress = async (req, res, next) => {
       return res.status(400).json({ ok: false, message: 'scoreDelta must be a number' });
     }
 
+    const rawCoinDelta = req.body?.coinDelta ?? req.body?.coinsDelta ?? req.body?.coin ?? req.body?.coins;
+    const rawKeyDelta = req.body?.keyDelta ?? req.body?.keysDelta ?? req.body?.key ?? req.body?.keys;
+
+    const coinDelta = rawCoinDelta == null ? 0 : Number(rawCoinDelta);
+    if (rawCoinDelta != null && !Number.isFinite(coinDelta)) {
+      return res.status(400).json({ ok: false, message: 'coinDelta must be a number' });
+    }
+
+    const keyDelta = rawKeyDelta == null ? 0 : Number(rawKeyDelta);
+    if (rawKeyDelta != null && !Number.isFinite(keyDelta)) {
+      return res.status(400).json({ ok: false, message: 'keyDelta must be a number' });
+    }
+
     const province = req.body?.province;
     const group = normalizeGroupPayload(req.body);
 
     const data = await leaderboardService.applyScoreDelta({
       userId,
       scoreDelta,
+      coinDelta,
+      keyDelta,
       province,
       group,
     });
