@@ -336,6 +336,7 @@ async function buildOverviewPayload(userDoc) {
       avatar: userDoc.avatar || '',
       score: sanitizeScore(userDoc.score),
       coins: sanitizeScore(userDoc.coins),
+      keys: sanitizeScore(userDoc.keys),
       province: userDoc.province || '',
       groupId: userDoc.groupId || '',
       group: userDoc.groupName || '',
@@ -348,7 +349,14 @@ async function buildOverviewPayload(userDoc) {
   return result;
 }
 
-async function applyScoreDelta({ userId, scoreDelta = 0, province = undefined, group = undefined }) {
+async function applyScoreDelta({
+  userId,
+  scoreDelta = 0,
+  coinDelta = 0,
+  keyDelta = 0,
+  province = undefined,
+  group = undefined,
+}) {
   if (!userId) throw new Error('userId is required');
   const userDoc = await User.findById(userId);
   if (!userDoc) throw new Error('User not found');
@@ -356,9 +364,19 @@ async function applyScoreDelta({ userId, scoreDelta = 0, province = undefined, g
   const normalizedProvince = province === undefined ? userDoc.province : normalizeProvince(province);
   const normalizedGroup = group === undefined ? undefined : normalizeGroupInput(group);
 
-  const delta = Number.isFinite(scoreDelta) ? Math.round(scoreDelta) : 0;
+  const scoreInc = Number.isFinite(scoreDelta) ? Math.round(scoreDelta) : 0;
+  const coinInc = Number.isFinite(coinDelta) ? Math.round(coinDelta) : 0;
+  const keyInc = Number.isFinite(keyDelta) ? Math.round(keyDelta) : 0;
 
-  const update = { $inc: { score: delta } };
+  const inc = {};
+  if (scoreInc) inc.score = scoreInc;
+  if (coinInc) inc.coins = coinInc;
+  if (keyInc) inc.keys = keyInc;
+
+  const update = {};
+  if (Object.keys(inc).length) {
+    update.$inc = inc;
+  }
   const set = {};
 
   if (normalizedProvince !== undefined && normalizedProvince !== userDoc.province) {
@@ -379,21 +397,25 @@ async function applyScoreDelta({ userId, scoreDelta = 0, province = undefined, g
     update.$set = set;
   }
 
+  if (!Object.keys(update).length) {
+    return buildOverviewPayload(userDoc);
+  }
+
   const updatedUser = await User.findByIdAndUpdate(userDoc._id, update, { new: true, runValidators: false });
 
-  await incrementProvinceStats(userDoc.province || '', updatedUser.province || '', delta);
+  await incrementProvinceStats(userDoc.province || '', updatedUser.province || '', scoreInc);
 
   const desiredGroup = normalizedGroup === undefined
     ? { id: updatedUser.groupId || '', name: updatedUser.groupName || '' }
     : normalizedGroup;
 
-  await handleGroupTransition(userDoc, updatedUser, desiredGroup, delta);
+  await handleGroupTransition(userDoc, updatedUser, desiredGroup, scoreInc);
 
   return buildOverviewPayload(updatedUser);
 }
 
 async function updateProfile({ userId, province = undefined, group = undefined }) {
-  return applyScoreDelta({ userId, scoreDelta: 0, province, group });
+  return applyScoreDelta({ userId, scoreDelta: 0, coinDelta: 0, keyDelta: 0, province, group });
 }
 
 async function getOverview({ userId } = {}) {

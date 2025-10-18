@@ -143,7 +143,7 @@ function normalizeRosterMember(player, fallback, index, group){
 
 const State = {
   user:{ id:'guest', name:'کاربر مهمان', username:'', avatar:'https://i.pravatar.cc/120?img=12', province:'', group:'', groupId:'' },
-  score:0, coins:120, lives:3, vip:false,
+  score:0, coins:120, keys:0, lives:3, vip:false,
   streak:0, lastClaim:0, boostUntil:0,
   theme:'ocean',
   duelOpponent:null,

@@ -42,7 +42,7 @@ function mockFindById(result) {
 }
 
 test('getWalletBalance returns coins for the authenticated user', async () => {
-  const stub = mockFindById({ _id: 'user-1', coins: 275 });
+  const stub = mockFindById({ _id: 'user-1', coins: 275, keys: 12 });
 
   const req = { user: { _id: 'user-1' } };
   const res = createMockRes();
@@ -52,7 +52,7 @@ test('getWalletBalance returns coins for the authenticated user', async () => {
 
     assert.strictEqual(stub.getCapturedId(), 'user-1');
     assert.strictEqual(res.statusCode, 200);
-    assert.deepStrictEqual(res.body, { ok: true, data: { coins: 275 } });
+    assert.deepStrictEqual(res.body, { ok: true, data: { coins: 275, keys: 12 } });
   } finally {
     stub.restore();
   }
