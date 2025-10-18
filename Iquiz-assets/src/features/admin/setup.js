@@ -395,14 +395,6 @@ export function syncCommunityOptionStates() {
 }
 
 export function applyConfigToUI({ checkDailyReset } = {}) {
-  const ads = RemoteConfig?.ads || {};
-  const showBanner = !!(ads.enabled && ads.placements && ads.placements.banner);
-  const showNative = !!(ads.enabled && ads.placements && ads.placements.native);
-  const banner = document.getElementById('ad-banner');
-  const nativeDash = document.getElementById('ad-native-dashboard');
-  if (banner) banner.style.display = showBanner ? '' : 'none';
-  if (nativeDash) nativeDash.style.display = showNative ? '' : 'none';
-
   if (typeof checkDailyReset === 'function') {
     checkDailyReset();
   }

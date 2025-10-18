@@ -2,7 +2,6 @@
       --brand1:#3b82f6; --brand2:#06b6d4; --brand3:#10b981;
       --accent1:#fde047; --accent2:#fb923c; --accent3:#a78bfa; --accent4:#ec4899;
       --text:#ffffff; --card:rgba(255,255,255,0.15); --cardBorder:rgba(255,255,255,0.30);
-      --adBannerH:80px;
     }
     html[data-theme="ocean"] body{
       background:
@@ -33,7 +32,7 @@
     .card-hover{ transition:all .3s ease }
     .card-hover:hover{ transform:translateY(-5px); box-shadow:0 12px 40px rgba(31,38,135,.3) }
     .nav-item{ position:relative; transition:all .3s ease }
-    .nav-item.active::after{ content:''; position:absolute; bottom:0; right:0; left:0; height:3px; background:linear-gradient(90deg,var(--accent1),var(--accent2)); border-radius:3px 3px 0 0 }
+    .nav-item.active::after{ content:''; position:absolute; bottom:0.35rem; right:18%; left:18%; height:3px; background:linear-gradient(90deg,var(--accent1),var(--accent2)); border-radius:999px; box-shadow:0 0 12px rgba(250,204,21,0.45); }
     .safe{ padding-bottom: env(safe-area-inset-bottom) }
     .fade-in{ animation:fadeIn .45s ease forwards } @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
     .pulse{ animation:pulse 2s infinite } @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
@@ -541,22 +540,57 @@
       .duel-entry-content{ width:100%; }
       .duel-entry-cta{ justify-content:center; font-size:.82rem; }
     }
-    /* Ads: fixed placeholders to keep CLS at 0 */
-    .ad-banner-slot{ position:sticky; bottom:56px; /* leave room for bottom nav */ height:var(--adBannerH); z-index:40; }
-    .ad-banner-inner{ height:100%; max-width:420px; margin:0 auto; display:flex; align-items:center; justify-content:center; border-radius:14px; border:1px dashed rgba(255,255,255,.25); background:rgba(0,0,0,.15) }
-    .ad-native-slot{ min-height:110px; border-radius:16px; border:1px dashed rgba(255,255,255,.25); background:rgba(0,0,0,.12); display:flex; align-items:center; justify-content:center; }
-    .ad-skeleton{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#fff; opacity:.7; font-weight:700; }
-    .ad-close{ position:absolute; top:.4rem; left:.4rem; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.2); width:32px;height:32px;border-radius:999px; display:flex;align-items:center;justify-content:center }
-    .interstitial{ position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.6); z-index:90; padding:1.2rem }
-    .interstitial.show{ display:grid }
-    .interstitial-card{ position:relative; width:min(420px,96vw); height:min(70vh,520px); border-radius:20px; overflow:hidden; }
-    .rewarded{ position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.6); z-index:90; padding:1.2rem }
-    .rewarded.show{ display:grid }
-    .rewarded-card{ position:relative; width:min(420px,96vw); height:min(70vh,520px); border-radius:20px; overflow:hidden; }
+    /* Focus banner and engagement highlights */
+    .focus-banner{ position:sticky; bottom:72px; z-index:40; display:flex; justify-content:center; padding:0 clamp(.75rem, 4vw, 1.5rem); pointer-events:none; }
+    .focus-banner-card{ width:100%; max-width:420px; display:flex; align-items:center; gap:1rem; padding:.85rem 1rem; border-radius:1.5rem; background:linear-gradient(135deg, rgba(59,130,246,0.32), rgba(14,165,233,0.2)); border:1px solid rgba(255,255,255,0.22); box-shadow:0 18px 40px rgba(15,23,42,0.28); pointer-events:auto; }
+    .focus-banner-icon{ width:3rem; height:3rem; border-radius:1.1rem; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.22); color:#0f172a; font-size:1.35rem; box-shadow:0 12px 28px rgba(15,23,42,0.25); }
+    .focus-banner-icon i{ color:#facc15; }
+    .focus-banner-text{ flex:1; display:flex; flex-direction:column; gap:.35rem; text-align:right; }
+    .focus-banner-title{ margin:0; font-size:1rem; font-weight:800; letter-spacing:-0.01em; color:#fff; }
+    .focus-banner-sub{ margin:0; font-size:.78rem; line-height:1.7; opacity:.85; color:#e2e8f0; }
+    .focus-banner-action{ white-space:nowrap; }
+    @media(max-width:520px){
+      .focus-banner{ bottom:70px; }
+      .focus-banner-card{ flex-wrap:wrap; text-align:center; justify-content:center; }
+      .focus-banner-text{ text-align:center; align-items:center; }
+      .focus-banner-action{ width:100%; }
+    }
+    @media(min-width:640px){ .focus-banner{ bottom:78px; } }
+    .insight-card{ border-radius:1.5rem; padding:1rem 1.15rem; background:linear-gradient(140deg, rgba(15,23,42,0.78), rgba(59,130,246,0.28)); border:1px solid rgba(255,255,255,0.16); box-shadow:0 16px 36px rgba(15,23,42,0.24); transition:transform .25s ease, box-shadow .25s ease; }
+    .insight-card:hover{ transform:translateY(-2px); box-shadow:0 22px 48px rgba(15,23,42,0.28); }
+    .insight-card-body{ display:flex; align-items:center; gap:1rem; }
+    .insight-card-icon{ width:3rem; height:3rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.18); color:#fbbf24; font-size:1.25rem; box-shadow:0 10px 26px rgba(15,23,42,0.22); }
+    .insight-card-title{ margin:0; font-size:1rem; font-weight:800; color:#fff; }
+    .insight-card-sub{ margin:0; font-size:.82rem; line-height:1.8; opacity:.85; color:#e2e8f0; }
+    @media(max-width:520px){ .insight-card-body{ flex-wrap:wrap; justify-content:center; text-align:center; } .insight-card-icon{ margin-inline:auto; } }
+    .bottom-nav{ padding:.35rem clamp(.6rem, 4vw, 1.35rem); }
+    .bottom-nav-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.35rem; }
+    .bottom-nav .nav-item{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; padding:.65rem .35rem; border-radius:1.2rem; font-size:.78rem; font-weight:700; color:#f8fafc; background:transparent; min-height:56px; position:relative; }
+    .bottom-nav .nav-item i{ font-size:1.25rem; transition:transform .25s ease; }
+    .bottom-nav .nav-label{ font-size:.78rem; line-height:1.2; white-space:nowrap; }
+    .bottom-nav .nav-item:hover{ background:rgba(255,255,255,0.12); }
+    .bottom-nav .nav-item.active{ background:linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.12)); box-shadow:0 18px 38px rgba(15,23,42,0.26); }
+    .bottom-nav .nav-item.active i{ transform:translateY(-2px); }
+    @media(max-width:420px){
+      .bottom-nav{ padding:.25rem clamp(.45rem, 5vw, 1rem); }
+      .bottom-nav .nav-item{ padding:.55rem .3rem; min-height:52px; }
+      .bottom-nav .nav-item i{ font-size:1.1rem; }
+      .bottom-nav .nav-label{ font-size:.72rem; }
+    }
+    @media(max-width:360px){
+      .bottom-nav{ padding:.35rem clamp(.4rem, 6vw, .9rem); }
+      .bottom-nav .nav-item{ padding:.5rem .25rem; min-height:50px; }
+      .bottom-nav .nav-item i{ font-size:1.05rem; }
+      .bottom-nav .nav-label{ font-size:.68rem; }
+    }
+    @media(max-width:330px){
+      .bottom-nav .nav-item{ padding:.5rem 0; }
+      .bottom-nav .nav-label{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); clip-path:inset(50%); white-space:nowrap; border:0; }
+    }
+    @media(min-width:768px){ .bottom-nav{ max-width:420px; margin:0 auto; border-radius:1.5rem 1.5rem 0 0; } }
+
     .vip-frame{ box-shadow:0 0 0 3px rgba(251,191,36,.9), 0 0 20px rgba(251,191,36,.35) inset; border-radius:999px }
     .province-frame{ box-shadow:0 0 0 3px rgba(16,185,129,.9), 0 0 20px rgba(16,185,129,.35) inset; border-radius:999px }
-    @media(min-width:640px){ .ad-banner-slot{ bottom:64px } }
-
     .duel-hero{ position:relative; overflow:hidden; display:flex; align-items:center; gap:1.5rem; padding:1.75rem; border-radius:1.75rem; background:linear-gradient(135deg, rgba(14,165,233,0.28), rgba(236,72,153,0.24)); border:1px solid rgba(255,255,255,0.2); box-shadow:0 24px 55px rgba(15,23,42,0.28); }
     .duel-hero::before{ content:''; position:absolute; inset:-20% 50% auto auto; width:240px; height:240px; background:radial-gradient(circle at center, rgba(255,255,255,0.4), transparent 65%); opacity:0.65; pointer-events:none; }
     .duel-hero > *{ position:relative; z-index:1; }
