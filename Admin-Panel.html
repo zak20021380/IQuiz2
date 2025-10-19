@@ -1071,6 +1071,80 @@
     .shop-preview-cta i {
       font-size: 0.9rem;
     }
+    #shop-settings-card {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+    #shop-settings-card .shop-summary-grid,
+    #shop-settings-card .shop-main-grid {
+      display: grid;
+      gap: 1.5rem;
+    }
+    #shop-settings-card .shop-summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    #shop-settings-card .shop-main-grid {
+      grid-template-columns: 1fr;
+    }
+    #shop-settings-card .shop-hero-preview {
+      height: 100%;
+    }
+    @media (min-width: 1024px) {
+      #shop-settings-card {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 2rem;
+      }
+      #shop-settings-card .shop-settings-header,
+      #shop-settings-card .shop-summary-grid,
+      #shop-settings-card .shop-main-grid {
+        grid-column: 1 / -1;
+      }
+      #shop-settings-card .shop-vip-section,
+      #shop-settings-card .shop-packages-section {
+        grid-column: span 7;
+      }
+      #shop-settings-card .shop-support-section {
+        grid-column: span 5;
+      }
+      #shop-settings-card .shop-vip-section,
+      #shop-settings-card .shop-packages-section,
+      #shop-settings-card .shop-support-section {
+        align-self: start;
+      }
+    }
+    @media (min-width: 1280px) {
+      #shop-settings-card .shop-main-grid {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+      }
+      #shop-settings-card .shop-main-grid > section {
+        grid-column: span 7;
+      }
+      #shop-settings-card .shop-main-grid > .shop-hero-preview {
+        grid-column: span 5;
+      }
+      #shop-settings-card .shop-packages-section {
+        grid-column: span 7;
+      }
+      #shop-settings-card .shop-support-section {
+        grid-column: span 5;
+      }
+    }
+    @media (min-width: 1440px) {
+      #shop-settings-card {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+      }
+      #shop-settings-card .shop-vip-section {
+        grid-column: 1 / span 7;
+      }
+      #shop-settings-card .shop-packages-section {
+        grid-column: 1 / span 7;
+      }
+      #shop-settings-card .shop-support-section {
+        grid-column: 8 / span 5;
+      }
+    }
     .status-dot {
       width: 8px;
       height: 8px;
@@ -3388,7 +3462,7 @@
 
           <!-- Shop Settings -->
           <div class="glass rounded-2xl p-6 space-y-8" id="shop-settings-card">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between shop-settings-header">
               <div class="flex items-start gap-3">
                 <span class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400/80 to-blue-600/80 flex items-center justify-center shadow-lg">
                   <i class="fas fa-store text-lg"></i>
@@ -3412,7 +3486,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shop-summary-grid">
               <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-1">
                 <span class="text-xs text-white/60 block">وضعیت فروشگاه</span>
                 <span class="text-lg font-bold" data-shop-summary="status">فعال</span>
@@ -3435,7 +3509,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 shop-main-grid">
               <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 lg:col-span-3">
                 <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
@@ -3527,7 +3601,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-sky-500/50 via-indigo-500/50 to-blue-700/40 p-6 space-y-4 shadow-lg" data-shop-hero-preview>
+              <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-sky-500/50 via-indigo-500/50 to-blue-700/40 p-6 space-y-4 shadow-lg shop-hero-preview" data-shop-hero-preview>
                   <div class="flex items-center gap-3">
                     <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white text-xl">
                       <i class="fas fa-store"></i>
@@ -3548,7 +3622,7 @@
               </section>
             </div>
 
-            <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6" data-shop-vip-section>
+            <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-vip-section" data-shop-vip-section>
               <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div class="space-y-1">
                   <h3 class="text-lg font-bold flex items-center gap-2">
@@ -3736,7 +3810,7 @@
               </div>
             </section>
 
-            <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6">
+            <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-packages-section">
               <div>
                 <h3 class="text-lg font-bold flex items-center gap-2">
                   <i class="fas fa-boxes-stacked text-amber-300"></i>
@@ -3946,7 +4020,7 @@
               </div>
             </section>
 
-            <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6">
+            <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-support-section">
               <div>
                 <h3 class="text-lg font-bold flex items-center gap-2">
                   <i class="fas fa-headset text-sky-200"></i>

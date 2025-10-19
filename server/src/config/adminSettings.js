@@ -2,6 +2,9 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 
+const AdminSetting = require('../models/AdminSetting');
+const logger = require('../config/logger');
+
 const SETTINGS_FILE = process.env.ADMIN_SETTINGS_FILE
   ? path.resolve(process.env.ADMIN_SETTINGS_FILE)
   : path.join(__dirname, '..', '..', 'data', 'admin-settings.json');
@@ -387,6 +390,34 @@ function getDuelRewardConfig() {
   return normalizeDuelRewards(settings.rewards?.duelRewards);
 }
 
+async function persistSettingsToDatabase(settings, actorId) {
+  if (!settings || typeof settings !== 'object') return;
+  try {
+    const update = {
+      data: settings,
+      updatedAt: new Date(settings.updatedAt || Date.now()),
+    };
+    if (actorId) {
+      update.updatedBy = actorId;
+    }
+    await AdminSetting.findOneAndUpdate(
+      { _id: 'global' },
+      {
+        $set: update,
+        $setOnInsert: { version: 0 },
+        $inc: { version: 1 },
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      }
+    ).lean();
+  } catch (error) {
+    logger.warn(`[admin-settings] failed to persist settings in database: ${error.message}`);
+  }
+}
+
 async function saveAdminSettings(next, options = {}) {
   const current = loadAdminSettings();
   const incoming = next && typeof next === 'object' ? next : {};
@@ -424,6 +455,8 @@ async function saveAdminSettings(next, options = {}) {
   await ensureSettingsDir();
   await fsp.writeFile(SETTINGS_FILE, JSON.stringify(normalized, null, 2), 'utf8');
   cachedSettings = normalized;
+
+  await persistSettingsToDatabase(normalized, actorId);
   return cloneSettings(normalized);
 }
 
