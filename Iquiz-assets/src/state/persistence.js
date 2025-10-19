@@ -39,6 +39,9 @@ function loadState(){
       }
     }
     if (!State.quiz) State.quiz = {};
+    if (typeof State.quiz.catId === 'string' && State.quiz.catId.trim().toLowerCase() === 'general') {
+      State.quiz.catId = 'general-knowledge';
+    }
     if (State.quiz.diffValue == null) {
       const label = State.quiz.diff;
       if (typeof label === 'string') {
@@ -62,6 +65,22 @@ function loadState(){
         .map((key) => (typeof key === 'string' ? key.trim().toLowerCase() : ''))
         .filter((key) => key.length > 0)
         .slice(-40);
+    }
+
+    if (!Array.isArray(State.quiz.recentQuestionIds)) {
+      State.quiz.recentQuestionIds = [];
+    } else {
+      const seenIds = new Set();
+      const normalizedIds = [];
+      for (let idx = 0; idx < State.quiz.recentQuestionIds.length; idx += 1) {
+        const value = State.quiz.recentQuestionIds[idx];
+        const str = typeof value === 'string' ? value.trim() : value != null ? String(value).trim() : '';
+        if (!str || seenIds.has(str)) continue;
+        seenIds.add(str);
+        normalizedIds.push(str);
+        if (normalizedIds.length >= 200) break;
+      }
+      State.quiz.recentQuestionIds = normalizedIds;
     }
 
     if (!Array.isArray(State.quiz.pendingAnswerIds)) {

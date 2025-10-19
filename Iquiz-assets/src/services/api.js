@@ -1,10 +1,27 @@
-import Net from './net.js';
-import { getGuestId } from '../utils/guest.js';
+import Net, { createRequestHeaders } from './net.js';
+import { getRecentQuestionIds } from '../state/question-history.js';
 
 export const API_BASE = '/api/public';
 const GROUP_BATTLES_BASE = '/api/group-battles';
 const GROUPS_BASE = '/api/groups';
 const DUELS_BASE = '/api/duels';
+const PUBLIC_QUESTIONS_NEXT = '/api/questions/public/next';
+const LEGACY_GENERAL_SLUG = 'general';
+const DEFAULT_GENERAL_SLUG = 'general-knowledge';
+
+function normalizeCategorySlugValue(categorySlug, categoryId) {
+  const candidates = [categorySlug, categoryId];
+  for (let idx = 0; idx < candidates.length; idx += 1) {
+    const candidate = candidates[idx];
+    if (candidate == null) continue;
+    const raw = String(candidate).trim();
+    if (!raw) continue;
+    const lower = raw.toLowerCase();
+    if (lower === LEGACY_GENERAL_SLUG) return DEFAULT_GENERAL_SLUG;
+    return lower;
+  }
+  return '';
+}
 
 export async function config() {
   return await Net.jget(`${API_BASE}/config`);
@@ -20,15 +37,72 @@ export async function categories() {
 
 export async function questions({ categoryId, categorySlug, count, difficulty } = {}) {
   const qs = new URLSearchParams();
-  if (categoryId) qs.set('categoryId', categoryId);
-  if (categorySlug) qs.set('categorySlug', categorySlug);
-  if (count) qs.set('count', count);
-  if (difficulty) qs.set('difficulty', difficulty);
-  const guestId = getGuestId();
-  if (guestId) qs.set('guestId', guestId);
+  const numericCount = Number(count);
+  if (Number.isFinite(numericCount) && numericCount > 0) {
+    const limit = Math.max(1, Math.min(50, Math.trunc(numericCount)));
+    qs.set('limit', String(limit));
+  }
+
+  const slug = normalizeCategorySlugValue(categorySlug, categoryId);
+  if (slug) {
+    qs.set('categorySlug', slug);
+  }
+  if (difficulty) {
+    qs.set('difficulty', String(difficulty));
+  }
+
   const query = qs.toString();
-  const url = query ? `${API_BASE}/questions?${query}` : `${API_BASE}/questions`;
-  return await Net.jget(url);
+  const url = query ? `${PUBLIC_QUESTIONS_NEXT}?${query}` : PUBLIC_QUESTIONS_NEXT;
+  const answeredIds = getRecentQuestionIds();
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: createRequestHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ answeredIds }),
+      cache: 'no-store',
+    });
+  } catch (error) {
+    const friendlyMessage = 'ارتباط با سرور برقرار نشد. لطفاً اتصال اینترنت خود را بررسی کن و دوباره تلاش کن.';
+    const wrapped = new Error(friendlyMessage);
+    wrapped.cause = error;
+    wrapped.isNetworkError = true;
+    wrapped.friendlyMessage = friendlyMessage;
+    throw wrapped;
+  }
+
+  let payload = null;
+  try {
+    const text = await response.text();
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch (_) {
+        payload = null;
+      }
+    }
+  } catch (_) {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    let serverMessage = '';
+    if (payload && typeof payload === 'object') {
+      const messageCandidate = payload.message || payload.error || payload.reason;
+      if (typeof messageCandidate === 'string') {
+        serverMessage = messageCandidate.trim();
+      }
+    }
+    const friendlyMessage = serverMessage || 'در دریافت سوالات جدید مشکلی پیش آمد. لطفاً دوباره تلاش کن.';
+    const error = new Error(friendlyMessage);
+    error.status = response.status;
+    error.payload = payload;
+    error.friendlyMessage = friendlyMessage;
+    throw error;
+  }
+
+  return payload;
 }
 
 export async function recordAnswers(questionIds = []) {

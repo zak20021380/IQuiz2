@@ -18,6 +18,10 @@ function buildHeaders(extra = {}) {
   return headers;
 }
 
+export function createRequestHeaders(extra = {}) {
+  return buildHeaders(extra);
+}
+
 export async function jget(url, timeoutMs = 8000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
