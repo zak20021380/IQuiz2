@@ -78,6 +78,7 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
   const TELEGRAM_BOT_USERNAME = (document.body?.dataset?.telegramBot || 'IQuizBot').replace(/^@+/, '').trim() || 'IQuizBot';
   const TELEGRAM_BOT_WEB_LINK = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
   const TELEGRAM_BOT_APP_LINK = `tg://resolve?domain=${TELEGRAM_BOT_USERNAME}`;
+  const EMPTY_AVATAR = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
   const WALLET_TOPUP_DEFAULTS = {
     min: 50_000,
@@ -562,7 +563,12 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
   function buildTelegramShareUrl(link, text = '') {
     const target = link || TELEGRAM_BOT_WEB_LINK;
     const message = text || '';
-    return `https://t.me/share/url?url=${encodeURIComponent(target)}&text=${encodeURIComponent(message)}`;
+    const encodedUrl = encodeURIComponent(target);
+    const encodedText = encodeURIComponent(message);
+    return {
+      app: `tg://msg_url?url=${encodedUrl}&text=${encodedText}`,
+      web: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
+    };
   }
 
   function openTelegramLink(url) {
@@ -580,13 +586,29 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
   }
 
   async function shareOnTelegram(link, text) {
-    const shareUrl = buildTelegramShareUrl(link, text);
-    const opened = openTelegramLink(shareUrl);
-    if (opened) {
+    const targetLink = link || TELEGRAM_BOT_WEB_LINK;
+    const message = text || '';
+    try {
+      if (window.Telegram?.WebApp?.shareUrl) {
+        window.Telegram.WebApp.shareUrl(targetLink, message);
+        toast('<i class="fab fa-telegram-plane ml-2"></i>دعوت از طریق تلگرام ارسال شد');
+        return;
+      }
+    } catch (error) {
+      console.warn('Telegram shareUrl failed', error);
+    }
+
+    const { app, web } = buildTelegramShareUrl(targetLink, message);
+    if (openTelegramLink(app)) {
+      toast('<i class="fab fa-telegram-plane ml-2"></i>دعوت در تلگرام باز شد');
+      return;
+    }
+    if (openTelegramLink(web)) {
       toast('<i class="fab fa-telegram-plane ml-2"></i>تلگرام برای اشتراک‌گذاری باز شد');
       return;
     }
-    const fallbackText = text ? `${text}\n${link}` : link;
+
+    const fallbackText = message ? `${message}\n${targetLink}` : targetLink;
     const copied = await copyToClipboard(fallbackText);
     if (copied) {
       toast('<i class="fas fa-copy ml-2"></i>لینک برای اشتراک‌گذاری کپی شد');
@@ -1259,10 +1281,11 @@ function populateProvinceOptions(selectEl, placeholder){
   
   // ===== Rendering (legacy + wallet/sub from server) =====
   function renderHeader(){
-    $('#hdr-name').textContent = State.user.name;
+    $('#hdr-name').textContent = State.user.name || '—';
     $('#hdr-score').textContent = faNum(State.score);
     $('#hdr-gcoins').textContent = faNum(State.coins);
-    $('#hdr-avatar').src = State.user.avatar;
+    const headerAvatar = $('#hdr-avatar');
+    if (headerAvatar) headerAvatar.src = State.user.avatar || EMPTY_AVATAR;
     
     // Apply province frame if user has it
     if (Server.pass.provinceFrame) {
@@ -1531,8 +1554,9 @@ function populateProvinceOptions(selectEl, placeholder){
   }
 
   function renderDashboard(){
-    $('#profile-name').textContent = State.user.name;
-    $('#profile-avatar').src = State.user.avatar;
+    $('#profile-name').textContent = State.user.name || '—';
+    const profileAvatar = $('#profile-avatar');
+    if (profileAvatar) profileAvatar.src = State.user.avatar || EMPTY_AVATAR;
     
     // Apply frames
     if (Server.pass.provinceFrame) {
@@ -1630,146 +1654,10 @@ function populateProvinceOptions(selectEl, placeholder){
     updateLifelineStates();
   }
 
-  function renderReferral(){
-    const rewardPerFriend = Number(State.referral?.rewardPerFriend ?? 5);
-    const code = State.referral?.code || '—';
-    const codeEl = $('#referral-code-value');
-    if (codeEl) codeEl.textContent = code;
-    const rewardBadge = $('#referral-reward-per-friend');
-    if (rewardBadge) rewardBadge.textContent = faNum(rewardPerFriend);
-    const heroCoin = document.querySelector('.referral-coin-value');
-    if (heroCoin) heroCoin.textContent = `+${faNum(rewardPerFriend)}`;
-
-    const rawList = Array.isArray(State.referral?.referred) ? State.referral.referred : [];
-    const parseDate = value => {
-      if (!value) return null;
-      if (value instanceof Date) return value;
-      const parsed = new Date(value);
-      return Number.isFinite(parsed.getTime()) ? parsed : null;
-    };
-
-    const normalized = rawList.map(friend => {
-      const invitedAt = parseDate(friend.invitedAt ?? friend.date);
-      const startedAt = parseDate(friend.startedAt);
-      const firstQuizAt = parseDate(friend.firstQuizAt);
-      const status = friend.status || (firstQuizAt ? 'completed' : startedAt ? 'awaiting_quiz' : 'awaiting_start');
-      const avatar = friend.avatar || `https://i.pravatar.cc/120?u=${encodeURIComponent(friend.id || friend.name || Math.random())}`;
-      const quizzesPlayed = friend.quizzesPlayed ?? (firstQuizAt ? Math.max(1, Number(friend.quizzesPlayed) || 1) : 0);
-      Object.assign(friend, { invitedAt, startedAt, firstQuizAt, status, avatar, quizzesPlayed });
-      if (status === 'completed') friend.reward = rewardPerFriend;
-      return { ...friend };
-    });
-
-    const total = normalized.length;
-    const active = normalized.filter(f => f.status !== 'awaiting_start').length;
-    const qualified = normalized.filter(f => f.status === 'completed').length;
-    const pendingQuiz = normalized.filter(f => f.status === 'awaiting_quiz').length;
-    const pendingStart = normalized.filter(f => f.status === 'awaiting_start').length;
-    const earned = qualified * rewardPerFriend;
-    const potential = (total - qualified) * rewardPerFriend;
-
-    const setNumber = (id, value) => {
-      const el = $('#'+id);
-      if (el) el.textContent = faNum(value);
-    };
-    setNumber('referral-stat-total', total);
-    setNumber('referral-stat-active', active);
-    setNumber('referral-stat-qualified', qualified);
-    setNumber('referral-stat-earned', earned);
-
-    const friendsCount = $('#referral-friends-count');
-    if (friendsCount) friendsCount.textContent = total ? `${faNum(total)} دوست` : '۰ دوست';
-
-    const pendingHint = $('#referral-pending-hint');
-    if (pendingHint) {
-      if (!total) {
-        pendingHint.classList.add('hidden');
-      } else {
-        const span = pendingHint.querySelector('span');
-        const parts = [];
-        if (pendingQuiz) parts.push(`${faNum(pendingQuiz)} دوست منتظر اولین کوییز`);
-        if (pendingStart) parts.push(`${faNum(pendingStart)} دوست هنوز ربات را استارت نکرده‌اند`);
-        if (parts.length) {
-          if (span) span.innerHTML = `${parts.join(' و ')} • پاداش بالقوه: <span class="text-yellow-300 font-bold">${faNum(potential)}💰</span>`;
-          pendingHint.classList.remove('hidden');
-        } else {
-          if (span) span.innerHTML = `همه دعوت‌ها تایید شده‌اند. مجموع پاداش آزاد شده: <span class="text-yellow-300 font-bold">${faNum(earned)}💰</span>`;
-          pendingHint.classList.remove('hidden');
-        }
-      }
-    }
-
-    const listWrap = $('#referral-friends');
-    if (listWrap) {
-      listWrap.innerHTML = '';
-      if (!normalized.length) {
-        listWrap.innerHTML = `
-          <div class="referral-empty">
-            <div class="referral-empty-icon"><i class="fas fa-user-plus"></i></div>
-            <p class="text-sm leading-7 opacity-90">هنوز دوستی دعوت نشده است. لینک بالا را ارسال کن تا بعد از اولین کوییز، ${faNum(rewardPerFriend)} سکه هدیه بگیری.</p>
-            <button class="btn btn-secondary btn-inline w-full sm:w-auto" id="referral-empty-share">
-              <i class="fas fa-share-nodes ml-2"></i> شروع دعوت
-            </button>
-          </div>`;
-        listWrap.querySelector('#referral-empty-share')?.addEventListener('click', () => $('#btn-share-referral')?.click());
-      } else {
-        const order = { completed: 0, awaiting_quiz: 1, awaiting_start: 2 };
-        normalized.sort((a, b) => {
-          const stateDiff = (order[a.status] ?? 3) - (order[b.status] ?? 3);
-          if (stateDiff !== 0) return stateDiff;
-          const timeA = (a.firstQuizAt || a.startedAt || a.invitedAt)?.getTime?.() || 0;
-          const timeB = (b.firstQuizAt || b.startedAt || b.invitedAt)?.getTime?.() || 0;
-          return timeB - timeA;
-        });
-
-        normalized.forEach(friend => {
-          const statusMeta = {
-            completed: { icon: 'fa-circle-check', label: 'پاداش واریز شد', state: 'completed' },
-            awaiting_quiz: { icon: 'fa-hourglass-half', label: 'در انتظار اولین کوییز', state: 'awaiting_quiz' },
-            awaiting_start: { icon: 'fa-paper-plane', label: 'منتظر شروع ربات', state: 'awaiting_start' }
-          };
-          const meta = statusMeta[friend.status] || statusMeta.awaiting_start;
-          let timeline = 'در انتظار اقدام دوست';
-          if (friend.status === 'completed' && friend.firstQuizAt) {
-            timeline = `پاداش تایید شد ${formatRelativeTime(friend.firstQuizAt.getTime())}`;
-          } else if (friend.status === 'awaiting_quiz' && friend.startedAt) {
-            timeline = `ربات استارت شده ${formatRelativeTime(friend.startedAt.getTime())}`;
-          } else if (friend.invitedAt) {
-            timeline = `دعوت ارسال شد ${formatRelativeTime(friend.invitedAt.getTime())}`;
-          }
-
-          const badges = [];
-          if (friend.invitedAt) badges.push(`<span class="chip text-[0.7rem] bg-white/10 border-white/20"><i class="fas fa-paper-plane ml-1"></i>${formatRelativeTime(friend.invitedAt.getTime())}</span>`);
-          if (friend.startedAt) badges.push(`<span class="chip text-[0.7rem] bg-sky-500/20 border-sky-300/40"><i class="fas fa-rocket ml-1"></i>${formatRelativeTime(friend.startedAt.getTime())}</span>`);
-          if (friend.firstQuizAt) badges.push(`<span class="chip text-[0.7rem] bg-emerald-500/20 border-emerald-300/40"><i class="fas fa-check ml-1"></i>${faNum(friend.quizzesPlayed || 1)} کوییز</span>`);
-
-          const card = document.createElement('div');
-          card.className = 'referral-friend-card';
-          card.innerHTML = `
-            <div class="referral-friend-meta">
-              <img src="${friend.avatar}" class="referral-friend-avatar" alt="${friend.name}">
-              <div class="min-w-0 space-y-1">
-                <div class="flex items-center justify-between gap-2 flex-wrap">
-                  <span class="font-bold text-base truncate">${friend.name}</span>
-                  <span class="referral-status" data-state="${meta.state}"><i class="fas ${meta.icon} ml-1"></i>${meta.label}</span>
-                </div>
-                <div class="text-xs opacity-75 leading-6">${timeline}</div>
-                <div class="referral-friend-badges">${badges.join('')}</div>
-              </div>
-            </div>
-            <div class="flex flex-col items-end gap-2">
-              <span class="referral-reward" data-earned="${friend.status === 'completed'}">${friend.status === 'completed' ? `+${faNum(rewardPerFriend)}💰` : `۰/${faNum(rewardPerFriend)}💰`}</span>
-              ${friend.status === 'completed' && friend.quizzesPlayed ? `<span class="text-[0.7rem] opacity-75 flex items-center gap-1"><i class="fas fa-trophy text-yellow-300"></i>${faNum(friend.quizzesPlayed)} مسابقه</span>` : ''}
-            </div>`;
-          listWrap.appendChild(card);
-        });
-      }
-    }
-  }
 
   updateLifelineStates();
   
-  const NAV_PAGES=['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions','referral'];
+  const NAV_PAGES=['dashboard','quiz','leaderboard','shop','wallet','vip','results','duel','province','group','pass-missions'];
   const NAV_PAGE_SET=new Set(NAV_PAGES);
 
   function navTo(page){
@@ -1785,7 +1673,6 @@ function populateProvinceOptions(selectEl, placeholder){
     if(page==='shop'){ renderShop(); }
     if(page==='wallet'){ renderWallet(); }
     if(page==='vip'){ renderVipPlans(); updateVipUI(); }
-    if(page==='referral'){ renderReferral(); }
   }
   
   // ===== Leaderboard / Details (unchanged + detail popups) =====
@@ -4694,44 +4581,6 @@ async function startPurchaseCoins(pkgId){
     }
   }
 
-  function prepareInviteModal(){
-    const reward = Number(State.referral?.rewardPerFriend ?? 5);
-    const rewardLabel = faNum(reward);
-    const payload = `ref_${State.user.id || 'guest'}`;
-    const { web, app } = buildTelegramStartLinks(payload);
-    const appName = getAppName();
-    const codeValue = State.referral?.code || '';
-    const shareText = codeValue
-      ? `با لینک من در ${appName} ثبت‌نام کن و کد ${codeValue} را وارد کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم.`
-      : `با لینک من در ${appName} ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم.`;
-    const referred = Array.isArray(State.referral?.referred) ? State.referral.referred : [];
-    const completed = referred.filter(friend => friend?.status === 'completed').length;
-
-    const rewardEl = $('#invite-reward');
-    if (rewardEl) rewardEl.textContent = rewardLabel;
-
-    const totalEl = $('#invite-total');
-    if (totalEl) totalEl.textContent = faNum(referred.length);
-
-    const successEl = $('#invite-success');
-    if (successEl) successEl.textContent = faNum(completed);
-
-    const linkEl = $('#invite-link');
-    if (linkEl) {
-      linkEl.value = web;
-      linkEl.dataset.value = web;
-      linkEl.dataset.appLink = app;
-    }
-
-    const shareBtn = $('#invite-share-telegram');
-    if (shareBtn) {
-      shareBtn.dataset.link = web;
-      shareBtn.dataset.text = shareText;
-    }
-
-    openModal('#modal-invite');
-  }
-
   async function copyToClipboard(text){
     try{
       if (navigator.clipboard?.writeText) {
@@ -4907,39 +4756,6 @@ async function startPurchaseCoins(pkgId){
   $('#btn-continue-quiz')?.addEventListener('click', handleQuitCancel);
   $('#confirm-quit')?.addEventListener('click', handleQuitConfirm);
   $('#btn-claim-streak')?.addEventListener('click', claimStreak);
-  $('#btn-invite')?.addEventListener('click', prepareInviteModal);
-
-  $$('[data-copy-target]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const target = btn.dataset.copyTarget;
-      const map = {
-        'invite-link': 'لینک دعوت'
-      };
-      const el = target ? document.getElementById(target) : null;
-      const value = el?.value || el?.dataset?.value || '';
-      if (!value) {
-        toast('چیزی برای کپی وجود ندارد');
-        return;
-      }
-      const ok = await copyToClipboard(value);
-      if (ok) {
-        toast(`<i class="fas fa-check-circle ml-2"></i>${map[target] || 'محتوا'} کپی شد!`);
-      } else {
-        toast('امکان کپی کردن وجود ندارد');
-      }
-    });
-  });
-  $('#invite-share-telegram')?.addEventListener('click', async (event) => {
-    event.preventDefault();
-    const btn = event.currentTarget;
-    const link = btn?.dataset?.link || $('#invite-link')?.value || '';
-    const text = btn?.dataset?.text || '';
-    if (!link) {
-      toast('لینک دعوت آماده نیست');
-      return;
-    }
-    await shareOnTelegram(link, text);
-  });
   // Delegate shop item purchases to handle dynamic re-renders
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-buy]');
@@ -6974,7 +6790,6 @@ async function leaveGroup(groupId) {
   $('#btn-back-province')?.addEventListener('click', () => navTo('dashboard'));
   $('#btn-back-group')?.addEventListener('click', () => navTo('dashboard'));
   $('#btn-back-pass-missions')?.addEventListener('click', () => navTo('dashboard'));
-  $('#btn-back-referral')?.addEventListener('click', () => navTo('dashboard'));
   
   // Wallet/VIP navigation
   $('#btn-open-wallet')?.addEventListener('click', ()=>navTo('wallet'));
@@ -7004,7 +6819,6 @@ async function leaveGroup(groupId) {
   $$('[data-close="#modal-receipt"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-receipt')));
   $$('[data-close="#modal-pay-confirm"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-pay-confirm')));
   $$('[data-close="#modal-province-soon"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-province-soon')));
-  $$('[data-close="#modal-invite"]').forEach(b=> b.addEventListener('click', ()=>closeModal('#modal-invite')));
 
   // Game Limits CTAs
   $('#btn-reset-match-limit')?.addEventListener('click', () => {
@@ -7123,46 +6937,6 @@ async function leaveGroup(groupId) {
     document.querySelector('.leaderboard-tab[data-tab="province"]')?.click();
   });
   
-  // Referral
-  $('#btn-copy-referral')?.addEventListener('click', () => {
-    navigator.clipboard.writeText(State.referral.code || '');
-    toast('<i class="fas fa-check-circle ml-2"></i>کد دعوت کپی شد!');
-  });
-
-  $('#btn-share-referral')?.addEventListener('click', async () => {
-    vibrate(20);
-    const reward = Number(State.referral?.rewardPerFriend ?? 5);
-    const code = State.referral?.code || '';
-    const payload = `ref_${State.user.id || 'guest'}`;
-    const { web } = buildTelegramStartLinks(payload);
-    const rewardLabel = faNum(reward);
-    const appName = getAppName();
-    const text = code
-      ? `با لینک من در ${appName} ثبت‌نام کن و کد ${code} را وارد کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم!`
-      : `با لینک من در ${appName} ثبت‌نام کن؛ بعد از اولین کوییز هر دو ${rewardLabel} سکه هدیه می‌گیریم!`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `دعوت به ${appName}`,
-          text,
-          url: web
-        });
-        toast('<i class="fas fa-check-circle ml-2"></i>دعوت ارسال شد');
-        return;
-      } catch (error) {
-        console.warn('navigator.share failed', error);
-      }
-    }
-
-    await shareOnTelegram(web, text);
-  });
-
-  const referralDuelBtn = document.getElementById('btn-referral-duel');
-  if (referralDuelBtn) {
-    referralDuelBtn.addEventListener('click', () => navTo('duel'));
-  }
-
   // Share Result
   
   $('#active-duel-requests')?.addEventListener('click', event => {

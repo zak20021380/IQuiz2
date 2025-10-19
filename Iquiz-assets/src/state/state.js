@@ -14,32 +14,9 @@ const ROSTER_LAST_NAMES = ['قاسمی','حسینی','موسوی','محمدی','
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DUEL_INVITE_TIMEOUT_MS = DAY_MS;
 
-const DEFAULT_DUEL_INVITES = (() => {
-  const base = Date.now();
-  const buildInvite = (id, opponent, avatar, hoursAgo = 2) => {
-    const requestedAt = base - Math.max(0, hoursAgo) * 60 * 60 * 1000;
-    return {
-      id,
-      opponent,
-      avatar,
-      requestedAt,
-      deadline: requestedAt + DUEL_INVITE_TIMEOUT_MS,
-      message: 'در انتظار پاسخ',
-      source: 'friend',
-    };
-  };
+const DEFAULT_DUEL_INVITES = [];
 
-  return [
-    buildInvite('invite-ali-rezaei', 'علی رضایی', 'https://i.pravatar.cc/100?img=3', 2),
-  ];
-})();
-
-const DEFAULT_DUEL_FRIENDS = [
-  { id: 1, name: 'علی رضایی', score: 12450, avatar: 'https://i.pravatar.cc/60?img=3' },
-  { id: 2, name: 'سارا محمدی', score: 9800, avatar: 'https://i.pravatar.cc/60?img=5' },
-  { id: 3, name: 'رضا قاسمی', score: 15200, avatar: 'https://i.pravatar.cc/60?img=8' },
-  { id: 4, name: 'مریم احمدی', score: 7650, avatar: 'https://i.pravatar.cc/60?img=11' },
-];
+const DEFAULT_DUEL_FRIENDS = Object.freeze([]);
 
 function normalizeKeyCount(value) {
   const numeric = Number(value);
@@ -142,8 +119,8 @@ function normalizeRosterMember(player, fallback, index, group){
 }
 
 const State = {
-  user:{ id:'guest', name:'کاربر مهمان', username:'', avatar:'https://i.pravatar.cc/120?img=12', province:'', group:'', groupId:'' },
-  score:0, coins:120, keys:0, lives:3, vip:false,
+  user:{ id:'', name:'', username:'', avatar:'', province:'', group:'', groupId:'' },
+  score:0, coins:0, keys:0, lives:3, vip:false,
   streak:0, lastClaim:0, boostUntil:0,
   theme:'ocean',
   duelOpponent:null,
@@ -156,12 +133,7 @@ const State = {
   duelHistory:[],
   achievements:{ firstWin:false, tenCorrect:false, streak3:false, vipBought:false },
   settings:{ sound:true, haptics:true, blockDuels:false },
-  leaderboard:[
-    { id:'u1', name:'آرتین', score:18200, province:'تهران', group:'قهرمانان دانش' },
-    { id:'u2', name:'سمانه', score:16500, province:'اصفهان', group:'متفکران جوان' },
-    { id:'u3', name:'مانی', score:14950, province:'خراسان رضوی', group:'چالش‌برانگیزان' },
-    { id:'u4', name:'نیکا', score:13200, province:'فارس', group:'دانش‌آموزان نخبه' },
-  ],
+  leaderboard:[],
   provinces: [],
   groups: [],
   quiz:{
@@ -175,44 +147,8 @@ const State = {
     recentQuestions: [],
     pendingAnswerIds: []
   },
-  notifications:[
-    { id:'n1', text:'جام هفتگی از ساعت ۲۰:۰۰ شروع می‌شود. آماده‌ای؟', time:'امروز' },
-    { id:'n2', text:'بستهٔ سوالات «ادبیات فارسی» اضافه شد!', time:'دیروز' },
-    { id:'n3', text:'با دعوت هر دوست ۵💰 هدیه بگیر! تنها بعد از اولین کوییز فعال می‌شود.', time:'۲ روز پیش' }
-  ],
+  notifications:[],
   groupBattle: { selectedHostId: '', selectedOpponentId: '', lastResult: null },
-  referral: {
-    code: 'QUIZ5F8A2B',
-    rewardPerFriend: 5,
-    referred: [
-      {
-        id: 'u1',
-        name: 'سارا اکبری',
-        avatar: 'https://i.pravatar.cc/120?img=47',
-        invitedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        startedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
-        firstQuizAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000),
-        quizzesPlayed: 3,
-        status: 'completed'
-      },
-      {
-        id: 'u2',
-        name: 'رضا کریمی',
-        avatar: 'https://i.pravatar.cc/120?img=15',
-        invitedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        startedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 6 * 60 * 60 * 1000),
-        quizzesPlayed: 0,
-        status: 'awaiting_quiz'
-      },
-      {
-        id: 'u3',
-        name: 'نیلوفر احمدی',
-        avatar: 'https://i.pravatar.cc/120?img=20',
-        invitedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-        status: 'awaiting_start'
-      }
-    ]
-  }
 };
 
 const INTERNAL_KEY_STATE = { value: normalizeKeyCount(State.lives) };
