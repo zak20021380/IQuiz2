@@ -64,6 +64,7 @@ function stubQuestionModel({ responses = [], total = 0 }) {
 
 function stubUserQuestionEvents({ docs = [] }) {
   const originalFind = UserQuestionEvent.find;
+  const originalDistinct = UserQuestionEvent.distinct;
 
   UserQuestionEvent.find = () => ({
     sort() { return this; },
@@ -72,9 +73,19 @@ function stubUserQuestionEvents({ docs = [] }) {
     async lean() { return docs; }
   });
 
+  UserQuestionEvent.distinct = async (field) => {
+    if (field !== 'questionId') {
+      return [];
+    }
+    return docs
+      .map((doc) => doc?.questionId)
+      .filter((value) => value);
+  };
+
   return {
     restore() {
       UserQuestionEvent.find = originalFind;
+      UserQuestionEvent.distinct = originalDistinct;
     }
   };
 }
@@ -221,7 +232,8 @@ test('previously seen ids can reappear after history expires', async () => {
   try {
     const first = await QuestionService.getQuestions({ count: 1, userId: 'user-2' });
     assert.ok(first.ok);
-    assert.strictEqual(first.items[0].id, String(reusedId));
+    assert.strictEqual(first.countReturned, 0);
+    assert.deepStrictEqual(first.items, []);
     assert.strictEqual(first.avoided, 1);
     activeHistory.restore();
 

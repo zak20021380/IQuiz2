@@ -145,6 +145,26 @@ async function collectRecentQuestionIds(userKey, categorySlug) {
   }
 }
 
+async function collectAnsweredQuestionIds(userKey) {
+  if (!userKey) return [];
+  try {
+    const ids = await UserQuestionEvent.distinct('questionId', { userId: userKey });
+    return ids
+      .map((id) => {
+        if (!id) return '';
+        try {
+          return String(id).trim();
+        } catch (error) {
+          return '';
+        }
+      })
+      .filter((value) => value && value.length > 0);
+  } catch (error) {
+    logger.warn(`[questions] failed to load answered ids: ${error.message}`);
+    return [];
+  }
+}
+
 function normalizeDocuments(docs, seenIds) {
   const normalized = [];
   for (const doc of docs) {
@@ -346,6 +366,10 @@ async function getQuestions(params = {}) {
 
   const userKey = resolveUserKey(params);
   const normalizedRequestSlug = normalizeCategorySlug(params.categorySlug || params.category);
+  const answeredIds = await collectAnsweredQuestionIds(userKey);
+  const answeredObjectIds = answeredIds
+    .map((id) => toObjectId(id))
+    .filter((id) => id);
   const recentIds = await collectRecentQuestionIds(
     userKey,
     normalizedRequestSlug ? normalizedRequestSlug : undefined
@@ -353,12 +377,20 @@ async function getQuestions(params = {}) {
   const recentObjectIds = recentIds
     .map((id) => toObjectId(id))
     .filter((id) => id);
+  const exclusionMap = new Map();
+  for (const objectId of [...recentObjectIds, ...answeredObjectIds]) {
+    if (!objectId) continue;
+    const key = objectId.toHexString();
+    if (!key || exclusionMap.has(key)) continue;
+    exclusionMap.set(key, objectId);
+  }
+  const exclusionObjectIds = Array.from(exclusionMap.values());
 
   const primaryQuery = cloneQuery(baseQuery);
-  if (recentObjectIds.length) {
+  if (exclusionObjectIds.length) {
     primaryQuery._id = {
       ...(primaryQuery._id || {}),
-      $nin: recentObjectIds
+      $nin: exclusionObjectIds
     };
   }
 
@@ -386,12 +418,19 @@ async function getQuestions(params = {}) {
   const seenIds = new Set();
   const primaryNormalized = normalizeDocuments(primaryDocs, seenIds);
   let items = primaryNormalized.slice(0, countRequested);
-
   if (items.length < countRequested) {
     const missing = countRequested - items.length;
     const excludeObjectIds = Array.from(seenIds)
       .map((id) => toObjectId(id))
       .filter((id) => id);
+    const excludeSet = new Set(excludeObjectIds.map((objectId) => objectId.toHexString()));
+    for (const objectId of exclusionObjectIds) {
+      if (!objectId) continue;
+      const key = objectId.toHexString();
+      if (!key || excludeSet.has(key)) continue;
+      excludeSet.add(key);
+      excludeObjectIds.push(objectId);
+    }
     const backfillQuery = cloneQuery(baseQuery);
     if (excludeObjectIds.length) {
       backfillQuery._id = {
@@ -420,6 +459,10 @@ async function getQuestions(params = {}) {
   }
 
   const countReturned = items.length;
+  const exhausted = Boolean(userKey)
+    && totalMatched > 0
+    && answeredObjectIds.length > 0
+    && countReturned === 0;
 
   if (countReturned > 0 && userKey) {
     try {
@@ -441,7 +484,7 @@ async function getQuestions(params = {}) {
     returned: countReturned
   });
 
-  if (countReturned === 0) {
+  if (countReturned === 0 && !exhausted) {
     logger.warn(`[questions] empty response want=${countRequested} totalMatched=${totalMatched}`);
   } else if (countReturned < countRequested) {
     logger.warn(
@@ -449,7 +492,7 @@ async function getQuestions(params = {}) {
     );
   }
 
-  const ok = countReturned > 0;
+  const ok = countReturned > 0 || exhausted;
   const noQuestionsMessage = totalMatched > 0 && !ok && normalizedRequestSlug
     ? 'تمام سؤالات این دسته پاسخ داده شده‌اند.'
     : 'no questions available';
@@ -460,7 +503,7 @@ async function getQuestions(params = {}) {
     countReturned,
     totalMatched,
     items,
-    avoided: recentIds.length,
+    avoided: exclusionObjectIds.length,
     ...(ok ? {} : { message: noQuestionsMessage })
   };
 }
