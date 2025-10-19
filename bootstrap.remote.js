@@ -19,9 +19,6 @@ import {
   isUserGroupAdmin,
   getUserGroup,
   isUserInGroup,
-  stringToSeed,
-  buildRosterEntry,
-  seededFloat,
   spendKeys,
   DEFAULT_DUEL_FRIENDS
 } from '../state/state.js';
@@ -5811,28 +5808,8 @@ function getBattleParticipants(hostGroup, opponentGroup) {
       : []
   );
 
-  let hostPlayers = clonePlayers(hostGroup);
-  let opponentPlayers = clonePlayers(opponentGroup);
-
-  const userName = State.user?.name?.trim();
-
-  const injectUser = (players, group) => {
-    if (!userName || !group) return players;
-    const belongsToGroup = group.memberList?.includes(userName) || group.name === State.user.group;
-    if (!belongsToGroup) return players;
-    if (players.some(player => player?.name === userName)) return players;
-    const seed = stringToSeed(`${group.id || group.name}-${userName}`);
-    const userEntry = buildRosterEntry(userName, 0, seed);
-    userEntry.role = 'کاپیتان تیم';
-    userEntry.power = Math.min(99, (userEntry.power || 0) + 6);
-    userEntry.avgScore = Math.min(990, (userEntry.avgScore || 0) + 45);
-    userEntry.accuracy = Math.min(99, (userEntry.accuracy || 0) + 4);
-    players = [userEntry, ...players];
-    return players.slice(0, 10);
-  };
-
-  hostPlayers = injectUser(hostPlayers, hostGroup);
-  opponentPlayers = injectUser(opponentPlayers, opponentGroup);
+  const hostPlayers = clonePlayers(hostGroup);
+  const opponentPlayers = clonePlayers(opponentGroup);
 
   return {
     hostPlayers,
