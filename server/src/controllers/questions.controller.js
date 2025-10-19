@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Question = require('../models/Question');
 const Category = require('../models/Category');
 const env = require('../config/env');
@@ -9,6 +10,9 @@ const TRUTHY_QUERY_VALUES = new Set(['1', 'true', 'yes', 'y', 'on']);
 const FALSY_QUERY_VALUES = new Set(['0', 'false', 'no', 'n', 'off']);
 
 const ALLOW_REVIEW_MODE_ALL = env?.features?.allowReviewModeAll !== false;
+
+const DEFAULT_PUBLIC_NEXT_LIMIT = 10;
+const MAX_PUBLIC_NEXT_LIMIT = 30;
 
 function normalizeStatus(status, fallback = 'approved') {
   if (typeof status !== 'string') return fallback;
@@ -84,6 +88,42 @@ function parseBooleanQuery(value, fallback = false) {
   if (TRUTHY_QUERY_VALUES.has(normalized)) return true;
   if (FALSY_QUERY_VALUES.has(normalized)) return false;
   return fallback;
+}
+
+function sanitizePublicNextLimit(raw) {
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_PUBLIC_NEXT_LIMIT;
+  }
+  return Math.min(Math.max(parsed, 1), MAX_PUBLIC_NEXT_LIMIT);
+}
+
+function normalizeAnsweredObjectIds(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return [];
+  }
+
+  const ids = [];
+  const seen = new Set();
+  for (const entry of values) {
+    let candidate = '';
+    if (typeof entry === 'string' || typeof entry === 'number') {
+      candidate = String(entry).trim();
+    } else if (entry && typeof entry === 'object') {
+      if (typeof entry._id === 'string' || typeof entry._id === 'number') {
+        candidate = String(entry._id).trim();
+      } else if (typeof entry.id === 'string' || typeof entry.id === 'number') {
+        candidate = String(entry.id).trim();
+      }
+    }
+
+    if (!candidate || seen.has(candidate)) continue;
+    if (!mongoose.Types.ObjectId.isValid(candidate)) continue;
+    seen.add(candidate);
+    ids.push(new mongoose.Types.ObjectId(candidate));
+  }
+
+  return ids;
 }
 
 function extractOptionList(doc) {
@@ -942,6 +982,28 @@ exports.submitPublic = async (req, res, next) => {
       return res.status(409).json({ ok: false, message: 'این سوال قبلاً ارسال شده است.' });
     }
     next(error);
+  }
+};
+
+exports.fetchNextPublic = async (req, res) => {
+  try {
+    const limit = sanitizePublicNextLimit(req.query?.limit);
+    const answeredObjectIds = normalizeAnsweredObjectIds(req.body?.answeredIds);
+
+    const query = { active: true, published: true };
+    if (answeredObjectIds.length > 0) {
+      query._id = { $nin: answeredObjectIds };
+    }
+
+    const questions = await Question.find(query)
+      .sort({ lastServedAt: 1, createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    res.json({ ok: true, data: questions });
+  } catch (error) {
+    console.error('[questions] failed to fetch next public questions', error);
+    res.status(500).json({ ok: false, message: 'failed to load questions' });
   }
 };
 

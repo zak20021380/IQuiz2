@@ -2,6 +2,8 @@ const router = require('express').Router();
 const { protect, adminOnly } = require('../middleware/auth');
 const ctrl = require('../controllers/questions.controller');
 
+router.post('/public/next', protect, ctrl.fetchNextPublic);
+
 router.use(protect, adminOnly);
 router.get('/duplicates', ctrl.listDuplicates);
 router.get('/search', ctrl.search);
