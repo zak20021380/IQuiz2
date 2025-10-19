@@ -19,6 +19,72 @@ const apiFetch = (path, opts = {}) => {
   return fetch(apiPath(path), options);
 };
 
+const ANSWERED_SESSION_KEY = 'iquiz_admin_answered_question_ids';
+const ANSWERED_SESSION_MAX = 200;
+const DEFAULT_PUBLIC_QUESTION_LIMIT = 10;
+const MAX_PUBLIC_QUESTION_LIMIT = 30;
+
+function loadAnsweredQuestionIdsFromSession() {
+  if (typeof sessionStorage === 'undefined') {
+    return [];
+  }
+  try {
+    const raw = sessionStorage.getItem(ANSWERED_SESSION_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((value) => (typeof value === 'string' ? value.trim() : typeof value === 'number' ? String(value) : ''))
+      .filter((value) => value);
+  } catch (_) {
+    return [];
+  }
+}
+
+function persistAnsweredQuestionIds() {
+  if (typeof sessionStorage === 'undefined') {
+    return;
+  }
+  try {
+    const payload = JSON.stringify(answeredQuestionIds);
+    sessionStorage.setItem(ANSWERED_SESSION_KEY, payload);
+  } catch (_) {
+    // ignore storage write failures
+  }
+}
+
+function getAnsweredQuestionIdsPayload() {
+  if (!Array.isArray(answeredQuestionIds) || answeredQuestionIds.length === 0) {
+    return [];
+  }
+  if (answeredQuestionIds.length <= ANSWERED_SESSION_MAX) {
+    return answeredQuestionIds.slice();
+  }
+  return answeredQuestionIds.slice(-ANSWERED_SESSION_MAX);
+}
+
+let answeredQuestionIds = loadAnsweredQuestionIdsFromSession();
+
+function recordAnswer(questionId) {
+  const normalized = typeof questionId === 'string'
+    ? questionId.trim()
+    : typeof questionId === 'number'
+      ? String(questionId)
+      : '';
+  if (!normalized) return;
+  if (!Array.isArray(answeredQuestionIds)) {
+    answeredQuestionIds = [];
+  }
+  if (answeredQuestionIds.includes(normalized)) {
+    return;
+  }
+  answeredQuestionIds.push(normalized);
+  if (answeredQuestionIds.length > ANSWERED_SESSION_MAX) {
+    answeredQuestionIds = answeredQuestionIds.slice(-ANSWERED_SESSION_MAX);
+  }
+  persistAnsweredQuestionIds();
+}
+
 const ADMIN_SETTINGS_STORAGE_KEY = 'iquiz_admin_settings_v1';
 const ADMIN_SETTINGS_BROADCAST_CHANNEL = 'iquiz_admin_settings_sync';
 const ADMIN_SETTINGS_BROADCAST_TYPE = 'admin-settings:update';
@@ -3458,6 +3524,8 @@ function clearToken() {
     localStorage.removeItem('iq_admin_token');
     sessionStorage.removeItem('adminToken');
     sessionStorage.removeItem('iq_admin_token');
+    sessionStorage.removeItem(ANSWERED_SESSION_KEY);
+    answeredQuestionIds = [];
   } catch (_) {
     // ignore storage failures
   }
@@ -3522,6 +3590,29 @@ async function api(path, options = {}) {
     json.data = { overview: json.data };
   }
   return json;
+}
+
+async function fetchNextPublicQuestions(limit = DEFAULT_PUBLIC_QUESTION_LIMIT) {
+  const numericLimit = Number(limit);
+  const safeLimit = Number.isFinite(numericLimit)
+    ? Math.min(Math.max(Math.trunc(numericLimit), 1), MAX_PUBLIC_QUESTION_LIMIT)
+    : DEFAULT_PUBLIC_QUESTION_LIMIT;
+  const params = new URLSearchParams();
+  params.set('limit', String(safeLimit));
+
+  const query = params.toString();
+  const path = query ? `/questions/public/next?${query}` : '/questions/public/next';
+
+  try {
+    const response = await api(path, {
+      method: 'POST',
+      body: JSON.stringify({ answeredIds: getAnsweredQuestionIdsPayload() })
+    });
+    return Array.isArray(response?.data) ? response.data : [];
+  } catch (error) {
+    console.error('Failed to load next public questions', error);
+    return [];
+  }
 }
 
 
@@ -8222,6 +8313,29 @@ async function loadAllData() {
 
 function handleResize() { if (window.innerWidth >= 768) $('#mobile-menu').classList.add('translate-x-full'); }
 window.addEventListener('resize', handleResize);
+if (typeof document !== 'undefined') {
+  document.addEventListener('iquiz-answer-submitted', (event) => {
+    const detail = event?.detail;
+    const questionId = typeof detail === 'string'
+      ? detail
+      : detail && typeof detail === 'object'
+        ? (detail.questionId || detail.id || detail._id || '')
+        : '';
+    if (questionId) {
+      recordAnswer(questionId);
+    }
+  });
+
+  document.addEventListener('submit', (event) => {
+    const form = event?.target;
+    if (!form || typeof form.matches !== 'function') return;
+    if (!form.matches('[data-public-answer-form]')) return;
+    const questionId = form.getAttribute('data-question-id') || form.dataset?.questionId || '';
+    if (questionId) {
+      recordAnswer(questionId);
+    }
+  });
+}
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     $$('.modal').forEach(m => { if (m.classList.contains('active')) closeModal(`#${m.id}`); });
