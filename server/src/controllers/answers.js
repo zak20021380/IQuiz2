@@ -5,6 +5,13 @@ const mongoose = require('mongoose');
 const UserQuestionEvent = require('../models/UserQuestionEvent');
 const logger = require('../config/logger');
 
+function normalizeCategorySlug(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.toLowerCase();
+}
+
 function normalizeUserKey({ userId, guestId, user }) {
   const source = userId || user?._id || user?.id;
   if (source instanceof mongoose.Types.ObjectId) {
@@ -37,7 +44,7 @@ function normalizeQuestionId(questionId) {
   return null;
 }
 
-async function recordAnswerEvent({ userId, guestId, user, questionId, answeredAt = new Date() }) {
+async function recordAnswerEvent({ userId, guestId, user, questionId, categorySlug, answeredAt = new Date() }) {
   const userKey = normalizeUserKey({ userId, guestId, user });
   const normalizedQuestionId = normalizeQuestionId(questionId);
 
@@ -45,14 +52,36 @@ async function recordAnswerEvent({ userId, guestId, user, questionId, answeredAt
     return null;
   }
 
-  const payload = {
+  const normalizedCategorySlug = normalizeCategorySlug(categorySlug);
+  const filter = {
     userId: userKey,
-    questionId: normalizedQuestionId,
-    answeredAt: answeredAt instanceof Date ? answeredAt : new Date(answeredAt)
+    questionId: normalizedQuestionId
   };
 
+  if (normalizedCategorySlug) {
+    filter.categorySlug = normalizedCategorySlug;
+  }
+
+  const update = {
+    $set: {
+      answeredAt: answeredAt instanceof Date ? answeredAt : new Date(answeredAt)
+    },
+    $setOnInsert: {
+      userId: userKey,
+      questionId: normalizedQuestionId
+    }
+  };
+
+  if (normalizedCategorySlug) {
+    update.$set.categorySlug = normalizedCategorySlug;
+    update.$setOnInsert.categorySlug = normalizedCategorySlug;
+  }
+
   try {
-    await UserQuestionEvent.create(payload);
+    await UserQuestionEvent.updateOne(filter, update, {
+      upsert: true,
+      setDefaultsOnInsert: true
+    });
     return true;
   } catch (error) {
     if (error?.code === 11000) {
