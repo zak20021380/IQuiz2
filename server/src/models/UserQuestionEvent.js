@@ -26,7 +26,13 @@ const userQuestionEventSchema = new Schema({
   },
   questionId: {
     type: Schema.Types.ObjectId,
-    required: true
+    required: true,
+    index: true
+  },
+  categorySlug: {
+    type: Schema.Types.String,
+    trim: true,
+    default: ''
   },
   answeredAt: {
     type: Date,
@@ -38,9 +44,9 @@ const userQuestionEventSchema = new Schema({
   timestamps: false
 });
 
-userQuestionEventSchema.index({ userId: 1, answeredAt: -1 });
+userQuestionEventSchema.index({ userId: 1, categorySlug: 1, answeredAt: -1 });
 userQuestionEventSchema.index({ answeredAt: 1 }, { expireAfterSeconds: ttlSeconds });
-userQuestionEventSchema.index({ userId: 1, questionId: 1, answeredAt: 1 }, { unique: true });
+userQuestionEventSchema.index({ userId: 1, questionId: 1 }, { unique: true });
 
 module.exports = mongoose.models.UserQuestionEvent
   || mongoose.model('UserQuestionEvent', userQuestionEventSchema);

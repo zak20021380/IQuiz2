@@ -256,6 +256,8 @@ router.get('/questions', async (req, res, next) => {
       req.query.slug
     ].filter(Boolean);
 
+    let resolvedCategorySlug = '';
+
     if (typeof req.query.categoryName === 'string') {
       categoryInputs.push(req.query.categoryName);
     }
@@ -263,6 +265,9 @@ router.get('/questions', async (req, res, next) => {
     categoryInputs.forEach((input) => {
       const resolved = resolveCategory(input);
       if (resolved) {
+        if (!resolvedCategorySlug && typeof resolved.slug === 'string') {
+          resolvedCategorySlug = resolved.slug.trim();
+        }
         categoryInputs.push(resolved.slug, resolved.providerCategoryId, resolved.name, resolved.displayName);
       }
     });
@@ -271,6 +276,14 @@ router.get('/questions', async (req, res, next) => {
       .map((value) => (typeof value === 'string' ? value.trim() : ''))
       .find((value) => value.length > 0);
 
+    const rawCategorySlug = typeof req.query.categorySlug === 'string' ? req.query.categorySlug.trim() : '';
+    const rawSlug = rawCategorySlug
+      || (typeof req.query.slug === 'string' ? req.query.slug.trim() : '');
+    const rawCategory = typeof req.query.category === 'string' ? req.query.category.trim() : '';
+    const looksLikeObjectId = /^[a-f0-9]{24}$/i.test(rawCategory);
+    const fallbackCategorySlug = looksLikeObjectId ? '' : rawCategory;
+    const categorySlug = resolvedCategorySlug || rawSlug || fallbackCategorySlug;
+
     const guestId = resolveGuestId(req);
     const userId = req.user?._id || req.user?.id;
 
@@ -278,6 +291,7 @@ router.get('/questions', async (req, res, next) => {
       count,
       difficulty,
       category,
+      categorySlug,
       userId,
       guestId,
       user: req.user

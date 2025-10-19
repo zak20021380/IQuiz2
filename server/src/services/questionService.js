@@ -11,6 +11,13 @@ const MAX_FETCH_LIMIT = MAX_PER_REQUEST * 3;
 const RECENT_LIMIT = questionConfig.RECENT_QUESTION_LIMIT || 500;
 const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 
+function normalizeCategorySlug(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.toLowerCase();
+}
+
 function sanitizeCount(value) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) return 5;
@@ -109,10 +116,15 @@ function toObjectId(value) {
   return null;
 }
 
-async function collectRecentQuestionIds(userKey) {
+async function collectRecentQuestionIds(userKey, categorySlug) {
   if (!userKey) return [];
   try {
-    const docs = await UserQuestionEvent.find({ userId: userKey })
+    const query = { userId: userKey };
+    if (typeof categorySlug === 'string') {
+      query.categorySlug = categorySlug;
+    }
+
+    const docs = await UserQuestionEvent.find(query)
       .sort({ answeredAt: -1 })
       .limit(RECENT_LIMIT)
       .select({ questionId: 1 })
@@ -143,6 +155,60 @@ function normalizeDocuments(docs, seenIds) {
     normalized.push(question);
   }
   return normalized;
+}
+
+async function recordServeEvents({ userKey, items, fallbackCategorySlug }) {
+  if (!userKey || !Array.isArray(items) || items.length === 0) {
+    return;
+  }
+
+  const now = new Date();
+  const operations = items
+    .map((item) => {
+      const questionId = toObjectId(item.id);
+      if (!questionId) return null;
+
+      const normalizedSlug = normalizeCategorySlug(item.categorySlug)
+        || normalizeCategorySlug(fallbackCategorySlug)
+        || normalizeCategorySlug(item.category);
+
+      const update = {
+        $set: {
+          answeredAt: now
+        },
+        $setOnInsert: {
+          userId: userKey,
+          questionId
+        }
+      };
+
+      if (normalizedSlug) {
+        update.$set.categorySlug = normalizedSlug;
+        update.$setOnInsert.categorySlug = normalizedSlug;
+      }
+
+      return {
+        updateOne: {
+          filter: { userId: userKey, questionId },
+          update,
+          upsert: true,
+          setDefaultsOnInsert: true
+        }
+      };
+    })
+    .filter(Boolean);
+
+  if (!operations.length) {
+    return;
+  }
+
+  try {
+    await UserQuestionEvent.bulkWrite(operations, { ordered: false });
+  } catch (error) {
+    if (error?.code !== 11000) {
+      logger.warn(`[questions] failed to record serve events: ${error.message}`);
+    }
+  }
 }
 
 function extractOptions(doc) {
@@ -197,6 +263,11 @@ function normalizeQuestionDocument(doc) {
     }
   }
 
+  const rawCategorySlug = typeof doc.categorySlug === 'string' ? doc.categorySlug : '';
+  const categorySlug = normalizeCategorySlug(rawCategorySlug)
+    || normalizeCategorySlug(doc.categoryName)
+    || '';
+
   const category = typeof doc.categorySlug === 'string' && doc.categorySlug.trim()
     ? doc.categorySlug.trim()
     : typeof doc.categoryName === 'string' && doc.categoryName.trim()
@@ -213,6 +284,7 @@ function normalizeQuestionDocument(doc) {
     options,
     correctIndex,
     category,
+    categorySlug,
     difficulty
   };
 }
@@ -273,7 +345,11 @@ async function getQuestions(params = {}) {
   }
 
   const userKey = resolveUserKey(params);
-  const recentIds = await collectRecentQuestionIds(userKey);
+  const normalizedRequestSlug = normalizeCategorySlug(params.categorySlug || params.category);
+  const recentIds = await collectRecentQuestionIds(
+    userKey,
+    normalizedRequestSlug ? normalizedRequestSlug : undefined
+  );
   const recentObjectIds = recentIds
     .map((id) => toObjectId(id))
     .filter((id) => id);
@@ -345,6 +421,18 @@ async function getQuestions(params = {}) {
 
   const countReturned = items.length;
 
+  if (countReturned > 0 && userKey) {
+    try {
+      await recordServeEvents({
+        userKey,
+        items,
+        fallbackCategorySlug: normalizedRequestSlug
+      });
+    } catch (error) {
+      logger.warn(`[questions] failed to persist serve history: ${error.message}`);
+    }
+  }
+
   console.info('[questions]', {
     userId: userKey || null,
     want: countRequested,
@@ -362,6 +450,9 @@ async function getQuestions(params = {}) {
   }
 
   const ok = countReturned > 0;
+  const noQuestionsMessage = totalMatched > 0 && !ok && normalizedRequestSlug
+    ? 'تمام سؤالات این دسته پاسخ داده شده‌اند.'
+    : 'no questions available';
 
   return {
     ok,
@@ -370,7 +461,7 @@ async function getQuestions(params = {}) {
     totalMatched,
     items,
     avoided: recentIds.length,
-    ...(ok ? {} : { message: 'no questions available' })
+    ...(ok ? {} : { message: noQuestionsMessage })
   };
 }
 
