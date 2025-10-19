@@ -5,7 +5,7 @@ const BASE_FALLBACK_QUESTIONS = Object.freeze([
     c: ['علم', 'فرهنگ', 'تجربه', 'هنر'],
     a: 0,
     cat: 'عمومی',
-    catSlug: 'general',
+    catSlug: 'general-knowledge',
     diff: 'آسان',
     diffValue: 'easy',
   },
@@ -15,7 +15,7 @@ const BASE_FALLBACK_QUESTIONS = Object.freeze([
     c: ['پنج حلقه رنگی', 'یک مشعل آتشین', 'دو شمشیر ضربدری', 'یک ستاره پنج پر'],
     a: 0,
     cat: 'عمومی',
-    catSlug: 'general',
+    catSlug: 'general-knowledge',
     diff: 'متوسط',
     diffValue: 'medium',
   },
@@ -25,7 +25,7 @@ const BASE_FALLBACK_QUESTIONS = Object.freeze([
     c: ['ماه', 'زمین', 'خورشید', 'زهره'],
     a: 1,
     cat: 'عمومی',
-    catSlug: 'general',
+    catSlug: 'general-knowledge',
     diff: 'متوسط',
     diffValue: 'medium',
   },
@@ -35,7 +35,7 @@ const BASE_FALLBACK_QUESTIONS = Object.freeze([
     c: ['فلسفه', 'جغرافیا', 'ورزش', 'ریاضیات'],
     a: 0,
     cat: 'عمومی',
-    catSlug: 'general',
+    catSlug: 'general-knowledge',
     diff: 'سخت',
     diffValue: 'hard',
   },
@@ -178,7 +178,11 @@ function matchDifficulty(question, difficulty) {
 
 function resolveCategorySlug(categoryIdOrSlug) {
   if (!categoryIdOrSlug) return '';
-  return String(categoryIdOrSlug).trim().toLowerCase();
+  const value = String(categoryIdOrSlug).trim().toLowerCase();
+  if (value === 'general') {
+    return 'general-knowledge';
+  }
+  return value;
 }
 
 export function getFallbackQuestionPool({ categoryId, categorySlug, difficulty, count } = {}) {

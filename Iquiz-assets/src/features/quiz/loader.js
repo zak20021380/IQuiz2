@@ -3,6 +3,7 @@ import { toast } from '../../utils/feedback.js';
 import { faNum } from '../../utils/format.js';
 import { State, DEFAULT_MAX_QUESTIONS } from '../../state/state.js';
 import { saveState } from '../../state/persistence.js';
+import { rememberQuestionEntities } from '../../state/question-history.js';
 import {
   getActiveCategories,
   getFirstCategory,
@@ -20,6 +21,58 @@ function toLowerKey(value) {
 }
 
 const RECENT_HISTORY_LIMIT = 40;
+
+const QUESTION_FETCH_ERROR_ID = 'question-fetch-error';
+
+function getSetupSheetContainer() {
+  if (typeof document === 'undefined') return null;
+  return document.querySelector('#sheet-setup .glass');
+}
+
+function clearQuestionFetchError() {
+  if (typeof document === 'undefined') return;
+  const existing = document.getElementById(QUESTION_FETCH_ERROR_ID);
+  if (existing && existing.parentNode) {
+    existing.parentNode.removeChild(existing);
+  }
+}
+
+function showQuestionFetchError(message, retryHandler) {
+  if (typeof document === 'undefined') return;
+  const container = getSetupSheetContainer();
+  if (!container) {
+    if (message) {
+      toast(message);
+    }
+    return;
+  }
+
+  clearQuestionFetchError();
+
+  const box = document.createElement('div');
+  box.id = QUESTION_FETCH_ERROR_ID;
+  box.className =
+    'mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-sm text-rose-100 flex flex-col gap-3';
+
+  const text = document.createElement('div');
+  text.className = 'font-bold leading-6';
+  text.textContent = message || 'دریافت سوالات با خطا مواجه شد.';
+  box.appendChild(text);
+
+  if (typeof retryHandler === 'function') {
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'btn btn-secondary w-full';
+    retryBtn.textContent = 'تلاش مجدد';
+    retryBtn.addEventListener('click', () => {
+      clearQuestionFetchError();
+      retryHandler();
+    });
+    box.appendChild(retryBtn);
+  }
+
+  container.appendChild(box);
+}
 
 function shuffleList(list) {
   if (!Array.isArray(list)) return [];
@@ -147,53 +200,133 @@ function ensureQuestionSupply(list, { count, categoryId, categorySlug, difficult
   return result.slice(0, Math.min(result.length, desired));
 }
 
-function parseQuestionResponse(payload) {
+function normalizeQuestionEntityId(entity) {
+  if (!entity || typeof entity !== 'object') return '';
+  const candidates = [entity._id, entity.id, entity.uid, entity.publicId];
+  for (let idx = 0; idx < candidates.length; idx += 1) {
+    const candidate = candidates[idx];
+    if (candidate == null) continue;
+    const str = typeof candidate === 'string' ? candidate.trim() : String(candidate).trim();
+    if (str) return str;
+  }
+  return '';
+}
+
+function normalizeQuestionHash(entity) {
+  if (!entity || typeof entity !== 'object') return '';
+  const hash = entity.sha1Canonical || entity.sha1 || entity.sha;
+  if (hash == null) return '';
+  const str = typeof hash === 'string' ? hash.trim() : String(hash).trim();
+  return str;
+}
+
+function extractQuestionItems(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+
+  if (Array.isArray(payload.items)) {
+    return payload.items;
+  }
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  const innerData = payload.data;
+  if (innerData && typeof innerData === 'object') {
+    if (Array.isArray(innerData.items)) {
+      return innerData.items;
+    }
+    if (Array.isArray(innerData.data)) {
+      return innerData.data;
+    }
+  }
+
+  return [];
+}
+
+function dedupeQuestionItems(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+  const result = [];
+  const seenIds = new Set();
+  const seenHashes = new Set();
+
+  for (let idx = 0; idx < items.length; idx += 1) {
+    const item = items[idx];
+    if (!item || typeof item !== 'object') continue;
+    const id = normalizeQuestionEntityId(item);
+    const hash = normalizeQuestionHash(item);
+    if (id && seenIds.has(id)) {
+      continue;
+    }
+    if (hash && seenHashes.has(hash)) {
+      continue;
+    }
+    if (id) {
+      seenIds.add(id);
+    }
+    if (hash) {
+      seenHashes.add(hash);
+    }
+    result.push(item);
+  }
+
+  return result;
+}
+
+function buildQuestionResponseMeta(payload, items) {
+  const countReturned = Array.isArray(items) ? items.length : 0;
   if (Array.isArray(payload)) {
     return {
-      items: payload,
-      meta: {
-        ok: true,
-        countRequested: payload.length,
-        countReturned: payload.length,
-        totalMatched: payload.length,
-        message: ''
-      }
+      ok: true,
+      countRequested: payload.length,
+      countReturned,
+      totalMatched: payload.length,
+      message: '',
     };
   }
 
   if (payload && typeof payload === 'object') {
-    const items = Array.isArray(payload.items) ? payload.items : [];
-    const meta = {
-      ok: payload.ok !== false,
-      countRequested: Number.isFinite(Number(payload.countRequested))
-        ? Number(payload.countRequested)
-        : items.length,
-      countReturned: Number.isFinite(Number(payload.countReturned))
-        ? Number(payload.countReturned)
-        : items.length,
-      totalMatched: Number.isFinite(Number(payload.totalMatched))
-        ? Number(payload.totalMatched)
-        : 0,
-      message: typeof payload.message === 'string' ? payload.message : ''
+    const metaSource = payload.meta && typeof payload.meta === 'object' ? payload.meta : payload;
+    const requestedRaw = Number(metaSource.countRequested);
+    const returnedRaw = Number(metaSource.countReturned);
+    const totalRaw = Number(metaSource.totalMatched);
+    const message = typeof metaSource.message === 'string' ? metaSource.message : '';
+    const okValue = metaSource.ok !== false && payload.ok !== false;
+
+    const requested = Number.isFinite(requestedRaw) && requestedRaw > 0 ? requestedRaw : countReturned;
+    const returned = Number.isFinite(returnedRaw) && returnedRaw >= 0 ? returnedRaw : countReturned;
+    const totalMatched = Number.isFinite(totalRaw) && totalRaw >= 0 ? totalRaw : 0;
+
+    return {
+      ok: okValue,
+      countRequested: requested,
+      countReturned,
+      totalMatched,
+      message,
     };
-
-    if (meta.countRequested <= 0 && items.length) {
-      meta.countRequested = items.length;
-    }
-
-    return { items, meta };
   }
 
   return {
-    items: [],
-    meta: {
-      ok: false,
-      countRequested: 0,
-      countReturned: 0,
-      totalMatched: 0,
-      message: ''
-    }
+    ok: false,
+    countRequested: 0,
+    countReturned,
+    totalMatched: 0,
+    message: '',
   };
+}
+
+function parseQuestionResponse(payload) {
+  const rawItems = extractQuestionItems(payload);
+  const items = dedupeQuestionItems(rawItems);
+  rememberQuestionEntities(items);
+  const meta = buildQuestionResponseMeta(payload, items);
+  return { items, meta };
 }
 
 function pickDifficulty(diffPool, { requested, stateValue, stateLabel }) {
@@ -326,7 +459,7 @@ export function normalizeQuestions(list) {
     else if (q && typeof q.createdByName === 'string') authorNameValue = q.createdByName.trim();
     else if (q && typeof q.submittedByName === 'string') authorNameValue = q.submittedByName.trim();
 
-    const questionId = [q?.publicId, q?.uid, q?.id]
+    const questionId = [q?._id, q?.publicId, q?.uid, q?.id]
       .map((candidate) => {
         if (candidate == null) return '';
         const value = String(candidate).trim();
@@ -335,7 +468,24 @@ export function normalizeQuestions(list) {
       .find((value) => value.length > 0) || '';
 
     if (valid && typeof answerIdx === 'number' && answerIdx >= 0 && answerIdx < choices.length) {
-      normalized.push({ q: qq, c: choices, a: answerIdx, authorName: authorNameValue, source: questionSource, id: questionId });
+      const entry = {
+        q: qq,
+        c: choices,
+        a: answerIdx,
+        authorName: authorNameValue,
+        source: questionSource,
+        id: questionId,
+      };
+      if (q && q._id) {
+        entry._id = String(q._id).trim();
+      }
+      if (q && q.sha1Canonical) {
+        entry.sha1Canonical = String(q.sha1Canonical).trim();
+      }
+      if (q && q.uid && !entry.uid) {
+        entry.uid = String(q.uid).trim();
+      }
+      normalized.push(entry);
     }
   }
 
@@ -345,9 +495,11 @@ export function normalizeQuestions(list) {
 function createQuestionKey(question) {
   if (!question || typeof question !== 'object') return '';
   const candidates = [
+    question._id,
     question.id,
     question.publicId,
     question.uid,
+    question.sha1Canonical,
     question.q,
     question.text,
     question.title,
@@ -532,8 +684,16 @@ export async function startQuizFromAdmin(arg) {
     State.quiz.diff = difficultyLabel || State.quiz.diff || '—';
   }
 
+  const retryPayload = {
+    count,
+    categoryId,
+    difficulty: difficultyValue,
+    source: opts.source != null ? opts.source : 'setup',
+  };
+
   const startBtn = typeof document !== 'undefined' ? document.getElementById('setup-start') : null;
   const prevDisabled = startBtn ? !!startBtn.disabled : null;
+  clearQuestionFetchError();
   if (startBtn) startBtn.disabled = true;
 
   try {
@@ -651,7 +811,11 @@ export async function startQuizFromAdmin(arg) {
     if (typeof console !== 'undefined' && console && console.warn) {
       console.warn('Failed to fetch questions', err);
     }
-    toast('دریافت سوالات با خطا مواجه شد');
+    const friendlyMessage =
+      err && typeof err.friendlyMessage === 'string' && err.friendlyMessage.trim()
+        ? err.friendlyMessage.trim()
+        : 'دریافت سوالات با خطا مواجه شد';
+    showQuestionFetchError(friendlyMessage, () => startQuizFromAdmin(retryPayload));
     return false;
   } finally {
     if (startBtn) startBtn.disabled = prevDisabled != null ? prevDisabled : false;

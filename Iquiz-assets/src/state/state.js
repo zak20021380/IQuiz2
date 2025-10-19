@@ -83,6 +83,7 @@ const State = {
     maxQuestions: DEFAULT_MAX_QUESTIONS,
     correctStreak: 0,
     recentQuestions: [],
+    recentQuestionIds: [],
     pendingAnswerIds: []
   },
   notifications:[],

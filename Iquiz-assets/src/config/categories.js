@@ -1,16 +1,16 @@
 const STATIC_CATEGORY_DEFINITIONS = Object.freeze([
   {
     order: 1,
-    slug: 'general',
-    id: 'general',
+    slug: 'general-knowledge',
+    id: 'general-knowledge',
     name: 'General Knowledge',
     displayName: 'عمومی',
     description: 'سوالاتی متنوع از دانستنی‌های روزمره و موضوعات عمومی.',
     icon: 'fa-earth-asia',
     color: 'blue',
     provider: 'ai-gen',
-    providerCategoryId: 'general',
-    aliases: ['عمومی', 'دانش عمومی', 'General', 'General Knowledge']
+    providerCategoryId: 'general-knowledge',
+    aliases: ['عمومی', 'دانش عمومی', 'General', 'General Knowledge', 'general']
   },
   {
     order: 2,
