@@ -12,19 +12,19 @@ function loadState(){
     }
     if (!State.user || typeof State.user !== 'object') {
       State.user = {
-        id: 'guest',
-        name: 'کاربر مهمان',
+        id: '',
+        name: '',
         username: '',
-        avatar: 'https://i.pravatar.cc/120?img=12',
+        avatar: '',
         province: '',
         group: '',
         groupId: ''
       };
     } else {
-      State.user.id = State.user.id || 'guest';
-      State.user.name = State.user.name || 'کاربر مهمان';
+      State.user.id = State.user.id || '';
+      State.user.name = State.user.name || '';
       State.user.username = State.user.username || '';
-      State.user.avatar = State.user.avatar || 'https://i.pravatar.cc/120?img=12';
+      State.user.avatar = State.user.avatar || '';
       State.user.province = State.user.province || '';
       State.user.group = State.user.group || '';
       State.user.groupId = State.user.groupId || '';

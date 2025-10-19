@@ -24,11 +24,11 @@
   <header class="glass sticky top-0 z-30 w-full px-4 py-3 flex items-center justify-between shadow-lg">
     <div class="flex items-center gap-3">
       <div class="relative">
-        <img id="hdr-avatar" src="https://i.pravatar.cc/80?img=12" class="w-12 h-12 rounded-full border-2 border-white/30 shadow-md" alt="avatar" />
+        <img id="hdr-avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" class="w-12 h-12 rounded-full border-2 border-white/30 shadow-md" alt="avatar" />
         <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
       </div>
       <div>
-        <div id="hdr-name" class="font-bold text-lg">کاربر مهمان</div>
+        <div id="hdr-name" class="font-bold text-lg">—</div>
         <div class="text-xs text-white/80 flex items-center gap-2 flex-wrap">
           <span class="flex items-center gap-1"><i class="fas fa-star text-yellow-300"></i> امتیاز: <b id="hdr-score">۰</b></span>
           <span class="flex items-center gap-1" title="سکه بازی"><i class="fas fa-coins text-yellow-300"></i> <b id="hdr-gcoins">۰</b></span>
@@ -45,7 +45,7 @@
       </button>
       <button type="button" id="btn-notify" class="relative px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-sm hover:bg-white/20 transition-all" title="اعلان‌ها" aria-label="اعلان‌ها">
         <i class="fas fa-bell"></i>
-        <span id="notif-dot" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs">۳</span>
+        <span id="notif-dot" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs" style="display:none"></span>
       </button>
     </div>
   </header>
@@ -71,14 +71,14 @@
       <div class="glass rounded-3xl p-6 shadow-xl card-hover">
         <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-4">
           <div class="relative w-24 h-24 sm:w-20 sm:h-20">
-            <img id="profile-avatar" src="https://i.pravatar.cc/120?img=12" class="w-full h-full rounded-full border-4 border-white/30 shadow-lg" alt="avatar" />
+            <img id="profile-avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" class="w-full h-full rounded-full border-4 border-white/30 shadow-lg" alt="avatar" />
             <div class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center border-2 border-white">
               <i class="fas fa-crown text-white text-sm"></i>
             </div>
           </div>
           <div class="flex-1 text-center sm:text-right">
             <div class="flex justify-center sm:justify-start items-center gap-2">
-              <h2 id="profile-name" class="text-2xl font-extrabold">زکی</h2>
+              <h2 id="profile-name" class="text-2xl font-extrabold">—</h2>
               <span id="vip-chip" class="chip bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold hidden">وی‌آی‌پی</span>
             </div>
             <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-white/80">
@@ -329,18 +329,6 @@
         <div class="active-matches">
           <div class="text-sm font-bold mb-2 opacity-90">درخواست های نبرد</div>
           <div id="active-duel-requests" class="duel-request-list" aria-live="polite"></div>
-          <div class="active-match-item">
-            <div class="match-info">
-              <div class="location-icon province-icon">
-                <i class="fas fa-map-marked-alt"></i>
-              </div>
-              <div class="match-details">
-                <div class="match-name">مسابقه استان کردستان</div>
-                <div class="match-status">شروع در ۲۰:۰۰</div>
-              </div>
-            </div>
-            <button class="match-action">ثبت‌نام</button>
-          </div>
         </div>
       </div>
       
@@ -357,14 +345,6 @@
             <i class="fas fa-chart-line ml-2"></i> لیدربورد
           </button>
         </div>
-        <button class="invite-telegram-cta" id="btn-invite" type="button">
-          <span class="invite-telegram-icon"><i class="fab fa-telegram-plane"></i></span>
-          <span class="invite-telegram-body">
-            <span class="invite-telegram-title">دعوت دوستان</span>
-            <span class="invite-telegram-sub">۵ سکه برای هر شروع موفق</span>
-          </span>
-          <span class="invite-telegram-arrow" aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
-        </button>
       </div>
       
     </section>
@@ -909,16 +889,6 @@
             </div>
             <div class="mission-item">
               <div>
-                <div class="font-medium">دعوت ۲ دوست جدید</div>
-                <div class="text-xs opacity-70">پاداش: ۱۵ XP رایگان + ۱۰ XP پریمیوم</div>
-              </div>
-              <div class="mission-reward">
-                <i class="fas fa-star text-yellow-300"></i>
-                <span>۰/۲</span>
-              </div>
-            </div>
-            <div class="mission-item">
-              <div>
                 <div class="font-medium">خرید از فروشگاه (هر آیتمی)</div>
                 <div class="text-xs opacity-70">پاداش: ۱۰ XP رایگان + ۱۰ XP پریمیوم</div>
               </div>
@@ -935,199 +905,6 @@
       </button>
     </section>
     
-    <!-- REFERRAL -->
-    <section id="page-referral" class="hidden space-y-5">
-      <div class="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
-        <div class="referral-hero glass">
-          <div class="flex-1 space-y-5">
-            <div class="flex items-center justify-between gap-3 flex-wrap">
-              <span class="referral-hero-badge">
-                <i class="fas fa-coins ml-2"></i>
-                <span id="referral-reward-per-friend">۵</span>
-                <span>سکه برای هر دعوت موفق</span>
-              </span>
-              <span class="chip bg-white/20 text-[0.7rem]"><i class="fas fa-shield-check ml-1"></i> برنامه فعال</span>
-            </div>
-            <div class="space-y-2">
-              <h3 class="text-3xl font-black leading-snug">باشگاه دعوت حرفه‌ای Quiz WebApp</h3>
-              <p class="text-sm opacity-90 leading-7">
-                دوستان خود را به ربات معرفی کن و پس از اولین مسابقه‌ای که انجام می‌دهند، <strong>۵ سکه طلایی</strong> هدیه بگیر. همه چیز از داخل همین داشبورد قابل ردیابی است.
-              </p>
-            </div>
-            <div class="glass-dark border border-white/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center sm:items-stretch gap-4">
-              <div class="flex-1 text-center sm:text-right space-y-2">
-                <div class="text-xs uppercase tracking-[0.2rem] opacity-70 font-bold">کد اختصاصی شما</div>
-                <div id="referral-code-value" class="referral-code-display">QUIZ5F8A2B</div>
-              </div>
-              <button class="btn btn-primary btn-inline" id="btn-copy-referral">
-                <i class="fas fa-copy ml-2"></i> کپی کد
-              </button>
-            </div>
-            <div class="flex flex-wrap gap-3">
-              <button class="btn btn-secondary btn-inline" id="btn-share-referral">
-                <i class="fas fa-share-nodes ml-2"></i> اشتراک‌گذاری فوری
-              </button>
-              <button class="btn btn-tertiary btn-inline" type="button" id="btn-referral-duel">
-                <i class="fas fa-user-friends ml-2"></i> دعوت به نبرد دو نفره
-              </button>
-            </div>
-            <div class="referral-condition">
-              <div class="referral-condition-icon"><i class="fas fa-shield-heart"></i></div>
-              <div>
-                <div class="font-bold text-sm mb-1">شرایط فعال شدن پاداش</div>
-                <p class="opacity-90 text-[0.82rem] leading-7">
-                  سکه‌ها زمانی به حساب شما واریز می‌شوند که دوست دعوت‌شده <strong>ربات را استارت</strong> کند و حداقل <strong>یک مسابقه یا کوییز</strong> را به پایان برساند. وضعیت هر دوست را در لیست زیر دنبال کنید.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="referral-hero-visual hidden lg:flex flex-col gap-4">
-            <div class="referral-coin-glow">
-              <span class="referral-coin-value">+5</span>
-            </div>
-            <p class="text-xs opacity-90 leading-6 max-w-[220px] mx-auto">
-              هر دعوت موفق معادل ۵ سکه طلایی تازه برای حساب شماست.
-            </p>
-          </div>
-        </div>
-        <div class="glass rounded-3xl p-6 space-y-5">
-          <div class="flex items-center justify-between gap-3">
-            <h4 class="text-lg font-bold flex items-center gap-2">
-              <i class="fas fa-chart-line text-sky-200"></i>
-              داشبورد عملکرد
-            </h4>
-            <span class="chip bg-white/20 text-[0.7rem]"><i class="fas fa-rotate ml-1"></i> لحظه‌ای</span>
-          </div>
-          <div class="referral-stat-grid">
-            <div class="referral-stat">
-              <div class="referral-stat-icon"><i class="fas fa-paper-plane"></i></div>
-              <div>
-                <div class="referral-stat-label text-sm opacity-80">دعوت‌های ارسال شده</div>
-                <div id="referral-stat-total" class="referral-stat-value">۰</div>
-                <div class="referral-stat-sub">کل دوستان ثبت‌شده</div>
-              </div>
-            </div>
-            <div class="referral-stat">
-              <div class="referral-stat-icon"><i class="fas fa-rocket"></i></div>
-              <div>
-                <div class="referral-stat-label text-sm opacity-80">ربات استارت شده</div>
-                <div id="referral-stat-active" class="referral-stat-value">۰</div>
-                <div class="referral-stat-sub">دعوت‌های در مرحله فعال</div>
-              </div>
-            </div>
-            <div class="referral-stat">
-              <div class="referral-stat-icon"><i class="fas fa-check-circle"></i></div>
-              <div>
-                <div class="referral-stat-label text-sm opacity-80">دعوت‌های موفق</div>
-                <div id="referral-stat-qualified" class="referral-stat-value">۰</div>
-                <div class="referral-stat-sub">پاداش آماده برداشت</div>
-              </div>
-            </div>
-            <div class="referral-stat">
-              <div class="referral-stat-icon"><i class="fas fa-coins"></i></div>
-              <div>
-                <div class="referral-stat-label text-sm opacity-80">سکه‌های آزاد شده</div>
-                <div class="referral-stat-value flex items-center gap-1">
-                  <span id="referral-stat-earned">۰</span>
-                  <span class="text-base">💰</span>
-                </div>
-                <div class="referral-stat-sub">واریز شده به حساب</div>
-              </div>
-            </div>
-          </div>
-          <div id="referral-pending-hint" class="referral-hint hidden">
-            <i class="fas fa-hourglass-half text-amber-300 text-lg"></i>
-            <span></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid gap-5 lg:grid-cols-2">
-        <div class="glass rounded-3xl p-6 space-y-5">
-          <div class="flex items-center justify-between gap-3">
-            <h4 class="text-lg font-bold flex items-center gap-2">
-              <i class="fas fa-route text-teal-200"></i>
-              مسیر تبدیل دعوت به پاداش
-            </h4>
-            <span class="chip bg-white/20 text-[0.7rem]"><i class="fas fa-bolt ml-1"></i> راهنمای سریع</span>
-          </div>
-          <div class="referral-steps">
-            <div class="referral-step" data-state="done">
-              <div class="referral-step-icon">۱</div>
-              <div class="space-y-1">
-                <div class="font-bold">ارسال لینک اختصاصی</div>
-                <p class="text-xs opacity-80 leading-6">لینک یا کد دعوت را برای دوستان خود در پیام‌رسان‌ها، گروه‌ها یا شبکه‌های اجتماعی ارسال کن.</p>
-              </div>
-            </div>
-            <div class="referral-step" data-state="active">
-              <div class="referral-step-icon">۲</div>
-              <div class="space-y-1">
-                <div class="font-bold">شروع ربات توسط دوست</div>
-                <p class="text-xs opacity-80 leading-6">دوست دعوت‌شده باید ربات را استارت کرده و ثبت‌نام اولیه را کامل کند تا وضعیتش فعال شود.</p>
-              </div>
-            </div>
-            <div class="referral-step" data-state="active">
-              <div class="referral-step-icon">۳</div>
-              <div class="space-y-1">
-                <div class="font-bold">انجام اولین مسابقه یا کوییز</div>
-                <p class="text-xs opacity-80 leading-6">پس از پایان اولین بازی توسط دوست شما، سیستم به صورت خودکار احراز می‌کند.</p>
-              </div>
-            </div>
-            <div class="referral-step" data-state="done">
-              <div class="referral-step-icon">۴</div>
-              <div class="space-y-1">
-                <div class="font-bold">دریافت ۵ سکه طلایی</div>
-                <p class="text-xs opacity-80 leading-6">۵ سکه به حساب شما و دوستتان واریز می‌شود و در داشبورد بالا قابل مشاهده است.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="glass rounded-3xl p-6 space-y-5">
-          <div class="flex items-center justify-between gap-3">
-            <h4 class="text-lg font-bold flex items-center gap-2">
-              <i class="fas fa-users text-emerald-200"></i>
-              لیست دوستان دعوت‌شده
-            </h4>
-            <span class="chip bg-white/20 text-[0.7rem]" id="referral-friends-count">۰ دوست</span>
-          </div>
-          <div id="referral-friends" class="space-y-3"></div>
-        </div>
-      </div>
-
-      <div class="glass rounded-3xl p-6 space-y-5">
-        <div class="flex items-center gap-2">
-          <i class="fas fa-lightbulb text-yellow-300"></i>
-          <h4 class="text-lg font-bold">ترفندهای افزایش بازده دعوت</h4>
-        </div>
-        <div class="referral-tips">
-          <div class="referral-tip-card">
-            <div class="referral-tip-icon"><i class="fas fa-comment-dots"></i></div>
-            <div class="space-y-1">
-              <div class="font-bold text-sm">پیام شخصی‌سازی شده</div>
-              <p class="text-xs opacity-80 leading-6">یک توضیح کوتاه و صمیمی درباره مزایای ربات برای دوستتان ارسال کن تا شانس استارت افزایش یابد.</p>
-            </div>
-          </div>
-          <div class="referral-tip-card">
-            <div class="referral-tip-icon"><i class="fas fa-clock-rotate-left"></i></div>
-            <div class="space-y-1">
-              <div class="font-bold text-sm">پیگیری بعد از استارت</div>
-              <p class="text-xs opacity-80 leading-6">اگر دوستت ربات را استارت کرده اما هنوز مسابقه نداده است، با ارسال یک مسابقه جذاب او را تشویق کن.</p>
-            </div>
-          </div>
-          <div class="referral-tip-card">
-            <div class="referral-tip-icon"><i class="fas fa-trophy"></i></div>
-            <div class="space-y-1">
-              <div class="font-bold text-sm">تشویق به رقابت</div>
-              <p class="text-xs opacity-80 leading-6">برای اولین کوییز یک رقابت دوستانه ایجاد کن تا هر دو سریع‌تر به پاداش ۵ سکه‌ای برسید.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <button class="w-full py-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/20 transition flex items-center justify-center gap-2" id="btn-back-referral">
-        <i class="fas fa-arrow-right"></i> بازگشت
-      </button>
-    </section>
   <!-- Bottom Nav -->
   <nav class="bottom-nav glass safe sticky bottom-0 z-50 w-full shadow-lg" aria-label="پیمایش اصلی">
     <div class="bottom-nav-grid max-w-md mx-auto">
@@ -1226,70 +1003,6 @@
         <button class="px-3 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20" data-close="#modal-notify"><i class="fas fa-times"></i></button>
       </div>
       <div id="notif-list" class="space-y-3 text-sm"></div>
-    </div>
-  </div>
-
-  <!-- Invite Friends Modal -->
-  <div id="modal-invite" class="modal">
-    <div class="invite-modal-card">
-      <button class="invite-modal-close" data-close="#modal-invite"><i class="fas fa-times"></i></button>
-      <div class="invite-modal-header">
-        <div class="invite-modal-icon"><i class="fas fa-gift"></i></div>
-        <div>
-          <div class="invite-modal-title">دعوت دوستان و دریافت پاداش</div>
-          <p class="invite-modal-sub">
-            با دعوت دوستانت به <strong data-app-name>Quiz WebApp Pro</strong> بعد از اولین کوییز آن‌ها
-            <span class="invite-highlight"><span id="invite-reward">۵</span> سکه</span> هدیه می‌گیری.
-          </p>
-        </div>
-      </div>
-      <div class="invite-modal-body">
-        <div class="invite-stats">
-          <div class="invite-stat"><i class="fas fa-users"></i><span>دعوت‌های ارسال‌شده: <strong id="invite-total">۰</strong></span></div>
-          <div class="invite-stat"><i class="fas fa-trophy"></i><span>دعوت‌های موفق: <strong id="invite-success">۰</strong></span></div>
-        </div>
-        <div class="invite-feature-grid">
-          <div class="invite-feature">
-            <i class="fas fa-star"></i>
-            <div>
-              <strong>چطور پاداش بگیری؟</strong>
-              <span>دوستت باید ربات را استارت کند و اولین کوییز را کامل کند تا سکه‌ها فعال شوند.</span>
-            </div>
-          </div>
-          <div class="invite-feature">
-            <i class="fas fa-scale-balanced"></i>
-            <div>
-              <strong>قوانین دعوت</strong>
-              <span>هر لینک مختص توست؛ ارسال آن برای دوستان جدید و رعایت قوانین ربات الزامی است.</span>
-            </div>
-          </div>
-        </div>
-        <div class="invite-share-box">
-          <div class="invite-share-row">
-            <label>لینک اختصاصی تو</label>
-            <p class="invite-share-hint">این لینک را برای دوستانت بفرست تا بعد از اولین کوییز، پاداش‌ها برای هر دو فعال شود.</p>
-            <div class="invite-share-input">
-              <input id="invite-link" type="text" readonly dir="ltr" value="">
-              <button type="button" class="invite-copy-btn" data-copy-target="invite-link">
-                <i class="fas fa-copy"></i>
-                کپی لینک
-              </button>
-            </div>
-            <div class="invite-share-actions">
-              <button type="button" class="telegram-share-btn" id="invite-share-telegram">
-                <span class="telegram-share-icon"><i class="fab fa-telegram-plane"></i></span>
-                <span class="telegram-share-content">
-                  <strong>ارسال مستقیم در تلگرام</strong>
-                  <span>اشتراک‌گذاری فوری لینک اختصاصی</span>
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="text-xs opacity-80 leading-6 text-center">
-          با اشتراک‌گذاری منصفانه و رعایت قوانین <span data-app-name>Quiz WebApp Pro</span> کمک کن تا همه تجربه‌ای عادلانه داشته باشند.
-        </div>
-      </div>
     </div>
   </div>
 
