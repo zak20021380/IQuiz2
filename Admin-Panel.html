@@ -1101,6 +1101,24 @@
       #shop-settings-card .shop-main-grid {
         grid-column: 1 / -1;
       }
+      #shop-settings-card .shop-main-grid {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+      }
+      #shop-settings-card .shop-main-grid > .shop-quick-settings {
+        grid-column: 1 / span 7;
+      }
+      #shop-settings-card .shop-main-grid > .shop-hero-column {
+        grid-column: 8 / span 5;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+      #shop-settings-card .shop-main-grid > .shop-hero-column .shop-hero-preview {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 1.25rem;
+      }
       #shop-settings-card .shop-vip-section,
       #shop-settings-card .shop-packages-section {
         grid-column: span 7;
@@ -1112,23 +1130,6 @@
       #shop-settings-card .shop-packages-section,
       #shop-settings-card .shop-support-section {
         align-self: start;
-      }
-    }
-    @media (min-width: 1280px) {
-      #shop-settings-card .shop-main-grid {
-        grid-template-columns: repeat(12, minmax(0, 1fr));
-      }
-      #shop-settings-card .shop-main-grid > section {
-        grid-column: span 7;
-      }
-      #shop-settings-card .shop-main-grid > .shop-hero-preview {
-        grid-column: span 5;
-      }
-      #shop-settings-card .shop-packages-section {
-        grid-column: span 7;
-      }
-      #shop-settings-card .shop-support-section {
-        grid-column: span 5;
       }
     }
     @media (min-width: 1440px) {
@@ -3510,7 +3511,7 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 shop-main-grid">
-              <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 lg:col-span-3">
+              <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 lg:col-span-3 shop-quick-settings">
                 <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h3 class="text-lg font-bold flex items-center gap-2">
@@ -3571,37 +3572,39 @@
                   </div>
                 </div>
               </section>
-              <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 lg:col-span-2">
-                <div>
-                  <h3 class="text-lg font-bold flex items-center gap-2">
-                    <i class="fas fa-bullhorn text-sky-300"></i>
-                    <span>بنر فروشگاه و CTA</span>
-                  </h3>
-                  <p class="text-sm text-white/70 mt-1">عنوان، توضیح و لینک دکمه‌ای که کاربران می‌بینند را شخصی‌سازی کنید.</p>
-                </div>
-                <div class="space-y-4">
-                  <div class="grid gap-4">
-                    <div>
-                      <label class="block text-xs mb-1 text-white/70">عنوان اصلی</label>
-                      <input type="text" id="shop-hero-title" class="form-input" value="به فروشگاه ایکویز خوش آمدید">
+              <div class="flex flex-col gap-6 shop-hero-column lg:col-span-2">
+                <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-hero-config">
+                  <div>
+                    <h3 class="text-lg font-bold flex items-center gap-2">
+                      <i class="fas fa-bullhorn text-sky-300"></i>
+                      <span>بنر فروشگاه و CTA</span>
+                    </h3>
+                    <p class="text-sm text-white/70 mt-1">عنوان، توضیح و لینک دکمه‌ای که کاربران می‌بینند را شخصی‌سازی کنید.</p>
+                  </div>
+                  <div class="space-y-4">
+                    <div class="grid gap-4">
+                      <div>
+                        <label class="block text-xs mb-1 text-white/70">عنوان اصلی</label>
+                        <input type="text" id="shop-hero-title" class="form-input" value="به فروشگاه ایکویز خوش آمدید">
+                      </div>
+                      <div>
+                        <label class="block text-xs mb-1 text-white/70">زیرعنوان</label>
+                        <input type="text" id="shop-hero-subtitle" class="form-input" value="هر روز پیشنهادهای تازه و کلیدهای بیشتر دریافت کنید.">
+                      </div>
                     </div>
-                    <div>
-                      <label class="block text-xs mb-1 text-white/70">زیرعنوان</label>
-                      <input type="text" id="shop-hero-subtitle" class="form-input" value="هر روز پیشنهادهای تازه و کلیدهای بیشتر دریافت کنید.">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label class="block text-xs mb-1 text-white/70">متن دکمه CTA</label>
+                        <input type="text" id="shop-hero-cta" class="form-input" value="مشاهده پیشنهادها">
+                      </div>
+                      <div>
+                        <label class="block text-xs mb-1 text-white/70">لینک دکمه</label>
+                        <input type="url" id="shop-hero-cta-link" class="form-input" value="#wallet" placeholder="https://example.com/store">
+                      </div>
                     </div>
                   </div>
-                  <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label class="block text-xs mb-1 text-white/70">متن دکمه CTA</label>
-                      <input type="text" id="shop-hero-cta" class="form-input" value="مشاهده پیشنهادها">
-                    </div>
-                    <div>
-                      <label class="block text-xs mb-1 text-white/70">لینک دکمه</label>
-                      <input type="url" id="shop-hero-cta-link" class="form-input" value="#wallet" placeholder="https://example.com/store">
-                    </div>
-                  </div>
-                </div>
-              <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-sky-500/50 via-indigo-500/50 to-blue-700/40 p-6 space-y-4 shadow-lg shop-hero-preview" data-shop-hero-preview>
+                </section>
+                <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-sky-500/50 via-indigo-500/50 to-blue-700/40 p-6 space-y-4 shadow-lg shop-hero-preview" data-shop-hero-preview>
                   <div class="flex items-center gap-3">
                     <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white text-xl">
                       <i class="fas fa-store"></i>
@@ -3619,7 +3622,7 @@
                     <span class="text-xs text-white/80" data-shop-preview-helper>CTA برای هدایت سریع کاربران</span>
                   </div>
                 </div>
-              </section>
+              </div>
             </div>
 
             <section class="glass-dark border border-white/10 rounded-2xl p-6 space-y-6 shop-vip-section" data-shop-vip-section>
