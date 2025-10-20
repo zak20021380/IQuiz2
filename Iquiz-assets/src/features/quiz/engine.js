@@ -13,6 +13,7 @@ const defaultDeps = {
   nextQuestion: () => {},
   addExtraTime: () => {},
   logEvent: () => {},
+  onQuestionsServed: () => {},
 };
 
 let deps = { ...defaultDeps };
@@ -289,6 +290,7 @@ export function beginQuizSession({ cat, diff, diffValue, questions, count, sourc
     diff: State.quiz.diff,
     diffValue: State.quiz.diffValue,
   }));
+  callDependency('onQuestionsServed', State.quiz.list);
   console.log('[quiz] setQuestions len=', State.quiz.list.length);
   State.quiz.idx = 0;
   State.quiz.sessionEarned = 0;

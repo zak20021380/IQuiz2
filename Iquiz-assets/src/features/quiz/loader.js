@@ -639,6 +639,19 @@ export async function startQuizFromAdmin(arg) {
   }
 
   const opts = arg && typeof arg === 'object' ? arg : {};
+  const excludePoolRaw = Array.isArray(opts.excludeIds) ? opts.excludeIds : [];
+  const excludeKeySet = new Set();
+  for (let idx = 0; idx < excludePoolRaw.length; idx += 1) {
+    const value = excludePoolRaw[idx];
+    if (value == null) continue;
+    try {
+      const normalized = String(value).trim().toLowerCase();
+      if (normalized) excludeKeySet.add(normalized);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   const rangeEl = typeof document !== 'undefined' ? document.getElementById('range-count') : null;
   const rangeVal = rangeEl ? rangeEl.value || rangeEl.getAttribute('value') : null;
   const requestedRaw = (opts.count != null ? Number(opts.count) : Number(rangeVal || 5)) || 5;
@@ -711,7 +724,7 @@ export async function startQuizFromAdmin(arg) {
     const fallbackMessage = initialMeta.message || 'سؤال تازه‌ای برای این دسته پیدا نشد؛ از مجموعهٔ پیش‌فرض استفاده می‌کنیم.';
     console.log('[quiz] requested=', count, 'received=', initialItems.length, initialMeta);
 
-    const initialSeenKeys = new Set();
+    const initialSeenKeys = new Set(excludeKeySet);
     const normalizedInitial = normalizeQuestions(initialItems);
     const uniqueQuestions = mergeUniqueQuestions([], normalizedInitial, initialSeenKeys);
 
