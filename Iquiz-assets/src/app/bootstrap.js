@@ -538,6 +538,35 @@ import { startQuizFromAdmin } from '../features/quiz/loader.js';
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+  function normalizeQuestionKey(value){
+    if (value == null) return '';
+    try {
+      const raw = String(value).trim();
+      return raw ? raw.toLowerCase() : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function getQuestionKey(question){
+    if (!question || typeof question !== 'object') return '';
+    const candidates = [
+      question.id,
+      question._id,
+      question.uid,
+      question.sha1Canonical,
+      question.q,
+      question.question,
+      question.text,
+      question.title
+    ];
+    for (let idx = 0; idx < candidates.length; idx += 1) {
+      const key = normalizeQuestionKey(candidates[idx]);
+      if (key) return key;
+    }
+    return '';
+  }
+
   function generateClientId(prefix = 'pay_'){
     if (typeof crypto !== 'undefined' && crypto.randomUUID){
       return prefix + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
@@ -2603,7 +2632,29 @@ function startQuizTimerCountdown(){
     selectAnswer,
     nextQuestion,
     addExtraTime,
-    logEvent
+    logEvent,
+    onQuestionsServed(questions) {
+      if (!DuelSession || !Array.isArray(questions) || questions.length === 0) return;
+      if (!(DuelSession.servedQuestionKeys instanceof Set)) {
+        const existing = Array.isArray(DuelSession.servedQuestionKeys)
+          ? DuelSession.servedQuestionKeys
+          : [];
+        DuelSession.servedQuestionKeys = new Set(
+          existing
+            .map((value) => normalizeQuestionKey(value))
+            .filter((key) => key)
+        );
+      }
+      const seen = DuelSession.servedQuestionKeys;
+      questions.forEach((question) => {
+        const key = getQuestionKey(question);
+        if (key) seen.add(key);
+      });
+      if (seen.size > 250) {
+        const trimmed = Array.from(seen).slice(-250);
+        DuelSession.servedQuestionKeys = new Set(trimmed);
+      }
+    }
   });
 
   async function endQuiz(){
@@ -2629,13 +2680,22 @@ function startQuizTimerCountdown(){
     });
     const duelActive = !!(DuelSession && State.duelOpponent);
     if (duelActive) {
-      const status = await completeDuelRound(correctCount, State.quiz.sessionEarned);
+      const roundResult = await completeDuelRound(correctCount, State.quiz.sessionEarned);
+      const status = roundResult?.status || 'none';
+      if (roundResult?.roundReport) {
+        await showDuelRoundReport(roundResult.roundReport);
+      }
       if (status === 'next') {
+        const nextIdx = Number.isInteger(roundResult?.nextRoundIndex)
+          ? roundResult.nextRoundIndex
+          : (DuelSession?.currentRoundIndex || 0) + 1;
+        scheduleNextDuelRound(nextIdx);
         saveState();
         return;
       }
       if (status === 'finished') {
-        finalizeDuelResults(DuelSession?.lastSummary);
+        const summaryPayload = roundResult?.summary || DuelSession?.lastSummary || null;
+        await finalizeDuelResults(summaryPayload);
         saveState();
         navTo('results');
         AdManager.maybeShowInterstitial('post_quiz');
@@ -5072,6 +5132,17 @@ async function startPurchaseCoins(pkgId){
     }
   }
 
+  function scheduleNextDuelRound(roundIndex){
+    if (!DuelSession) return;
+    const totalRounds = Array.isArray(DuelSession.rounds) ? DuelSession.rounds.length : 0;
+    if (!Number.isInteger(roundIndex) || roundIndex < 0 || roundIndex >= totalRounds) return;
+    DuelSession.currentRoundIndex = roundIndex;
+    setTimeout(() => {
+      if (!DuelSession) return;
+      promptDuelRoundCategory(roundIndex);
+    }, 600);
+  }
+
   async function beginDuelRound(roundIndex){
     if (!DuelSession) return false;
     const round = DuelSession.rounds?.[roundIndex];
@@ -5134,12 +5205,28 @@ async function startPurchaseCoins(pkgId){
       }
     }
 
+    let excludeIds = [];
+    if (DuelSession.servedQuestionKeys instanceof Set) {
+      excludeIds = Array.from(DuelSession.servedQuestionKeys);
+    } else if (Array.isArray(DuelSession.servedQuestionKeys)) {
+      excludeIds = DuelSession.servedQuestionKeys
+        .map((value) => normalizeQuestionKey(value))
+        .filter((key) => key);
+      DuelSession.servedQuestionKeys = new Set(excludeIds);
+    } else {
+      DuelSession.servedQuestionKeys = new Set();
+    }
+    if (excludeIds.length > 250) {
+      excludeIds = excludeIds.slice(-250);
+    }
+
     const started = await startQuizFromAdmin({
       count: DUEL_QUESTIONS_PER_ROUND,
       difficulty: difficultyValue,
       categoryId,
       cat: catTitle,
-      source: 'duel'
+      source: 'duel',
+      excludeIds
     });
 
     if (!started){
@@ -5189,11 +5276,55 @@ async function startPurchaseCoins(pkgId){
     return true;
   }
 
+  function normalizeDuelTotals(rawTotals){
+    const totals = {
+      you: { correct: 0, wrong: 0, earned: 0, questions: 0 },
+      opponent: { correct: 0, wrong: 0, earned: 0, questions: 0 }
+    };
+    if (!rawTotals || typeof rawTotals !== 'object') {
+      return totals;
+    }
+    const you = rawTotals.you || {};
+    const opponent = rawTotals.opponent || rawTotals.opp || {};
+    totals.you.correct = Math.max(0, Number(you.correct) || 0);
+    totals.you.wrong = Math.max(0, Number(you.wrong) || 0);
+    totals.you.earned = Math.max(0, Number(you.earned) || 0);
+    totals.you.questions = Math.max(0, Number(you.questions) || totals.you.correct + totals.you.wrong);
+    totals.opponent.correct = Math.max(0, Number(opponent.correct) || 0);
+    totals.opponent.wrong = Math.max(0, Number(opponent.wrong) || 0);
+    totals.opponent.earned = Math.max(0, Number(opponent.earned) || 0);
+    totals.opponent.questions = Math.max(0, Number(opponent.questions) || totals.opponent.correct + totals.opponent.wrong);
+    return totals;
+  }
+
+  function summarizeDuelTotals(rounds){
+    return (Array.isArray(rounds) ? rounds : []).reduce((acc, round) => {
+      if (!round) return acc;
+      const player = round.player || {};
+      const opponent = round.opponent || {};
+      const totalQuestions = Number.isFinite(round.totalQuestions)
+        ? Math.max(1, Math.round(round.totalQuestions))
+        : Math.max(
+            (Number(player.correct) || 0) + (Number(player.wrong) || 0),
+            (Number(opponent.correct) || 0) + (Number(opponent.wrong) || 0)
+          );
+      acc.you.correct += Math.max(0, Number(player.correct) || 0);
+      acc.you.wrong += Math.max(0, Number(player.wrong) || 0);
+      acc.you.earned += Math.max(0, Number(player.earned) || 0);
+      acc.you.questions += Math.max(0, totalQuestions);
+      acc.opponent.correct += Math.max(0, Number(opponent.correct) || 0);
+      acc.opponent.wrong += Math.max(0, Number(opponent.wrong) || 0);
+      acc.opponent.earned += Math.max(0, Number(opponent.earned) || 0);
+      acc.opponent.questions += Math.max(0, totalQuestions);
+      return acc;
+    }, { you: { correct: 0, wrong: 0, earned: 0, questions: 0 }, opponent: { correct: 0, wrong: 0, earned: 0, questions: 0 } });
+  }
+
   async function completeDuelRound(correctCount, earnedPoints){
-    if (!DuelSession || !State.duelOpponent) return 'none';
+    if (!DuelSession || !State.duelOpponent) return { status: 'none' };
     const roundIdx = DuelSession.currentRoundIndex || 0;
     const round = DuelSession.rounds?.[roundIdx];
-    if (!round) return 'none';
+    if (!round) return { status: 'none' };
 
     const totalQuestions = State.quiz.results.length || State.quiz.list.length || round.totalQuestions || DUEL_QUESTIONS_PER_ROUND;
     const yourCorrect = correctCount;
@@ -5225,14 +5356,11 @@ async function startPurchaseCoins(pkgId){
       }
 
       const opponentStats = round.opponent || { correct: 0, wrong: 0, earned: 0 };
+      const totalsFromServer = result.totals ? normalizeDuelTotals(result.totals) : null;
+      const totals = totalsFromServer || summarizeDuelTotals(DuelSession.rounds);
 
-      if (result.totals) {
-        DuelSession.totalYourScore = Number(result.totals.you?.earned) || yourEarned;
-        DuelSession.totalOpponentScore = Number(result.totals.opponent?.earned) || opponentStats.earned;
-      } else {
-        DuelSession.totalYourScore += yourEarned;
-        DuelSession.totalOpponentScore += opponentStats.earned || 0;
-      }
+      DuelSession.totalYourScore = totals.you.earned;
+      DuelSession.totalOpponentScore = totals.opponent.earned;
 
       logEvent('duel_round_end', {
         opponent: DuelSession.opponent?.name,
@@ -5243,59 +5371,145 @@ async function startPurchaseCoins(pkgId){
 
       toast(`راند ${faNum(roundIdx + 1)} به پایان رسید: ${faNum(round.player?.correct || 0)} درست در برابر ${faNum(opponentStats.correct || 0)}`);
 
-      if (result.summary && result.status === 'finished') {
+      const status = result.status || 'next';
+      if (result.summary && status === 'finished') {
         DuelSession.lastSummary = result.summary;
-        return 'finished';
       }
 
-      if (result.status === 'next') {
+      if (status === 'next') {
         const nextIndex = roundIdx + 1;
         if (nextIndex < DuelSession.rounds.length) {
           DuelSession.currentRoundIndex = nextIndex;
-          setTimeout(() => promptDuelRoundCategory(nextIndex), 1200);
         }
-        return 'next';
       }
 
-      return result.status || 'next';
+      return {
+        status,
+        nextRoundIndex: status === 'next' ? roundIdx + 1 : null,
+        roundReport: {
+          index: roundIdx,
+          categoryTitle: round.categoryTitle || '',
+          chooser: round.chooser,
+          player: { ...round.player },
+          opponent: { ...opponentStats },
+          totals,
+          status,
+        },
+        summary: result.summary || null,
+      };
     } catch (error) {
       console.error('Failed to submit duel round', error);
       toast('ثبت نتیجه نبرد ممکن نشد، دوباره تلاش کن');
-      return 'error';
+      return { status: 'error', error };
     }
   }
 
-  function finalizeDuelResults(summary){
+  function showDuelRoundReport(report){
+    if (!report) return Promise.resolve();
+    const youName = State.user?.name || 'شما';
+    const opponentName = State.duelOpponent?.name || DuelSession?.opponent?.name || 'حریف';
+    const youNameSafe = escapeHtml(youName);
+    const opponentNameSafe = escapeHtml(opponentName || 'حریف');
+    const categoryTitleSafe = escapeHtml(report.categoryTitle || '—');
+    const chooserLabel = report.chooser === 'you' ? 'انتخاب شما' : 'انتخاب حریف';
+    const chooserLabelSafe = escapeHtml(chooserLabel);
+    const roundNumber = faNum((report.index || 0) + 1);
+    const yourRound = report.player || { correct: 0, wrong: 0, earned: 0 };
+    const oppRound = report.opponent || { correct: 0, wrong: 0, earned: 0 };
+    const totals = report.totals || summarizeDuelTotals(DuelSession?.rounds);
+    const totalsYou = totals?.you || { correct: 0, wrong: 0, earned: 0, questions: 0 };
+    const totalsOpp = totals?.opponent || { correct: 0, wrong: 0, earned: 0, questions: 0 };
+    let roundOutcome = 'نتیجه این راند مساوی شد';
+    if ((yourRound?.earned || 0) > (oppRound?.earned || 0)) {
+      roundOutcome = `${youNameSafe} برنده این راند شد`;
+    } else if ((yourRound?.earned || 0) < (oppRound?.earned || 0)) {
+      roundOutcome = `${opponentNameSafe} برنده این راند شد`;
+    }
+    const statusLabel = report.status === 'finished'
+      ? 'پایان نبرد'
+      : `پایان راند ${roundNumber}`;
+    const ctaLabel = report.status === 'finished'
+      ? 'مشاهده نتیجه نهایی'
+      : 'ادامه به راند بعدی';
+    const continueId = `duel-round-continue-${Date.now()}`;
+    const content = `
+      <div class="space-y-4 text-sm leading-6">
+        <div class="glass rounded-2xl border border-white/20 p-4">
+          <div class="flex items-center justify-between text-xs opacity-80 mb-2">
+            <span>راند ${roundNumber} • ${categoryTitleSafe}</span>
+            <span>${chooserLabelSafe}</span>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold">${youNameSafe}</span>
+              <span>${faNum(yourRound.correct || 0)} درست • ${faNum(yourRound.wrong || 0)} غلط • ${faNum(yourRound.earned || 0)} امتیاز</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="font-bold">${opponentNameSafe}</span>
+              <span>${faNum(oppRound.correct || 0)} درست • ${faNum(oppRound.wrong || 0)} غلط • ${faNum(oppRound.earned || 0)} امتیاز</span>
+            </div>
+          </div>
+          <div class="text-xs opacity-75 mt-3">${roundOutcome}</div>
+        </div>
+        <div class="glass rounded-2xl border border-white/20 p-4">
+          <div class="font-bold text-base mb-2">وضعیت کلی نبرد</div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold">${youNameSafe}</span>
+              <span>${faNum(totalsYou.correct)} درست • ${faNum(totalsYou.wrong)} غلط • ${faNum(totalsYou.earned)} امتیاز</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="font-bold">${opponentNameSafe}</span>
+              <span>${faNum(totalsOpp.correct)} درست • ${faNum(totalsOpp.wrong)} غلط • ${faNum(totalsOpp.earned)} امتیاز</span>
+            </div>
+          </div>
+        </div>
+        <button id="${continueId}" type="button" class="btn btn-duel w-full">
+          <i class="fas ${report.status === 'finished' ? 'fa-flag-checkered' : 'fa-forward'} ml-2"></i>${ctaLabel}
+        </button>
+      </div>
+    `;
+    showDetailPopup(statusLabel, content, { context: 'info' });
+    vibrate(25);
+    return new Promise((resolve) => {
+      let settled = false;
+      const finalize = () => {
+        if (settled) return;
+        settled = true;
+        closeDetailPopup({ skipDuelCancel: true });
+        resolve();
+      };
+      const btn = document.getElementById(continueId);
+      const overlay = document.getElementById('detail-overlay');
+      const closeBtn = document.getElementById('detail-close');
+      if (btn) btn.addEventListener('click', finalize, { once: true });
+      if (overlay) overlay.addEventListener('click', finalize, { once: true });
+      if (closeBtn) closeBtn.addEventListener('click', finalize, { once: true });
+    });
+  }
+
+  async function finalizeDuelResults(summary){
     if (!DuelSession) return;
     const summaryData = summary || DuelSession.lastSummary || null;
     const opponent = summaryData?.opponent || DuelSession.opponent || {};
     const youName = State.user?.name || 'شما';
     const oppName = opponent.name || 'حریف';
 
-    const totals = summaryData?.totals || DuelSession.rounds.reduce((acc, round) => {
-      const questions = round.totalQuestions || (round.player?.correct || 0) + (round.player?.wrong || 0);
-      acc.you.correct += round.player?.correct || 0;
-      acc.you.wrong += round.player?.wrong || 0;
-      acc.you.earned += round.player?.earned || 0;
-      acc.you.questions += questions;
-      acc.opp.correct += round.opponent?.correct || 0;
-      acc.opp.wrong += round.opponent?.wrong || 0;
-      acc.opp.earned += round.opponent?.earned || 0;
-      acc.opp.questions += questions;
-      return acc;
-    }, { you: { correct: 0, wrong: 0, earned: 0, questions: 0 }, opp: { correct: 0, wrong: 0, earned: 0, questions: 0 } });
+    const totals = summaryData?.totals
+      ? normalizeDuelTotals(summaryData.totals)
+      : summarizeDuelTotals(DuelSession.rounds);
 
     let winnerText = 'مسابقه مساوی شد!';
-    if (totals.you.earned > totals.opp.earned) {
+    if (totals.you.earned > totals.opponent.earned) {
       winnerText = `${youName} با مجموع ${faNum(totals.you.earned)} امتیاز برنده شد!`;
-    } else if (totals.you.earned < totals.opp.earned) {
-      winnerText = `${oppName} با مجموع ${faNum(totals.opp.earned)} امتیاز پیروز شد!`;
+    } else if (totals.you.earned < totals.opponent.earned) {
+      winnerText = `${oppName} با مجموع ${faNum(totals.opponent.earned)} امتیاز پیروز شد!`;
     }
 
     const rewardSummary = summaryData?.rewards && typeof summaryData.rewards === 'object' ? summaryData.rewards : {};
-    const duelOutcome = summaryData?.outcome || (totals.you.earned > totals.opp.earned
+    const duelOutcome = summaryData?.outcome || (totals.you.earned > totals.opponent.earned
       ? 'win'
-      : totals.you.earned < totals.opp.earned
+      : totals.you.earned < totals.opponent.earned
         ? 'loss'
         : 'draw');
     const duelRewardConfig = normalizeDuelRewardsConfig(rewardSummary.config || getDuelRewardConfig());
@@ -5334,7 +5548,7 @@ async function startPurchaseCoins(pkgId){
     $('#duel-avatar-opponent').src = opponent.avatar || 'https://i.pravatar.cc/60?img=2';
     $('#duel-name-opponent').textContent = oppName;
     $('#duel-winner').textContent = winnerText;
-    $('#duel-stats').innerHTML = `${youName}: ${faNum(totals.you.correct)} درست، ${faNum(totals.you.wrong)} نادرست، ${faNum(totals.you.earned)} امتیاز<br>${oppName}: ${faNum(totals.opp.correct)} درست، ${faNum(totals.opp.wrong)} نادرست، ${faNum(totals.opp.earned)} امتیاز`;
+    $('#duel-stats').innerHTML = `${youName}: ${faNum(totals.you.correct)} درست، ${faNum(totals.you.wrong)} نادرست، ${faNum(totals.you.earned)} امتیاز<br>${oppName}: ${faNum(totals.opponent.correct)} درست، ${faNum(totals.opponent.wrong)} نادرست، ${faNum(totals.opponent.earned)} امتیاز`;
     const rewardDetailsEl = $('#duel-reward-breakdown');
     if (rewardDetailsEl) {
       const labels = { win: 'برنده', loss: 'بازنده', draw: 'مساوی' };
@@ -5374,6 +5588,8 @@ async function startPurchaseCoins(pkgId){
     }
 
     setupAddFriendCTA(opponent);
+
+    await refreshDuelOverview({ skipRenderDashboard: true });
 
     $('#res-correct').textContent = faNum(totals.you.correct);
     $('#res-wrong').textContent = faNum(Math.max(0, totals.you.questions - totals.you.correct));
@@ -5724,7 +5940,8 @@ async function startPurchaseCoins(pkgId){
       selectionResolved: false,
       started: false,
       resolveStart: null,
-      lastSummary: null
+      lastSummary: null,
+      servedQuestionKeys: new Set()
     };
 
     if (!DuelSession.rounds.length) {
