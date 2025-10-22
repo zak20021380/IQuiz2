@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Group = require('../models/Group');
 const ProvinceStat = require('../models/ProvinceStat');
-const { ensureDefaultGroups } = require('./groupSeed');
 const logger = require('../config/logger');
 
 const LEADERBOARD_LIMIT = 20;
@@ -126,7 +125,6 @@ async function decrementGroupMembership(groupId, memberName) {
 
 async function upsertGroup(groupId, groupName, memberName) {
   if (!groupId) return null;
-  await ensureDefaultGroups();
   const update = {
     $setOnInsert: {
       groupId,
@@ -303,8 +301,6 @@ async function computeGroupRank(groupId, groupScore) {
 }
 
 async function buildOverviewPayload(userDoc) {
-  await ensureDefaultGroups();
-
   const [users, groups, provinces] = await Promise.all([
     User.find().sort({ score: -1, createdAt: 1 }).limit(LEADERBOARD_LIMIT).lean(),
     Group.find().sort({ score: -1, members: -1, name: 1 }).limit(LEADERBOARD_LIMIT).lean(),
