@@ -42,39 +42,7 @@ const FALLBACK_CATEGORY_DATA = Array.from(CATEGORIES)
     };
   });
 
-const FALLBACK_PROVINCES = [
-  'آذربایجان شرقی',
-  'آذربایجان غربی',
-  'اردبیل',
-  'اصفهان',
-  'البرز',
-  'ایلام',
-  'بوشهر',
-  'تهران',
-  'چهارمحال و بختیاری',
-  'خراسان جنوبی',
-  'خراسان رضوی',
-  'خراسان شمالی',
-  'خوزستان',
-  'زنجان',
-  'سمنان',
-  'سیستان و بلوچستان',
-  'فارس',
-  'قزوین',
-  'قم',
-  'کردستان',
-  'کرمان',
-  'کرمانشاه',
-  'کهگیلویه و بویراحمد',
-  'گلستان',
-  'گیلان',
-  'لرستان',
-  'مازندران',
-  'مرکزی',
-  'هرمزگان',
-  'همدان',
-  'یزد'
-].map(name => ({ name, score: 0, members: 0 }));
+// Provinces are now fetched from the database (ProvinceStat model)
 
 function buildFallbackQuestion({
   id,
@@ -108,264 +76,8 @@ function buildFallbackQuestion({
   });
 }
 
-const FALLBACK_QUESTION_DATA = Object.freeze([
-  buildFallbackQuestion({
-    id: 'general-1',
-    slug: 'general',
-    difficulty: 'easy',
-    text: 'کدام گزینه به معنی «دانش جمعی انسان‌ها درباره جهان» نزدیک‌تر است؟',
-    options: ['علم', 'فرهنگ', 'تجربه', 'هنر'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'general-2',
-    slug: 'general',
-    difficulty: 'medium',
-    text: 'کدام یک از موارد زیر نمادی برای المپیک است؟',
-    options: ['پنج حلقه رنگی', 'یک مشعل آتشین', 'دو شمشیر ضربدری', 'یک ستاره پنج پر'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'general-3',
-    slug: 'general',
-    difficulty: 'medium',
-    text: 'تقویم میلادی بر اساس حرکت کدام جرم سماوی تنظیم شده است؟',
-    options: ['ماه', 'زمین', 'خورشید', 'زهره'],
-    correctIdx: 1
-  }),
-  buildFallbackQuestion({
-    id: 'general-4',
-    slug: 'general',
-    difficulty: 'hard',
-    text: 'اصطلاح «جهان‌بینی» بیشتر به چه حوزه‌ای مربوط می‌شود؟',
-    options: ['فلسفه', 'جغرافیا', 'ورزش', 'ریاضیات'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'history-1',
-    slug: 'history-civilization',
-    difficulty: 'easy',
-    text: 'کوروش بزرگ بنیان‌گذار کدام امپراتوری بود؟',
-    options: ['امپراتوری هخامنشی', 'امپراتوری ساسانی', 'امپراتوری عثمانی', 'امپراتوری روم'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'history-2',
-    slug: 'history-civilization',
-    difficulty: 'medium',
-    text: 'دیوار چین برای مقابله با حملات کدام اقوام ساخته شد؟',
-    options: ['مغول‌ها', 'رومی‌ها', 'اسکندر مقدونی', 'تاتارها'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'history-3',
-    slug: 'history-civilization',
-    difficulty: 'medium',
-    text: 'تمدن مصر باستان در کنار کدام رود شکل گرفت؟',
-    options: ['نیل', 'دجله', 'راین', 'آمازون'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'history-4',
-    slug: 'history-civilization',
-    difficulty: 'hard',
-    text: '«انقلاب مشروطه ایران» در چه سالی به تصویب قانون اساسی انجامید؟',
-    options: ['۱۲۸۵ خورشیدی', '۱۲۹۹ خورشیدی', '۱۳۰۴ خورشیدی', '۱۳۱۳ خورشیدی'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'geography-1',
-    slug: 'geography-nature',
-    difficulty: 'easy',
-    text: 'پایتخت کشور ژاپن کدام شهر است؟',
-    options: ['توکیو', 'اوساکا', 'هیروشیما', 'کیوتو'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'geography-2',
-    slug: 'geography-nature',
-    difficulty: 'medium',
-    text: 'کدام کوه بلندترین قله جهان به شمار می‌رود؟',
-    options: ['قله کلیمانجارو', 'قله اورست', 'قله دماوند', 'قله مون بلان'],
-    correctIdx: 1
-  }),
-  buildFallbackQuestion({
-    id: 'geography-3',
-    slug: 'geography-nature',
-    difficulty: 'medium',
-    text: 'جنگل‌های آمازون عمدتاً در کدام قاره قرار دارند؟',
-    options: ['آسیا', 'آفریقا', 'آمریکای جنوبی', 'اروپا'],
-    correctIdx: 2
-  }),
-  buildFallbackQuestion({
-    id: 'geography-4',
-    slug: 'geography-nature',
-    difficulty: 'hard',
-    text: 'دریای خزر از طریق کدام رودخانه به ولگا متصل می‌شود؟',
-    options: ['رود اترک', 'رود سفیدرود', 'کانال ولگا-دن', 'رود کورا'],
-    correctIdx: 2
-  }),
-  buildFallbackQuestion({
-    id: 'science-1',
-    slug: 'science-technology',
-    difficulty: 'easy',
-    text: 'عنصر اکسیژن با کدام حرف در جدول تناوبی نشان داده می‌شود؟',
-    options: ['O', 'Ox', 'X', 'Og'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'science-2',
-    slug: 'science-technology',
-    difficulty: 'medium',
-    text: 'واحد اندازه‌گیری توان الکتریکی چیست؟',
-    options: ['ولت', 'وات', 'اهم', 'آمپر'],
-    correctIdx: 1
-  }),
-  buildFallbackQuestion({
-    id: 'science-3',
-    slug: 'science-technology',
-    difficulty: 'medium',
-    text: 'اولین کشوری که انسان را به ماه فرستاد کدام بود؟',
-    options: ['روسیه', 'چین', 'ایالات متحده آمریکا', 'فرانسه'],
-    correctIdx: 2
-  }),
-  buildFallbackQuestion({
-    id: 'science-4',
-    slug: 'science-technology',
-    difficulty: 'hard',
-    text: 'قانون دوم ترمودینامیک درباره افزایش کدام کمیت صحبت می‌کند؟',
-    options: ['آنتروپی', 'انرژی جنبشی', 'جرم', 'دما'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'literature-1',
-    slug: 'literature-language',
-    difficulty: 'easy',
-    text: 'نویسنده مثنوی معنوی کیست؟',
-    options: ['سعدی', 'حافظ', 'مولوی', 'نظامی'],
-    correctIdx: 2
-  }),
-  buildFallbackQuestion({
-    id: 'literature-2',
-    slug: 'literature-language',
-    difficulty: 'medium',
-    text: 'کدام اثر زیر نوشته صادق هدایت است؟',
-    options: ['بوف کور', 'کلیدر', 'سمفونی مردگان', 'سووشون'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'literature-3',
-    slug: 'literature-language',
-    difficulty: 'medium',
-    text: 'در دستور زبان فارسی، «اسم» به چه معناست؟',
-    options: ['کلمه‌ای برای انجام کار', 'کلمه‌ای برای نامیدن اشیا و افراد', 'کلمه‌ای برای توصیف', 'کلمه‌ای برای اتصال جملات'],
-    correctIdx: 1
-  }),
-  buildFallbackQuestion({
-    id: 'literature-4',
-    slug: 'literature-language',
-    difficulty: 'hard',
-    text: 'رمان «جنگ و صلح» اثر کدام نویسنده روس است؟',
-    options: ['فیودور داستایوفسکی', 'آنتون چخوف', 'لئو تولستوی', 'نیکلای گوگول'],
-    correctIdx: 2
-  }),
-  buildFallbackQuestion({
-    id: 'movies-1',
-    slug: 'movies-series',
-    difficulty: 'easy',
-    text: 'فیلم «جدایی نادر از سیمین» ساخته کدام کارگردان است؟',
-    options: ['مجید مجیدی', 'اصغر فرهادی', 'بهمن قبادی', 'رضا میرکریمی'],
-    correctIdx: 1
-  }),
-  buildFallbackQuestion({
-    id: 'movies-2',
-    slug: 'movies-series',
-    difficulty: 'medium',
-    text: 'کدام سریال ایرانی با محوریت یک قصاب به نام «حاج یونس» ساخته شده است؟',
-    options: ['پدرسالار', 'وضعیت سفید', 'در پناه تو', 'مختارنامه'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'movies-3',
-    slug: 'movies-series',
-    difficulty: 'medium',
-    text: 'اسکار بهترین فیلم در سال ۱۹۹۸ به کدام فیلم تعلق گرفت؟',
-    options: ['تایتانیک', 'شکسپیر عاشق', 'نجات سرباز رایان', 'ماتریکس'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'movies-4',
-    slug: 'movies-series',
-    difficulty: 'hard',
-    text: 'موسیقی متن فیلم «پدرخوانده» اثر چه آهنگسازی است؟',
-    options: ['جان ویلیامز', 'انیو موریکونه', 'نینو روتا', 'هانس زیمر'],
-    correctIdx: 2
-  }),
-  buildFallbackQuestion({
-    id: 'sports-1',
-    slug: 'sports',
-    difficulty: 'easy',
-    text: 'فوتبال با چند بازیکن در هر تیم انجام می‌شود؟',
-    options: ['۹', '۱۰', '۱۱', '۱۲'],
-    correctIdx: 2
-  }),
-  buildFallbackQuestion({
-    id: 'sports-2',
-    slug: 'sports',
-    difficulty: 'medium',
-    text: 'کدام ورزشکار ایرانی به «اسطوره وزنه‌برداری» معروف است؟',
-    options: ['حسین رضازاده', 'بهداد سلیمی', 'نواب نصیر شلال', 'کیانوش رستمی'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'sports-3',
-    slug: 'sports',
-    difficulty: 'medium',
-    text: 'مسابقات «ویمبلدون» در کدام رشته برگزار می‌شود؟',
-    options: ['دو و میدانی', 'تنیس', 'گلف', 'بسکتبال'],
-    correctIdx: 1
-  }),
-  buildFallbackQuestion({
-    id: 'sports-4',
-    slug: 'sports',
-    difficulty: 'hard',
-    text: 'اصطلاح «سه‌گانه» در فوتبال به چه معناست؟',
-    options: ['برد در سه جام در یک فصل', 'زدن سه گل در یک بازی', 'سه پاس گل در یک نیمه', 'سه پنالتی مهار شده'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'entertainment-1',
-    slug: 'entertainment',
-    difficulty: 'easy',
-    text: 'بازی «مار و پله» با چه ابزاری انجام می‌شود؟',
-    options: ['کارت', 'صفحه و تاس', 'توپ', 'مهره‌های شطرنج'],
-    correctIdx: 1
-  }),
-  buildFallbackQuestion({
-    id: 'entertainment-2',
-    slug: 'entertainment',
-    difficulty: 'medium',
-    text: 'کدام یک از موارد زیر عنوان یک بازی ویدئویی مشهور است؟',
-    options: ['فاینال فانتزی', 'شوالیه‌های شب', 'آسمان بی‌پایان', 'جهان‌های متصل'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'entertainment-3',
-    slug: 'entertainment',
-    difficulty: 'medium',
-    text: 'در جدول کلمات متقاطع، خانه‌های سیاه چه نقشی دارند؟',
-    options: ['شروع سطر جدید را مشخص می‌کنند', 'حرف صدادار هستند', 'پاسخ درست را نشان می‌دهند', 'خانه‌های بدون استفاده هستند'],
-    correctIdx: 0
-  }),
-  buildFallbackQuestion({
-    id: 'entertainment-4',
-    slug: 'entertainment',
-    difficulty: 'hard',
-    text: 'اصطلاح «کازینو رویال» برای اولین بار در کدام سری فیلم استفاده شد؟',
-    options: ['جیمز باند', 'هری پاتر', 'ارباب حلقه‌ها', 'سریع و خشن'],
-    correctIdx: 0
-  })
-]);
+// Mock questions removed - all questions now come from the database
+const FALLBACK_QUESTION_DATA = Object.freeze([]);
 
 const DEFAULT_REMOTE_CONFIG = {
   ab: 'A',
@@ -493,8 +205,19 @@ function mapCategoryDocument(doc) {
   };
 }
 
-function getFallbackProvinces() {
-  return clone(FALLBACK_PROVINCES);
+async function getFallbackProvinces() {
+  // Fetch provinces from the database instead of using hardcoded data
+  const ProvinceStat = require('../models/ProvinceStat');
+  try {
+    const provinces = await ProvinceStat.find().lean();
+    return provinces.map(p => ({
+      name: p.province,
+      score: p.score || 0,
+      members: p.memberCount || 0
+    }));
+  } catch (error) {
+    return [];
+  }
 }
 
 function getFallbackConfig() {

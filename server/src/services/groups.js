@@ -1,9 +1,7 @@
 const Group = require('../models/Group');
-const { ensureDefaultGroups } = require('./groupSeed');
 const { ensureRoster } = require('./groupBattle');
 
 async function loadGroups() {
-  await ensureDefaultGroups();
   const groups = await Group.find().sort({ score: -1, wins: -1, members: -1, name: 1 });
   groups.forEach((group) => ensureRoster(group));
   const dirty = groups.filter((group) => group.isModified());

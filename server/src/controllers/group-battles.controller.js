@@ -1,6 +1,5 @@
 const Group = require('../models/Group');
 const GroupBattle = require('../models/GroupBattle');
-const { ensureDefaultGroups } = require('../services/groupSeed');
 const { simulateGroupBattle, applyBattleRewards } = require('../services/groupBattle');
 const { loadGroups, serializeGroup } = require('../services/groups');
 
@@ -29,8 +28,6 @@ exports.create = async (req, res, next) => {
     if (!hostGroupId || !opponentGroupId || hostGroupId === opponentGroupId) {
       return res.status(400).json({ ok: false, message: 'انتخاب گروه‌ها معتبر نیست.' });
     }
-
-    await ensureDefaultGroups();
 
     const [hostGroup, opponentGroup] = await Promise.all([
       Group.findOne({ groupId: hostGroupId }),
