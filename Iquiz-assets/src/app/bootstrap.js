@@ -5085,8 +5085,10 @@ async function startPurchaseCoins(pkgId){
         <button id="duel-cancel" class="btn btn-secondary w-full mt-4"><i class="fas fa-times ml-2"></i> انصراف</button>
       `);
       $('#duel-cancel')?.addEventListener('click', () => {
-        DuelSession.awaitingSelection = false;
-        cancelDuelSession('user_cancelled');
+        if (DuelSession) {
+          DuelSession.awaitingSelection = false;
+          cancelDuelSession('user_cancelled');
+        }
         closeDetailPopup({ skipDuelCancel: true });
       });
       $$('#detail-content .duel-category-option').forEach(btn => {
